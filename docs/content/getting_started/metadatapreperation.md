@@ -5,9 +5,9 @@ weight: 15
 draft: false
 ---
 
-1. Create ```onboarding.json``` metadata file and save to s3/adls/dbfs e.g.[onboarding file](https://github.com/databricks/dlt-meta/blob/main/examples/onboarding.json)
-2. Create ```silver_transformations.json``` and save to s3/adls/dbfs e.g [Silver transformation file](https://github.com/databricks/dlt-meta/blob/main/examples/silver_transformations.json)
-3. Create data quality rules json and store to s3/adls/dbfs e.g [Data Quality Rules](https://github.com/databricks/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
+1. Create ```onboarding.json``` metadata file and save to s3/adls/dbfs e.g.[onboarding file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding.json)
+2. Create ```silver_transformations.json``` and save to s3/adls/dbfs e.g [Silver transformation file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json)
+3. Create data quality rules json and store to s3/adls/dbfs e.g [Data Quality Rules](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
 
          "source_schema_path": "tests/resources/schema/eventhub_iot_schema.ddl",
          "eventhub.accessKeyName": "iotIngestionAccessKey",

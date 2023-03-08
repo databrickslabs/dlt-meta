@@ -13,9 +13,9 @@ With this framework you need to record the source and target metadata in an onbo
 ### DLT-META components:
 
 #### Metadata Interface 
-- Capture input/output metadata in [onboarding file](https://github.com/databricks/dlt-meta/blob/main/examples/onboarding.json)
-- Capture [Data Quality Rules](https://github.com/databricks/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
-- Capture  processing logic as sql in [Silver transformation file](https://github.com/databricks/dlt-meta/blob/main/examples/silver_transformations.json)
+- Capture input/output metadata in [onboarding file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding.json)
+- Capture [Data Quality Rules](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
+- Capture  processing logic as sql in [Silver transformation file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json)
 
 #### Generic DLT pipeline
 - Apply appropriate readers based on input metadata
@@ -29,7 +29,7 @@ With this framework you need to record the source and target metadata in an onbo
 
 ## How does DLT-META work?
 ![DLT-META Stages](/images/dlt-meta_stages.png)
-- Prepare [onboarding file](https://github.com/databricks/dlt-meta/blob/main/examples/onboarding.json)
+- Prepare [onboarding file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding.json)
 - DLT-META have onboarding API: `OnboardDataflowspec.onboard_dataflow_specs()` which coverts onboarding json file into DataflowSpecs delta table for bronze and silver layer. Dataflowspecs are used by DataflowPipeline which launches DLT for respective bronze and silver layer.
 - During onboarding process it creates two metadata tables aka DataflowSpec for bronze and silver layer from onboarding json
 ![DataflowSpec Data Model](/images/dataflowSpec_model.png)

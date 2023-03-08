@@ -12,9 +12,9 @@ Please refer to the [Getting Started]({{%relref "getting_started/_index.md" %}})
 **Q. How do I create metadata DLT-META ?**
 
 DLT-META needs following metadata files:
-- [Onboarding File](https://github.com/databricks/dlt-meta/blob/main/examples/onboarding.json) captures input/output metadata 
-- [Data Quality Rules File](https://github.com/databricks/dlt-meta/tree/main/examples/dqe) captures data quality rules
-- [Silver transformation File](https://github.com/databricks/dlt-meta/blob/main/examples/silver_transformations.json) captures  processing logic as sql 
+- [Onboarding File](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding.json) captures input/output metadata 
+- [Data Quality Rules File](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe) captures data quality rules
+- [Silver transformation File](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json) captures  processing logic as sql 
 
 **Q. What is DataflowSpecs?**
 

@@ -2,20 +2,20 @@
 
 <!-- Top bar will be removed from PyPi packaged versions -->
 <!-- Dont remove: exclude package -->
-[Documentation](https://databricks.github.io/dlt-meta/) |
+[Documentation](https://databrickslabs.github.io/dlt-meta/) |
 [Release Notes](CHANGELOG.md) |
-[Examples](https://github.com/databricks/dlt-meta/tree/main/examples) 
+[Examples](https://github.com/databrickslabs/dlt-meta/tree/main/examples) 
 <!-- Dont remove: end exclude package -->
 
 ---
 <p align="left">
-    <a href="https://databricks.github.io/dlt-meta/">
+    <a href="https://databrickslabs.github.io/dlt-meta/">
         <img src="https://img.shields.io/badge/DOCS-PASSING-green?style=for-the-badge" alt="Documentation Status"/>
     </a>
     <a href="https://test.pypi.org/project/dlt-meta/">
         <img src="https://img.shields.io/badge/PYPI-v%200.0.0-green?style=for-the-badge" alt="Latest Python Release"/>
     </a>
-    <!-- <a href="https://github.com/databricks/dlt-meta/actions/workflows/onpush.yml">
+    <!-- <a href="https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml">
         <img src="https://img.shields.io/github/workflow/status/databricks/dlt-meta/build/main?style=for-the-badge"
              alt="GitHub Workflow Status (branch)"/>
     </a> -->
@@ -49,9 +49,9 @@ With this framework you need to record the source and target metadata in an onbo
 ### Components:
 
 #### Metadata Interface 
-- Capture input/output metadata in [onboarding file](https://github.com/databricks/dlt-meta/blob/main/examples/onboarding.json)
-- Capture [Data Quality Rules](https://github.com/databricks/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
-- Capture  processing logic as sql in [Silver transformation file](https://github.com/databricks/dlt-meta/blob/main/examples/silver_transformations.json)
+- Capture input/output metadata in [onboarding file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding.json)
+- Capture [Data Quality Rules](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
+- Capture  processing logic as sql in [Silver transformation file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json)
 
 #### Generic DLT pipeline
 - Apply appropriate readers based on input metadata
@@ -65,17 +65,17 @@ With this framework you need to record the source and target metadata in an onbo
 
 ## More questions
 
-Refer to the [FAQ](https://databricks.github.io/dlt-meta/faq)
-and DLT-META [documentation](https://databricks.github.io/dlt-meta/)
+Refer to the [FAQ](https://databrickslabs.github.io/dlt-meta/faq)
+and DLT-META [documentation](https://databrickslabs.github.io/dlt-meta/)
 
 ## Steps
 ![DLT-META Stages](./docs/static/images/dlt-meta_stages.png)
 
 
 ## 1. Metadata preparation 
-1. Create ```onboarding.json``` metadata file and save to s3/adls/dbfs e.g.[onboarding file](https://github.com/databricks/dlt-meta/blob/main/examples/onboarding.json)
-2. Create ```silver_transformations.json``` and save to s3/adls/dbfs e.g [Silver transformation file](https://github.com/databricks/dlt-meta/blob/main/examples/silver_transformations.json)
-3. Create data quality rules json and store to s3/adls/dbfs e.g [Data Quality Rules](https://github.com/databricks/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
+1. Create ```onboarding.json``` metadata file and save to s3/adls/dbfs e.g.[onboarding file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding.json)
+2. Create ```silver_transformations.json``` and save to s3/adls/dbfs e.g [Silver transformation file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json)
+3. Create data quality rules json and store to s3/adls/dbfs e.g [Data Quality Rules](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
 
 ## 2. Onboarding job
 
@@ -132,7 +132,7 @@ and DLT-META [documentation](https://databricks.github.io/dlt-meta/)
 
 3. Click Create.
 
-4. You can add the [example dlt pipeline](https://github.com/databricks/dlt-meta/blob/main/examples/dlt_meta_pipeline.ipynb) code or import iPython notebook as is.
+4. You can add the [example dlt pipeline](https://github.com/databrickslabs/dlt-meta/blob/main/examples/dlt_meta_pipeline.ipynb) code or import iPython notebook as is.
 
 ### Create a DLT pipeline
 
@@ -162,7 +162,7 @@ and DLT-META [documentation](https://databricks.github.io/dlt-meta/)
 # Additional
 You can run integration tests from you local with dlt-meta.
 ## Run Integration Tests
-1. Clone [DLT-META](https://github.com/databricks/dlt-meta)
+1. Clone [DLT-META](https://github.com/databrickslabs/dlt-meta)
 
 2. Open terminal and Goto root folder ```DLT-META```
 

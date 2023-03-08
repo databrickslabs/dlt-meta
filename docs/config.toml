@@ -1,4 +1,4 @@
-baseURL = 'https://databricks.github.io/dlt-meta/'
+baseURL = 'https://databrickslabs.github.io/dlt-meta/'
 languageCode = 'en-us'
 title = 'DLT-META'
 theme= "hugo-theme-learn"
