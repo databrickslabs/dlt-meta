@@ -1,0 +1,70 @@
+{
+    "creator_user_name": "ravi.gawai@databricks.com",
+    "run_as_user_name": "ravi.gawai@databricks.com",
+    "run_as_owner": true,
+    "settings": {
+        "name": "dlt_meta_onboarding_pythonwheel_task",
+        "email_notifications": {
+            "no_alert_for_skipped_runs": false
+        },
+        "webhook_notifications": {},
+        "timeout_seconds": 0,
+        "max_concurrent_runs": 1,
+        "tasks": [
+            {
+                "task_key": "dlt_meta_onboarding_pythonwheel_task",
+                "python_wheel_task": {
+                    "package_name": "dlt_meta",
+                    "entry_point": "run",
+                    "named_parameters": {
+                        "onboard_layer": "bronze_silver",
+                        "database": "csc_dlt_demo",
+                        "onboarding_file_path": "dbfs:/onboarding_files/users_onboarding.json",
+                        "silver_dataflowspec_table": "silver_dataflowspec_table",
+                        "silver_dataflowspec_path": "dbfs:/onboarding_tables_cdc/silver",
+                        "bronze_dataflowspec_table": "bronze_dataflowspec_table",
+                        "import_author": "Ravi",
+                        "version": "v1",
+                        "bronze_dataflowspec_path": "dbfs:/onboarding_tables_cdc/bronze",
+                        "overwrite": "True",
+                        "env": "dev"
+                    }
+                },
+                "job_cluster_key": "DLT_META_Onboarding_demo",
+                "libraries": [
+                    {
+                        "whl": "dbfs:/FileStore/jars/decaacd8_bcd0_4cd4_be14_da4f3494750b/dlt_meta-0.0.0-py3-none-any.whl"
+                    }
+                ],
+                "timeout_seconds": 0,
+                "email_notifications": {}
+            }
+        ],
+        "job_clusters": [
+            {
+                "job_cluster_key": "DLT_META_Onboarding_demo",
+                "new_cluster": {
+                    "cluster_name": "",
+                    "spark_version": "11.3.x-scala2.12",
+                    "aws_attributes": {
+                        "first_on_demand": 1,
+                        "availability": "SPOT_WITH_FALLBACK",
+                        "zone_id": "us-west-2a",
+                        "spot_bid_price_percent": 100,
+                        "ebs_volume_count": 0
+                    },
+                    "node_type_id": "i3.xlarge",
+                    "spark_env_vars": {
+                        "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+                    },
+                    "enable_elastic_disk": false,
+                    "data_security_mode": "SINGLE_USER",
+                    "runtime_engine": "STANDARD",
+                    "num_workers": 2
+                }
+            }
+        ],
+        "format": "MULTI_TASK"
+    },
+    "created_time": 1673557301133
+}

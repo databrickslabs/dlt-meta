@@ -1,0 +1,9 @@
+name: em_env
+channels:
+  - conda-forge
+  - defaults
+  - mro
+dependencies:
+  - python=3.9.*
+  - coverage
+  - delta-spark

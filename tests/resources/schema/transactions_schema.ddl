@@ -1,0 +1,1 @@
+amount double, customer_id string, id string, item_count double, operation string, operation_date string, transaction_date string, _rescued_data string

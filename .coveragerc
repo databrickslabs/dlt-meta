@@ -1,0 +1,19 @@
+[run]
+branch = True
+command_line = -m unittest
+include = src/*.py
+omit =
+    */site-packages/*
+    tests/*
+
+[report]
+exclude_lines =
+    if self.debug:
+    pragma: no cover
+    raise NotImplementedError
+    if __name__ == .__main__.:
+
+ignore_errors = True
+
+[html]
+directory = coverage_html_report

@@ -1,0 +1,57 @@
+[
+  {
+    "target_table": "customers",
+    "target_partition_cols": [
+      ""
+    ],
+    "select_exp": [
+      "address",
+      "email",
+      "firstname",
+      "id",
+      "lastname",
+      "operation_date",
+      "operation",
+      "_rescued_data"
+    ],
+    "where_clause": [
+      ""
+    ]
+  },
+  {
+    "target_table": "transactions",
+    "target_partition_cols": [
+      ""
+    ],
+    "select_exp": [
+      "id",
+      "customer_id",
+      "amount",
+      "item_count",
+      "operation_date",
+      "operation",
+      "_rescued_data"
+    ],
+    "where_clause": [
+      ""
+    ]
+  },
+  {
+    "target_table": "iot_cdc",
+    "target_partition_cols": [
+      ""
+    ],
+    "select_exp": [
+      "battery_level",
+      "c02_level",
+      "cca2",
+      "cca3",
+      "device_id",
+      "device_name",
+      "humidity"
+    ],
+    "where_clause": [
+      ""
+    ]
+  }
+]

@@ -1,0 +1,13 @@
+baseURL = 'https://databricks.github.io/dlt-meta/'
+languageCode = 'en-us'
+title = 'DLT-META'
+theme= "hugo-theme-learn"
+
+pluralizeListTitles = false
+canonifyURLs = true
+
+[params]
+    description = "DLT-META Documentation"
+    author = "Ravi Gawai (Databricks)"
+    disableShortcutsTitle = true
+    disableLandingPageButton = false
