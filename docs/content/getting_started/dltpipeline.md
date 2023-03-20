@@ -13,7 +13,7 @@ draft: false
 
 3. Click Create.
 
-4. You can add the [example dlt pipeline](https://github.com/databricks/dlt-meta/blob/main/examples/dlt_meta_pipeline.ipynb) code or import iPython notebook as is.
+4. You can add the [example dlt pipeline](https://github.com/databrickslabs/dlt-meta/blob/main/examples/dlt_meta_pipeline.ipynb) code or import iPython notebook as is.
     ```
         %pip install dlt-meta
     ```
