@@ -95,7 +95,7 @@ and DLT-META [documentation](https://databrickslabs.github.io/dlt-meta/)
 
 6. In Entry point, enter ``run``. 
 
-7. Click Add under Dependent Libraries. In the Add dependent library dialog, under Library Type, click PyPI. Enter Package: ```dlt-meta```, Repository: ```https://test.pypi.org/simple/```
+7. Click Add under Dependent Libraries. In the Add dependent library dialog, under Library Type, click PyPI. Enter Package: ```dlt-meta```
  
 
 8. Click Add.
