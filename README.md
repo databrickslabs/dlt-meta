@@ -12,21 +12,21 @@
     <a href="https://databrickslabs.github.io/dlt-meta/">
         <img src="https://img.shields.io/badge/DOCS-PASSING-green?style=for-the-badge" alt="Documentation Status"/>
     </a>
-    <a href="https://test.pypi.org/project/dlt-meta/">
-        <img src="https://img.shields.io/badge/PYPI-v%200.0.0-green?style=for-the-badge" alt="Latest Python Release"/>
+    <a href="https://pypi.org/project/dlt-meta/">
+        <img src="https://img.shields.io/badge/PYPI-v%200.0.1-green?style=for-the-badge" alt="Latest Python Release"/>
     </a>
-    <!-- <a href="https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml">
-        <img src="https://img.shields.io/github/workflow/status/databricks/dlt-meta/build/main?style=for-the-badge"
+    <a href="https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml">
+        <img src="https://img.shields.io/github/workflow/status/databrickslabs/dlt-meta/build/main?style=for-the-badge"
              alt="GitHub Workflow Status (branch)"/>
-    </a> -->
-    <a href="https://codecov.io/gh/databricks/dlt-meta">
-        <img src="https://img.shields.io/codecov/c/github/databricks/dlt-meta?style=for-the-badge&amp;token=KI3HFZQWF0"
+    </a>
+    <a href="https://codecov.io/gh/databrickslabs/dlt-meta">
+        <img src="https://img.shields.io/codecov/c/github/databrickslabs/dlt-meta?style=for-the-badge&amp;token=KI3HFZQWF0"
              alt="codecov"/>
     </a>
-    <a href="https://lgtm.com/projects/g/databricks/dlt-meta/alerts">
+    <a href="https://lgtm.com/projects/g/databrickslabs/dlt-meta/alerts">
         <img src="https://img.shields.io/lgtm/alerts/github/databricks/dlt-meta?style=for-the-badge" alt="lgtm-alerts"/>
     </a>
-    <a href="https://lgtm.com/projects/g/databricks/dlt-meta/context:python">
+    <a href="https://lgtm.com/projects/g/databrickslabs/dlt-meta/context:python">
         <img src="https://img.shields.io/lgtm/grade/python/github/databrickslabs/dbx?style=for-the-badge"
              alt="lgtm-code-quality"/>
     </a>
