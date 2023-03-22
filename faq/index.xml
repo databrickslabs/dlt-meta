@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Frequently Asked Questions (FAQs) on DLT-META</title><link>https://databrickslabs.github.io/dlt-meta/faq/</link><description>Recent content in Frequently Asked Questions (FAQs) on DLT-META</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><lastBuildDate>Wed, 04 Aug 2021 14:50:11 -0400</lastBuildDate><atom:link href="https://databrickslabs.github.io/dlt-meta/faq/index.xml" rel="self" type="application/rss+xml"/><item><title>General</title><link>https://databrickslabs.github.io/dlt-meta/faq/general/</link><pubDate>Wed, 04 Aug 2021 14:50:11 -0400</pubDate><guid>https://databrickslabs.github.io/dlt-meta/faq/general/</guid><description>Q. What is DLT-META ?
+DLT-META is a solution/framework using Databricks Delta Live Tables aka DLT which helps you automate bronze and silver layer pipelines using CI/CD.
+Q. What are the benefits of using DLT-META ?
+With DLT-META customers needs to only maintain metadata like onboarding.json, data quality rules and silver transformations and framework will take care of execution. In case of any input/output or data quality rules or silver transformation logic changes there will be only metadata changes using onboarding interface and no need to re-deploy pipelines.</description></item><item><title>Execution</title><link>https://databrickslabs.github.io/dlt-meta/faq/execution/</link><pubDate>Wed, 04 Aug 2021 14:26:55 -0400</pubDate><guid>https://databrickslabs.github.io/dlt-meta/faq/execution/</guid><description>Q. How do I get started ?
+Please refer to the Getting Started guide
+Q. How do I create metadata DLT-META ?
+DLT-META needs following metadata files:
+Onboarding File captures input/output metadata Data Quality Rules File captures data quality rules Silver transformation File captures processing logic as sql Q. What is DataflowSpecs?
+DLT-META translates input metadata into Delta table as DataflowSpecs
+Q. How many DLT pipelines will be launched using DLT-META?</description></item></channel></rss>

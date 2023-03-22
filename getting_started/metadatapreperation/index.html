@@ -1,0 +1,351 @@
+<!doctype html><html lang=en class="js csstransforms3d">
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=generator content="Hugo 0.87.0">
+<meta name=description content="DLT-META Documentation">
+<meta name=author content="Ravi Gawai (Databricks)">
+<link rel=icon href=https://databrickslabs.github.io/dlt-meta/images/favicon.png type=image/png>
+<title>Metadata Preparation :: DLT-META</title>
+<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1679444064 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1679444064 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1679444064 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1679444064 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1679444064 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1679444064 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1679444064 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1679444064 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1679444064 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1679444064 rel=stylesheet>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1679444064></script>
+<style>:root #header+#content>#left>#rlblock_left{display:none!important}</style>
+<script async defer src=https://buttons.github.io/buttons.js></script>
+</head>
+<body data-url=https://databrickslabs.github.io/dlt-meta/getting_started/metadatapreperation/>
+<nav id=sidebar>
+<div id=header-wrapper>
+<div id=header>
+<a id=logo href=https://databrickslabs.github.io/dlt-meta/>
+</a>
+</div>
+<div class=searchbox>
+<label for=search-by><i class="fas fa-search"></i></label>
+<input data-search-input id=search-by type=search placeholder=Search...>
+<span data-search-clear><i class="fas fa-times"></i></span>
+</div>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1679444064></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1679444064></script>
+<script type=text/javascript>var baseurl="https://databrickslabs.github.io/dlt-meta/"</script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1679444064></script>
+</div>
+<section id=homelinks>
+<ul>
+<li>
+<a class=padding href=https://databrickslabs.github.io/dlt-meta/><i class="fas fa-home"></i> Home</a>
+</li>
+</ul>
+</section>
+<div class=highlightable>
+<ul class=topics>
+<li data-nav-id=/getting_started/ title="Getting Started" class="dd-item
+parent">
+<a href=https://databrickslabs.github.io/dlt-meta/getting_started/>
+Getting Started
+</a>
+<ul>
+<li data-nav-id=/getting_started/metadatapreperation/ title="Metadata Preparation" class="dd-item active">
+<a href=https://databrickslabs.github.io/dlt-meta/getting_started/metadatapreperation/>
+Metadata Preparation
+</a>
+</li>
+<li data-nav-id=/getting_started/buildwhl/ title="Build Python Wheel" class=dd-item>
+<a href=https://databrickslabs.github.io/dlt-meta/getting_started/buildwhl/>
+Build Python Wheel
+</a>
+</li>
+<li data-nav-id=/getting_started/launchonboardingjob/ title="Launch Onboarding job" class=dd-item>
+<a href=https://databrickslabs.github.io/dlt-meta/getting_started/launchonboardingjob/>
+Launch Onboarding job
+</a>
+</li>
+<li data-nav-id=/getting_started/dltpipeline/ title="Launch Generic DLT pipeline" class=dd-item>
+<a href=https://databrickslabs.github.io/dlt-meta/getting_started/dltpipeline/>
+Launch Generic DLT pipeline
+</a>
+</li>
+<li data-nav-id=/getting_started/additionals/ title=Additionals class=dd-item>
+<a href=https://databrickslabs.github.io/dlt-meta/getting_started/additionals/>
+Additionals
+</a>
+</li>
+</ul>
+</li>
+<li data-nav-id=/faq/ title="Frequently Asked Questions (FAQs)" class=dd-item>
+<a href=https://databrickslabs.github.io/dlt-meta/faq/>
+Frequently Asked Questions (FAQs)
+</a>
+<ul>
+<li data-nav-id=/faq/general/ title=General class=dd-item>
+<a href=https://databrickslabs.github.io/dlt-meta/faq/general/>
+General
+</a>
+</li>
+<li data-nav-id=/faq/execution/ title=Execution class=dd-item>
+<a href=https://databrickslabs.github.io/dlt-meta/faq/execution/>
+Execution
+</a>
+</li>
+</ul>
+</li>
+<li data-nav-id=/contributing/ title=Contributing class=dd-item>
+<a href=https://databrickslabs.github.io/dlt-meta/contributing/>
+Contributing
+</a>
+</li>
+</ul>
+<section id=footer>
+<center>
+<a class=github-button href=https://github.com/databrickslabs/dlt-meta/subscription data-icon=octicon-eye data-show-count=true aria-label="DLT-META on GitHub">Watch</a>
+<a class=github-button href=https://github.com/databrickslabs/dlt-meta data-icon=octicon-star data-show-count=true aria-label="Star databricks/dlt-meta on GitHub">Star</a>
+<a class=github-button href=https://github.com/databrickslabs/dlt-meta/fork data-icon=octicon-repo-forked data-show-count=true aria-label="Fork DLT-META on GitHub">Fork</a>
+<p>A <a href=https://github.com/databrickslabs>Databricks Labs</a> project.</p>
+</center>
+<script async defer src=https://buttons.github.io/buttons.js></script>
+</section>
+</div>
+</nav>
+<section id=body>
+<div id=overlay></div>
+<div class="padding highlightable">
+<div>
+<div id=top-bar>
+<div id=breadcrumbs itemscope itemtype=http://data-vocabulary.org/Breadcrumb>
+<span id=sidebar-toggle-span>
+<a href=# id=sidebar-toggle data-sidebar-toggle>
+<i class="fas fa-bars"></i>
+</a>
+</span>
+<span id=toc-menu><i class="fas fa-list-alt"></i></span>
+<span class=links>
+<a href=https://databrickslabs.github.io/dlt-meta/>DLT-META</a> > <a href=https://databrickslabs.github.io/dlt-meta/getting_started/>Getting Started</a> > Metadata Preparation
+</span>
+</div>
+<div class=progress>
+<div class=wrapper>
+<nav id=TableOfContents>
+<ul>
+<li>
+<ul>
+<li><a href=#onboarding-file-structure>Onboarding File structure</a></li>
+<li><a href=#data-quality-rules-file-structure>Data Quality Rules File Structure</a></li>
+<li><a href=#silver-transformation-file-structure>Silver transformation File Structure</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+</div>
+<div id=head-tags>
+</div>
+<div id=body-inner>
+<h1>
+Metadata Preparation
+</h1>
+<ol>
+<li>
+<p>Create <code>onboarding.json</code> metadata file and save to s3/adls/dbfs e.g.<a href=https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding.json>onboarding file</a></p>
+</li>
+<li>
+<p>Create <code>silver_transformations.json</code> and save to s3/adls/dbfs e.g <a href=https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json>Silver transformation file</a></p>
+</li>
+<li>
+<p>Create data quality rules json and store to s3/adls/dbfs e.g <a href=https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json>Data Quality Rules</a></p>
+<pre><code>  &quot;source_schema_path&quot;: &quot;tests/resources/schema/eventhub_iot_schema.ddl&quot;,
+  &quot;eventhub.accessKeyName&quot;: &quot;iotIngestionAccessKey&quot;,
+  &quot;eventhub.name&quot;: &quot;iot&quot;,
+  &quot;eventhub.secretsScopeName&quot;: &quot;eventhubs_creds&quot;,
+  &quot;kafka.sasl.mechanism&quot;: &quot;PLAIN&quot;,
+  &quot;kafka.security.protocol&quot;: &quot;SASL_SSL&quot;,
+  &quot;eventhub.namespace&quot;: &quot;ganesh-standard&quot;,
+  &quot;eventhub.port&quot;: &quot;9093&quot;
+</code></pre>
+</li>
+</ol>
+<h3 id=onboarding-file-structure>Onboarding File structure</h3>
+<p><code>env</code> is your environment placeholder e.g <code>dev</code>, <code>prod</code>, <code>stag</code></p>
+<table>
+<thead>
+<tr>
+<th style=text-align:center>Field</th>
+<th style=text-align:left>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style=text-align:center>data_flow_id</td>
+<td style=text-align:left>This is unique identifer for pipeline</td>
+</tr>
+<tr>
+<td style=text-align:center>data_flow_group</td>
+<td style=text-align:left>This is group identifer for launching multiple pipelines under single DLT</td>
+</tr>
+<tr>
+<td style=text-align:center>source_format</td>
+<td style=text-align:left>Source format e.g <code>cloudFiles</code>, <code>eventhub</code> <code>kafka</code></td>
+</tr>
+<tr>
+<td style=text-align:center>source_details</td>
+<td style=text-align:left>This map Type captures all source details for cloudfiles = <code>source_schema_path</code>, <code>source_path_{env}</code>, <code>source_database</code> and for eventhub= <code>source_schema_path</code> , <code>eventhub.accessKeyName</code>, <code>eventhub.name</code> , <code>eventhub.secretsScopeName</code> , <code>kafka.sasl.mechanism</code>, <code>kafka.security.protocol</code>, <code>eventhub.namespace</code>, <code>eventhub.port</code>. For Source schema file spark DDL schema format parsing is supported In case of custom schema format then write schema parsing function <code>bronze_schema_mapper(schema_file_path, spark):Schema</code> and provide to <code>OnboardDataflowspec</code> initialization .e.g <code>onboardDataFlowSpecs = OnboardDataflowspec(spark, dict_obj,bronze_schema_mapper).onboardDataFlowSpecs()</code></td>
+</tr>
+<tr>
+<td style=text-align:center>bronze_database_{env}</td>
+<td style=text-align:left>Delta lake bronze database name.</td>
+</tr>
+<tr>
+<td style=text-align:center>bronze_table</td>
+<td style=text-align:left>Delta lake bronze table name</td>
+</tr>
+<tr>
+<td style=text-align:center>bronze_reader_options</td>
+<td style=text-align:left>Reader options which can be provided to spark reader e.g multiline=true,header=true in json format</td>
+</tr>
+<tr>
+<td style=text-align:center>bronze_parition_columns</td>
+<td style=text-align:left>Bronze table partition cols list</td>
+</tr>
+<tr>
+<td style=text-align:center>bronze_cdc_apply_changes</td>
+<td style=text-align:left>Bronze cdc apply changes Json</td>
+</tr>
+<tr>
+<td style=text-align:center>bronze_table_path_{env}</td>
+<td style=text-align:left>Bronze table storage path.</td>
+</tr>
+<tr>
+<td style=text-align:center>bronze_data_quality_expectations_json</td>
+<td style=text-align:left>Bronze table data quality expectations</td>
+</tr>
+<tr>
+<td style=text-align:center>bronze_database_quarantine_{env}</td>
+<td style=text-align:left>Bronze database for quarantine data which fails expectations.</td>
+</tr>
+<tr>
+<td style=text-align:center>bronze_quarantine_table Bronze</td>
+<td style=text-align:left>Table for quarantine data which fails expectations</td>
+</tr>
+<tr>
+<td style=text-align:center>bronze_quarantine_table_path_{env}</td>
+<td style=text-align:left>Bronze database for quarantine data which fails expectations.</td>
+</tr>
+<tr>
+<td style=text-align:center>bronze_quarantine_table_partitions</td>
+<td style=text-align:left>Bronze quarantine tables partition cols</td>
+</tr>
+<tr>
+<td style=text-align:center>silver_database_{env}</td>
+<td style=text-align:left>Silver database name.</td>
+</tr>
+<tr>
+<td style=text-align:center>silver_table</td>
+<td style=text-align:left>Silver table name</td>
+</tr>
+<tr>
+<td style=text-align:center>silver_partition_columns</td>
+<td style=text-align:left>Silver table partition columns list</td>
+</tr>
+<tr>
+<td style=text-align:center>silver_cdc_apply_changes</td>
+<td style=text-align:left>Silver cdc apply changes Json</td>
+</tr>
+<tr>
+<td style=text-align:center>silver_table_path_{env}</td>
+<td style=text-align:left>Silver table storage path.</td>
+</tr>
+<tr>
+<td style=text-align:center>silver_transformation_json</td>
+<td style=text-align:left>Silver table sql transformation json path</td>
+</tr>
+</tbody>
+</table>
+<h3 id=data-quality-rules-file-structure>Data Quality Rules File Structure</h3>
+<table>
+<thead>
+<tr>
+<th style=text-align:center>Field</th>
+<th style=text-align:left>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style=text-align:center>expect</td>
+<td style=text-align:left>Specify multiple data quality sql for each field when records that fail validation should be included in the target dataset</td>
+</tr>
+<tr>
+<td style=text-align:center>expect_or_fail</td>
+<td style=text-align:left>Specify multiple data quality sql for each field when records that fail validation should halt pipeline execution</td>
+</tr>
+<tr>
+<td style=text-align:center>expect_or_drop</td>
+<td style=text-align:left>Specify multiple data quality sql for each field when records that fail validation should be dropped from the target dataset</td>
+</tr>
+<tr>
+<td style=text-align:center>expect_or_quarantine</td>
+<td style=text-align:left>Specify multiple data quality sql for each field when records that fails validation will be dropped from main table and inserted into quarantine table specified in dataflowspec</td>
+</tr>
+</tbody>
+</table>
+<h3 id=silver-transformation-file-structure>Silver transformation File Structure</h3>
+<table>
+<thead>
+<tr>
+<th style=text-align:center>Field</th>
+<th style=text-align:left>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style=text-align:center>target_table</td>
+<td style=text-align:left>Specify target table name : Type String</td>
+</tr>
+<tr>
+<td style=text-align:center>target_partition_cols</td>
+<td style=text-align:left>Specify partition columns : Type Array</td>
+</tr>
+<tr>
+<td style=text-align:center>select_exp</td>
+<td style=text-align:left>Specify SQL expressions : Type Array</td>
+</tr>
+<tr>
+<td style=text-align:center>where_clause</td>
+<td style=text-align:left>Specify filter conditions if you want to prevent certains records from main input : Type Array</td>
+</tr>
+</tbody>
+</table>
+<footer class=footline>
+</footer>
+</div>
+</div>
+<div id=navigation>
+<a class="nav nav-prev" href=https://databrickslabs.github.io/dlt-meta/getting_started/ title="Getting Started"> <i class="fa fa-chevron-left"></i></a>
+<a class="nav nav-next" href=https://databrickslabs.github.io/dlt-meta/getting_started/buildwhl/ title="Build Python Wheel" style=margin-right:0><i class="fa fa-chevron-right"></i></a>
+</div>
+</section>
+<div style=left:-1000px;overflow:scroll;position:absolute;top:-1000px;border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px>
+<div style=border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px></div>
+</div>
+<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1679444064></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1679444064></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1679444064></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1679444064></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1679444064></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1679444064></script>
+<script>hljs.initHighlightingOnLoad()</script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1679444064></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1679444064></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1679444064></script>
+<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1679444064></script>
+<script>mermaid.initialize({startOnLoad:!0})</script>
+</body>
+</html>
