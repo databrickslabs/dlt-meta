@@ -23,7 +23,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         },
         "targetFormat": "delta",
         "targetDetails": {"database": "bronze", "table": "customer", "path": "tests/localtest/delta/customers"},
-        "writerConfigOptions": {},
+        "tableProperties": {},
         "schema": None,
         "partitionColumns": [""],
         "cdcApplyChanges": None,
@@ -54,7 +54,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "readerConfigOptions": {},
         "targetFormat": "delta",
         "targetDetails": {"database": "silver", "table": "customer", "path": tempfile.mkdtemp()},
-        "writerConfigOptions": {},
+        "tableProperties": {},
         "selectExp": [
             "address",
             "email",

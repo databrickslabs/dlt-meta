@@ -14,6 +14,8 @@ import pyspark.sql.types as T
 
 dbutils = MagicMock()
 DBUtils = MagicMock()
+spark = MagicMock()
+spark.readStream = MagicMock()
 
 
 class PipelineReadersTests(DLTFrameworkTestCase):
@@ -28,7 +30,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         },
         "targetFormat": "delta",
         "targetDetails": {"database": "bronze", "table": "customer", "path": "tests/localtest/delta/customers"},
-        "writerConfigOptions": {},
+        "tableProperties": {},
         "schema": None,
         "partitionColumns": [""],
         "cdcApplyChanges": None,
@@ -64,7 +66,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         },
         "targetFormat": "delta",
         "targetDetails": {"database": "bronze", "table": "customer", "path": "tests/localtest/delta/customers"},
-        "writerConfigOptions": {},
+        "tableProperties": {},
         "schema": None,
         "partitionColumns": [""],
         "cdcApplyChanges": None,
@@ -79,7 +81,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
     bronze_kafka_dataflow_spec_map = {
         "dataFlowId": "1",
         "dataFlowGroup": "A1",
-        "sourceFormat": "eventhub",
+        "sourceFormat": "kafka",
         "sourceDetails": {
             "source_schema_path": "tests/resources/schema/eventhub_iot_schema.ddl",
             "subscribe": "iot",
@@ -91,7 +93,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         },
         "targetFormat": "delta",
         "targetDetails": {"database": "bronze", "table": "customer", "path": "tests/localtest/delta/customers"},
-        "writerConfigOptions": {},
+        "tableProperties": {},
         "schema": None,
         "partitionColumns": [""],
         "cdcApplyChanges": None,
@@ -154,7 +156,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         source_details_map = {
             **source_details,
             "kafka.ssl.truststore.location": "tmp:/location",
-            "kafka.ssl.keystore.location": "tmp:/location"
+            "kafka.ssl.keystore.location": "tmp:/location",
         }
         bronze_map['sourceDetails'] = source_details_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
@@ -172,3 +174,31 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         """Test Get kafka options."""
         dbutils = PipelineReaders.get_db_utils(self.spark)
         self.assertIsNotNone(dbutils)
+
+    @patch.object(spark, "readStream", return_value={"called"})
+    @patch.object(dbutils, "secrets.get", return_value={"called"})
+    def test_kafka_positive(self, spark, dbutils):
+        """Test kafka read positive."""
+        bronze_map = PipelineReadersTests.bronze_kafka_dataflow_spec_map
+        source_details = bronze_map['sourceDetails']
+        source_details_map = {
+            **source_details,
+            "kafka.ssl.truststore.location": "tmp:/location",
+            "kafka.ssl.keystore.location": "tmp:/location",
+            "kafka.ssl.truststore.secrets.scope": "databricks",
+            "kafka.ssl.truststore.secrets.key": "databricks",
+            "kafka.ssl.keystore.secrets.scope": "databricks",
+            "kafka.ssl.keystore.secrets.key": "databricks"
+        }
+        bronze_map['sourceDetails'] = source_details_map
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        customer_df = PipelineReaders.read_kafka(spark, bronze_dataflow_spec, None)
+        self.assertIsNotNone(customer_df)
+
+    @patch.object(spark, "readStream", return_value={"called"})
+    def test_eventhub_positive(self, spark):
+        """Test eventhub read positive."""
+        bronze_map = PipelineReadersTests.bronze_eventhub_dataflow_spec_map
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        customer_df = PipelineReaders.read_kafka(spark, bronze_dataflow_spec, None)
+        self.assertIsNotNone(customer_df)

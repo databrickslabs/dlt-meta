@@ -68,10 +68,10 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         bronze_df_rows = bronze_dataflowSpec_df.collect()
         for bronze_df_row in bronze_df_rows:
             bronze_row = BronzeDataflowSpec(**bronze_df_row.asDict())
-            if bronze_row.dataFlowId == "100":
-                self.assertTrue(bronze_row.partitionColumns == ["operation_date"])
-            if bronze_row.dataFlowId == "101":
-                self.assertTrue(bronze_row.partitionColumns == ["transaction_date"])
+            if bronze_row.dataFlowId in ["100", "101"]:
+                self.assertIsNone(bronze_row.readerConfigOptions.get("cloudFiles.rescuedDataColumn"))
+            if bronze_row.dataFlowId == "103":
+                self.assertEqual(bronze_row.readerConfigOptions.get("maxOffsetsPerTrigger"), "60000")
 
     def test_onboardBronzeDataflowSpec_positive(self):
         """Test for onboardDataflowspec."""

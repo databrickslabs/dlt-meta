@@ -1,9 +1,9 @@
 {
-    "expect_or_drop":{
-       "no_rescued_data":"_rescued_data IS NULL",
-       "valid_id":"id IS NOT NULL"
-    },
-   "expect_or_quarantine":{
-     "valid_operation":"operation IN ('APPEND', 'DELETE', 'UPDATE')"
-   }
- }
+  "expect_or_drop": {
+    "no_rescued_data": "_rescued_data IS NULL",
+    "valid_id": "id IS NOT NULL"
+  },
+  "expect_or_quarantine": {
+    "invalid_id_operation": "id is null or no_rescued_data is not null or operation IN ('APPEND', 'DELETE', 'UPDATE')"
+  }
+}

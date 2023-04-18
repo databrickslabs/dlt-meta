@@ -170,6 +170,7 @@ class DataflowPipeline:
                     dlt.table(
                         self.write_to_delta,
                         name=f"{bronzeDataflowSpec.targetDetails['table']}",
+                        table_properties=bronzeDataflowSpec.tableProperties,
                         partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                         path=bronzeDataflowSpec.targetDetails["path"],
                         comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
@@ -181,6 +182,7 @@ class DataflowPipeline:
                         dlt.table(
                             self.write_to_delta,
                             name=f"{bronzeDataflowSpec.targetDetails['table']}",
+                            table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                             path=bronzeDataflowSpec.targetDetails["path"],
                             comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
@@ -194,6 +196,7 @@ class DataflowPipeline:
                         dlt.table(
                             self.write_to_delta,
                             name=f"{bronzeDataflowSpec.targetDetails['table']}",
+                            table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                             path=bronzeDataflowSpec.targetDetails["path"],
                             comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
@@ -212,6 +215,7 @@ class DataflowPipeline:
                     dlt.table(
                         self.write_to_delta,
                         name=f"{bronzeDataflowSpec.quarantineTargetDetails['table']}",
+                        table_properties=bronzeDataflowSpec.tableProperties,
                         partition_cols=q_partition_cols,
                         path=bronzeDataflowSpec.quarantineTargetDetails["path"],
                         comment=f"""bronze dlt quarantine_path table
@@ -247,6 +251,7 @@ class DataflowPipeline:
 
         dlt.create_streaming_live_table(
             name=f"{self.dataflowSpec.targetDetails['table']}",
+            table_properties=self.dataflowSpec.tableProperties,
             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
             path=self.dataflowSpec.targetDetails["path"],
             schema=struct_schema,
@@ -264,6 +269,9 @@ class DataflowPipeline:
             column_list=cdc_apply_changes.column_list,
             except_column_list=cdc_apply_changes.except_column_list,
             stored_as_scd_type=cdc_apply_changes.scd_type,
+            track_history_column_list=cdc_apply_changes.track_history_column_list,
+            track_history_except_column_list=cdc_apply_changes.track_history_except_column_list
+
         )
 
     def write_bronze(self):
@@ -278,6 +286,7 @@ class DataflowPipeline:
                 self.write_to_delta,
                 name=f"{bronze_dataflow_spec.targetDetails['table']}",
                 partition_cols=DataflowSpecUtils.get_partition_cols(bronze_dataflow_spec.partitionColumns),
+                table_properties=bronze_dataflow_spec.tableProperties,
                 path=bronze_dataflow_spec.targetDetails["path"],
                 comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}",
             )
@@ -292,6 +301,7 @@ class DataflowPipeline:
                 self.write_to_delta,
                 name=f"{silver_dataflow_spec.targetDetails['table']}",
                 partition_cols=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.partitionColumns),
+                table_properties=silver_dataflow_spec.tableProperties,
                 path=silver_dataflow_spec.targetDetails["path"],
                 comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}",
             )

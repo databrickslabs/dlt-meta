@@ -20,7 +20,7 @@
              alt="GitHub Workflow Status (branch)"/>
     </a>
     <a href="https://codecov.io/gh/databrickslabs/dlt-meta">
-        <img src="https://img.shields.io/codecov/c/github/databrickslabs/dlt-meta?style=for-the-badge&amp;token=KI3HFZQWF0"
+        <img src="https://img.shields.io/codecov/c/github/databrickslabs/dlt-meta?style=for-the-badge&amp;token=2CxLj3YBam"
              alt="codecov"/>
     </a>
     <a href="https://lgtm.com/projects/g/databrickslabs/dlt-meta/alerts">
@@ -77,8 +77,8 @@ and DLT-META [documentation](https://databrickslabs.github.io/dlt-meta/)
 2. Create ```silver_transformations.json``` and save to s3/adls/dbfs e.g [Silver transformation file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json)
 3. Create data quality rules json and store to s3/adls/dbfs e.g [Data Quality Rules](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
 
-## 2. Onboarding job
-
+## 2. Onboarding
+### Option#1. Python whl Job
 1. Go to your Databricks landing page and do one of the following:
 
 2. In the sidebar, click Jobs Icon Workflows and click Create Job Button.
@@ -107,12 +107,13 @@ and DLT-META [documentation](https://databrickslabs.github.io/dlt-meta/)
                         "onboarding_file_path": "dbfs:/onboarding_files/users_onboarding.json",
                         "silver_dataflowspec_table": "silver_dataflowspec_table",
                         "silver_dataflowspec_path": "dbfs:/onboarding_tables_cdc/silver",
-                        "bronze_dataflowspec_table": "bronze_dataflowspec_table",
-                        "import_author": "Ravi",
-                        "version": "v1",
+                        "bronze_dataflowspec_table": "bronze_dataflowspec_table", 
                         "bronze_dataflowspec_path": "dbfs:/onboarding_tables_cdc/bronze",
                         "overwrite": "True",
-                        "env": "dev"
+                        "onboard_layer": "bronze_silver",
+                        "env": "dev",
+                        "version": "v1",
+                        "import_author": "Ravi"
     } 
     ```
     Alternatly you can enter keyword arguments, click + Add and enter a key and value. Click + Add again to enter more arguments. 
@@ -122,6 +123,32 @@ and DLT-META [documentation](https://databrickslabs.github.io/dlt-meta/)
 11. Run now
 
 12. Make sure job run successfully. Verify metadata in your dataflow spec tables entered in step: 9 e.g ```dlt_demo.bronze_dataflowspec_table``` , ```dlt_demo.silver_dataflowspec_table```
+
+### Option#2. Notebook
+1. Copy below code to databricks notebook cells
+```
+%pip install dlt-meta
+```
+```
+onboarding_params_map = {
+	                        "database": "dlt_demo",
+	                        "onboarding_file_path": "dbfs:/onboarding_files/users_onboarding.json",
+	 						"bronze_dataflowspec_table": "bronze_dataflowspec_table", 
+	                        "bronze_dataflowspec_path": "dbfs:/onboarding_tables_cdc/bronze",                       
+	                        "silver_dataflowspec_table": "silver_dataflowspec_table",
+	                        "silver_dataflowspec_path": "dbfs:/onboarding_tables_cdc/silver",
+	                        "overwrite": "True",
+	                        "onboard_layer": "bronze_silver",
+	                        "env": "dev",
+	                        "version": "v1",
+	                        "import_author": "Ravi"
+    					} 
+
+from src.onboard_dataflowspec import OnboardDataflowspec
+OnboardDataflowspec(spark, onboarding_params_map).onboard_dataflow_specs()
+
+```
+2. Run notebook cells
 
 ## 3. Launch Dataflow DLT Pipeline  
 ### Create a dlt launch notebook

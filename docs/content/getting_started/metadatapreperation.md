@@ -9,14 +9,6 @@ draft: false
 2. Create ```silver_transformations.json``` and save to s3/adls/dbfs e.g [Silver transformation file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json)
 3. Create data quality rules json and store to s3/adls/dbfs e.g [Data Quality Rules](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
 
-         "source_schema_path": "tests/resources/schema/eventhub_iot_schema.ddl",
-         "eventhub.accessKeyName": "iotIngestionAccessKey",
-         "eventhub.name": "iot",
-         "eventhub.secretsScopeName": "eventhubs_creds",
-         "kafka.sasl.mechanism": "PLAIN",
-         "kafka.security.protocol": "SASL_SSL",
-         "eventhub.namespace": "ganesh-standard",
-         "eventhub.port": "9093"
 
 ### Onboarding File structure
 `env` is your environment placeholder e.g `dev`, `prod`, `stag`
@@ -32,6 +24,7 @@ draft: false
 | bronze_parition_columns | 	Bronze table partition cols list |
 | bronze_cdc_apply_changes | 	Bronze cdc apply changes Json |
 | bronze_table_path_{env} | 	Bronze table storage path.|
+| bronze_table_properties | 	DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false" }` |
 | bronze_data_quality_expectations_json | 	Bronze table data quality expectations |
 | bronze_database_quarantine_{env} | 	Bronze database for quarantine data which fails expectations. |
 | bronze_quarantine_table	Bronze |  Table for quarantine data which fails expectations |
@@ -42,6 +35,7 @@ draft: false
 | silver_partition_columns | 	Silver table partition columns list |
 | silver_cdc_apply_changes | 	Silver cdc apply changes Json |
 | silver_table_path_{env} | 	Silver table storage path. |
+| silver_table_properties | 	DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false"}` |
 | silver_transformation_json | 	Silver table sql transformation json path |
 
 

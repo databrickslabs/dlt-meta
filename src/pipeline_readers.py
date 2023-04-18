@@ -136,7 +136,12 @@ class PipelineReaders:
                 }
                 kafka_options = {**kafka_base_ops, **kafka_ssl_conn, **bronze_dataflow_spec.readerConfigOptions}
             else:
-                raise Exception(f"Kafka ssl options not provided! provided options are :{source_details_map}")
+                params = ["kafka.ssl.truststore.secrets.scope",
+                          "kafka.ssl.truststore.secrets.key",
+                          "kafka.ssl.keystore.secrets.scope",
+                          "kafka.ssl.keystore.secrets.key"
+                          ]
+                raise Exception(f"Kafka ssl required params are: {params}! provided options are :{source_details_map}")
         else:
             kafka_options = {**kafka_base_ops, **bronze_dataflow_spec.readerConfigOptions}
         return kafka_options

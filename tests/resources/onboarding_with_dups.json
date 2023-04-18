@@ -18,10 +18,7 @@
             "cloudFiles.inferColumnTypes": "true",
             "cloudFiles.rescuedDataColumn": "_rescued_data"
         },
-        "bronze_partition_columns": "",
         "bronze_table_path_dev": "tests/resources/delta/customers",
-        "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/customers",
-        "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/customers",
         "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/customers/bronze_data_quality_expectations.json",
         "silver_database_dev": "silver",
         "silver_database_staging": "silver",
@@ -40,10 +37,7 @@
                 "_rescued_data"
             ]
         },
-        "silver_partition_columns": "",
         "silver_table_path_dev": "tests/resources/data/silver/customers",
-        "silver_table_path_staging": "s3://db-dlt-meta-staging/demo/data/silver/customers",
-        "silver_table_path_prd": "s3://db-dlt-meta-prod/demo/data/silver/customers",
         "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
     },
     {
@@ -67,12 +61,8 @@
         },
         "bronze_partition_columns": "",
         "bronze_table_path_dev": "tests/resources/delta/customers",
-        "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/customers",
-        "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/customers",
         "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/customers/bronze_data_quality_expectations.json",
         "silver_database_dev": "silver",
-        "silver_database_staging": "silver",
-        "silver_database_prd": "silver",
         "silver_table": "customers",
         "silver_cdc_apply_changes": {
             "keys": [
@@ -87,10 +77,7 @@
                 "_rescued_data"
             ]
         },
-        "silver_partition_columns": "",
         "silver_table_path_dev": "tests/resources/data/silver/customers",
-        "silver_table_path_staging": "s3://db-dlt-meta-staging/demo/data/silver/customers",
-        "silver_table_path_prd": "s3://db-dlt-meta-prod/demo/data/silver/customers",
         "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
     }
 ]

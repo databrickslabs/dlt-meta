@@ -188,8 +188,6 @@ class OnboardDataflowspec:
             .drop("target_partition_cols")
             .withColumnRenamed("select_exp", "selectExp")
             .withColumnRenamed("where_clause", "whereClause")
-            .withColumn("readerConfigOptions", f.create_map(f.lit(""), f.lit("")))
-            .withColumn("writerConfigOptions", f.create_map(f.lit(""), f.lit("")))
         )
 
         silver_dataflow_spec_df = self.__add_audit_columns(
@@ -333,6 +331,11 @@ class OnboardDataflowspec:
         schema = json.dumps(spark_schema.jsonValue())
         return schema
 
+    def __validate_mandatory_fields(self, onboarding_row, mandatory_fields):
+        for field in mandatory_fields:
+            if not onboarding_row[field]:
+                raise Exception(f"Missing field={field} in onboarding_row")
+
     def __get_bronze_dataflow_spec_dataframe(self, onboarding_df, env):
         """Get bronze dataflow spec method will convert onboarding dataframe to Bronze Dataflowspec dataframe.
 
@@ -351,7 +354,7 @@ class OnboardDataflowspec:
             "readerConfigOptions",
             "targetFormat",
             "targetDetails",
-            "writerConfigOptions",
+            "tableProperties",
             "schema",
             "partitionColumns",
             "cdcApplyChanges",
@@ -371,11 +374,7 @@ class OnboardDataflowspec:
                 ),
                 StructField("targetFormat", StringType(), True),
                 StructField("targetDetails", MapType(StringType(), StringType(), True), True),
-                StructField(
-                    "writerConfigOptions",
-                    MapType(StringType(), StringType(), True),
-                    True,
-                ),
+                StructField("tableProperties", MapType(StringType(), StringType(), True), True),
                 StructField("schema", StringType(), True),
                 StructField("partitionColumns", ArrayType(StringType(), True), True),
                 StructField("cdcApplyChanges", StringType(), True),
@@ -385,7 +384,10 @@ class OnboardDataflowspec:
         )
         data = []
         onboarding_rows = onboarding_df.collect()
+        mandatory_fields = ["data_flow_id", "data_flow_group", "source_details", f"bronze_database_{env}",
+                            "bronze_table", "bronze_reader_options", f"bronze_table_path_{env}"]
         for onboarding_row in onboarding_rows:
+            self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
             bronze_data_flow_spec_id = onboarding_row["data_flow_id"]
             bronze_data_flow_spec_group = onboarding_row["data_flow_group"]
             if "source_format" not in onboarding_row:
@@ -432,7 +434,9 @@ class OnboardDataflowspec:
                 "path": onboarding_row["bronze_table_path_{}".format(env)],
             }
 
-            bronze_writer_config_options = {}
+            bronze_table_properties = {}
+            if "bronze_table_properties" in onboarding_row and onboarding_row["bronze_table_properties"]:
+                bronze_table_properties = onboarding_row["bronze_table_properties"].asDict()
 
             partition_columns = [""]
             if "bronze_partition_columns" in onboarding_row and onboarding_row["bronze_partition_columns"]:
@@ -470,7 +474,7 @@ class OnboardDataflowspec:
                 bronze_reader_config_options,
                 bronze_target_format,
                 bronze_target_details,
-                bronze_writer_config_options,
+                bronze_table_properties,
                 schema,
                 partition_columns,
                 cdc_apply_changes,
@@ -542,7 +546,7 @@ class OnboardDataflowspec:
             "readerConfigOptions",
             "targetFormat",
             "targetDetails",
-            "writerConfigOptions",
+            "tableProperties",
             "partitionColumns",
             "cdcApplyChanges",
         ]
@@ -559,11 +563,7 @@ class OnboardDataflowspec:
                 ),
                 StructField("targetFormat", StringType(), True),
                 StructField("targetDetails", MapType(StringType(), StringType(), True), True),
-                StructField(
-                    "writerConfigOptions",
-                    MapType(StringType(), StringType(), True),
-                    True,
-                ),
+                StructField("tableProperties", MapType(StringType(), StringType(), True), True),
                 StructField("partitionColumns", ArrayType(StringType(), True), True),
                 StructField("cdcApplyChanges", StringType(), True),
             ]
@@ -571,8 +571,11 @@ class OnboardDataflowspec:
         data = []
 
         onboarding_rows = onboarding_df.collect()
+        mandatory_fields = ["data_flow_id", "data_flow_group", "source_details", f"silver_database_{env}",
+                            "silver_table", f"silver_table_path_{env}"]
 
         for onboarding_row in onboarding_rows:
+            self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
             silver_data_flow_spec_id = onboarding_row["data_flow_id"]
             silver_data_flow_spec_group = onboarding_row["data_flow_group"]
             silver_reader_config_options = {}
@@ -590,9 +593,14 @@ class OnboardDataflowspec:
                 "path": onboarding_row["silver_table_path_{}".format(env)],
             }
 
-            silver_writer_config_options = {}
+            silver_table_properties = {}
+            if "silver_table_properties" in onboarding_row and onboarding_row["silver_table_properties"]:
+                silver_table_properties = onboarding_row["silver_table_properties"].asDict()
 
-            silver_parition_columns = [onboarding_row["silver_partition_columns"]]  # TODO correct typo in tsv
+            silver_parition_columns = [""]
+            if "silver_partition_columns" in onboarding_row and onboarding_row["silver_partition_columns"]:
+                silver_parition_columns = [onboarding_row["silver_partition_columns"]]
+
             silver_cdc_apply_changes = None
             if "silver_cdc_apply_changes" in onboarding_row and onboarding_row["silver_cdc_apply_changes"]:
                 self.__validateApplyChanges(onboarding_row, "silver")
@@ -610,7 +618,7 @@ class OnboardDataflowspec:
                 silver_reader_config_options,
                 silver_target_format,
                 silver_target_details,
-                silver_writer_config_options,
+                silver_table_properties,
                 silver_parition_columns,
                 silver_cdc_apply_changes,
             )

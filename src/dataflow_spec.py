@@ -25,7 +25,7 @@ class BronzeDataflowSpec:
     readerConfigOptions: map
     targetFormat: str
     targetDetails: map
-    writerConfigOptions: map
+    tableProperties: map
     schema: str
     partitionColumns: list
     cdcApplyChanges: str
@@ -49,7 +49,7 @@ class SilverDataflowSpec:
     readerConfigOptions: map
     targetFormat: str
     targetDetails: map
-    writerConfigOptions: map
+    tableProperties: map
     selectExp: list
     whereClause: list
     partitionColumns: list
@@ -74,6 +74,8 @@ class CDCApplyChanges:
     column_list: list
     except_column_list: list
     scd_type: str
+    track_history_column_list: list
+    track_history_except_column_list: list
 
 
 class DataflowSpecUtils:
@@ -90,6 +92,9 @@ class DataflowSpecUtils:
         "column_list",
         "except_column_list",
         "scd_type",
+        "track_history_column_list",
+        "track_history_except_column_list"
+
     ]
     cdc_applychanges_api_attributes_defaults = {
         "where": None,
@@ -98,6 +103,9 @@ class DataflowSpecUtils:
         "apply_as_truncates": None,
         "column_list": None,
         "except_column_list": None,
+        "track_history_column_list": None,
+        "track_history_except_column_list": None
+
     }
 
     @staticmethod
