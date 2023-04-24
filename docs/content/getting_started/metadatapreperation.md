@@ -30,6 +30,7 @@ draft: false
 | bronze_quarantine_table	Bronze |  Table for quarantine data which fails expectations |
 | bronze_quarantine_table_path_{env} | 	Bronze database for quarantine data which fails expectations. |
 | bronze_quarantine_table_partitions | 	Bronze quarantine tables partition cols |
+| bronze_quarantine_table_properties | 	DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false" }` |
 | silver_database_{env} | 	Silver database name. |
 | silver_table | 	Silver table name |
 | silver_partition_columns | 	Silver table partition columns list |

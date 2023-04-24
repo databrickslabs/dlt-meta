@@ -10,6 +10,11 @@ sys.modules["dlt"] = MagicMock()
 from src.dataflow_pipeline import DataflowPipeline
 from src.onboard_dataflowspec import OnboardDataflowspec
 
+spark = MagicMock()
+spark.readStream = MagicMock()
+dlt = MagicMock()
+dlt.expect_all_or_drop = MagicMock()
+
 
 class DataflowPipelineTests(DLTFrameworkTestCase):
     """Test for Dataflowpipeline."""
@@ -27,8 +32,16 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "schema": None,
         "partitionColumns": [""],
         "cdcApplyChanges": None,
-        "dataQualityExpectations": None,
-        "quarantineTargetDetails": None,
+        "dataQualityExpectations": """{
+            "expect_or_drop": {
+                "no_rescued_data": "_rescued_data IS NULL",
+                "valid_id": "id IS NOT NULL",
+                "valid_operation": "operation IN ('APPEND', 'DELETE', 'UPDATE')"
+            }
+        }""",
+        "quarantineTargetDetails": {
+            "database": "bronze", "table": "customer_dqe", "path": "tests/localtest/delta/customers_dqe"
+        },
         "quarantineTableProperties": {},
         "version": "v1",
         "createDate": datetime.now,
@@ -193,7 +206,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         self.assertIsNotNone(silver_schema)
 
     def test_read_silver_positive(self):
-        """Test silver readeer."""
+        """Test silver reader positive."""
         silver_spec_map = DataflowPipelineTests.silver_dataflow_spec_map
         source_details = {
             "sourceDetails": {"database": "bronze", "table": "customer", "path": "tests/resources/delta/customers"}
@@ -208,3 +221,44 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         )
         silver_df = dlt_data_flow.read_silver()
         self.assertIsNotNone(silver_df)
+
+    @patch.object(DataflowPipeline, "write_bronze_with_dqe", return_value={"called"})
+    @patch.object(dlt, "expect_all_or_drop", return_value={"called"})
+    def test_broze_write_dqe(self, expect_all_or_drop, write_bronze_with_dqe):
+        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
+        dlt_data_flow = DataflowPipeline(
+            self.spark,
+            bronze_dataflow_spec,
+            f"{bronze_dataflow_spec.targetDetails['table']}_inputView",
+            f"{bronze_dataflow_spec.targetDetails['table']}_inputQView",
+        )
+        dlt_data_flow.write_bronze()
+        assert write_bronze_with_dqe.called
+
+    @patch.object(DataflowPipeline, "cdc_apply_changes", return_value={"called"})
+    @patch.object(dlt, "expect_all_or_drop", return_value={"called"})
+    def test_broze_write_cdc_apply_changes(self, expect_all_or_drop, cdc_apply_changes):
+        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
+        cdc_apply_changes_json = """{
+            "keys": [
+                "id"
+            ],
+            "sequence_by": "operation_date",
+            "scd_type": "1",
+            "apply_as_deletes": "operation = 'DELETE'",
+            "except_column_list": [
+                "operation",
+                "operation_date",
+                "_rescued_data"
+            ]
+        }"""
+        bronze_dataflow_spec.cdcApplyChanges = cdc_apply_changes_json
+        dlt_data_flow = DataflowPipeline(
+            self.spark,
+            bronze_dataflow_spec,
+            f"{bronze_dataflow_spec.targetDetails['table']}_inputView",
+            f"{bronze_dataflow_spec.targetDetails['table']}_inputQView",
+        )
+        dlt_data_flow.write_bronze()
+        assert cdc_apply_changes.called
+
