@@ -29,6 +29,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "cdcApplyChanges": None,
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
+        "quarantineTableProperties": {},
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",

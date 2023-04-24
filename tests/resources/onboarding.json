@@ -44,7 +44,8 @@
       "silver_table_path_dev": "tests/resources/data/silver/customers",
       "silver_table_properties": {
          "pipelines.autoOptimize.managed": "false",
-         "pipelines.reset.allowed": "false"
+         "pipelines.reset.allowed": "false",
+         "pipelines.autoOptimize.zOrderCols": "id,email"
       },
       "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
    },
@@ -72,8 +73,7 @@
       "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/transactions",
       "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/transactions",
       "bronze_table_properties": {
-         "pipelines.reset.allowed": "false",
-         "pipelines.autoOptimize.managed": "false"
+         "pipelines.reset.allowed": "false"
       },
       "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/transactions/bronze_data_quality_expectations.json",
       "bronze_database_quarantine_dev": "bronze",
@@ -100,10 +100,11 @@
       },
       "silver_partition_columns": "",
       "silver_table_path_dev": "tests/resources/data/silver/transactions",
+      "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
       "silver_table_properties": {
-         "pipelines.reset.allowed": "false"
-      },
-      "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
+         "pipelines.reset.allowed": "false",
+         "pipelines.autoOptimize.zOrderCols": "id, customer_id"
+      }
    },
    {
       "data_flow_id": "103",

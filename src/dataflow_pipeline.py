@@ -114,10 +114,11 @@ class DataflowPipeline:
             format="delta"
             # #f"{source_database}.{source_table}"
         ).selectExpr(*select_exp)
-        where_clause_str = " ".join(where_clause)
-        if len(where_clause_str.strip()) > 0:
-            for where_clause in where_clause:
-                raw_delta_table_stream = raw_delta_table_stream.where(where_clause)
+        if where_clause:
+            where_clause_str = " ".join(where_clause)
+            if len(where_clause_str.strip()) > 0:
+                for where_clause in where_clause:
+                    raw_delta_table_stream = raw_delta_table_stream.where(where_clause)
         return raw_delta_table_stream.schema
 
     def read_silver(self) -> DataFrame:
@@ -134,10 +135,11 @@ class DataflowPipeline:
         ).selectExpr(
             *select_exp
         )  # .selectExpr(select_exp.split(","))
-        where_clause_str = " ".join(where_clause)
-        if len(where_clause_str.strip()) > 0:
-            for where_clause in where_clause:
-                raw_delta_table_stream = raw_delta_table_stream.where(where_clause)
+        if where_clause:
+            where_clause_str = " ".join(where_clause)
+            if len(where_clause_str.strip()) > 0:
+                for where_clause in where_clause:
+                    raw_delta_table_stream = raw_delta_table_stream.where(where_clause)
         return raw_delta_table_stream
 
     def write_to_delta(self):
@@ -215,7 +217,7 @@ class DataflowPipeline:
                     dlt.table(
                         self.write_to_delta,
                         name=f"{bronzeDataflowSpec.quarantineTargetDetails['table']}",
-                        table_properties=bronzeDataflowSpec.tableProperties,
+                        table_properties=bronzeDataflowSpec.quarantineTableProperties,
                         partition_cols=q_partition_cols,
                         path=bronzeDataflowSpec.quarantineTargetDetails["path"],
                         comment=f"""bronze dlt quarantine_path table

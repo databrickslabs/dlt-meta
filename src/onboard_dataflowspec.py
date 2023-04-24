@@ -174,7 +174,9 @@ class OnboardDataflowspec:
         silver_transformation_json_files = silver_transformation_json_file.collect()
         for row in silver_transformation_json_files:
             silver_transformation_json_df = silver_transformation_json_df.union(
-                self.spark.read.option("multiline", "true").json(row[f"silver_transformation_json_{env}"])
+                self.spark.read.option("multiline", "true")
+                    .schema(columns)
+                    .json(row[f"silver_transformation_json_{env}"])
             )
 
         logger.info(silver_transformation_json_file)
@@ -284,6 +286,13 @@ class OnboardDataflowspec:
             )
         self.register_bronze_dataflow_spec_tables()
 
+    def __delete_none(self, _dict):
+        """Delete None values recursively from all of the dictionaries"""
+        filtered = {k: v for k, v in _dict.items() if v is not None}
+        _dict.clear()
+        _dict.update(filtered)
+        return _dict
+
     def __get_onboarding_file_dataframe(self, onboarding_file_path):
         onboarding_df = None
         if onboarding_file_path.lower().endswith(".json"):
@@ -360,6 +369,7 @@ class OnboardDataflowspec:
             "cdcApplyChanges",
             "dataQualityExpectations",
             "quarantineTargetDetails",
+            "quarantineTableProperties"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -380,6 +390,7 @@ class OnboardDataflowspec:
                 StructField("cdcApplyChanges", StringType(), True),
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField("quarantineTargetDetails", MapType(StringType(), StringType(), True), True),
+                StructField("quarantineTableProperties", MapType(StringType(), StringType(), True), True)
             ]
         )
         data = []
@@ -401,10 +412,10 @@ class OnboardDataflowspec:
             schema = None
             bronze_reader_options_json = onboarding_row["bronze_reader_options"]
             if bronze_reader_options_json:
-                bronze_reader_config_options = bronze_reader_options_json.asDict()
+                bronze_reader_config_options = self.__delete_none(bronze_reader_options_json.asDict())
             source_details_json = onboarding_row["source_details"]
             if source_details_json:
-                source_details_file = source_details_json.asDict()
+                source_details_file = self.__delete_none(source_details_json.asDict())
                 if source_format.lower() == "cloudfiles":
                     if f"source_path_{env}" in source_details_file:
                         source_details["path"] = source_details_file[f"source_path_{env}"]
@@ -436,7 +447,7 @@ class OnboardDataflowspec:
 
             bronze_table_properties = {}
             if "bronze_table_properties" in onboarding_row and onboarding_row["bronze_table_properties"]:
-                bronze_table_properties = onboarding_row["bronze_table_properties"].asDict()
+                bronze_table_properties = self.__delete_none(onboarding_row["bronze_table_properties"].asDict())
 
             partition_columns = [""]
             if "bronze_partition_columns" in onboarding_row and onboarding_row["bronze_partition_columns"]:
@@ -445,9 +456,10 @@ class OnboardDataflowspec:
             cdc_apply_changes = None
             if "bronze_cdc_apply_changes" in onboarding_row and onboarding_row["bronze_cdc_apply_changes"]:
                 self.__validateApplyChanges(onboarding_row, "bronze")
-                cdc_apply_changes = json.dumps(onboarding_row["bronze_cdc_apply_changes"].asDict())
+                cdc_apply_changes = json.dumps(self.__delete_none(onboarding_row["bronze_cdc_apply_changes"].asDict()))
             data_quality_expectations = None
             quarantine_target_details = {}
+            quarantine_table_properties = {}
             if f"bronze_data_quality_expectations_json_{env}" in onboarding_row:
                 bronze_data_quality_expectations_json = onboarding_row[f"bronze_data_quality_expectations_json_{env}"]
                 if bronze_data_quality_expectations_json:
@@ -466,6 +478,12 @@ class OnboardDataflowspec:
                             "path": onboarding_row[f"bronze_quarantine_table_path_{env}"],
                             "partition_columns": quarantine_table_partition_columns,
                         }
+                        if (
+                            "bronze_quarantine_table_properties" in onboarding_row
+                            and onboarding_row["bronze_quarantine_table_properties"]
+                        ):
+                            quarantine_table_properties = self.__delete_none(
+                                onboarding_row["bronze_quarantine_table_properties"].asDict())
             bronze_row = (
                 bronze_data_flow_spec_id,
                 bronze_data_flow_spec_group,
@@ -480,6 +498,7 @@ class OnboardDataflowspec:
                 cdc_apply_changes,
                 data_quality_expectations,
                 quarantine_target_details,
+                quarantine_table_properties
             )
             data.append(bronze_row)
             # logger.info(bronze_parition_columns)
@@ -595,7 +614,7 @@ class OnboardDataflowspec:
 
             silver_table_properties = {}
             if "silver_table_properties" in onboarding_row and onboarding_row["silver_table_properties"]:
-                silver_table_properties = onboarding_row["silver_table_properties"].asDict()
+                silver_table_properties = self.__delete_none(onboarding_row["silver_table_properties"].asDict())
 
             silver_parition_columns = [""]
             if "silver_partition_columns" in onboarding_row and onboarding_row["silver_partition_columns"]:
@@ -606,9 +625,7 @@ class OnboardDataflowspec:
                 self.__validateApplyChanges(onboarding_row, "silver")
                 silver_cdc_apply_changes_row = onboarding_row["silver_cdc_apply_changes"]
                 if self.onboard_file_type == "json":
-                    silver_cdc_apply_changes = json.dumps(silver_cdc_apply_changes_row.asDict())
-                elif self.onboard_file_type == "csv" and len(silver_cdc_apply_changes_row.strip()) > 0:
-                    silver_cdc_apply_changes = json.loads(silver_cdc_apply_changes_row)
+                    silver_cdc_apply_changes = json.dumps(self.__delete_none(silver_cdc_apply_changes_row.asDict()))
 
             silver_row = (
                 silver_data_flow_spec_id,

@@ -1,9 +1,6 @@
 [
     {
         "target_table": "iot_cdc",
-        "target_partition_cols": [
-            ""
-        ],
         "select_exp": [
             "battery_level",
             "c02_level",
@@ -12,9 +9,6 @@
             "device_id",
             "device_name",
             "humidity"
-        ],
-        "where_clause": [
-            ""
         ]
     }
 ]

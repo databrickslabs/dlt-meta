@@ -31,6 +31,7 @@ class BronzeDataflowSpec:
     cdcApplyChanges: str
     dataQualityExpectations: str
     quarantineTargetDetails: map
+    quarantineTableProperties: map
     version: str
     createDate: datetime
     createdBy: str
