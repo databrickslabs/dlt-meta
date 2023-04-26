@@ -1,7 +1,7 @@
 ---
 title: "Launch Generic DLT pipeline"
 date: 2021-08-04T14:25:26-04:00
-weight: 18
+weight: 20
 draft: false
 ---
 

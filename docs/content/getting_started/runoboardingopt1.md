@@ -1,11 +1,11 @@
 ---
-title: "Launch Onboarding job"
+title: "Running Onboarding"
 date: 2021-08-04T14:25:26-04:00
 weight: 17
 draft: false
 ---
 
-
+#### Option#1: Python whl job
 1. Go to your Databricks landing page and do one of the following:
 
 2. In the sidebar, click Jobs Icon Workflows and click Create Job Button.

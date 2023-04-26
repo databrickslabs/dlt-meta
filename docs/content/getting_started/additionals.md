@@ -1,7 +1,7 @@
 ---
 title: "Additionals"
 date: 2021-08-04T14:25:26-04:00
-weight: 19
+weight: 21
 draft: false
 ---
  This is easist way to launch dlt-meta to your databricks workspace with following steps.
