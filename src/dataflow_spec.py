@@ -70,8 +70,8 @@ class CDCApplyChanges:
     sequence_by: str
     where: str
     ignore_null_updates: bool
-    apply_as_deletes: bool
-    apply_as_truncates: bool
+    apply_as_deletes: str
+    apply_as_truncates: str
     column_list: list
     except_column_list: list
     scd_type: str

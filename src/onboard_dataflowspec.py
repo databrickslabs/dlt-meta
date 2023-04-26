@@ -405,7 +405,7 @@ class OnboardDataflowspec:
                 raise Exception(f"Source format not provided for row={onboarding_row}")
 
             source_format = onboarding_row["source_format"]
-            if source_format.lower() not in ["cloudfiles", "eventhub", "kafka"]:
+            if source_format.lower() not in ["cloudfiles", "eventhub", "kafka", "delta"]:
                 raise Exception(f"Source format {source_format} not supported in DLT-META! row={onboarding_row}")
             source_details = {}
             bronze_reader_config_options = {}
@@ -416,7 +416,7 @@ class OnboardDataflowspec:
             source_details_json = onboarding_row["source_details"]
             if source_details_json:
                 source_details_file = self.__delete_none(source_details_json.asDict())
-                if source_format.lower() == "cloudfiles":
+                if source_format.lower() == "cloudfiles" or source_format.lower() == "delta":
                     if f"source_path_{env}" in source_details_file:
                         source_details["path"] = source_details_file[f"source_path_{env}"]
                     if "source_database" in source_details_file:
@@ -425,8 +425,8 @@ class OnboardDataflowspec:
                         source_details["source_table"] = source_details_file["source_table"]
                 elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
                     source_details = source_details_file
-                if "source_schema_path" in source_details:
-                    source_schema_path = source_details["source_schema_path"]
+                if "source_schema_path" in source_details_file:
+                    source_schema_path = source_details_file["source_schema_path"]
                     if source_schema_path:
                         if self.bronze_schema_mapper is not None:
                             schema = self.bronze_schema_mapper(source_schema_path, self.spark)

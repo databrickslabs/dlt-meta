@@ -1,7 +1,7 @@
 {
-  "expect_or_drop":{
-      "parsed_records":"parsed_records IS NOT NULL"    
-   },
+  "expect_or_drop": {
+    "parsed_records": "parsed_records IS NOT NULL"
+  },
   "expect_or_quarantine": {
     "corrupt_records": "parsed_records IS NULL"
   }

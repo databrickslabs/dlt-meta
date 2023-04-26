@@ -3,7 +3,8 @@ import json
 import logging
 import dlt
 from pyspark.sql import DataFrame
-from pyspark.sql.types import StructType, StructField
+from pyspark.sql.functions import expr
+from pyspark.sql.types import IntegerType, StructType, StructField
 
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
 from src.pipeline_readers import PipelineReaders
@@ -95,7 +96,7 @@ class DataflowPipeline:
         """Read Bronze Table."""
         logger.info("In read_bronze func")
         bronze_dataflow_spec: BronzeDataflowSpec = self.dataflowSpec
-        if bronze_dataflow_spec.sourceFormat == "cloudFiles":
+        if bronze_dataflow_spec.sourceFormat == "cloudFiles" or bronze_dataflow_spec.sourceFormat == "delta":
             return PipelineReaders.read_dlt_cloud_files(self.spark, bronze_dataflow_spec, self.schema_json)
         elif bronze_dataflow_spec.sourceFormat == "eventhub" or bronze_dataflow_spec.sourceFormat == "kafka":
             return PipelineReaders.read_kafka(self.spark, bronze_dataflow_spec, self.schema_json)
@@ -245,11 +246,8 @@ class DataflowPipeline:
             struct_schema = modified_schema
 
         if cdc_apply_changes.scd_type == "2":
-            for field in struct_schema.fields:
-                if field.name == cdc_apply_changes.sequence_by:
-                    struct_schema.add(StructField("__START_AT", field.dataType))
-                    struct_schema.add(StructField("__END_AT", field.dataType))
-                    break
+            struct_schema.add(StructField("__START_AT", IntegerType()))
+            struct_schema.add(StructField("__END_AT", IntegerType()))
 
         dlt.create_streaming_live_table(
             name=f"{self.dataflowSpec.targetDetails['table']}",
@@ -259,6 +257,14 @@ class DataflowPipeline:
             schema=struct_schema,
         )
 
+        apply_as_deletes = None
+        if cdc_apply_changes.apply_as_deletes:
+            apply_as_deletes = expr(cdc_apply_changes.apply_as_deletes)
+
+        apply_as_truncates = None
+        if cdc_apply_changes.apply_as_truncates:
+            apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
+
         dlt.apply_changes(
             target=f"{self.dataflowSpec.targetDetails['table']}",
             source=self.view_name,
@@ -266,8 +272,8 @@ class DataflowPipeline:
             sequence_by=cdc_apply_changes.sequence_by,
             where=cdc_apply_changes.where,
             ignore_null_updates=cdc_apply_changes.ignore_null_updates,
-            apply_as_deletes=cdc_apply_changes.apply_as_deletes,
-            apply_as_truncates=cdc_apply_changes.apply_as_truncates,
+            apply_as_deletes=apply_as_deletes,
+            apply_as_truncates=apply_as_truncates,
             column_list=cdc_apply_changes.column_list,
             except_column_list=cdc_apply_changes.except_column_list,
             stored_as_scd_type=cdc_apply_changes.scd_type,

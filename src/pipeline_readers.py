@@ -31,7 +31,7 @@ class PipelineReaders:
         source_path = bronze_dataflow_spec.sourceDetails["path"]
         reader_config_options = bronze_dataflow_spec.readerConfigOptions
 
-        if schema_json:
+        if schema_json and bronze_dataflow_spec.sourceFormat.lower() != "delta":
             schema = StructType.fromJson(schema_json)
             return (
                 spark.readStream.format(bronze_dataflow_spec.sourceFormat)

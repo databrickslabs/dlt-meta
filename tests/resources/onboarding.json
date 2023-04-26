@@ -7,7 +7,8 @@
       "source_details": {
          "source_database": "APP",
          "source_table": "CUSTOMERS",
-         "source_path_dev": "tests/resources/data/customers"
+         "source_path_dev": "tests/resources/data/customers",
+         "source_schema_path": "tests/resources/schema/customer_schema.ddl"
       },
       "bronze_database_dev": "bronze",
       "bronze_database_staging": "bronze",
