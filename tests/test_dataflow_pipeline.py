@@ -261,4 +261,3 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         )
         dlt_data_flow.write_bronze()
         assert cdc_apply_changes.called
-
