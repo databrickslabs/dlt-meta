@@ -10,6 +10,10 @@
       "operation_date",
       "operation",
       "_rescued_data"
+    ],
+    "where_clause": [
+      "id IS NOT NULL",
+      "email is not NULL"
     ]
   },
   {
@@ -22,6 +26,10 @@
       "operation_date",
       "operation",
       "_rescued_data"
+    ],
+    "where_clause": [
+      "id IS NOT NULL",
+      "amount is not NULL"
     ]
   },
   {

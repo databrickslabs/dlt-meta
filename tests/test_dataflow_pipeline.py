@@ -10,10 +10,9 @@ sys.modules["dlt"] = MagicMock()
 from src.dataflow_pipeline import DataflowPipeline
 from src.onboard_dataflowspec import OnboardDataflowspec
 
-spark = MagicMock()
-spark.readStream = MagicMock()
 dlt = MagicMock()
 dlt.expect_all_or_drop = MagicMock()
+raw_delta_table_stream = MagicMock()
 
 
 class DataflowPipelineTests(DLTFrameworkTestCase):
@@ -27,7 +26,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "readerConfigOptions": {
         },
         "targetFormat": "delta",
-        "targetDetails": {"database": "bronze", "table": "customer", "path": "tests/localtest/delta/customers"},
+        "targetDetails": {"database": "bronze", "table": "customer", "path": "tests/resources/delta/customers"},
         "tableProperties": {},
         "schema": None,
         "partitionColumns": [""],
@@ -56,6 +55,13 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "apply_as_deletes": "operation = 'DELETE'",
         "except_column_list": ["operation", "operation_date", "_rescued_data"],
     }
+    silver_cdc_apply_changes_scd2 = {
+        "keys": ["id"],
+        "sequence_by": "operation_date",
+        "scd_type": "2",
+        "apply_as_deletes": "operation = 'DELETE'",
+        "except_column_list": ["operation", "operation_date", "_rescued_data"],
+    }
     silver_dataflow_spec_map = {
         "dataFlowId": "1",
         "dataFlowGroup": "A1",
@@ -79,8 +85,8 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             "operation",
             "_rescued_data",
         ],
-        "whereClause": [],
-        "partitionColumns": [""],
+        "whereClause": ["id IS NOT NULL", "email is not NULL"],
+        "partitionColumns": ["operation_date"],
         "cdcApplyChanges": json.dumps(silver_cdc_apply_changes),
         "version": "v1",
         "createDate": datetime.now,
@@ -149,6 +155,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             f"{silver_dataflow_spec.targetDetails['table']}_inputView",
             None,
         )
+        self.assertIsNotNone(dlt_data_flow.silver_schema)
         dlt_data_flow.run_dlt()
         assert read.called
 
@@ -205,6 +212,33 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         silver_schema = dlt_data_flow.get_silver_schema()
         self.assertIsNotNone(silver_schema)
 
+    def test_get_silver_schema_where_clause(self):
+        """Test silver schema."""
+        silver_spec_map = DataflowPipelineTests.silver_dataflow_spec_map
+        source_details = {
+            "sourceDetails": {"database": "bronze", "table": "customer", "path": "tests/resources/delta/customers"}
+        }
+        silver_spec_map.update(source_details)
+        silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
+        silver_dataflow_spec.whereClause = None
+        dlt_data_flow = DataflowPipeline(
+            self.spark,
+            silver_dataflow_spec,
+            f"{silver_dataflow_spec.targetDetails['table']}_inputView",
+            None,
+        )
+        silver_schema = dlt_data_flow.get_silver_schema()
+        self.assertIsNotNone(silver_schema)
+        silver_dataflow_spec.whereClause = [" "]
+        dlt_data_flow = DataflowPipeline(
+            self.spark,
+            silver_dataflow_spec,
+            f"{silver_dataflow_spec.targetDetails['table']}_inputView",
+            None,
+        )
+        silver_schema = dlt_data_flow.get_silver_schema()
+        self.assertIsNotNone(silver_schema)
+
     def test_read_silver_positive(self):
         """Test silver reader positive."""
         silver_spec_map = DataflowPipelineTests.silver_dataflow_spec_map
@@ -221,6 +255,44 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         )
         silver_df = dlt_data_flow.read_silver()
         self.assertIsNotNone(silver_df)
+
+        silver_dataflow_spec.whereClause = None
+        dlt_data_flow = DataflowPipeline(
+            self.spark,
+            silver_dataflow_spec,
+            f"{silver_dataflow_spec.targetDetails['table']}_inputView",
+            None,
+        )
+        silver_df = dlt_data_flow.read_silver()
+        self.assertIsNotNone(silver_df)
+        silver_dataflow_spec.whereClause = [" "]
+        dlt_data_flow = DataflowPipeline(
+            self.spark,
+            silver_dataflow_spec,
+            f"{silver_dataflow_spec.targetDetails['table']}_inputView",
+            None,
+        )
+        silver_df = dlt_data_flow.read_silver()
+        self.assertIsNotNone(silver_df)
+
+    @patch.object(DataflowPipeline, "get_silver_schema", return_value={"called"})
+    def test_read_silver_with_where(self, get_silver_schema):
+        """Test silver reader positive."""
+        silver_spec_map = DataflowPipelineTests.silver_dataflow_spec_map
+        source_details = {
+            "sourceDetails": {"database": "bronze", "table": "customer", "path": "tests/resources/delta/customers"}
+        }
+        silver_spec_map.update(source_details)
+        silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
+        dlt_data_flow = DataflowPipeline(
+            self.spark,
+            silver_dataflow_spec,
+            f"{silver_dataflow_spec.targetDetails['table']}_inputView",
+            None,
+        )
+        silver_df = dlt_data_flow.read_silver()
+        self.assertIsNotNone(silver_df)
+        assert get_silver_schema.called
 
     @patch.object(DataflowPipeline, "write_bronze_with_dqe", return_value={"called"})
     @patch.object(dlt, "expect_all_or_drop", return_value={"called"})
@@ -261,3 +333,23 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         )
         dlt_data_flow.write_bronze()
         assert cdc_apply_changes.called
+
+    @patch.object(DataflowPipeline, "cdc_apply_changes", return_value={"called"})
+    def test_cdc_apply_changes_scd_type2(self, cdc_apply_changes):
+        silver_spec_map = DataflowPipelineTests.silver_dataflow_spec_map
+        silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
+        silver_dataflow_spec.cdcApplyChanges = json.dumps(self.silver_cdc_apply_changes_scd2)
+        dlt_data_flow = DataflowPipeline(
+            self.spark,
+            silver_dataflow_spec,
+            f"{silver_dataflow_spec.targetDetails['table']}_inputView",
+            None,
+        )
+        dlt_data_flow.cdc_apply_changes()
+        assert cdc_apply_changes.called
+        dlt_data_flow.cdcApplyChanges.except_column_list = ["operation_date", "_rescued_data"]
+        dlt_data_flow.cdc_apply_changes()
+        assert cdc_apply_changes.called
+        dlt_data_flow.cdc_apply_changes = None
+        with self.assertRaises(Exception):
+            dlt_data_flow.cdc_apply_changes()

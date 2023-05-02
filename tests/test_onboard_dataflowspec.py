@@ -114,3 +114,21 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map)
         with self.assertRaises(Exception):
             onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
+
+    def test_validate_mandatory_fields_bronze(self):
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        del onboarding_params_map["silver_dataflowspec_table"]
+        del onboarding_params_map["silver_dataflowspec_path"]
+        onboarding_params_map["onboarding_file_path"] = self.onboarding_missing_keys_file
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        with self.assertRaises(Exception):
+            onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
+
+    def test_validate_mandatory_fields_silver(self):
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        del onboarding_params_map["bronze_dataflowspec_table"]
+        del onboarding_params_map["bronze_dataflowspec_path"]
+        onboarding_params_map["onboarding_file_path"] = self.onboarding_missing_keys_file
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        with self.assertRaises(Exception):
+            onboardDataFlowSpecs.onboard_silver_dataflow_spec()

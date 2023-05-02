@@ -25,6 +25,7 @@ setup(
     install_requires=INSTALL_REQUIRES,
     extras_require={"dev": DEV_REQUIREMENTS, "IT": IT_REQUIREMENTS},
     author="Ravi Gawai",
+    author_email="databrickslabs@databricks.com",
     license="Databricks License",
     description="DLT-META Framework",
     long_description=long_description,

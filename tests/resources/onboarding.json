@@ -99,7 +99,7 @@
             "_rescued_data"
          ]
       },
-      "silver_partition_columns": "",
+      "silver_partition_columns": "transaction_date",
       "silver_table_path_dev": "tests/resources/data/silver/transactions",
       "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
       "silver_table_properties": {

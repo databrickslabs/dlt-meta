@@ -591,7 +591,7 @@ class OnboardDataflowspec:
 
         onboarding_rows = onboarding_df.collect()
         mandatory_fields = ["data_flow_id", "data_flow_group", "source_details", f"silver_database_{env}",
-                            "silver_table", f"silver_table_path_{env}"]
+                            "silver_table", f"silver_table_path_{env}", f"silver_transformation_json_{env}"]
 
         for onboarding_row in onboarding_rows:
             self.__validate_mandatory_fields(onboarding_row, mandatory_fields)

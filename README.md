@@ -103,17 +103,17 @@ and DLT-META [documentation](https://databrickslabs.github.io/dlt-meta/)
 9. In Parameters, select keyword argument then select JSON. Past below json parameters with :
     ``` 
     {
-                        "database": "dlt_demo",
-                        "onboarding_file_path": "dbfs:/onboarding_files/users_onboarding.json",
-                        "silver_dataflowspec_table": "silver_dataflowspec_table",
-                        "silver_dataflowspec_path": "dbfs:/onboarding_tables_cdc/silver",
-                        "bronze_dataflowspec_table": "bronze_dataflowspec_table", 
-                        "bronze_dataflowspec_path": "dbfs:/onboarding_tables_cdc/bronze",
-                        "overwrite": "True",
-                        "onboard_layer": "bronze_silver",
-                        "env": "dev",
-                        "version": "v1",
-                        "import_author": "Ravi"
+        "database": "dlt_demo",
+        "onboarding_file_path": "dbfs:/onboarding_files/users_onboarding.json",
+        "silver_dataflowspec_table": "silver_dataflowspec_table",
+        "silver_dataflowspec_path": "dbfs:/onboarding_tables_cdc/silver",
+        "bronze_dataflowspec_table": "bronze_dataflowspec_table", 
+        "bronze_dataflowspec_path": "dbfs:/onboarding_tables_cdc/bronze",
+        "overwrite": "True",
+        "onboard_layer": "bronze_silver",
+        "env": "dev",
+        "version": "v1",
+        "import_author": "Ravi"
     } 
     ```
     Alternatly you can enter keyword arguments, click + Add and enter a key and value. Click + Add again to enter more arguments. 
@@ -121,8 +121,6 @@ and DLT-META [documentation](https://databrickslabs.github.io/dlt-meta/)
 10. Click Save task.
 
 11. Run now
-
-12. Make sure job run successfully. Verify metadata in your dataflow spec tables entered in step: 9 e.g ```dlt_demo.bronze_dataflowspec_table``` , ```dlt_demo.silver_dataflowspec_table```
 
 ### Option#2. Notebook
 1. Copy below code to databricks notebook cells

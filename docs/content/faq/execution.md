@@ -27,7 +27,8 @@ DLT-META uses data_flow_group to launch DLT pipelines, so all the tables belongs
 
 **Q. Can we run onboarding for bronze layer only?**
 
-Yes! Remove silver related attributes from onboarding file and call  ```onboard_bronze_dataflow_spec()``` API from ```OnboardDataflowspec```. Similarly you can run silver layer onboarding separately using ```onboard_silver_dataflow_spec()``` API from ```OnboardDataflowspec``` with silver parameters included in ```onboarding_params_map```
+Yes! Remove silver related attributes from onboarding file and call  `onboard_bronze_dataflow_spec()` API from ```OnboardDataflowspec```. Similarly you can run silver layer onboarding separately using `onboard_silver_dataflow_spec()`API from `OnboardDataflowspec` with silver parameters included in `onboarding_params_map`
+
 ```
 onboarding_params_map = {
                       "onboarding_file_path":onboarding_file_path,
