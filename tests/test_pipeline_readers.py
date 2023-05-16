@@ -163,7 +163,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         bronze_map.update(reader_config)
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
         customer_df = PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
-        self.assertIsNotNone(customer_df)        
+        self.assertIsNotNone(customer_df)
 
     @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
     @patch.object(dbutils, "secrets.get", return_value={"called"})

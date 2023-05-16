@@ -27,7 +27,7 @@ draft: false
 8. Click Add.
 
 9. In Parameters, select keyword argument then select JSON. Past below json parameters with :
-    ``` 
+```json 
     {                   
         "onboard_layer": "bronze_silver",
         "database": "dlt_demo",
@@ -41,11 +41,12 @@ draft: false
         "overwrite": "True",
         "env": "dev"
     } 
-    ```
-    Alternatly you can enter keyword arguments, click + Add and enter a key and value. Click + Add again to enter more arguments. 
+```
+
+Alternatly you can enter keyword arguments, click + Add and enter a key and value. Click + Add again to enter more arguments. 
 
 10. Click Save task.
 
 11. Run now
 
-12. Make sure job run successfully. Verify metadata in your dataflow spec tables entered in step: 9 e.g ```dlt_demo.bronze_dataflowspec_table``` , ```dlt_demo.silver_dataflowspec_table```
+12. Make sure job run successfully. Verify metadata in your dataflow spec tables entered in step: 11 e.g ```dlt_demo.bronze_dataflowspec_table``` , ```dlt_demo.silver_dataflowspec_table```

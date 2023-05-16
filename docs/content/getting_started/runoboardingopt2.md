@@ -7,10 +7,9 @@ draft: false
 
 #### Option#2: Notebook 
 1. Copy below code to databricks notebook cells
-```
-%pip install dlt-meta
-```
-```
+```%pip install dlt-meta```
+
+```python 
 onboarding_params_map = {
 		"database": "dlt_demo",
 		"onboarding_file_path": "dbfs:/onboarding_files/users_onboarding.json",
@@ -23,12 +22,12 @@ onboarding_params_map = {
 		"env": "dev",
 		"version": "v1",
 		"import_author": "Ravi"
-} 
+		}
 
 from src.onboard_dataflowspec import OnboardDataflowspec
 OnboardDataflowspec(spark, onboarding_params_map).onboard_dataflow_specs()
-
 ```
+
 2. Specify your onboarding config params in above ```onboarding_params_map```
 
 3. Run notebook cells
