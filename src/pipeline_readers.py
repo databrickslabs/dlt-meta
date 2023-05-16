@@ -47,6 +47,34 @@ class PipelineReaders:
             )
 
     @staticmethod
+    def read_dlt_delta(spark, bronze_dataflow_spec) -> DataFrame:
+        """Read dlt delta.
+
+        Args:
+            spark (_type_): _description_
+            bronze_dataflow_spec (_type_): _description_
+            schema_json (_type_): _description_
+
+        Returns:
+            DataFrame: _description_
+        """
+        logger.info("In read_dlt_cloud_files func")
+        source_path = bronze_dataflow_spec.sourceDetails["path"]
+        reader_config_options = bronze_dataflow_spec.readerConfigOptions
+
+        if reader_config_options and len(reader_config_options) > 0:
+            return (
+                spark.readStream.format(bronze_dataflow_spec.sourceFormat)
+                .options(**reader_config_options)
+                .load(source_path)
+            )
+        else:
+            return (
+                spark.readStream.format(bronze_dataflow_spec.sourceFormat)
+                .load(source_path)
+            )
+
+    @staticmethod
     def get_db_utils(spark):
         """Get databricks utils using DBUtils package."""
         from pyspark.dbutils import DBUtils

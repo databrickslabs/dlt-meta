@@ -98,6 +98,8 @@ class DataflowPipeline:
         bronze_dataflow_spec: BronzeDataflowSpec = self.dataflowSpec
         if bronze_dataflow_spec.sourceFormat == "cloudFiles" or bronze_dataflow_spec.sourceFormat == "delta":
             return PipelineReaders.read_dlt_cloud_files(self.spark, bronze_dataflow_spec, self.schema_json)
+        if bronze_dataflow_spec.sourceFormat == "delta":
+            return PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
         elif bronze_dataflow_spec.sourceFormat == "eventhub" or bronze_dataflow_spec.sourceFormat == "kafka":
             return PipelineReaders.read_kafka(self.spark, bronze_dataflow_spec, self.schema_json)
         else:

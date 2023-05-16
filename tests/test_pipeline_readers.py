@@ -141,6 +141,30 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         customer_df = PipelineReaders.read_dlt_cloud_files(self.spark, bronze_dataflow_spec, schema)
         self.assertIsNotNone(customer_df)
 
+    def test_read_delta_positive(self):
+        """Test read_cloud_files positive."""
+        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
+        source_format_map = {"sourceFormat": "delta"}
+        bronze_map.update(source_format_map)
+        source_details_map = {"sourceDetails": {"path": "tests/resources/delta/customers"}}
+        bronze_map.update(source_details_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        customer_df = PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
+        self.assertIsNotNone(customer_df)
+
+    def test_read_delta_with_read_config_positive(self):
+        """Test read_cloud_files positive."""
+        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
+        source_format_map = {"sourceFormat": "delta"}
+        bronze_map.update(source_format_map)
+        source_details_map = {"sourceDetails": {"path": "tests/resources/delta/customers"}}
+        bronze_map.update(source_details_map)
+        reader_config = {"readerConfigOptions": {"maxFilesPerTrigger": "1"}}
+        bronze_map.update(reader_config)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        customer_df = PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
+        self.assertIsNotNone(customer_df)        
+
     @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
     @patch.object(dbutils, "secrets.get", return_value={"called"})
     def test_get_eventhub_kafka_options(self, get_db_utils, dbutils):

@@ -25,28 +25,28 @@ export DATABRICKS_TOKEN=<DATABRICKS TOKEN> # Account needs permission to create 
 
     5b. Run the command for eventhub ```python integration-tests/run-integration-test.py --cloud_provider_name=azure --dbr_version=11.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer ----eventhub_consumer_accesskey_name=consumer```
 
-        For eventhub integration tests, the following are the prerequisites:
-        1. Needs eventhub instance running
-        2. Using Databricks CLI, Create databricks secrets scope for eventhub keys
-        3. Using Databricks CLI, Create databricks secrets to store producer and consumer keys using the scope created in step 2 
+    For eventhub integration tests, the following are the prerequisites:
+    1. Needs eventhub instance running
+    2. Using Databricks CLI, Create databricks secrets scope for eventhub keys
+    3. Using Databricks CLI, Create databricks secrets to store producer and consumer keys using the scope created in step 2 
 
-        Following are the mandatory arguments for running EventHubs integration test
-        1. Provide your eventhub topic : --eventhub_name
-        2. Provide eventhub namespace : --eventhub_namespace
-        3. Provide eventhub port : --eventhub_port
-        4. Provide databricks secret scope name : ----eventhub_secrets_scope_name
-        5. Provide eventhub producer access key name : --eventhub_producer_accesskey_name
-        6. Provide eventhub access key name : --eventhub_consumer_accesskey_name
+    Following are the mandatory arguments for running EventHubs integration test
+    1. Provide your eventhub topic : --eventhub_name
+    2. Provide eventhub namespace : --eventhub_namespace
+    3. Provide eventhub port : --eventhub_port
+    4. Provide databricks secret scope name : ----eventhub_secrets_scope_name
+    5. Provide eventhub producer access key name : --eventhub_producer_accesskey_name
+    6. Provide eventhub access key name : --eventhub_consumer_accesskey_name
 
 
     5c. Run the command for kafka ```python3 integration-tests/run-integration-test.py --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=kafka --dbfs_path=dbfs:/tmp/DLT-META/ --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092```
 
-        For kafka integration tests, the following are the prerequisites:
-        1. Needs kafka instance running
+    For kafka integration tests, the following are the prerequisites:
+    1. Needs kafka instance running
 
-        Following are the mandatory arguments for running EventHubs integration test
-        1. Provide your kafka topic name : --kafka_topic_name
-        2. Provide kafka_broker : --kafka_broker
+    Following are the mandatory arguments for running EventHubs integration test
+    1. Provide your kafka topic name : --kafka_topic_name
+    2. Provide kafka_broker : --kafka_broker
 
 6. Once finished integration output file will be copied locally to 
 ```integration-test-output_<run_id>.txt```
