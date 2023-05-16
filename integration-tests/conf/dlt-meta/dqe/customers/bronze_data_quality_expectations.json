@@ -5,8 +5,6 @@
       "valid_operation": "operation IN ('APPEND', 'DELETE', 'UPDATE')"
    },
    "expect_or_quarantine": {
-      "rescued_data": "_rescued_data IS NOT NULL",
-      "invalid_id": "id IS NULL",
-      "invalid_operation": "operation IS NULL"
+      "quarantine_rule": "_rescued_data IS NOT NULL OR id IS NULL OR operation IS NULL"
    }
 }

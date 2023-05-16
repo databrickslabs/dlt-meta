@@ -21,16 +21,6 @@
         "bronze_data_quality_expectations_json_it": "{dbfs_path}/integration-tests/conf/dlt-meta/dqe/iot/bronze_data_quality_expectations.json",
         "bronze_database_quarantine_it": "bronze_it_{run_id}",
         "bronze_quarantine_table": "bronze_{run_id}_iot_quarantine",
-        "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/iot_quarantine",
-        "silver_database_it": "",
-        "silver_database_staging": "",
-        "silver_database_prd": "",
-        "silver_table": "",
-        "silver_cdc_apply_changes": "",
-        "silver_partition_columns": "",
-        "silver_table_path_it": "",
-        "silver_table_path_staging": "",
-        "silver_table_path_prd": "",
-        "silver_transformation_json_it": ""
+        "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/iot_quarantine"
     }
 ]

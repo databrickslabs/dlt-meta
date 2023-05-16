@@ -306,7 +306,6 @@
         "timestamp": 1458444054119
     },
     {
-        "device_id": 2,
         "device_name": "sensor-pad-2n2Pea",
         "ip": "213.161.254.1",
         "cca2": "NO",
@@ -315,7 +314,7 @@
         "latitude": 62.470000,
         "longitude": 6.150000,
         "scale": "Celsius",
-        "temp": 11,
+        "temp": 0,
         "humidity": 70,
         "battery_level": 7,
         "c02_level": 1473,
@@ -323,7 +322,6 @@
         "timestamp": 1458444054119
     },
     {
-        "device_id": 2,
         "device_name": "sensor-pad-2n2Pea",
         "ip": "213.161.254.1",
         "cca2": "NO",
@@ -332,7 +330,7 @@
         "latitude": 62.470000,
         "longitude": 6.150000,
         "scale": "Celsius",
-        "temp": 11,
+        "temp": 0,
         "humidity": 70,
         "battery_level": 7,
         "c02_level": 1473,

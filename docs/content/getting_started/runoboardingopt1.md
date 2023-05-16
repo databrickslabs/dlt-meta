@@ -29,17 +29,17 @@ draft: false
 9. In Parameters, select keyword argument then select JSON. Past below json parameters with :
     ``` 
     {                   
-                        "onboard_layer": "bronze_silver",
-                        "database": "dlt_demo",
-                        "onboarding_file_path": "dbfs:/onboarding_files/users_onboarding.json",
-                        "silver_dataflowspec_table": "silver_dataflowspec_table",
-                        "silver_dataflowspec_path": "dbfs:/onboarding_tables_cdc/silver",
-                        "bronze_dataflowspec_table": "bronze_dataflowspec_table",
-                        "import_author": "Ravi",
-                        "version": "v1",
-                        "bronze_dataflowspec_path": "dbfs:/onboarding_tables_cdc/bronze",
-                        "overwrite": "True",
-                        "env": "dev"
+        "onboard_layer": "bronze_silver",
+        "database": "dlt_demo",
+        "onboarding_file_path": "dbfs:/onboarding_files/users_onboarding.json",
+        "silver_dataflowspec_table": "silver_dataflowspec_table",
+        "silver_dataflowspec_path": "dbfs:/onboarding_tables_cdc/silver",
+        "bronze_dataflowspec_table": "bronze_dataflowspec_table",
+        "import_author": "Ravi",
+        "version": "v1",
+        "bronze_dataflowspec_path": "dbfs:/onboarding_tables_cdc/bronze",
+        "overwrite": "True",
+        "env": "dev"
     } 
     ```
     Alternatly you can enter keyword arguments, click + Add and enter a key and value. Click + Add again to enter more arguments. 

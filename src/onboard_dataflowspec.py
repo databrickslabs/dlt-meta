@@ -455,7 +455,7 @@ class OnboardDataflowspec:
 
             cdc_apply_changes = None
             if "bronze_cdc_apply_changes" in onboarding_row and onboarding_row["bronze_cdc_apply_changes"]:
-                self.__validateApplyChanges(onboarding_row, "bronze")
+                self.__validate_apply_changes(onboarding_row, "bronze")
                 cdc_apply_changes = json.dumps(self.__delete_none(onboarding_row["bronze_cdc_apply_changes"].asDict()))
             data_quality_expectations = None
             quarantine_target_details = {}
@@ -507,7 +507,7 @@ class OnboardDataflowspec:
 
         return data_flow_spec_rows_df
 
-    def __validateApplyChanges(self, onboarding_row, layer):
+    def __validate_apply_changes(self, onboarding_row, layer):
         cdc_apply_changes = onboarding_row[f"{layer}_cdc_apply_changes"]
         json_cdc_apply_changes = cdc_apply_changes.asDict()
         logger.info(f"actual mergeInfo={json_cdc_apply_changes}")
@@ -622,7 +622,7 @@ class OnboardDataflowspec:
 
             silver_cdc_apply_changes = None
             if "silver_cdc_apply_changes" in onboarding_row and onboarding_row["silver_cdc_apply_changes"]:
-                self.__validateApplyChanges(onboarding_row, "silver")
+                self.__validate_apply_changes(onboarding_row, "silver")
                 silver_cdc_apply_changes_row = onboarding_row["silver_cdc_apply_changes"]
                 if self.onboard_file_type == "json":
                     silver_cdc_apply_changes = json.dumps(self.__delete_none(silver_cdc_apply_changes_row.asDict()))

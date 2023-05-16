@@ -4,7 +4,6 @@
     "valid_id": "id IS NOT NULL"
   },
   "expect_or_quarantine": {
-    "no_rescued_data": "_rescued_data IS NOT NULL",
-    "valid_id": "id IS NULL"
+    "quarantine_rule": "_rescued_data IS NOT NULL OR id IS NULL OR amount=0"
   }
 }

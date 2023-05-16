@@ -31,12 +31,12 @@ export DATABRICKS_TOKEN=<DATABRICKS TOKEN> # Account needs permission to create 
         3. Using Databricks CLI, Create databricks secrets to store producer and consumer keys using the scope created in step 2 
 
         Following are the mandatory arguments for running EventHubs integration test
-        1. Provide your eventhub topic name : ```--eventhub_name```
-        2. Provide eventhub namespace using ```--eventhub_namespace```
-        3. Provide eventhub port using ```--eventhub_port```
-        4. Provide databricks secret scope name using ```----eventhub_secrets_scope_name```
-        5. Provide eventhub producer access key name using ```--eventhub_producer_accesskey_name```
-        6. Provide eventhub access key name using ```--eventhub_consumer_accesskey_name```
+        1. Provide your eventhub topic : --eventhub_name
+        2. Provide eventhub namespace : --eventhub_namespace
+        3. Provide eventhub port : --eventhub_port
+        4. Provide databricks secret scope name : ----eventhub_secrets_scope_name
+        5. Provide eventhub producer access key name : --eventhub_producer_accesskey_name
+        6. Provide eventhub access key name : --eventhub_consumer_accesskey_name
 
 
     5c. Run the command for kafka ```python3 integration-tests/run-integration-test.py --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=kafka --dbfs_path=dbfs:/tmp/DLT-META/ --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092```
@@ -45,33 +45,28 @@ export DATABRICKS_TOKEN=<DATABRICKS TOKEN> # Account needs permission to create 
         1. Needs kafka instance running
 
         Following are the mandatory arguments for running EventHubs integration test
-        1. Provide your kafka topic name : ```--kafka_topic_name```
-        2. Provide kafka_broker  ```--kafka_broker```
+        1. Provide your kafka topic name : --kafka_topic_name
+        2. Provide kafka_broker : --kafka_broker
 
 6. Once finished integration output file will be copied locally to 
 ```integration-test-output_<run_id>.txt```
 
 7. Output of a successful run should have the following in the file 
 ```
-Generating Onboarding Json file for Integration Test.
-Successfully Generated Onboarding Json file for Integration Test.
-Setting up dlt-meta metadata tables.
-Successfully setup dlt-meta metadata tables.
-Completed Bronze DLT Pipeline.
-Completed Silver DLT Pipeline.
-Validating DLT Bronze and Silver Table Counts...
-Validating Counts for Table bronze_f7d4934efe494de987f364e8d93acaba.transactions_cdc.
-Expected: 10002 Actual: 10002. Passed!
-Validating Counts for Table bronze_f7d4934efe494de987f364e8d93acaba.transactions_cdc_quarantine.
-Expected: 9842 Actual: 9842. Passed!
-Validating Counts for Table bronze_f7d4934efe494de987f364e8d93acaba.customers_cdc.
-Expected: 98928 Actual: 98928. Passed!
-Validating Counts for Table silver_f7d4934efe494de987f364e8d93acaba.transactions.
-Expected: 8759 Actual: 8759. Passed!
-Validating Counts for Table silver_f7d4934efe494de987f364e8d93acaba.customers.
-Expected: 87256 Actual: 87256. Passed!
-DROPPING DB bronze_f7d4934efe494de987f364e8d93acaba
-DROPPING DB silver_f7d4934efe494de987f364e8d93acaba
-DROPPING DB dlt_meta_framework_it_f7d4934efe494de987f364e8d93acaba_f7d4934efe494de987f364e8d93acaba
-Removed Integration test databases
+,0
+0,Completed Bronze DLT Pipeline.
+1,Completed Silver DLT Pipeline.
+2,Validating DLT Bronze and Silver Table Counts...
+3,Validating Counts for Table bronze_7d1d3ccc9e144a85b07c23110ea50133.transactions.
+4,Expected: 10002 Actual: 10002. Passed!
+5,Validating Counts for Table bronze_7d1d3ccc9e144a85b07c23110ea50133.transactions_quarantine.
+6,Expected: 7 Actual: 7. Passed!
+7,Validating Counts for Table bronze_7d1d3ccc9e144a85b07c23110ea50133.customers.
+8,Expected: 98928 Actual: 98923. Failed!
+9,Validating Counts for Table bronze_7d1d3ccc9e144a85b07c23110ea50133.customers_quarantine.
+10,Expected: 1077 Actual: 1077. Passed!
+11,Validating Counts for Table silver_7d1d3ccc9e144a85b07c23110ea50133.transactions.
+12,Expected: 8759 Actual: 8759. Passed!
+13,Validating Counts for Table silver_7d1d3ccc9e144a85b07c23110ea50133.customers.
+14,Expected: 87256 Actual: 87251. Failed!
 ```
