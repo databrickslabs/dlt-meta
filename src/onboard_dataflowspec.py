@@ -174,7 +174,9 @@ class OnboardDataflowspec:
         silver_transformation_json_files = silver_transformation_json_file.collect()
         for row in silver_transformation_json_files:
             silver_transformation_json_df = silver_transformation_json_df.union(
-                self.spark.read.option("multiline", "true").json(row[f"silver_transformation_json_{env}"])
+                self.spark.read.option("multiline", "true")
+                    .schema(columns)
+                    .json(row[f"silver_transformation_json_{env}"])
             )
 
         logger.info(silver_transformation_json_file)
@@ -188,8 +190,6 @@ class OnboardDataflowspec:
             .drop("target_partition_cols")
             .withColumnRenamed("select_exp", "selectExp")
             .withColumnRenamed("where_clause", "whereClause")
-            .withColumn("readerConfigOptions", f.create_map(f.lit(""), f.lit("")))
-            .withColumn("writerConfigOptions", f.create_map(f.lit(""), f.lit("")))
         )
 
         silver_dataflow_spec_df = self.__add_audit_columns(
@@ -286,6 +286,13 @@ class OnboardDataflowspec:
             )
         self.register_bronze_dataflow_spec_tables()
 
+    def __delete_none(self, _dict):
+        """Delete None values recursively from all of the dictionaries"""
+        filtered = {k: v for k, v in _dict.items() if v is not None}
+        _dict.clear()
+        _dict.update(filtered)
+        return _dict
+
     def __get_onboarding_file_dataframe(self, onboarding_file_path):
         onboarding_df = None
         if onboarding_file_path.lower().endswith(".json"):
@@ -333,6 +340,11 @@ class OnboardDataflowspec:
         schema = json.dumps(spark_schema.jsonValue())
         return schema
 
+    def __validate_mandatory_fields(self, onboarding_row, mandatory_fields):
+        for field in mandatory_fields:
+            if not onboarding_row[field]:
+                raise Exception(f"Missing field={field} in onboarding_row")
+
     def __get_bronze_dataflow_spec_dataframe(self, onboarding_df, env):
         """Get bronze dataflow spec method will convert onboarding dataframe to Bronze Dataflowspec dataframe.
 
@@ -351,12 +363,13 @@ class OnboardDataflowspec:
             "readerConfigOptions",
             "targetFormat",
             "targetDetails",
-            "writerConfigOptions",
+            "tableProperties",
             "schema",
             "partitionColumns",
             "cdcApplyChanges",
             "dataQualityExpectations",
             "quarantineTargetDetails",
+            "quarantineTableProperties"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -371,39 +384,39 @@ class OnboardDataflowspec:
                 ),
                 StructField("targetFormat", StringType(), True),
                 StructField("targetDetails", MapType(StringType(), StringType(), True), True),
-                StructField(
-                    "writerConfigOptions",
-                    MapType(StringType(), StringType(), True),
-                    True,
-                ),
+                StructField("tableProperties", MapType(StringType(), StringType(), True), True),
                 StructField("schema", StringType(), True),
                 StructField("partitionColumns", ArrayType(StringType(), True), True),
                 StructField("cdcApplyChanges", StringType(), True),
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField("quarantineTargetDetails", MapType(StringType(), StringType(), True), True),
+                StructField("quarantineTableProperties", MapType(StringType(), StringType(), True), True)
             ]
         )
         data = []
         onboarding_rows = onboarding_df.collect()
+        mandatory_fields = ["data_flow_id", "data_flow_group", "source_details", f"bronze_database_{env}",
+                            "bronze_table", "bronze_reader_options", f"bronze_table_path_{env}"]
         for onboarding_row in onboarding_rows:
+            self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
             bronze_data_flow_spec_id = onboarding_row["data_flow_id"]
             bronze_data_flow_spec_group = onboarding_row["data_flow_group"]
             if "source_format" not in onboarding_row:
                 raise Exception(f"Source format not provided for row={onboarding_row}")
 
             source_format = onboarding_row["source_format"]
-            if source_format.lower() not in ["cloudfiles", "eventhub", "kafka"]:
+            if source_format.lower() not in ["cloudfiles", "eventhub", "kafka", "delta"]:
                 raise Exception(f"Source format {source_format} not supported in DLT-META! row={onboarding_row}")
             source_details = {}
             bronze_reader_config_options = {}
             schema = None
             bronze_reader_options_json = onboarding_row["bronze_reader_options"]
             if bronze_reader_options_json:
-                bronze_reader_config_options = bronze_reader_options_json.asDict()
+                bronze_reader_config_options = self.__delete_none(bronze_reader_options_json.asDict())
             source_details_json = onboarding_row["source_details"]
             if source_details_json:
-                source_details_file = source_details_json.asDict()
-                if source_format.lower() == "cloudfiles":
+                source_details_file = self.__delete_none(source_details_json.asDict())
+                if source_format.lower() == "cloudfiles" or source_format.lower() == "delta":
                     if f"source_path_{env}" in source_details_file:
                         source_details["path"] = source_details_file[f"source_path_{env}"]
                     if "source_database" in source_details_file:
@@ -412,8 +425,8 @@ class OnboardDataflowspec:
                         source_details["source_table"] = source_details_file["source_table"]
                 elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
                     source_details = source_details_file
-                if "source_schema_path" in source_details:
-                    source_schema_path = source_details["source_schema_path"]
+                if "source_schema_path" in source_details_file:
+                    source_schema_path = source_details_file["source_schema_path"]
                     if source_schema_path:
                         if self.bronze_schema_mapper is not None:
                             schema = self.bronze_schema_mapper(source_schema_path, self.spark)
@@ -432,7 +445,9 @@ class OnboardDataflowspec:
                 "path": onboarding_row["bronze_table_path_{}".format(env)],
             }
 
-            bronze_writer_config_options = {}
+            bronze_table_properties = {}
+            if "bronze_table_properties" in onboarding_row and onboarding_row["bronze_table_properties"]:
+                bronze_table_properties = self.__delete_none(onboarding_row["bronze_table_properties"].asDict())
 
             partition_columns = [""]
             if "bronze_partition_columns" in onboarding_row and onboarding_row["bronze_partition_columns"]:
@@ -440,10 +455,11 @@ class OnboardDataflowspec:
 
             cdc_apply_changes = None
             if "bronze_cdc_apply_changes" in onboarding_row and onboarding_row["bronze_cdc_apply_changes"]:
-                self.__validateApplyChanges(onboarding_row, "bronze")
-                cdc_apply_changes = json.dumps(onboarding_row["bronze_cdc_apply_changes"].asDict())
+                self.__validate_apply_changes(onboarding_row, "bronze")
+                cdc_apply_changes = json.dumps(self.__delete_none(onboarding_row["bronze_cdc_apply_changes"].asDict()))
             data_quality_expectations = None
             quarantine_target_details = {}
+            quarantine_table_properties = {}
             if f"bronze_data_quality_expectations_json_{env}" in onboarding_row:
                 bronze_data_quality_expectations_json = onboarding_row[f"bronze_data_quality_expectations_json_{env}"]
                 if bronze_data_quality_expectations_json:
@@ -462,6 +478,12 @@ class OnboardDataflowspec:
                             "path": onboarding_row[f"bronze_quarantine_table_path_{env}"],
                             "partition_columns": quarantine_table_partition_columns,
                         }
+                        if (
+                            "bronze_quarantine_table_properties" in onboarding_row
+                            and onboarding_row["bronze_quarantine_table_properties"]
+                        ):
+                            quarantine_table_properties = self.__delete_none(
+                                onboarding_row["bronze_quarantine_table_properties"].asDict())
             bronze_row = (
                 bronze_data_flow_spec_id,
                 bronze_data_flow_spec_group,
@@ -470,12 +492,13 @@ class OnboardDataflowspec:
                 bronze_reader_config_options,
                 bronze_target_format,
                 bronze_target_details,
-                bronze_writer_config_options,
+                bronze_table_properties,
                 schema,
                 partition_columns,
                 cdc_apply_changes,
                 data_quality_expectations,
                 quarantine_target_details,
+                quarantine_table_properties
             )
             data.append(bronze_row)
             # logger.info(bronze_parition_columns)
@@ -484,7 +507,7 @@ class OnboardDataflowspec:
 
         return data_flow_spec_rows_df
 
-    def __validateApplyChanges(self, onboarding_row, layer):
+    def __validate_apply_changes(self, onboarding_row, layer):
         cdc_apply_changes = onboarding_row[f"{layer}_cdc_apply_changes"]
         json_cdc_apply_changes = cdc_apply_changes.asDict()
         logger.info(f"actual mergeInfo={json_cdc_apply_changes}")
@@ -542,7 +565,7 @@ class OnboardDataflowspec:
             "readerConfigOptions",
             "targetFormat",
             "targetDetails",
-            "writerConfigOptions",
+            "tableProperties",
             "partitionColumns",
             "cdcApplyChanges",
         ]
@@ -559,11 +582,7 @@ class OnboardDataflowspec:
                 ),
                 StructField("targetFormat", StringType(), True),
                 StructField("targetDetails", MapType(StringType(), StringType(), True), True),
-                StructField(
-                    "writerConfigOptions",
-                    MapType(StringType(), StringType(), True),
-                    True,
-                ),
+                StructField("tableProperties", MapType(StringType(), StringType(), True), True),
                 StructField("partitionColumns", ArrayType(StringType(), True), True),
                 StructField("cdcApplyChanges", StringType(), True),
             ]
@@ -571,8 +590,11 @@ class OnboardDataflowspec:
         data = []
 
         onboarding_rows = onboarding_df.collect()
+        mandatory_fields = ["data_flow_id", "data_flow_group", "source_details", f"silver_database_{env}",
+                            "silver_table", f"silver_table_path_{env}", f"silver_transformation_json_{env}"]
 
         for onboarding_row in onboarding_rows:
+            self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
             silver_data_flow_spec_id = onboarding_row["data_flow_id"]
             silver_data_flow_spec_group = onboarding_row["data_flow_group"]
             silver_reader_config_options = {}
@@ -590,17 +612,20 @@ class OnboardDataflowspec:
                 "path": onboarding_row["silver_table_path_{}".format(env)],
             }
 
-            silver_writer_config_options = {}
+            silver_table_properties = {}
+            if "silver_table_properties" in onboarding_row and onboarding_row["silver_table_properties"]:
+                silver_table_properties = self.__delete_none(onboarding_row["silver_table_properties"].asDict())
 
-            silver_parition_columns = [onboarding_row["silver_partition_columns"]]  # TODO correct typo in tsv
+            silver_parition_columns = [""]
+            if "silver_partition_columns" in onboarding_row and onboarding_row["silver_partition_columns"]:
+                silver_parition_columns = [onboarding_row["silver_partition_columns"]]
+
             silver_cdc_apply_changes = None
             if "silver_cdc_apply_changes" in onboarding_row and onboarding_row["silver_cdc_apply_changes"]:
-                self.__validateApplyChanges(onboarding_row, "silver")
+                self.__validate_apply_changes(onboarding_row, "silver")
                 silver_cdc_apply_changes_row = onboarding_row["silver_cdc_apply_changes"]
                 if self.onboard_file_type == "json":
-                    silver_cdc_apply_changes = json.dumps(silver_cdc_apply_changes_row.asDict())
-                elif self.onboard_file_type == "csv" and len(silver_cdc_apply_changes_row.strip()) > 0:
-                    silver_cdc_apply_changes = json.loads(silver_cdc_apply_changes_row)
+                    silver_cdc_apply_changes = json.dumps(self.__delete_none(silver_cdc_apply_changes_row.asDict()))
 
             silver_row = (
                 silver_data_flow_spec_id,
@@ -610,7 +635,7 @@ class OnboardDataflowspec:
                 silver_reader_config_options,
                 silver_target_format,
                 silver_target_details,
-                silver_writer_config_options,
+                silver_table_properties,
                 silver_parition_columns,
                 silver_cdc_apply_changes,
             )

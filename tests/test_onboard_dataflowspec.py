@@ -68,10 +68,10 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         bronze_df_rows = bronze_dataflowSpec_df.collect()
         for bronze_df_row in bronze_df_rows:
             bronze_row = BronzeDataflowSpec(**bronze_df_row.asDict())
-            if bronze_row.dataFlowId == "100":
-                self.assertTrue(bronze_row.partitionColumns == ["operation_date"])
-            if bronze_row.dataFlowId == "101":
-                self.assertTrue(bronze_row.partitionColumns == ["transaction_date"])
+            if bronze_row.dataFlowId in ["100", "101"]:
+                self.assertIsNone(bronze_row.readerConfigOptions.get("cloudFiles.rescuedDataColumn"))
+            if bronze_row.dataFlowId == "103":
+                self.assertEqual(bronze_row.readerConfigOptions.get("maxOffsetsPerTrigger"), "60000")
 
     def test_onboardBronzeDataflowSpec_positive(self):
         """Test for onboardDataflowspec."""
@@ -114,3 +114,21 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map)
         with self.assertRaises(Exception):
             onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
+
+    def test_validate_mandatory_fields_bronze(self):
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        del onboarding_params_map["silver_dataflowspec_table"]
+        del onboarding_params_map["silver_dataflowspec_path"]
+        onboarding_params_map["onboarding_file_path"] = self.onboarding_missing_keys_file
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        with self.assertRaises(Exception):
+            onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
+
+    def test_validate_mandatory_fields_silver(self):
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        del onboarding_params_map["bronze_dataflowspec_table"]
+        del onboarding_params_map["bronze_dataflowspec_path"]
+        onboarding_params_map["onboarding_file_path"] = self.onboarding_missing_keys_file
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        with self.assertRaises(Exception):
+            onboardDataFlowSpecs.onboard_silver_dataflow_spec()

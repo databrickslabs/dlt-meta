@@ -185,6 +185,7 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
             None,
             None,
             None,
+            None
         )
         spark_schema = DataflowSpecUtils.get_schema_json(self.spark, dataflowSpec)
         self.assertIsNotNone(spark_schema)

@@ -31,7 +31,7 @@ class PipelineReaders:
         source_path = bronze_dataflow_spec.sourceDetails["path"]
         reader_config_options = bronze_dataflow_spec.readerConfigOptions
 
-        if schema_json:
+        if schema_json and bronze_dataflow_spec.sourceFormat.lower() != "delta":
             schema = StructType.fromJson(schema_json)
             return (
                 spark.readStream.format(bronze_dataflow_spec.sourceFormat)
@@ -43,6 +43,32 @@ class PipelineReaders:
             return (
                 spark.readStream.format(bronze_dataflow_spec.sourceFormat)
                 .options(**reader_config_options)
+                .load(source_path)
+            )
+
+    @staticmethod
+    def read_dlt_delta(spark, bronze_dataflow_spec) -> DataFrame:
+        """Read dlt delta.
+
+        Args:
+            spark (_type_): _description_
+            bronze_dataflow_spec (_type_): _description_
+        Returns:
+            DataFrame: _description_
+        """
+        logger.info("In read_dlt_cloud_files func")
+        source_path = bronze_dataflow_spec.sourceDetails["path"]
+        reader_config_options = bronze_dataflow_spec.readerConfigOptions
+
+        if reader_config_options and len(reader_config_options) > 0:
+            return (
+                spark.readStream.format(bronze_dataflow_spec.sourceFormat)
+                .options(**reader_config_options)
+                .load(source_path)
+            )
+        else:
+            return (
+                spark.readStream.format(bronze_dataflow_spec.sourceFormat)
                 .load(source_path)
             )
 
@@ -136,7 +162,12 @@ class PipelineReaders:
                 }
                 kafka_options = {**kafka_base_ops, **kafka_ssl_conn, **bronze_dataflow_spec.readerConfigOptions}
             else:
-                raise Exception(f"Kafka ssl options not provided! provided options are :{source_details_map}")
+                params = ["kafka.ssl.truststore.secrets.scope",
+                          "kafka.ssl.truststore.secrets.key",
+                          "kafka.ssl.keystore.secrets.scope",
+                          "kafka.ssl.keystore.secrets.key"
+                          ]
+                raise Exception(f"Kafka ssl required params are: {params}! provided options are :{source_details_map}")
         else:
             kafka_options = {**kafka_base_ops, **bronze_dataflow_spec.readerConfigOptions}
         return kafka_options

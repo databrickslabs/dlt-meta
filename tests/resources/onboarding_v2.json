@@ -15,10 +15,8 @@
       "bronze_table": "customers_cdc",
       "bronze_reader_options": {
          "cloudFiles.format": "json",
-         "cloudFiles.inferColumnTypes": "true",
-         "cloudFiles.rescuedDataColumn": "_rescued_data"
+         "cloudFiles.inferColumnTypes": "true"
       },
-      "bronze_partition_columns": "operation_date",
       "bronze_table_path_dev": "tests/resources/delta/customers",
       "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/customers",
       "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/customers",
@@ -36,14 +34,10 @@
          "apply_as_deletes": "operation = 'DELETE'",
          "except_column_list": [
             "operation",
-            "operation_date",
-            "_rescued_data"
+            "operation_date"
          ]
       },
-      "silver_partition_columns": "",
       "silver_table_path_dev": "tests/resources/data/silver/customers",
-      "silver_table_path_staging": "s3://db-dlt-meta-staging/demo/data/silver/customers",
-      "silver_table_path_prd": "s3://db-dlt-meta-prod/demo/data/silver/customers",
       "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
    },
    {
@@ -63,14 +57,13 @@
       "bronze_table": "transactions_cdc",
       "bronze_reader_options": {
          "cloudFiles.format": "json",
-         "cloudFiles.inferColumnTypes": "true",
-         "cloudFiles.rescuedDataColumn": "_rescued_data"
+         "cloudFiles.inferColumnTypes": "true"
       },
-      "bronze_partition_columns": "transaction_date",
       "bronze_table_path_dev": "tests/resources/delta/transactions",
       "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/transactions",
       "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/transactions",
       "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/transactions/bronze_data_quality_expectations.json",
+      "bronze_table_partitions": "transaction_date",
       "bronze_database_quarantine_dev": "bronze",
       "bronze_database_quarantine_staging": "bronze",
       "bronze_database_quarantine_prd": "bronze",
@@ -78,7 +71,7 @@
       "bronze_quarantine_table_path_dev": "tests/resources/data/bronze/transactions_quarantine",
       "bronze_quarantine_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/transactions_quarantine",
       "bronze_quarantine_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/transactions_quarantine",
-      "bronze_quarantine_table_partitions": "",
+      "bronze_quarantine_table_partitions": "transaction_date",
       "silver_database_dev": "silver",
       "silver_database_preprd": "silver",
       "silver_database_prd": "silver",
@@ -92,14 +85,10 @@
          "apply_as_deletes": "operation = 'DELETE'",
          "except_column_list": [
             "operation",
-            "operation_date",
-            "_rescued_data"
+            "operation_date"
          ]
       },
-      "silver_partition_columns": "",
       "silver_table_path_dev": "tests/resources/data/silver/transactions",
-      "silver_table_path_staging": "s3://db-dlt-meta-staging/demo/data/silver/transactions",
-      "silver_table_path_prd": "s3://db-dlt-meta-prod/demo/data/silver/transactions",
       "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
    },
    {
@@ -117,24 +106,17 @@
          "kafka.bootstrap.servers": "ganesh-standard.servicebus.windows.net:9093"
       },
       "bronze_database_dev": "bronze",
-      "bronze_database_staging": "bronze",
-      "bronze_database_prd": "bronze",
       "bronze_table": "iot_cdc",
       "bronze_reader_options": {
-         "maxOffsetsPerTrigger": "50000",
+         "maxOffsetsPerTrigger": "60000",
          "startingOffsets": "latest",
          "failOnDataLoss": "false",
          "kafka.request.timeout.ms": "60000",
          "kafka.session.timeout.ms": "60000"
       },
-      "bronze_partition_columns": "",
       "bronze_table_path_dev": "tests/resources/delta/iot_cdc",
-      "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/iot_cdc",
-      "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/iot_cdc",
       "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/iot_cdc/bronze_data_quality_expectations.json",
       "silver_database_dev": "silver",
-      "silver_database_staging": "silver",
-      "silver_database_prd": "silver",
       "silver_table": "iot_cdc",
       "silver_cdc_apply_changes": {
          "keys": [
@@ -145,10 +127,7 @@
          "apply_as_deletes": "operation = 'DELETE'",
          "except_column_list": []
       },
-      "silver_partition_columns": "",
       "silver_table_path_dev": "tests/resources/data/silver/iot_cdc",
-      "silver_table_path_staging": "s3://db-dlt-meta-staging/demo/data/silver/iot_cdc",
-      "silver_table_path_prd": "s3://db-dlt-meta-prod/demo/data/silver/iot_cdc",
       "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
    }
 ]

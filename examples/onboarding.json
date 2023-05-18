@@ -16,7 +16,6 @@
          "cloudFiles.inferColumnTypes": "true",
          "cloudFiles.rescuedDataColumn": "_rescued_data"
       },
-      "bronze_partition_columns": "",
       "bronze_table_path_it": "{dbfs_path}/data/bronze/customers",
       "bronze_data_quality_expectations_json_it": "file:///Workspace{repo_path}/integration-tests/conf/dlt-meta/dqe/customers/bronze_data_quality_expectations.json",
       "silver_database_it": "silver",
@@ -34,7 +33,6 @@
             "_rescued_data"
          ]
       },
-      "silver_partition_columns": "",
       "silver_table_path_it": "{dbfs_path}/data/silver/customers",
       "silver_transformation_json_it": "file:///Workspace{repo_path}/integration-tests/conf/dlt-meta/silver_transformations.json"
    },

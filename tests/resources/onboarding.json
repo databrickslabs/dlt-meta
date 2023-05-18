@@ -7,7 +7,8 @@
       "source_details": {
          "source_database": "APP",
          "source_table": "CUSTOMERS",
-         "source_path_dev": "tests/resources/data/customers"
+         "source_path_dev": "tests/resources/data/customers",
+         "source_schema_path": "tests/resources/schema/customer_schema.ddl"
       },
       "bronze_database_dev": "bronze",
       "bronze_database_staging": "bronze",
@@ -18,10 +19,11 @@
          "cloudFiles.inferColumnTypes": "true",
          "cloudFiles.rescuedDataColumn": "_rescued_data"
       },
-      "bronze_partition_columns": "",
       "bronze_table_path_dev": "tests/resources/delta/customers",
-      "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/customers",
-      "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/customers",
+      "bronze_table_properties": {
+         "pipelines.autoOptimize.managed": "false",
+         "pipelines.reset.allowed": "false"
+      },
       "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/customers/bronze_data_quality_expectations.json",
       "silver_database_dev": "silver",
       "silver_database_staging": "silver",
@@ -40,10 +42,12 @@
             "_rescued_data"
          ]
       },
-      "silver_partition_columns": "",
       "silver_table_path_dev": "tests/resources/data/silver/customers",
-      "silver_table_path_staging": "s3://db-dlt-meta-staging/demo/data/silver/customers",
-      "silver_table_path_prd": "s3://db-dlt-meta-prod/demo/data/silver/customers",
+      "silver_table_properties": {
+         "pipelines.autoOptimize.managed": "false",
+         "pipelines.reset.allowed": "false",
+         "pipelines.autoOptimize.zOrderCols": "id,email"
+      },
       "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
    },
    {
@@ -66,19 +70,18 @@
          "cloudFiles.inferColumnTypes": "true",
          "cloudFiles.rescuedDataColumn": "_rescued_data"
       },
-      "bronze_partition_columns": "",
       "bronze_table_path_dev": "tests/resources/delta/transactions",
       "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/transactions",
       "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/transactions",
+      "bronze_table_properties": {
+         "pipelines.reset.allowed": "false"
+      },
       "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/transactions/bronze_data_quality_expectations.json",
       "bronze_database_quarantine_dev": "bronze",
       "bronze_database_quarantine_staging": "bronze",
       "bronze_database_quarantine_prd": "bronze",
       "bronze_quarantine_table": "transactions_cdc_quarantine",
       "bronze_quarantine_table_path_dev": "tests/resources/data/bronze/transactions_quarantine",
-      "bronze_quarantine_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/transactions_quarantine",
-      "bronze_quarantine_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/transactions_quarantine",
-      "bronze_quarantine_table_partitions": "",
       "silver_database_dev": "silver",
       "silver_database_preprd": "silver",
       "silver_database_prd": "silver",
@@ -96,11 +99,13 @@
             "_rescued_data"
          ]
       },
-      "silver_partition_columns": "",
+      "silver_partition_columns": "transaction_date",
       "silver_table_path_dev": "tests/resources/data/silver/transactions",
-      "silver_table_path_staging": "s3://db-dlt-meta-staging/demo/data/silver/transactions",
-      "silver_table_path_prd": "s3://db-dlt-meta-prod/demo/data/silver/transactions",
-      "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
+      "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
+      "silver_table_properties": {
+         "pipelines.reset.allowed": "false",
+         "pipelines.autoOptimize.zOrderCols": "id, customer_id"
+      }
    },
    {
       "data_flow_id": "103",
@@ -127,14 +132,11 @@
          "kafka.request.timeout.ms": "60000",
          "kafka.session.timeout.ms": "60000"
       },
-      "bronze_partition_columns": "",
       "bronze_table_path_dev": "tests/resources/delta/iot_cdc",
       "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/iot_cdc",
       "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/iot_cdc",
       "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/iot_cdc/bronze_data_quality_expectations.json",
       "silver_database_dev": "silver",
-      "silver_database_staging": "silver",
-      "silver_database_prd": "silver",
       "silver_table": "iot_cdc",
       "silver_cdc_apply_changes": {
          "keys": [
@@ -145,10 +147,7 @@
          "apply_as_deletes": "operation = 'DELETE'",
          "except_column_list": []
       },
-      "silver_partition_columns": "",
       "silver_table_path_dev": "tests/resources/data/silver/iot_cdc",
-      "silver_table_path_staging": "s3://db-dlt-meta-staging/demo/data/silver/iot_cdc",
-      "silver_table_path_prd": "s3://db-dlt-meta-prod/demo/data/silver/iot_cdc",
       "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
    }
 ]

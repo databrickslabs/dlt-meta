@@ -8,18 +8,11 @@
         "source_format": "json",
         "source_path_dev": "tests/resources/data/customers",
         "bronze_database_dev": "bronze",
-        "bronze_database_staging": "bronze",
-        "bronze_database_prd": "bronze",
         "bronze_table": "customers_cdc",
-        "bronze_reader_options": {},
         "bronze_partition_columns": "operation_date",
         "bronze_table_path_dev": "tests/resources/data/bronze/customers",
-        "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/customers",
-        "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/customers",
         "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/customers/bronze_data_quality_expectations.json",
         "silver_database_dev": "silver",
-        "silver_database_staging": "silver",
-        "silver_database_prd": "silver",
         "silver_table": "customers",
         "silver_cdc_apply_changes": {
             "keys": [
@@ -34,10 +27,7 @@
                 "_rescued_data"
             ]
         },
-        "silver_partition_columns": "",
         "silver_table_path_dev": "tests/resources/data/silver/customers",
-        "silver_table_path_staging": "s3://db-dlt-meta-staging/demo/data/silver/customers",
-        "silver_table_path_prd": "s3://db-dlt-meta-prod/demo/data/silver/customers",
         "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
     },
     {
@@ -47,11 +37,8 @@
         "source_database": "APP",
         "source_table": "TRANSACTIONS",
         "source_format": "json",
-        "source_path_prd": "tests/resources/data/cdc_raw/transactions",
         "source_path_dev": "tests/resources/data/transactions",
         "bronze_database_dev": "bronze",
-        "bronze_database_staging": "bronze",
-        "bronze_database_prd": "bronze",
         "bronze_table": "transactions_cdc",
         "bronze_reader_options": {
             "cloudFiles.format": "json",
@@ -60,20 +47,12 @@
         },
         "bronze_partition_columns": "transaction_date",
         "bronze_table_path_dev": "tests/resources/data/bronze/transactions",
-        "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/transactions",
-        "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/transactions",
         "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/transactions/bronze_data_quality_expectations.json",
         "bronze_database_quarantine_dev": "bronze",
-        "bronze_database_quarantine_staging": "bronze",
-        "bronze_database_quarantine_prd": "bronze",
         "bronze_quarantine_table": "transactions_cdc_quarantine",
         "bronze_quarantine_table_path_dev": "tests/resources/data/bronze/transactions_quarantine",
-        "bronze_quarantine_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/transactions_quarantine",
-        "bronze_quarantine_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/transactions_quarantine",
         "bronze_quarantine_table_partitions": "",
         "silver_database_dev": "silver",
-        "silver_database_preprd": "silver",
-        "silver_database_prd": "silver",
         "silver_table": "transactions",
         "silver_cdc_apply_changes": {
             "keys": [
@@ -88,10 +67,7 @@
                 "_rescued_data"
             ]
         },
-        "silver_partition_columns": "",
         "silver_table_path_dev": "tests/resources/data/delta/transactions",
-        "silver_table_path_staging": "s3://db-dlt-meta-staging/demo/data/silver/transactions",
-        "silver_table_path_prd": "s3://db-dlt-meta-prod/demo/data/silver/transactions",
         "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
     }
 ]

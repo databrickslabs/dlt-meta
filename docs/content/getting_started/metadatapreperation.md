@@ -9,14 +9,6 @@ draft: false
 2. Create ```silver_transformations.json``` and save to s3/adls/dbfs e.g [Silver transformation file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json)
 3. Create data quality rules json and store to s3/adls/dbfs e.g [Data Quality Rules](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
 
-         "source_schema_path": "tests/resources/schema/eventhub_iot_schema.ddl",
-         "eventhub.accessKeyName": "iotIngestionAccessKey",
-         "eventhub.name": "iot",
-         "eventhub.secretsScopeName": "eventhubs_creds",
-         "kafka.sasl.mechanism": "PLAIN",
-         "kafka.security.protocol": "SASL_SSL",
-         "eventhub.namespace": "ganesh-standard",
-         "eventhub.port": "9093"
 
 ### Onboarding File structure
 `env` is your environment placeholder e.g `dev`, `prod`, `stag`
@@ -24,7 +16,7 @@ draft: false
 | :-----------: | :----------- |
 | data_flow_id | This is unique identifer for pipeline |
 | data_flow_group | This is group identifer for launching multiple pipelines under single DLT |
-| source_format | 	Source format e.g `cloudFiles`, `eventhub` `kafka` |
+| source_format | 	Source format e.g `cloudFiles`, `eventhub`, `kafka`, `delta` |
 | source_details | This map Type captures all source details for cloudfiles = `source_schema_path`, `source_path_{env}`, `source_database` and for eventhub= `source_schema_path` , `eventhub.accessKeyName`, `eventhub.name` , `eventhub.secretsScopeName` , `kafka.sasl.mechanism`, `kafka.security.protocol`, `eventhub.namespace`, `eventhub.port`. For Source schema file spark DDL schema format parsing is supported <br> In case of custom schema format then write schema parsing function `bronze_schema_mapper(schema_file_path, spark):Schema` and provide to `OnboardDataflowspec` initialization <br> .e.g `onboardDataFlowSpecs = OnboardDataflowspec(spark, dict_obj,bronze_schema_mapper).onboardDataFlowSpecs()`   |         
 | bronze_database_{env} | 	Delta lake bronze database name. |
 | bronze_table | 	Delta lake bronze table name |
@@ -32,16 +24,19 @@ draft: false
 | bronze_parition_columns | 	Bronze table partition cols list |
 | bronze_cdc_apply_changes | 	Bronze cdc apply changes Json |
 | bronze_table_path_{env} | 	Bronze table storage path.|
+| bronze_table_properties | 	DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false" }` |
 | bronze_data_quality_expectations_json | 	Bronze table data quality expectations |
 | bronze_database_quarantine_{env} | 	Bronze database for quarantine data which fails expectations. |
 | bronze_quarantine_table	Bronze |  Table for quarantine data which fails expectations |
 | bronze_quarantine_table_path_{env} | 	Bronze database for quarantine data which fails expectations. |
 | bronze_quarantine_table_partitions | 	Bronze quarantine tables partition cols |
+| bronze_quarantine_table_properties | 	DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false" }` |
 | silver_database_{env} | 	Silver database name. |
 | silver_table | 	Silver table name |
 | silver_partition_columns | 	Silver table partition columns list |
 | silver_cdc_apply_changes | 	Silver cdc apply changes Json |
 | silver_table_path_{env} | 	Silver table storage path. |
+| silver_table_properties | 	DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false"}` |
 | silver_transformation_json | 	Silver table sql transformation json path |
 
 

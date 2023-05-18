@@ -3,7 +3,8 @@ import json
 import logging
 import dlt
 from pyspark.sql import DataFrame
-from pyspark.sql.types import StructType, StructField
+from pyspark.sql.functions import expr
+from pyspark.sql.types import IntegerType, StructType, StructField
 
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
 from src.pipeline_readers import PipelineReaders
@@ -97,6 +98,8 @@ class DataflowPipeline:
         bronze_dataflow_spec: BronzeDataflowSpec = self.dataflowSpec
         if bronze_dataflow_spec.sourceFormat == "cloudFiles":
             return PipelineReaders.read_dlt_cloud_files(self.spark, bronze_dataflow_spec, self.schema_json)
+        elif bronze_dataflow_spec.sourceFormat == "delta":
+            return PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
         elif bronze_dataflow_spec.sourceFormat == "eventhub" or bronze_dataflow_spec.sourceFormat == "kafka":
             return PipelineReaders.read_kafka(self.spark, bronze_dataflow_spec, self.schema_json)
         else:
@@ -114,11 +117,25 @@ class DataflowPipeline:
             format="delta"
             # #f"{source_database}.{source_table}"
         ).selectExpr(*select_exp)
-        where_clause_str = " ".join(where_clause)
-        if len(where_clause_str.strip()) > 0:
-            for where_clause in where_clause:
-                raw_delta_table_stream = raw_delta_table_stream.where(where_clause)
+        raw_delta_table_stream = self.__apply_where_clause(where_clause, raw_delta_table_stream)
         return raw_delta_table_stream.schema
+
+    def __apply_where_clause(self, where_clause, raw_delta_table_stream):
+        """This method apply where clause provided in silver transformations
+
+        Args:
+            where_clause (_type_): _description_
+            raw_delta_table_stream (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        if where_clause:
+            where_clause_str = " ".join(where_clause)
+            if len(where_clause_str.strip()) > 0:
+                for where_clause in where_clause:
+                    raw_delta_table_stream = raw_delta_table_stream.where(where_clause)
+        return raw_delta_table_stream
 
     def read_silver(self) -> DataFrame:
         """Read Silver tables."""
@@ -134,10 +151,11 @@ class DataflowPipeline:
         ).selectExpr(
             *select_exp
         )  # .selectExpr(select_exp.split(","))
-        where_clause_str = " ".join(where_clause)
-        if len(where_clause_str.strip()) > 0:
-            for where_clause in where_clause:
-                raw_delta_table_stream = raw_delta_table_stream.where(where_clause)
+        if where_clause:
+            where_clause_str = " ".join(where_clause)
+            if len(where_clause_str.strip()) > 0:
+                for where_clause in where_clause:
+                    raw_delta_table_stream = raw_delta_table_stream.where(where_clause)
         return raw_delta_table_stream
 
     def write_to_delta(self):
@@ -170,6 +188,7 @@ class DataflowPipeline:
                     dlt.table(
                         self.write_to_delta,
                         name=f"{bronzeDataflowSpec.targetDetails['table']}",
+                        table_properties=bronzeDataflowSpec.tableProperties,
                         partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                         path=bronzeDataflowSpec.targetDetails["path"],
                         comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
@@ -181,6 +200,7 @@ class DataflowPipeline:
                         dlt.table(
                             self.write_to_delta,
                             name=f"{bronzeDataflowSpec.targetDetails['table']}",
+                            table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                             path=bronzeDataflowSpec.targetDetails["path"],
                             comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
@@ -194,6 +214,7 @@ class DataflowPipeline:
                         dlt.table(
                             self.write_to_delta,
                             name=f"{bronzeDataflowSpec.targetDetails['table']}",
+                            table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                             path=bronzeDataflowSpec.targetDetails["path"],
                             comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
@@ -212,6 +233,7 @@ class DataflowPipeline:
                     dlt.table(
                         self.write_to_delta,
                         name=f"{bronzeDataflowSpec.quarantineTargetDetails['table']}",
+                        table_properties=bronzeDataflowSpec.quarantineTableProperties,
                         partition_cols=q_partition_cols,
                         path=bronzeDataflowSpec.quarantineTargetDetails["path"],
                         comment=f"""bronze dlt quarantine_path table
@@ -239,18 +261,24 @@ class DataflowPipeline:
             struct_schema = modified_schema
 
         if cdc_apply_changes.scd_type == "2":
-            for field in struct_schema.fields:
-                if field.name == cdc_apply_changes.sequence_by:
-                    struct_schema.add(StructField("__START_AT", field.dataType))
-                    struct_schema.add(StructField("__END_AT", field.dataType))
-                    break
+            struct_schema.add(StructField("__START_AT", IntegerType()))
+            struct_schema.add(StructField("__END_AT", IntegerType()))
 
         dlt.create_streaming_live_table(
             name=f"{self.dataflowSpec.targetDetails['table']}",
+            table_properties=self.dataflowSpec.tableProperties,
             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
             path=self.dataflowSpec.targetDetails["path"],
             schema=struct_schema,
         )
+
+        apply_as_deletes = None
+        if cdc_apply_changes.apply_as_deletes:
+            apply_as_deletes = expr(cdc_apply_changes.apply_as_deletes)
+
+        apply_as_truncates = None
+        if cdc_apply_changes.apply_as_truncates:
+            apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
 
         dlt.apply_changes(
             target=f"{self.dataflowSpec.targetDetails['table']}",
@@ -259,11 +287,14 @@ class DataflowPipeline:
             sequence_by=cdc_apply_changes.sequence_by,
             where=cdc_apply_changes.where,
             ignore_null_updates=cdc_apply_changes.ignore_null_updates,
-            apply_as_deletes=cdc_apply_changes.apply_as_deletes,
-            apply_as_truncates=cdc_apply_changes.apply_as_truncates,
+            apply_as_deletes=apply_as_deletes,
+            apply_as_truncates=apply_as_truncates,
             column_list=cdc_apply_changes.column_list,
             except_column_list=cdc_apply_changes.except_column_list,
             stored_as_scd_type=cdc_apply_changes.scd_type,
+            track_history_column_list=cdc_apply_changes.track_history_column_list,
+            track_history_except_column_list=cdc_apply_changes.track_history_except_column_list
+
         )
 
     def write_bronze(self):
@@ -278,6 +309,7 @@ class DataflowPipeline:
                 self.write_to_delta,
                 name=f"{bronze_dataflow_spec.targetDetails['table']}",
                 partition_cols=DataflowSpecUtils.get_partition_cols(bronze_dataflow_spec.partitionColumns),
+                table_properties=bronze_dataflow_spec.tableProperties,
                 path=bronze_dataflow_spec.targetDetails["path"],
                 comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}",
             )
@@ -292,6 +324,7 @@ class DataflowPipeline:
                 self.write_to_delta,
                 name=f"{silver_dataflow_spec.targetDetails['table']}",
                 partition_cols=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.partitionColumns),
+                table_properties=silver_dataflow_spec.tableProperties,
                 path=silver_dataflow_spec.targetDetails["path"],
                 comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}",
             )

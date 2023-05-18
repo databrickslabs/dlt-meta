@@ -1,9 +1,6 @@
 [
   {
     "target_table": "customers",
-    "target_partition_cols": [
-      ""
-    ],
     "select_exp": [
       "address",
       "email",
@@ -15,14 +12,12 @@
       "_rescued_data"
     ],
     "where_clause": [
-      ""
+      "id IS NOT NULL",
+      "email is not NULL"
     ]
   },
   {
     "target_table": "transactions",
-    "target_partition_cols": [
-      ""
-    ],
     "select_exp": [
       "id",
       "customer_id",
@@ -33,14 +28,12 @@
       "_rescued_data"
     ],
     "where_clause": [
-      ""
+      "id IS NOT NULL",
+      "amount is not NULL"
     ]
   },
   {
     "target_table": "iot_cdc",
-    "target_partition_cols": [
-      ""
-    ],
     "select_exp": [
       "battery_level",
       "c02_level",
@@ -49,9 +42,6 @@
       "device_id",
       "device_name",
       "humidity"
-    ],
-    "where_clause": [
-      ""
     ]
   }
 ]
