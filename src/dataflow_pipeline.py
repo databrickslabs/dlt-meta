@@ -96,9 +96,9 @@ class DataflowPipeline:
         """Read Bronze Table."""
         logger.info("In read_bronze func")
         bronze_dataflow_spec: BronzeDataflowSpec = self.dataflowSpec
-        if bronze_dataflow_spec.sourceFormat == "cloudFiles" or bronze_dataflow_spec.sourceFormat == "delta":
+        if bronze_dataflow_spec.sourceFormat == "cloudFiles":
             return PipelineReaders.read_dlt_cloud_files(self.spark, bronze_dataflow_spec, self.schema_json)
-        if bronze_dataflow_spec.sourceFormat == "delta":
+        elif bronze_dataflow_spec.sourceFormat == "delta":
             return PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
         elif bronze_dataflow_spec.sourceFormat == "eventhub" or bronze_dataflow_spec.sourceFormat == "kafka":
             return PipelineReaders.read_kafka(self.spark, bronze_dataflow_spec, self.schema_json)
@@ -117,12 +117,25 @@ class DataflowPipeline:
             format="delta"
             # #f"{source_database}.{source_table}"
         ).selectExpr(*select_exp)
+        raw_delta_table_stream = self.__apply_where_clause(where_clause, raw_delta_table_stream)
+        return raw_delta_table_stream.schema
+    
+    def __apply_where_clause(self, where_clause, raw_delta_table_stream):
+        """This method apply where clause provided in silver transformations
+
+        Args:
+            where_clause (_type_): _description_
+            raw_delta_table_stream (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         if where_clause:
             where_clause_str = " ".join(where_clause)
             if len(where_clause_str.strip()) > 0:
                 for where_clause in where_clause:
                     raw_delta_table_stream = raw_delta_table_stream.where(where_clause)
-        return raw_delta_table_stream.schema
+        return raw_delta_table_stream
 
     def read_silver(self) -> DataFrame:
         """Read Silver tables."""

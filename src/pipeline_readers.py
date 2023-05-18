@@ -53,8 +53,6 @@ class PipelineReaders:
         Args:
             spark (_type_): _description_
             bronze_dataflow_spec (_type_): _description_
-            schema_json (_type_): _description_
-
         Returns:
             DataFrame: _description_
         """
