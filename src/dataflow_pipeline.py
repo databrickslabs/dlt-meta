@@ -119,7 +119,7 @@ class DataflowPipeline:
         ).selectExpr(*select_exp)
         raw_delta_table_stream = self.__apply_where_clause(where_clause, raw_delta_table_stream)
         return raw_delta_table_stream.schema
-    
+
     def __apply_where_clause(self, where_clause, raw_delta_table_stream):
         """This method apply where clause provided in silver transformations
 
