@@ -7,17 +7,17 @@
 <meta name=author content="Ravi Gawai (Databricks)">
 <link rel=icon href=https://databrickslabs.github.io/dlt-meta/images/favicon.png type=image/png>
 <title>Additionals :: DLT-META</title>
-<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1679518235 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1679518235 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1679518235 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1679518235 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1679518235 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1679518235 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1679518235 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1679518235 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1679518235 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1679518235 rel=stylesheet>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1679518235></script>
+<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1684442588 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1684442588 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1684442588 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1684442588 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1684442588 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1684442588 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1684442588 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1684442588 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1684442588 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1684442588 rel=stylesheet>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1684442588></script>
 <style>:root #header+#content>#left>#rlblock_left{display:none!important}</style>
 <script async defer src=https://buttons.github.io/buttons.js></script>
 </head>
@@ -33,10 +33,10 @@
 <input data-search-input id=search-by type=search placeholder=Search...>
 <span data-search-clear><i class="fas fa-times"></i></span>
 </div>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1679518235></script>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1679518235></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1684442588></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1684442588></script>
 <script type=text/javascript>var baseurl="https://databrickslabs.github.io/dlt-meta/"</script>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1679518235></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1684442588></script>
 </div>
 <section id=homelinks>
 <ul>
@@ -63,9 +63,14 @@ Metadata Preparation
 Build Python Wheel
 </a>
 </li>
-<li data-nav-id=/getting_started/launchonboardingjob/ title="Launch Onboarding job" class=dd-item>
-<a href=https://databrickslabs.github.io/dlt-meta/getting_started/launchonboardingjob/>
-Launch Onboarding job
+<li data-nav-id=/getting_started/runoboardingopt1/ title="Running Onboarding" class=dd-item>
+<a href=https://databrickslabs.github.io/dlt-meta/getting_started/runoboardingopt1/>
+Running Onboarding
+</a>
+</li>
+<li data-nav-id=/getting_started/runoboardingopt2/ title="Running Onboarding" class=dd-item>
+<a href=https://databrickslabs.github.io/dlt-meta/getting_started/runoboardingopt2/>
+Running Onboarding
 </a>
 </li>
 <li data-nav-id=/getting_started/dltpipeline/ title="Launch Generic DLT pipeline" class=dd-item>
@@ -147,6 +152,7 @@ Contributing
 <h1>
 Additionals
 </h1>
+<p>This is easist way to launch dlt-meta to your databricks workspace with following steps.</p>
 <h2 id=run-integration-tests>Run Integration Tests</h2>
 <ol>
 <li>
@@ -168,28 +174,32 @@ export DATABRICKS_TOKEN=&lt;DATABRICKS TOKEN&gt; # Account needs permission to c
 <li>
 <p>Run integration test against cloudfile or eventhub or kafka using below options:
 5a. Run the command for cloudfiles <code>python integration-tests/run-integration-test.py --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=cloudfiles --dbfs_path=dbfs:/tmp/DLT-META/</code></p>
-<p>5b. Run the command for eventhub <code>python integration-tests/run-integration-test.py --cloud_provider_name=azure --dbr_version=11.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer ----eventhub_consumer_accesskey_name=consumer</code></p>
-<pre><code> For eventhub integration tests, the following are the prerequisites:
- 1. Needs eventhub instance running
- 2. Using Databricks CLI, Create databricks secrets scope for eventhub keys
- 3. Using Databricks CLI, Create databricks secrets to store producer and consumer keys using the scope created in step 2 
-
- Following are the mandatory arguments for running EventHubs integration test
- 1. Provide your eventhub topic name : ```--eventhub_name```
- 2. Provide eventhub namespace using ```--eventhub_namespace```
- 3. Provide eventhub port using ```--eventhub_port```
- 4. Provide databricks secret scope name using ```----eventhub_secrets_scope_name```
- 5. Provide eventhub producer access key name using ```--eventhub_producer_accesskey_name```
- 6. Provide eventhub access key name using ```--eventhub_consumer_accesskey_name```
-</code></pre>
+<p>5b. Run the command for eventhub <code>python integration-tests/run-integration-test.py --cloud_provider_name=azure --dbr_version=11.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer</code></p>
+<p>For eventhub integration tests, the following are the prerequisites:</p>
+<ol>
+<li>Needs eventhub instance running</li>
+<li>Using Databricks CLI, Create databricks secrets scope for eventhub keys</li>
+<li>Using Databricks CLI, Create databricks secrets to store producer and consumer keys using the scope created in step 2</li>
+</ol>
+<p>Following are the mandatory arguments for running EventHubs integration test</p>
+<ol>
+<li>Provide your eventhub topic : &ndash;eventhub_name</li>
+<li>Provide eventhub namespace : &ndash;eventhub_namespace</li>
+<li>Provide eventhub port : &ndash;eventhub_port</li>
+<li>Provide databricks secret scope name : &ndash;eventhub_secrets_scope_name</li>
+<li>Provide eventhub producer access key name : &ndash;eventhub_producer_accesskey_name</li>
+<li>Provide eventhub access key name : &ndash;eventhub_consumer_accesskey_name</li>
+</ol>
 <p>5c. Run the command for kafka <code>python3 integration-tests/run-integration-test.py --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=kafka --dbfs_path=dbfs:/tmp/DLT-META/ --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092</code></p>
-<pre><code> For kafka integration tests, the following are the prerequisites:
- 1. Needs kafka instance running
-
- Following are the mandatory arguments for running EventHubs integration test
- 1. Provide your kafka topic name : ```--kafka_topic_name```
- 2. Provide kafka_broker  ```--kafka_broker```
-</code></pre>
+<p>For kafka integration tests, the following are the prerequisites:</p>
+<ol>
+<li>Needs kafka instance running</li>
+</ol>
+<p>Following are the mandatory arguments for running EventHubs integration test</p>
+<ol>
+<li>Provide your kafka topic name : &ndash;kafka_topic_name</li>
+<li>Provide kafka_broker : &ndash;kafka_broker</li>
+</ol>
 </li>
 <li>
 <p>Once finished integration output file will be copied locally to
@@ -199,27 +209,22 @@ export DATABRICKS_TOKEN=&lt;DATABRICKS TOKEN&gt; # Account needs permission to c
 <p>Output of a successful run should have the following in the file</p>
 </li>
 </ol>
-<pre><code>Generating Onboarding Json file for Integration Test.
-Successfully Generated Onboarding Json file for Integration Test.
-Setting up dlt-meta metadata tables.
-Successfully setup dlt-meta metadata tables.
-Completed Bronze DLT Pipeline.
-Completed Silver DLT Pipeline.
-Validating DLT Bronze and Silver Table Counts...
-Validating Counts for Table bronze_f7d4934efe494de987f364e8d93acaba.transactions_cdc.
-Expected: 10002 Actual: 10002. Passed!
-Validating Counts for Table bronze_f7d4934efe494de987f364e8d93acaba.transactions_cdc_quarantine.
-Expected: 9842 Actual: 9842. Passed!
-Validating Counts for Table bronze_f7d4934efe494de987f364e8d93acaba.customers_cdc.
-Expected: 98928 Actual: 98928. Passed!
-Validating Counts for Table silver_f7d4934efe494de987f364e8d93acaba.transactions.
-Expected: 8759 Actual: 8759. Passed!
-Validating Counts for Table silver_f7d4934efe494de987f364e8d93acaba.customers.
-Expected: 87256 Actual: 87256. Passed!
-DROPPING DB bronze_f7d4934efe494de987f364e8d93acaba
-DROPPING DB silver_f7d4934efe494de987f364e8d93acaba
-DROPPING DB dlt_meta_framework_it_f7d4934efe494de987f364e8d93acaba_f7d4934efe494de987f364e8d93acaba
-Removed Integration test databases
+<pre><code>,0
+0,Completed Bronze DLT Pipeline.
+1,Completed Silver DLT Pipeline.
+2,Validating DLT Bronze and Silver Table Counts...
+3,Validating Counts for Table bronze_7d1d3ccc9e144a85b07c23110ea50133.transactions.
+4,Expected: 10002 Actual: 10002. Passed!
+5,Validating Counts for Table bronze_7d1d3ccc9e144a85b07c23110ea50133.transactions_quarantine.
+6,Expected: 7 Actual: 7. Passed!
+7,Validating Counts for Table bronze_7d1d3ccc9e144a85b07c23110ea50133.customers.
+8,Expected: 98928 Actual: 98923. Failed!
+9,Validating Counts for Table bronze_7d1d3ccc9e144a85b07c23110ea50133.customers_quarantine.
+10,Expected: 1077 Actual: 1077. Passed!
+11,Validating Counts for Table silver_7d1d3ccc9e144a85b07c23110ea50133.transactions.
+12,Expected: 8759 Actual: 8759. Passed!
+13,Validating Counts for Table silver_7d1d3ccc9e144a85b07c23110ea50133.customers.
+14,Expected: 87256 Actual: 87251. Failed!
 </code></pre>
 <footer class=footline>
 </footer>
@@ -233,17 +238,17 @@ Removed Integration test databases
 <div style=left:-1000px;overflow:scroll;position:absolute;top:-1000px;border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px>
 <div style=border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px></div>
 </div>
-<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1679518235></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1679518235></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1679518235></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1679518235></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1679518235></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1679518235></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1684442588></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1684442588></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1684442588></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1684442588></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1684442588></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1684442588></script>
 <script>hljs.initHighlightingOnLoad()</script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1679518235></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1679518235></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1679518235></script>
-<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1679518235></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1684442588></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1684442588></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1684442588></script>
+<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1684442588></script>
 <script>mermaid.initialize({startOnLoad:!0})</script>
 </body>
 </html>

@@ -6,7 +6,7 @@
 <meta name=description content="DLT-META Documentation">
 <meta name=author content="Ravi Gawai (Databricks)">
 <link rel=icon href=https://databrickslabs.github.io/dlt-meta/images/favicon.png type=image/png>
-<title>Categories :: DLT-META</title>
+<title>Running Onboarding :: DLT-META</title>
 <link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1684442588 rel=stylesheet>
 <link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1684442588 rel=stylesheet>
 <link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1684442588 rel=stylesheet>
@@ -21,7 +21,7 @@
 <style>:root #header+#content>#left>#rlblock_left{display:none!important}</style>
 <script async defer src=https://buttons.github.io/buttons.js></script>
 </head>
-<body data-url=https://databrickslabs.github.io/dlt-meta/categories/>
+<body data-url=https://databrickslabs.github.io/dlt-meta/getting_started/runoboardingopt2/>
 <nav id=sidebar>
 <div id=header-wrapper>
 <div id=header>
@@ -47,7 +47,8 @@
 </section>
 <div class=highlightable>
 <ul class=topics>
-<li data-nav-id=/getting_started/ title="Getting Started" class=dd-item>
+<li data-nav-id=/getting_started/ title="Getting Started" class="dd-item
+parent">
 <a href=https://databrickslabs.github.io/dlt-meta/getting_started/>
 Getting Started
 </a>
@@ -67,7 +68,7 @@ Build Python Wheel
 Running Onboarding
 </a>
 </li>
-<li data-nav-id=/getting_started/runoboardingopt2/ title="Running Onboarding" class=dd-item>
+<li data-nav-id=/getting_started/runoboardingopt2/ title="Running Onboarding" class="dd-item active">
 <a href=https://databrickslabs.github.io/dlt-meta/getting_started/runoboardingopt2/>
 Running Onboarding
 </a>
@@ -131,11 +132,20 @@ Contributing
 </span>
 <span id=toc-menu><i class="fas fa-list-alt"></i></span>
 <span class=links>
-<a href=https://databrickslabs.github.io/dlt-meta/>DLT-META</a> > Categories
+<a href=https://databrickslabs.github.io/dlt-meta/>DLT-META</a> > <a href=https://databrickslabs.github.io/dlt-meta/getting_started/>Getting Started</a> > Running Onboarding
 </span>
 </div>
 <div class=progress>
 <div class=wrapper>
+<nav id=TableOfContents>
+<ul>
+<li>
+<ul>
+<li></li>
+</ul>
+</li>
+</ul>
+</nav>
 </div>
 </div>
 </div>
@@ -144,33 +154,60 @@ Contributing
 </div>
 <div id=body-inner>
 <h1>
-category ::
-Categories
+Running Onboarding
 </h1>
-<ul>
-</ul>
+<h4 id=option2-notebook>Option#2: Notebook</h4>
+<ol>
+<li>Copy below code to databricks notebook cells
+<code>%pip install dlt-meta</code></li>
+</ol>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-python data-lang=python>onboarding_params_map <span style=color:#f92672>=</span> {
+		<span style=color:#e6db74>&#34;database&#34;</span>: <span style=color:#e6db74>&#34;dlt_demo&#34;</span>,
+		<span style=color:#e6db74>&#34;onboarding_file_path&#34;</span>: <span style=color:#e6db74>&#34;dbfs:/onboarding_files/users_onboarding.json&#34;</span>,
+		<span style=color:#e6db74>&#34;bronze_dataflowspec_table&#34;</span>: <span style=color:#e6db74>&#34;bronze_dataflowspec_table&#34;</span>, 
+		<span style=color:#e6db74>&#34;bronze_dataflowspec_path&#34;</span>: <span style=color:#e6db74>&#34;dbfs:/onboarding_tables_cdc/bronze&#34;</span>,                       
+		<span style=color:#e6db74>&#34;silver_dataflowspec_table&#34;</span>: <span style=color:#e6db74>&#34;silver_dataflowspec_table&#34;</span>,
+		<span style=color:#e6db74>&#34;silver_dataflowspec_path&#34;</span>: <span style=color:#e6db74>&#34;dbfs:/onboarding_tables_cdc/silver&#34;</span>,
+		<span style=color:#e6db74>&#34;overwrite&#34;</span>: <span style=color:#e6db74>&#34;True&#34;</span>,
+		<span style=color:#e6db74>&#34;onboard_layer&#34;</span>: <span style=color:#e6db74>&#34;bronze_silver&#34;</span>,
+		<span style=color:#e6db74>&#34;env&#34;</span>: <span style=color:#e6db74>&#34;dev&#34;</span>,
+		<span style=color:#e6db74>&#34;version&#34;</span>: <span style=color:#e6db74>&#34;v1&#34;</span>,
+		<span style=color:#e6db74>&#34;import_author&#34;</span>: <span style=color:#e6db74>&#34;Ravi&#34;</span>
+		}
+
+<span style=color:#f92672>from</span> src.onboard_dataflowspec <span style=color:#f92672>import</span> OnboardDataflowspec
+OnboardDataflowspec(spark, onboarding_params_map)<span style=color:#f92672>.</span>onboard_dataflow_specs()
+</code></pre></div><ol start=2>
+<li>
+<p>Specify your onboarding config params in above <code>onboarding_params_map</code></p>
+</li>
+<li>
+<p>Run notebook cells</p>
+</li>
+</ol>
 <footer class=footline>
 </footer>
 </div>
 </div>
 <div id=navigation>
-<a class="nav nav-next" href=https://databrickslabs.github.io/dlt-meta/getting_started/ title="Getting Started" style=margin-right:0><i class="fa fa-chevron-right"></i></a>
+<a class="nav nav-prev" href=https://databrickslabs.github.io/dlt-meta/getting_started/runoboardingopt1/ title="Running Onboarding"> <i class="fa fa-chevron-left"></i></a>
+<a class="nav nav-next" href=https://databrickslabs.github.io/dlt-meta/getting_started/dltpipeline/ title="Launch Generic DLT pipeline" style=margin-right:0><i class="fa fa-chevron-right"></i></a>
 </div>
 </section>
 <div style=left:-1000px;overflow:scroll;position:absolute;top:-1000px;border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px>
 <div style=border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px></div>
 </div>
-<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1684442588></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1684442588></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1684442588></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1684442588></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1684442588></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1684442588></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1684442589></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1684442589></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1684442589></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1684442589></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1684442589></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1684442589></script>
 <script>hljs.initHighlightingOnLoad()</script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1684442588></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1684442588></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1684442588></script>
-<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1684442588></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1684442589></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1684442589></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1684442589></script>
+<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1684442589></script>
 <script>mermaid.initialize({startOnLoad:!0})</script>
 </body>
 </html>
