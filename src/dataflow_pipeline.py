@@ -4,7 +4,7 @@ import logging
 import dlt
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import expr
-from pyspark.sql.types import IntegerType, StructType, StructField
+from pyspark.sql.types import StructType, StructField
 
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
 from src.pipeline_readers import PipelineReaders
