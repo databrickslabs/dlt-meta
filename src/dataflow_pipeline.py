@@ -253,16 +253,20 @@ class DataflowPipeline:
             else self.silver_schema
         )
 
+        sequenced_by_data_type = None
+
         if cdc_apply_changes.except_column_list:
             modified_schema = StructType([])
             for field in struct_schema.fields:
                 if field.name not in cdc_apply_changes.except_column_list:
                     modified_schema.add(field)
+                if field.name == cdc_apply_changes.sequence_by:
+                    sequenced_by_data_type = field.dataType
             struct_schema = modified_schema
 
         if cdc_apply_changes.scd_type == "2":
-            struct_schema.add(StructField("__START_AT", IntegerType()))
-            struct_schema.add(StructField("__END_AT", IntegerType()))
+            struct_schema.add(StructField("__START_AT", sequenced_by_data_type))
+            struct_schema.add(StructField("__END_AT", sequenced_by_data_type))
 
         dlt.create_streaming_live_table(
             name=f"{self.dataflowSpec.targetDetails['table']}",
