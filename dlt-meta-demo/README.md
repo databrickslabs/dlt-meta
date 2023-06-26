@@ -6,7 +6,7 @@
 
 3. ```git clone https://github.com/databrickslabs/dlt-meta.git ```
 
-4. ```cd dlt-meta/demo```
+4. ```cd dlt-meta/dlt-meta-demo```
 
 5. Get DATABRICKS_HOST:
     - Enter your workspace URL, with the format https://<instance-name>.cloud.databricks.com. To get your workspace URL, see Workspace instance names, URLs, and IDs.
