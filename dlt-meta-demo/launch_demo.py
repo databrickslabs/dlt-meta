@@ -2,8 +2,6 @@
 import os
 import time
 import uuid
-import glob
-import subprocess
 import argparse
 from databricks_cli.dbfs.api import DbfsApi
 from databricks_cli.configure.config import _get_api_client
@@ -211,7 +209,7 @@ class JobSubmitRunner():
                     break
             else:
                 print(
-                    "Job was either Skipped or had Internal error please check the job ui and run in Databricks to see why")
+                    "Job was either Skipped or had Internal error please check the jobs ui")
                 print(self.run_state_message)
                 break
 
@@ -219,7 +217,6 @@ class JobSubmitRunner():
 
 
 def create_onboarding(dbfs_tmp_path, run_id):
-    
     """Create onboarding file for cloudfiles as source."""
     onboarding_template = "demo/conf/onboarding.template"
     with open(f"{onboarding_template}") as f:
@@ -296,16 +293,11 @@ def main():
             }
         )
         job_spec_dict["silver_pipeline_id"] = silver_pipeline_id
-
-        job_spec = create_workflow_spec(job_spec_dict)
-        
+        job_spec = create_workflow_spec(job_spec_dict)        
         job_submit_runner = JobSubmitRunner(jobs_service, job_spec)
-
         job_run_info = job_submit_runner.submit()
         print(f"Run URL {job_run_info['run_id']}")
-
         job_submit_runner.monitor(job_run_info['run_id'])
-
     except Exception as e:
         print(e)
     finally:
