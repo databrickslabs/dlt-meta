@@ -293,7 +293,7 @@ def main():
             }
         )
         job_spec_dict["silver_pipeline_id"] = silver_pipeline_id
-        job_spec = create_workflow_spec(job_spec_dict)        
+        job_spec = create_workflow_spec(job_spec_dict)
         job_submit_runner = JobSubmitRunner(jobs_service, job_spec)
         job_run_info = job_submit_runner.submit()
         print(f"Run URL {job_run_info['run_id']}")
