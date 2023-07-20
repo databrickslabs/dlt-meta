@@ -108,14 +108,12 @@ class DataflowPipeline:
     def get_silver_schema(self):
         """Get Silver table Schema."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
-        # source_database = silver_dataflow_spec.sourceDetails["database"]
-        # source_table = silver_dataflow_spec.sourceDetails["table"]
+        source_database = silver_dataflow_spec.sourceDetails["database"]
+        source_table = silver_dataflow_spec.sourceDetails["table"]
         select_exp = silver_dataflow_spec.selectExp
         where_clause = silver_dataflow_spec.whereClause
-        raw_delta_table_stream = self.spark.read.load(
-            path=silver_dataflow_spec.sourceDetails["path"],
-            format="delta"
-            # #f"{source_database}.{source_table}"
+        raw_delta_table_stream = self.spark.read.table(
+            f"{source_database}.{source_table}"
         ).selectExpr(*select_exp)
         raw_delta_table_stream = self.__apply_where_clause(where_clause, raw_delta_table_stream)
         return raw_delta_table_stream.schema
@@ -140,14 +138,12 @@ class DataflowPipeline:
     def read_silver(self) -> DataFrame:
         """Read Silver tables."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
-        # source_database = silver_dataflow_spec.sourceDetails["database"]
-        # source_table = silver_dataflow_spec.sourceDetails["table"]
+        source_database = silver_dataflow_spec.sourceDetails["database"]
+        source_table = silver_dataflow_spec.sourceDetails["table"]
         select_exp = silver_dataflow_spec.selectExp
         where_clause = silver_dataflow_spec.whereClause
-        raw_delta_table_stream = self.spark.readStream.load(
-            path=silver_dataflow_spec.sourceDetails["path"],
-            format="delta"
-            # f"{source_database}.{source_table}"
+        raw_delta_table_stream = self.spark.readStream.table(
+            f"{source_database}.{source_table}"
         ).selectExpr(
             *select_exp
         )  # .selectExpr(select_exp.split(","))
@@ -190,7 +186,7 @@ class DataflowPipeline:
                         name=f"{bronzeDataflowSpec.targetDetails['table']}",
                         table_properties=bronzeDataflowSpec.tableProperties,
                         partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
-                        path=bronzeDataflowSpec.targetDetails["path"],
+                        # path=bronzeDataflowSpec.targetDetails["path"],
                         comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
                     )
                 )
@@ -202,7 +198,7 @@ class DataflowPipeline:
                             name=f"{bronzeDataflowSpec.targetDetails['table']}",
                             table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
-                            path=bronzeDataflowSpec.targetDetails["path"],
+                            # path=bronzeDataflowSpec.targetDetails["path"],
                             comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
                         )
                     )
@@ -216,7 +212,7 @@ class DataflowPipeline:
                             name=f"{bronzeDataflowSpec.targetDetails['table']}",
                             table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
-                            path=bronzeDataflowSpec.targetDetails["path"],
+                            # path=bronzeDataflowSpec.targetDetails["path"],
                             comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
                         )
                     )
@@ -235,7 +231,7 @@ class DataflowPipeline:
                         name=f"{bronzeDataflowSpec.quarantineTargetDetails['table']}",
                         table_properties=bronzeDataflowSpec.quarantineTableProperties,
                         partition_cols=q_partition_cols,
-                        path=bronzeDataflowSpec.quarantineTargetDetails["path"],
+                        # path=bronzeDataflowSpec.quarantineTargetDetails["path"],
                         comment=f"""bronze dlt quarantine_path table
                         {bronzeDataflowSpec.quarantineTargetDetails['table']}""",
                     )
@@ -272,7 +268,7 @@ class DataflowPipeline:
             name=f"{self.dataflowSpec.targetDetails['table']}",
             table_properties=self.dataflowSpec.tableProperties,
             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
-            path=self.dataflowSpec.targetDetails["path"],
+            # path=self.dataflowSpec.targetDetails["path"],
             schema=struct_schema,
         )
 
@@ -314,7 +310,7 @@ class DataflowPipeline:
                 name=f"{bronze_dataflow_spec.targetDetails['table']}",
                 partition_cols=DataflowSpecUtils.get_partition_cols(bronze_dataflow_spec.partitionColumns),
                 table_properties=bronze_dataflow_spec.tableProperties,
-                path=bronze_dataflow_spec.targetDetails["path"],
+                # path=bronze_dataflow_spec.targetDetails["path"],
                 comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}",
             )
 
@@ -329,7 +325,7 @@ class DataflowPipeline:
                 name=f"{silver_dataflow_spec.targetDetails['table']}",
                 partition_cols=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.partitionColumns),
                 table_properties=silver_dataflow_spec.tableProperties,
-                path=silver_dataflow_spec.targetDetails["path"],
+                # path=silver_dataflow_spec.targetDetails["path"],
                 comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}",
             )
 

@@ -207,7 +207,7 @@ class OnboardDataflowspec:
             self.deltaPipelinesMetaStoreOps.create_database(
                 database, comments="creating databse in standard merge block"
             )
-            silver_dataflow_spec_df.write.mode("overwrite").format("delta").save(dict_obj["silver_dataflowspec_path"])
+            silver_dataflow_spec_df.write.mode("overwrite").saveAsTable(f"{database}.{table}")
         else:
             self.deltaPipelinesMetaStoreOps.create_database(
                 database, comments="creating databse in standard merge block"
@@ -221,7 +221,7 @@ class OnboardDataflowspec:
                 ["dataFlowId"],
                 original_dataflow_df.columns,
             )
-        self.register_silver_dataflow_spec_tables()
+        #self.register_silver_dataflow_spec_tables()
 
     def onboard_bronze_dataflow_spec(self):
         """
@@ -269,14 +269,14 @@ class OnboardDataflowspec:
         location = dict_obj["bronze_dataflowspec_path"]
         self.deltaPipelinesMetaStoreOps.create_database(database, comments="creating databse in standard merge block")
         if dict_obj["overwrite"] == "True":
-            bronze_dataflow_spec_df.write.mode("overwrite").format("delta").save(
-                path=dict_obj["bronze_dataflowspec_path"]
+            bronze_dataflow_spec_df.write.mode("overwrite").saveAsTable(
+                f"{database}.{table}"
             )
 
         else:
             self.deltaPipelinesMetaStoreOps.create_database(database, comments="creating databse in bronze merge block")
             self.deltaPipelinesMetaStoreOps.register_table_in_metastore(database, table, location)
-            original_dataflow_df = self.spark.read.format("delta").load(dict_obj["bronze_dataflowspec_path"])
+            original_dataflow_df = self.spark.read.table(f"{database}.{table}")
             logger.info("In Merge block for Bronze")
             self.deltaPipelinesInternalTableOps.merge(
                 bronze_dataflow_spec_df,
@@ -284,7 +284,7 @@ class OnboardDataflowspec:
                 ["dataFlowId"],
                 original_dataflow_df.columns,
             )
-        self.register_bronze_dataflow_spec_tables()
+        #self.register_bronze_dataflow_spec_tables()
 
     def __delete_none(self, _dict):
         """Delete None values recursively from all of the dictionaries"""
