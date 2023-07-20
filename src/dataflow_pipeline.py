@@ -140,14 +140,16 @@ class DataflowPipeline:
     def read_silver(self) -> DataFrame:
         """Read Silver tables."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
-        # source_database = silver_dataflow_spec.sourceDetails["database"]
-        # source_table = silver_dataflow_spec.sourceDetails["table"]
+        #source_database = silver_dataflow_spec.sourceDetails["database"]
+        source_database = "LIVE"
+        source_table = silver_dataflow_spec.sourceDetails["table"]
         select_exp = silver_dataflow_spec.selectExp
         where_clause = silver_dataflow_spec.whereClause
-        raw_delta_table_stream = self.spark.readStream.load(
-            path=silver_dataflow_spec.sourceDetails["path"],
-            format="delta"
-            # f"{source_database}.{source_table}"
+        raw_delta_table_stream = self.spark.readStream.table(
+            #self.spark.readStream.load(
+            #path=silver_dataflow_spec.sourceDetails["path"],
+            #format="delta"
+            f"{source_database}.{source_table}"
         ).selectExpr(
             *select_exp
         )  # .selectExpr(select_exp.split(","))
@@ -340,7 +342,7 @@ class DataflowPipeline:
         self.write()
 
     @staticmethod
-    def invoke_dlt_pipeline(spark, layer):
+    def invoke_dlt_pipeline(spark, layers):
         """Invoke dlt pipeline will launch dlt with given dataflowspec.
 
         Args:
@@ -348,31 +350,34 @@ class DataflowPipeline:
             layer (_type_): _description_
         """
         dataflowspec_list = None
-        if "bronze" == layer.lower():
-            dataflowspec_list = DataflowSpecUtils.get_bronze_dataflow_spec(spark)
-        elif "silver" == layer.lower():
-            dataflowspec_list = DataflowSpecUtils.get_silver_dataflow_spec(spark)
+        
+        layers = layers.split(",")
+        for layer in layers:
+            if "bronze" == layer.lower():
+                dataflowspec_list = DataflowSpecUtils.get_bronze_dataflow_spec(spark)
+            elif "silver" == layer.lower():
+                dataflowspec_list = DataflowSpecUtils.get_silver_dataflow_spec(spark)   
 
-        logger.info(f"Length of Dataflow Spec {len(dataflowspec_list)}")
-        for dataflowSpec in dataflowspec_list:
-            logger.info("Printing Dataflow Spec")
-            logger.info(dataflowSpec)
-            quarantine_input_view_name = None
-            if (
-                type(dataflowSpec) == BronzeDataflowSpec
-                and dataflowSpec.quarantineTargetDetails is not None
-                and dataflowSpec.quarantineTargetDetails != {}
-            ):
-                quarantine_input_view_name = (
-                    f"{dataflowSpec.quarantineTargetDetails['table']}_{layer}_quarantine_inputView"
+            logger.info(f"Length of Dataflow Spec {len(dataflowspec_list)}")
+            for dataflowSpec in dataflowspec_list:
+                logger.info("Printing Dataflow Spec")
+                logger.info(dataflowSpec)
+                quarantine_input_view_name = None
+                if (
+                    type(dataflowSpec) == BronzeDataflowSpec
+                    and dataflowSpec.quarantineTargetDetails is not None
+                    and dataflowSpec.quarantineTargetDetails != {}
+                ):
+                    quarantine_input_view_name = (
+                        f"{dataflowSpec.quarantineTargetDetails['table']}_{layer}_quarantine_inputView"
+                    )
+                else:
+                    logger.info("quarantine_input_view_name set to None")
+
+                dlt_data_flow = DataflowPipeline(
+                    spark,
+                    dataflowSpec,
+                    f"{dataflowSpec.targetDetails['table']}_{layer}_inputView",
+                    quarantine_input_view_name,
                 )
-            else:
-                logger.info("quarantine_input_view_name set to None")
-
-            dlt_data_flow = DataflowPipeline(
-                spark,
-                dataflowSpec,
-                f"{dataflowSpec.targetDetails['table']}_{layer}_inputView",
-                quarantine_input_view_name,
-            )
-            dlt_data_flow.run_dlt()
+                dlt_data_flow.run_dlt()

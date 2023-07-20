@@ -171,30 +171,32 @@ class DataflowSpecUtils:
     @staticmethod
     def check_spark_dataflowpipeline_conf_params(spark, layer_arg):
         """Check dataflowpipine config params."""
-        layer = spark.conf.get("layer", None)
-        if layer is None:
-            raise Exception(
-                f"""parameter {layer_arg} is missing in spark.conf.
-                 Please set spark.conf.set({layer_arg},'silver') """
-            )
-        dataflow_spec_table = spark.conf.get(f"{layer}.dataflowspecTable", None)
-        if dataflow_spec_table is None:
-            raise Exception(
-                f"""parameter {layer_arg}.dataflowspecTable is missing in sparkConf
-                Please set spark.conf.set('{layer_arg}.dataflowspecTable'='database.dataflowSpecTableName')"""
-            )
+        layers = spark.conf.get("layer", None)
+        if layers is None:
+                raise Exception(
+                    f"""parameter {layer_arg} is missing in spark.conf.
+                    Please set spark.conf.set({layer_arg},'silver') """
+                )
+        for layer in layers.split(","):
+            
+            dataflow_spec_table = spark.conf.get(f"{layer}.dataflowspecTable", None)
+            if dataflow_spec_table is None:
+                raise Exception(
+                    f"""parameter {layer_arg}.dataflowspecTable is missing in sparkConf
+                    Please set spark.conf.set('{layer_arg}.dataflowspecTable'='database.dataflowSpecTableName')"""
+                )
 
-        group = spark.conf.get(f"{layer}.group", None)
-        dataflow_ids = spark.conf.get(f"{layer}.dataflowIds", None)
+            group = spark.conf.get(f"{layer}.group", None)
+            dataflow_ids = spark.conf.get(f"{layer}.dataflowIds", None)
 
-        if group is None and dataflow_ids is None:
-            raise Exception(
-                f"""please provide {layer}.group or {layer}.dataflowIds in spark.conf
-                 Please set spark.conf.set('{layer}.group'='groupName')
-                 OR
-                 spark.conf.set('{layer}.dataflowIds'='comma seperated dataflowIds')
-                 """
-            )
+            if group is None and dataflow_ids is None:
+                raise Exception(
+                    f"""please provide {layer}.group or {layer}.dataflowIds in spark.conf
+                    Please set spark.conf.set('{layer}.group'='groupName')
+                    OR
+                    spark.conf.set('{layer}.dataflowIds'='comma seperated dataflowIds')
+                    """
+                )
 
     @staticmethod
     def get_partition_cols(partition_columns):
