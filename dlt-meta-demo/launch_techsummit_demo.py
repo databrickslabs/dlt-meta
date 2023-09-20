@@ -39,8 +39,8 @@ def create_workflow_spec(job_spec_dict):
                     "base_parameters": {
                         "base_input_path": job_spec_dict['dbfs_tmp_path'],
                         "table_column_count": job_spec_dict['table_column_count'],
-                        "table_count":job_spec_dict['table_count'],
-                        "table_data_rows_count":job_spec_dict['table_data_rows_count']
+                        "table_count": job_spec_dict['table_count'],
+                        "table_data_rows_count": job_spec_dict['table_data_rows_count']
                     }
                 }
 

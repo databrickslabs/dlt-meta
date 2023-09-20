@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 INSTALL_REQUIRES = ["setuptools"]
 
 DEV_REQUIREMENTS = [
-    "flake8>=5.0",
+    "flake8==6.0",
     "delta-spark==2.0.2"
 ]
 
