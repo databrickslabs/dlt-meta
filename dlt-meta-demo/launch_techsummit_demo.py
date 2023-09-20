@@ -1,5 +1,4 @@
 """Inegration tests script."""
-import os
 import time
 import uuid
 import argparse
@@ -289,7 +288,6 @@ def process_arguments():
     parser.add_argument("--table_count", help="Provide table count e.g 100")
     parser.add_argument("--table_column_count", help="Provide column count e.g 5")
     parser.add_argument("--table_data_rows_count", help="Provide data rows count e.g 10")
-    
     args = parser.parse_args()
     mandatory_args = ["cloud_provider_name", "dbr_version", "dbfs_path"]
     check_mandatory_arg(args, mandatory_args)
