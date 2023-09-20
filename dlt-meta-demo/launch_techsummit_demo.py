@@ -1,4 +1,4 @@
-"""Inegration tests script."""
+"""Techsummit demo runner script."""
 import time
 import uuid
 import argparse
@@ -126,7 +126,7 @@ def create_dlt_meta_pipeline(
         run_id, configuration={}):
     """Create DLT pipeline."""
     return pipeline_service.create(
-        name=f"dais-dlt-meta-{configuration['layer']}-{run_id}",
+        name=f"techsummit-dlt-meta-{configuration['layer']}-{run_id}",
         clusters=[
             {
                 "label": "default",
