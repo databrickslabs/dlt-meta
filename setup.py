@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 INSTALL_REQUIRES = ["setuptools"]
 
 DEV_REQUIREMENTS = [
-    "flake8>=5.0",
+    "flake8==6.0",
     "delta-spark==2.0.2"
 ]
 
@@ -21,7 +21,7 @@ setup(
     name="dlt_meta",
     version="0.0.3",
     python_requires=">=3.8",
-    setup_requires=["wheel>=0.37.1,<=0.40.0"],
+    setup_requires=["wheel>=0.37.1,<=0.41.2"],
     install_requires=INSTALL_REQUIRES,
     extras_require={"dev": DEV_REQUIREMENTS, "IT": IT_REQUIREMENTS},
     author="Ravi Gawai",
