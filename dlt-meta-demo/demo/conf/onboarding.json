@@ -7,8 +7,8 @@
         "source_details": {
             "source_database": "customers",
             "source_table": "customers",
-            "source_path_prod": "dbfs:/dais-dlt-meta-demo/resources/data/customers",
-            "source_schema_path": "dbfs:/dais-dlt-meta-demo/resources/ddl/customers.ddl"
+            "source_path_prod": "dbfs:/dais-dlt-meta-demo/demo/resources/data/customers",
+            "source_schema_path": "dbfs:/dais-dlt-meta-demo/demo/resources/ddl/customers.ddl"
         },
         "bronze_database_prod": "dlt_meta_bronze",
         "bronze_table": "customers",
@@ -48,8 +48,8 @@
         "source_details": {
             "source_database": "transactions",
             "source_table": "transactions",
-            "source_path_prod": "dbfs:/dais-dlt-meta-demo/resources/data/transactions",
-            "source_schema_path": "dbfs:/dais-dlt-meta-demo/resources/ddl/transactions.ddl"
+            "source_path_prod": "dbfs:/dais-dlt-meta-demo/demo/resources/data/transactions",
+            "source_schema_path": "dbfs:/dais-dlt-meta-demo/demo/resources/ddl/transactions.ddl"
         },
         "bronze_database_prod": "dlt_meta_bronze",
         "bronze_table": "transactions",
@@ -89,8 +89,8 @@
         "source_details": {
             "source_database": "products",
             "source_table": "products",
-            "source_path_prod": "dbfs:/dais-dlt-meta-demo/resources/data/products",
-            "source_schema_path": "dbfs:/dais-dlt-meta-demo/resources/ddl/products.ddl"
+            "source_path_prod": "dbfs:/dais-dlt-meta-demo/demo/resources/data/products",
+            "source_schema_path": "dbfs:/dais-dlt-meta-demo/demo/resources/ddl/products.ddl"
         },
         "bronze_database_prod": "dlt_meta_bronze",
         "bronze_table": "products",
@@ -130,8 +130,8 @@
         "source_details": {
             "source_database": "stores",
             "source_table": "stores",
-            "source_path_prod": "dbfs:/dais-dlt-meta-demo/resources/data/stores",
-            "source_schema_path": "dbfs:/dais-dlt-meta-demo/resources/ddl/stores.ddl"
+            "source_path_prod": "dbfs:/dais-dlt-meta-demo/demo/resources/data/stores",
+            "source_schema_path": "dbfs:/dais-dlt-meta-demo/demo/resources/ddl/stores.ddl"
         },
         "bronze_database_prod": "dlt_meta_bronze",
         "bronze_table": "stores",
