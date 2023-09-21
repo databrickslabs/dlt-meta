@@ -1,9 +1,9 @@
  # [DLT-META](https://github.com/databrickslabs/dlt-meta) DEMO's 
- 1. [DAIS 2023 DEMO](#dais-2023-demo), : Showcases DLT-META's capabilities of creating Bronze and Silver DLT pipelines with initial and incremental mode automatically.
+ 1. [DAIS 2023 DEMO](#dais-2023-demo): Showcases DLT-META's capabilities of creating Bronze and Silver DLT pipelines with initial and incremental mode automatically.
  2. [Databricks Techsummit Demo](#databricks-tech-summit-fy2024-demo): 100s of data sources ingestion in bronze and silver DLT pipelines automatically.
 
 
-## DAIS 2023 DEMO
+# DAIS 2023 DEMO
 This Demo launches Bronze and Silver DLT pipleines with following activities:
 - Customer and Transactions feeds for initial load
 - Adds new feeds Product and Stores to existing Bronze and Silver DLT pipelines with metadata changes.
@@ -43,7 +43,7 @@ export DATABRICKS_TOKEN=<DATABRICKS TOKEN> # Paste Token here from Step#6, Accou
     - db_version : Databricks Runtime Version
     - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
 
-## Databricks Tech Summit FY2024 DEMO:
+# Databricks Tech Summit FY2024 DEMO:
 This demo will launch auto generated tables(100s) inside single bronze and silver DLT pipeline using dlt-meta.
 
 1. Launch Terminal/Command promt 
