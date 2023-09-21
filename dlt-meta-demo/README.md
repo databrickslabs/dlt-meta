@@ -1,4 +1,7 @@
- # [DLT-META](https://github.com/databrickslabs/dlt-meta) DEMO's
+ # [DLT-META](https://github.com/databrickslabs/dlt-meta) DEMO's 
+ 1. [DAIS 2023 DEMO](#dais-2023-demo), : Showcases DLT-META's capabilities of creating Bronze and Silver DLT pipelines with initial and incremental mode automatically.
+ 2. [Databricks Techsummit Demo](#databricks-tech-summit-fy2024-demo): 100s of data sources ingestion in bronze and silver DLT pipelines automatically.
+
 
 ## DAIS 2023 DEMO
 This Demo launches Bronze and Silver DLT pipleines with following activities:
