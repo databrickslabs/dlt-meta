@@ -207,21 +207,20 @@ class OnboardDataflowspec:
             self.deltaPipelinesMetaStoreOps.create_database(
                 database, comments="creating databse in standard merge block"
             )
-            silver_dataflow_spec_df.write.mode("overwrite").saveAsTable(f"{database}.{table}")
+            silver_dataflow_spec_df.write.format("delta").mode("overwrite").saveAsTable(f"{database}.{table}")
         else:
             self.deltaPipelinesMetaStoreOps.create_database(
                 database, comments="creating databse in standard merge block"
             )
             self.deltaPipelinesMetaStoreOps.register_table_in_metastore(database, table, location)
-            original_dataflow_df = self.spark.read.format("delta").load(dict_obj["silver_dataflowspec_path"])
+            original_dataflow_df = self.spark.read.format("delta").table(f"{database}.{table}")
             logger.info("In Merge block for Silver")
             self.deltaPipelinesInternalTableOps.merge(
                 silver_dataflow_spec_df,
-                dict_obj["silver_dataflowspec_path"],
+                f"{database}.{table}",
                 ["dataFlowId"],
                 original_dataflow_df.columns,
             )
-        #self.register_silver_dataflow_spec_tables()
 
     def onboard_bronze_dataflow_spec(self):
         """
@@ -266,25 +265,25 @@ class OnboardDataflowspec:
         bronze_dataflow_spec_df = bronze_dataflow_spec_df.select(bronze_fields)
         database = dict_obj["database"]
         table = dict_obj["bronze_dataflowspec_table"]
-        location = dict_obj["bronze_dataflowspec_path"]
+        # location = dict_obj["bronze_dataflowspec_path"]
         self.deltaPipelinesMetaStoreOps.create_database(database, comments="creating databse in standard merge block")
         if dict_obj["overwrite"] == "True":
-            bronze_dataflow_spec_df.write.mode("overwrite").saveAsTable(
+            bronze_dataflow_spec_df.write.format("delta").mode("overwrite").saveAsTable(
                 f"{database}.{table}"
             )
 
         else:
-            self.deltaPipelinesMetaStoreOps.create_database(database, comments="creating databse in bronze merge block")
-            self.deltaPipelinesMetaStoreOps.register_table_in_metastore(database, table, location)
-            original_dataflow_df = self.spark.read.table(f"{database}.{table}")
+            # self.deltaPipelinesMetaStoreOps.create_database(
+            # database, comments="creating databse in bronze merge block")
+            # self.deltaPipelinesMetaStoreOps.register_table_in_metastore(database, table, location)
+            original_dataflow_df = self.spark.read.format("delta").table(f"{database}.{table}")
             logger.info("In Merge block for Bronze")
             self.deltaPipelinesInternalTableOps.merge(
                 bronze_dataflow_spec_df,
-                dict_obj["bronze_dataflowspec_path"],
+                f"{database}.{table}",
                 ["dataFlowId"],
                 original_dataflow_df.columns,
             )
-        #self.register_bronze_dataflow_spec_tables()
 
     def __delete_none(self, _dict):
         """Delete None values recursively from all of the dictionaries"""

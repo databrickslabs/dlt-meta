@@ -20,7 +20,7 @@ class DeltaPipelinesMetaStoreOps:
 
     def drop_database(self, database):
         """Drop database."""
-        self.try_run_sql(f"DROP DATABASE IF EXISTS {database} ")
+        self.try_run_sql(f"DROP DATABASE IF EXISTS {database} CASCADE")
 
     def reset_table_in_metastore(self, database, table, path):
         """Reset table metadata."""
@@ -48,14 +48,15 @@ class DeltaPipelinesInternalTableOps:
         """Initialize."""
         self.spark = spark
 
-    def merge(self, upsert_records, target_table_path, merge_keys, original_columns):
+    def merge(self, upsert_records, target_table, merge_keys, original_columns):
         """Merge builder using python semantics.
 
         Code added for selective updates as against update *
         not_to_update_columns has the exclusion list, hard coded for now.
         """
         upsert_records_df = upsert_records
-        target_delta_table = DeltaTable.forPath(self.spark, target_table_path)
+        target_delta_table = DeltaTable.forName(self.spark, target_table)
+        # forPath(self.spark, target_table_path)
 
         new_l = []
         merge_condition = None

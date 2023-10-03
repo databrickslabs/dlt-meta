@@ -1,6 +1,7 @@
 """Test for pipeline readers."""
 from datetime import datetime
 import sys
+import os
 from src.dataflow_spec import BronzeDataflowSpec
 from src.pipeline_readers import PipelineReaders
 from tests.utils import DLTFrameworkTestCase
@@ -146,7 +147,12 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
         source_format_map = {"sourceFormat": "delta"}
         bronze_map.update(source_format_map)
-        source_details_map = {"sourceDetails": {"path": "tests/resources/delta/customers"}}
+        self.spark.sql("CREATE DATABASE IF NOT EXISTS source_bronze")
+        full_path = os.path.abspath("tests/resources/delta/customers")
+        self.spark.sql(f"CREATE TABLE if not exists source_bronze.customer USING DELTA LOCATION '{full_path}' ")
+
+        source_details_map = {"sourceDetails": {"database": "source_bronze", "table": "customer"}}
+
         bronze_map.update(source_details_map)
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
         customer_df = PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
@@ -157,7 +163,10 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
         source_format_map = {"sourceFormat": "delta"}
         bronze_map.update(source_format_map)
-        source_details_map = {"sourceDetails": {"path": "tests/resources/delta/customers"}}
+        self.spark.sql("CREATE DATABASE IF NOT EXISTS source_bronze")
+        full_path = os.path.abspath("tests/resources/delta/customers")
+        self.spark.sql(f"CREATE TABLE if not exists source_bronze.customer USING DELTA LOCATION '{full_path}' ")
+        source_details_map = {"sourceDetails": {"database": "source_bronze", "table": "customer"}}
         bronze_map.update(source_details_map)
         reader_config = {"readerConfigOptions": {"maxFilesPerTrigger": "1"}}
         bronze_map.update(reader_config)

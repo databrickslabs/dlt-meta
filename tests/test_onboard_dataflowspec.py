@@ -43,17 +43,28 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         """Test for onboardDataflowspec."""
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
         onboardDataFlowSpecs.onboard_dataflow_specs()
-        bronze_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/bronze")
-        silver_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/silver")
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
+
+    def read_dataflowspec(self, database, table):
+        return self.spark.read.table(f"{database}.{table}")
 
     def test_onboardDataFlowSpecs_with_merge(self):
         """Test for onboardDataflowspec with merge scenario."""
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
         onboardDataFlowSpecs.onboard_dataflow_specs()
-        bronze_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/bronze")
-        silver_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/silver")
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
         local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
@@ -61,8 +72,12 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         local_params["onboarding_file_path"] = self.onboarding_v2_json_file
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
         onboardDataFlowSpecs.onboard_dataflow_specs()
-        bronze_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/bronze")
-        silver_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/silver")
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
         bronze_df_rows = bronze_dataflowSpec_df.collect()
@@ -81,7 +96,9 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboarding_params_map["onboarding_file_path"] = self.onboarding_json_file
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map)
         onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
-        bronze_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/bronze")
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
 
     def test_getOnboardingFileDataframe_for_unsupported_file(self):
@@ -102,7 +119,9 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboarding_params_map["onboarding_file_path"] = self.onboarding_json_file
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map)
         onboardDataFlowSpecs.onboard_silver_dataflow_spec()
-        silver_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/silver")
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
 
     def test_dataflow_ids_dup_onboard(self):

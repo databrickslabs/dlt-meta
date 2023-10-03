@@ -30,7 +30,9 @@ class MainTests(DLTFrameworkTestCase):
             list.append(f"--{key}={bronze_param_map[key]}")
         sys.argv = list
         __main__.main()
-        bronze_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/bronze")
+        bronze_dataflowSpec_df = (self.spark.read.format("delta").table(
+            f"{bronze_param_map['database']}.{bronze_param_map['bronze_dataflowspec_table']}")
+        )
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
 
     def test_main_silver(self):
@@ -42,7 +44,9 @@ class MainTests(DLTFrameworkTestCase):
             list.append(f"--{key}={silver_param_map[key]}")
         sys.argv = list
         __main__.main()
-        silver_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/silver")
+        silver_dataflowSpec_df = (self.spark.read.format("delta").table(
+            f"{silver_param_map['database']}.{silver_param_map['silver_dataflowspec_table']}")
+        )
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
 
     def test_main_bronze_silver(self):
@@ -54,9 +58,13 @@ class MainTests(DLTFrameworkTestCase):
             list.append(f"--{key}={param_map[key]}")
         sys.argv = list
         __main__.main()
-        bronze_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/bronze")
+        bronze_dataflowSpec_df = (self.spark.read.format("delta").table(
+            f"{param_map['database']}.{param_map['bronze_dataflowspec_table']}")
+        )
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
-        silver_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/silver")
+        silver_dataflowSpec_df = (self.spark.read.format("delta") .table(
+            f"{param_map['database']}.{param_map['silver_dataflowspec_table']}")
+        )
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
 
     def test_main_negative(self):
