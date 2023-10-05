@@ -212,6 +212,7 @@ def create_eventhub_workflow_spec(args, job_spec_dict):
                         "eventhub_namespace": args.__getattribute__("eventhub_namespace"),
                         "eventhub_secrets_scope_name": args.__getattribute__("eventhub_secrets_scope_name"),
                         "eventhub_accesskey_name": args.__getattribute__("eventhub_producer_accesskey_name"),
+                        "eventhub_accesskey_secret_name": args.__getattribute__("eventhub_producer_accesskey_secret_name"),
                         "eventhub_input_data": f"/{dbfs_file_path}/integration-tests/resources/data/iot/iot.json"
                     }
                 }
@@ -498,6 +499,7 @@ def create_eventhub_onboarding(args, eventhub_template, dbfs_tmp_path, run_id):
         onboard_obj = json.load(f)
     eventhub_name = args.__getattribute__("eventhub_name").lower()
     eventhub_accesskey_name = args.__getattribute__("eventhub_consumer_accesskey_name").lower()
+    eventhub_accesskey_secret_name = args.__getattribute__("eventhub_consumer_accesskey_secret_name").lower()
     eventhub_secrets_scope_name = args.__getattribute__("eventhub_secrets_scope_name").lower()
     eventhub_namespace = args.__getattribute__("eventhub_namespace").lower()
     eventhub_port = args.__getattribute__("eventhub_port").lower()
@@ -511,6 +513,8 @@ def create_eventhub_onboarding(args, eventhub_template, dbfs_tmp_path, run_id):
                         data_flow[key][source_key] = source_value.format(eventhub_name=eventhub_name)
                     if 'eventhub_accesskey_name' in source_value:
                         data_flow[key][source_key] = source_value.format(eventhub_accesskey_name=eventhub_accesskey_name)
+                    if 'eventhub_accesskey_secret_name' in source_value:
+                        data_flow[key][source_key] = source_value.format(eventhub_accesskey_secret_name=eventhub_accesskey_secret_name)
                     if 'eventhub_secrets_scope_name' in source_value:
                         data_flow[key][source_key] = source_value.format(eventhub_secrets_scope_name=eventhub_secrets_scope_name)
                     if 'eventhub_nmspace' in source_value:
