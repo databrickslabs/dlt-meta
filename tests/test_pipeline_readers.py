@@ -52,6 +52,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
             "source_schema_path": "tests/resources/schema/eventhub_iot_schema.ddl",
             "eventhub.accessKeyName": "iotIngestionAccessKey",
             "eventhub.name": "iot",
+            "eventhub.accessKeySecretName": "iotIngestionAccessKeySecret",
             "eventhub.secretsScopeName": "eventhubs_creds",
             "kafka.sasl.mechanism": "PLAIN",
             "kafka.security.protocol": "SASL_SSL",
