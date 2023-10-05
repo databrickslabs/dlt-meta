@@ -666,6 +666,8 @@ def process_arguments():
     parser.add_argument("--eventhub_name", help="Provide eventhub_name e.g --eventhub_name=iot")
     parser.add_argument("--eventhub_producer_accesskey_name", help="Provide access key that has write permission on the eventhub e.g --eventhub_producer_accesskey_name=iotProducerAccessKey")
     parser.add_argument("--eventhub_consumer_accesskey_name", help="Provide access key that has read permission on the eventhub  e.g --eventhub_consumer_accesskey_name=iotConsumerAccessKey")
+    parser.add_argument("--eventhub_producer_accesskey_secret_name", help="Provide name of the secret that stores access key with write permission on the eventhub e.g --eventhub_producer_accesskey_secret_name=iotProducerAccessKey")
+    parser.add_argument("--eventhub_consumer_accesskey_secret_name", help="Provide name of the secret that stores access key with read permission on the eventhub  e.g --eventhub_consumer_accesskey_secret_name=iotConsumerAccessKey")
     parser.add_argument("--eventhub_secrets_scope_name",
                         help="Provide eventhub_secrets_scope_name e.g --eventhub_secrets_scope_name=eventhubs_creds")
     parser.add_argument("--eventhub_namespace", help="Provide eventhub_namespace e.g --eventhub_namespace=topic-standard")
@@ -688,7 +690,7 @@ def process_arguments():
     if source.lower() not in supported_sources:
         raise Exception("Invalid value for --source! Supported values: --source=cloudfiles")
     if source.lower() == "eventhub":
-        eventhub_madatory_args = ["eventhub_name", "eventhub_producer_accesskey_name", "eventhub_consumer_accesskey_name", "eventhub_secrets_scope_name", "eventhub_namespace", "eventhub_port"]
+        eventhub_madatory_args = ["eventhub_name", "eventhub_producer_accesskey_name", "eventhub_consumer_accesskey_name", "eventhub_producer_accesskey_secret_name", "eventhub_consumer_accesskey_secret_name", "eventhub_secrets_scope_name", "eventhub_namespace", "eventhub_port"]
         check_mandatory_arg(args, eventhub_madatory_args)
     if source.lower() == "kafka":
         kafka_madatory_args = ["kafka_topic_name", "kafka_broker"]

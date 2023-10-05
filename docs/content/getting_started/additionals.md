@@ -23,7 +23,7 @@ export DATABRICKS_TOKEN=<DATABRICKS TOKEN> # Account needs permission to create 
 5. Run integration test against cloudfile or eventhub or kafka using below options:
     5a. Run the command for cloudfiles ```python integration-tests/run-integration-test.py  --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=cloudfiles --dbfs_path=dbfs:/tmp/DLT-META/```
 
-    5b. Run the command for eventhub ```python integration-tests/run-integration-test.py --cloud_provider_name=azure --dbr_version=11.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer```
+    5b. Run the command for eventhub ```python integration-tests/run-integration-test.py --cloud_provider_name=azure --dbr_version=11.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_producer_accesskey_secret_name=producer --eventhub_consumer_accesskey_name=consumer --eventhub_consumer_accesskey_secret_name=consumer```
 
     For eventhub integration tests, the following are the prerequisites:
     1. Needs eventhub instance running
@@ -37,6 +37,8 @@ export DATABRICKS_TOKEN=<DATABRICKS TOKEN> # Account needs permission to create 
     4. Provide databricks secret scope name : --eventhub_secrets_scope_name
     5. Provide eventhub producer access key name : --eventhub_producer_accesskey_name
     6. Provide eventhub access key name : --eventhub_consumer_accesskey_name
+    7. Provide eventhub producer access key secret name : --eventhub_producer_accesskey_secret_name
+    8. Provide eventhub access key secret name : --eventhub_consumer_accesskey_secret_name
 
 
     5c. Run the command for kafka ```python3 integration-tests/run-integration-test.py --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=kafka --dbfs_path=dbfs:/tmp/DLT-META/ --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092```
