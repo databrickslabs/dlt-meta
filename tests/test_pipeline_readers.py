@@ -220,7 +220,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         bronze_map = PipelineReadersTests.bronze_eventhub_dataflow_spec_omit_secret_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
         kafka_options = PipelineReaders.get_eventhub_kafka_options(self.spark, bronze_dataflow_spec)
-        self.assertIsNotNone(kafka_options)        
+        self.assertIsNotNone(kafka_options)
 
     @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
     @patch.object(dbutils, "secrets.get", return_value={"called"})
