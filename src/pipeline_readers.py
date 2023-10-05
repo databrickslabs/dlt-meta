@@ -121,8 +121,9 @@ class PipelineReaders:
         eh_name = bronze_dataflow_spec.sourceDetails.get("eventhub.name")
         eh_shared_key_name = bronze_dataflow_spec.sourceDetails.get("eventhub.accessKeyName")
         secret_name = bronze_dataflow_spec.sourceDetails.get("eventhub.accessKeySecretName")
-        if not secret_name: # if "eventhub.accessKeySecretName" is not specified
-            secret_name = eh_shared_key_name          
+        if not secret_name:
+            # set default value if "eventhub.accessKeySecretName" is not specified
+            secret_name = eh_shared_key_name
         secret_scope = bronze_dataflow_spec.sourceDetails.get("eventhub.secretsScopeName")
         eh_shared_key_value = dbutils.secrets.get(secret_scope, secret_name)
         eh_shared_key_value = f"SharedAccessKeyName={eh_shared_key_name};SharedAccessKey={eh_shared_key_value}"
