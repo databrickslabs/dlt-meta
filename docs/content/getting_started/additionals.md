@@ -37,10 +37,8 @@ export DATABRICKS_TOKEN=<DATABRICKS TOKEN> # Account needs permission to create 
     4. Provide databricks secret scope name : --eventhub_secrets_scope_name
     5. Provide eventhub producer access key name : --eventhub_producer_accesskey_name
     6. Provide eventhub consumer access key name : --eventhub_consumer_accesskey_name
-    
-    Following are optional arguments for running EventHubs integration test
-    1. Provide eventhub producer access key secret name (if different from `eventhub_producer_accesskey_name`) : --eventhub_producer_accesskey_secret_name
-    2. Provide eventhub consumer access key secret name (if different from `eventhub_consumer_accesskey_name`) : --eventhub_consumer_accesskey_secret_name
+    7. Provide eventhub producer access key secret name : --eventhub_producer_accesskey_secret_name
+    8. Provide eventhub consumer access key secret name : --eventhub_consumer_accesskey_secret_name
 
 
     5c. Run the command for kafka ```python3 integration-tests/run-integration-test.py --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=kafka --dbfs_path=dbfs:/tmp/DLT-META/ --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092```

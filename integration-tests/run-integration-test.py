@@ -690,7 +690,15 @@ def process_arguments():
     if source.lower() not in supported_sources:
         raise Exception("Invalid value for --source! Supported values: --source=cloudfiles")
     if source.lower() == "eventhub":
-        eventhub_madatory_args = ["eventhub_name", "eventhub_producer_accesskey_name", "eventhub_consumer_accesskey_name", "eventhub_secrets_scope_name", "eventhub_namespace", "eventhub_port"]
+        eventhub_madatory_args = ["eventhub_name",
+                                  "eventhub_producer_accesskey_name",
+                                  "eventhub_consumer_accesskey_name",
+                                  "eventhub_secrets_scope_name",
+                                  "eventhub_producer_accesskey_secret_name",
+                                  "eventhub_consumer_accesskey_secret_name",
+                                  "eventhub_namespace",
+                                  "eventhub_port"
+                                  ]
         check_mandatory_arg(args, eventhub_madatory_args)
     if source.lower() == "kafka":
         kafka_madatory_args = ["kafka_topic_name", "kafka_broker"]
