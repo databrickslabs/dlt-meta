@@ -7,17 +7,17 @@
 <meta name=author content="Ravi Gawai (Databricks)">
 <link rel=icon href=https://databrickslabs.github.io/dlt-meta/images/favicon.png type=image/png>
 <title>Metadata Preparation :: DLT-META</title>
-<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1695329311 rel=stylesheet>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1695329311></script>
+<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1697069834 rel=stylesheet>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1697069834></script>
 <style>:root #header+#content>#left>#rlblock_left{display:none!important}</style>
 <script async defer src=https://buttons.github.io/buttons.js></script>
 </head>
@@ -33,10 +33,10 @@
 <input data-search-input id=search-by type=search placeholder=Search...>
 <span data-search-clear><i class="fas fa-times"></i></span>
 </div>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1695329311></script>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1695329311></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1697069834></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1697069834></script>
 <script type=text/javascript>var baseurl="https://databrickslabs.github.io/dlt-meta/"</script>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1695329311></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1697069834></script>
 </div>
 <section id=homelinks>
 <ul>
@@ -187,7 +187,7 @@ Metadata Preparation
 </tr>
 <tr>
 <td style=text-align:center>source_details</td>
-<td style=text-align:left>This map Type captures all source details for cloudfiles = <code>source_schema_path</code>, <code>source_path_{env}</code>, <code>source_database</code> and for eventhub= <code>source_schema_path</code> , <code>eventhub.accessKeyName</code>, <code>eventhub.name</code> , <code>eventhub.secretsScopeName</code> , <code>kafka.sasl.mechanism</code>, <code>kafka.security.protocol</code>, <code>eventhub.namespace</code>, <code>eventhub.port</code>. For Source schema file spark DDL schema format parsing is supported In case of custom schema format then write schema parsing function <code>bronze_schema_mapper(schema_file_path, spark):Schema</code> and provide to <code>OnboardDataflowspec</code> initialization .e.g <code>onboardDataFlowSpecs = OnboardDataflowspec(spark, dict_obj,bronze_schema_mapper).onboardDataFlowSpecs()</code></td>
+<td style=text-align:left>This map Type captures all source details for cloudfiles = <code>source_schema_path</code>, <code>source_path_{env}</code>, <code>source_database</code> and for eventhub= <code>source_schema_path</code> , <code>eventhub.accessKeyName</code>, <code>eventhub.accessKeySecretName</code>, <code>eventhub.name</code> , <code>eventhub.secretsScopeName</code> , <code>kafka.sasl.mechanism</code>, <code>kafka.security.protocol</code>, <code>eventhub.namespace</code>, <code>eventhub.port</code>. For Source schema file spark DDL schema format parsing is supported In case of custom schema format then write schema parsing function <code>bronze_schema_mapper(schema_file_path, spark):Schema</code> and provide to <code>OnboardDataflowspec</code> initialization .e.g <code>onboardDataFlowSpecs = OnboardDataflowspec(spark, dict_obj,bronze_schema_mapper).onboardDataFlowSpecs()</code></td>
 </tr>
 <tr>
 <td style=text-align:center>bronze_database_{env}</td>
@@ -337,17 +337,17 @@ Metadata Preparation
 <div style=left:-1000px;overflow:scroll;position:absolute;top:-1000px;border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px>
 <div style=border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px></div>
 </div>
-<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1695329311></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1697069834></script>
 <script>hljs.initHighlightingOnLoad()</script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1695329311></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1697069834></script>
 <script>mermaid.initialize({startOnLoad:!0})</script>
 </body>
 </html>

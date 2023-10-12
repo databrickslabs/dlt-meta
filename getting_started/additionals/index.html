@@ -7,17 +7,17 @@
 <meta name=author content="Ravi Gawai (Databricks)">
 <link rel=icon href=https://databrickslabs.github.io/dlt-meta/images/favicon.png type=image/png>
 <title>Additionals :: DLT-META</title>
-<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1695329311 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1695329311 rel=stylesheet>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1695329311></script>
+<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1697069834 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1697069834 rel=stylesheet>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1697069834></script>
 <style>:root #header+#content>#left>#rlblock_left{display:none!important}</style>
 <script async defer src=https://buttons.github.io/buttons.js></script>
 </head>
@@ -33,10 +33,10 @@
 <input data-search-input id=search-by type=search placeholder=Search...>
 <span data-search-clear><i class="fas fa-times"></i></span>
 </div>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1695329311></script>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1695329311></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1697069834></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1697069834></script>
 <script type=text/javascript>var baseurl="https://databrickslabs.github.io/dlt-meta/"</script>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1695329311></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1697069834></script>
 </div>
 <section id=homelinks>
 <ul>
@@ -174,7 +174,7 @@ export DATABRICKS_TOKEN=&lt;DATABRICKS TOKEN&gt; # Account needs permission to c
 <li>
 <p>Run integration test against cloudfile or eventhub or kafka using below options:
 5a. Run the command for cloudfiles <code>python integration-tests/run-integration-test.py --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=cloudfiles --dbfs_path=dbfs:/tmp/DLT-META/</code></p>
-<p>5b. Run the command for eventhub <code>python integration-tests/run-integration-test.py --cloud_provider_name=azure --dbr_version=11.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer</code></p>
+<p>5b. Run the command for eventhub <code>python integration-tests/run-integration-test.py --cloud_provider_name=azure --dbr_version=11.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_producer_accesskey_secret_name=producer --eventhub_consumer_accesskey_name=consumer --eventhub_consumer_accesskey_secret_name=consumer</code></p>
 <p>For eventhub integration tests, the following are the prerequisites:</p>
 <ol>
 <li>Needs eventhub instance running</li>
@@ -188,7 +188,9 @@ export DATABRICKS_TOKEN=&lt;DATABRICKS TOKEN&gt; # Account needs permission to c
 <li>Provide eventhub port : &ndash;eventhub_port</li>
 <li>Provide databricks secret scope name : &ndash;eventhub_secrets_scope_name</li>
 <li>Provide eventhub producer access key name : &ndash;eventhub_producer_accesskey_name</li>
-<li>Provide eventhub access key name : &ndash;eventhub_consumer_accesskey_name</li>
+<li>Provide eventhub consumer access key name : &ndash;eventhub_consumer_accesskey_name</li>
+<li>Provide eventhub producer access key secret name : &ndash;eventhub_producer_accesskey_secret_name</li>
+<li>Provide eventhub consumer access key secret name : &ndash;eventhub_consumer_accesskey_secret_name</li>
 </ol>
 <p>5c. Run the command for kafka <code>python3 integration-tests/run-integration-test.py --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=kafka --dbfs_path=dbfs:/tmp/DLT-META/ --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092</code></p>
 <p>For kafka integration tests, the following are the prerequisites:</p>
@@ -238,17 +240,17 @@ export DATABRICKS_TOKEN=&lt;DATABRICKS TOKEN&gt; # Account needs permission to c
 <div style=left:-1000px;overflow:scroll;position:absolute;top:-1000px;border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px>
 <div style=border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px></div>
 </div>
-<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1695329311></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1697069834></script>
 <script>hljs.initHighlightingOnLoad()</script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1695329311></script>
-<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1695329311></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1697069834></script>
+<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1697069834></script>
 <script>mermaid.initialize({startOnLoad:!0})</script>
 </body>
 </html>
