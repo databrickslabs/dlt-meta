@@ -52,6 +52,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
             "source_schema_path": "tests/resources/schema/eventhub_iot_schema.ddl",
             "eventhub.accessKeyName": "iotIngestionAccessKey",
             "eventhub.name": "iot",
+            "eventhub.accessKeySecretName": "iotIngestionAccessKey",
             "eventhub.secretsScopeName": "eventhubs_creds",
             "kafka.sasl.mechanism": "PLAIN",
             "kafka.security.protocol": "SASL_SSL",
@@ -80,6 +81,44 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "updateDate": datetime.now,
         "updatedBy": "dlt-meta-unittest"
     }
+
+    bronze_eventhub_dataflow_spec_omit_secret_map = {
+        "dataFlowId": "1",
+        "dataFlowGroup": "A1",
+        "sourceFormat": "eventhub",
+        "sourceDetails": {
+            "source_schema_path": "tests/resources/schema/eventhub_iot_schema.ddl",
+            "eventhub.accessKeyName": "iotIngestionAccessKey",
+            "eventhub.name": "iot",
+            "eventhub.secretsScopeName": "eventhubs_creds",
+            "kafka.sasl.mechanism": "PLAIN",
+            "kafka.security.protocol": "SASL_SSL",
+            "eventhub.namespace": "ganesh-standard",
+            "eventhub.port": "9093"
+        },
+        "readerConfigOptions": {
+            "maxOffsetsPerTrigger": "50000",
+            "startingOffsets": "latest",
+            "failOnDataLoss": "false",
+            "kafka.request.timeout.ms": "60000",
+            "kafka.session.timeout.ms": "60000"
+        },
+        "targetFormat": "delta",
+        "targetDetails": {"database": "bronze", "table": "customer", "path": "tests/localtest/delta/customers"},
+        "tableProperties": {},
+        "schema": None,
+        "partitionColumns": [""],
+        "cdcApplyChanges": None,
+        "dataQualityExpectations": None,
+        "quarantineTargetDetails": None,
+        "quarantineTableProperties": None,
+        "version": "v1",
+        "createDate": datetime.now,
+        "createdBy": "dlt-meta-unittest",
+        "updateDate": datetime.now,
+        "updatedBy": "dlt-meta-unittest"
+    }
+
     bronze_kafka_dataflow_spec_map = {
         "dataFlowId": "1",
         "dataFlowGroup": "A1",
@@ -170,6 +209,15 @@ class PipelineReadersTests(DLTFrameworkTestCase):
     def test_get_eventhub_kafka_options(self, get_db_utils, dbutils):
         """Test Get kafka options."""
         bronze_map = PipelineReadersTests.bronze_eventhub_dataflow_spec_map
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        kafka_options = PipelineReaders.get_eventhub_kafka_options(self.spark, bronze_dataflow_spec)
+        self.assertIsNotNone(kafka_options)
+
+    @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
+    @patch.object(dbutils, "secrets.get", return_value={"called"})
+    def test_get_eventhub_kafka_options_omit_secret(self, get_db_utils, dbutils):
+        """Test Get kafka options."""
+        bronze_map = PipelineReadersTests.bronze_eventhub_dataflow_spec_omit_secret_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
         kafka_options = PipelineReaders.get_eventhub_kafka_options(self.spark, bronze_dataflow_spec)
         self.assertIsNotNone(kafka_options)
