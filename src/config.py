@@ -78,7 +78,7 @@ T = TypeVar("T")
 
 
 class _Config(Generic[T]):
-    connect: ConnectConfig | None = None
+    connect: Optional[ConnectConfig] = None
 
     @classmethod
     @abstractmethod
