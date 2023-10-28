@@ -294,7 +294,7 @@ class WorkspaceInstaller:
         raise ValueError(msg)
 
     @staticmethod
-    def _question(text: str, *, default: str | None = None) -> str:
+    def _question(text: str, *, default: str = None) -> str:
         default_help = "" if default is None else f"\033[36m (default: {default})\033[0m"
         prompt = f"\033[1m{text}{default_help}: \033[0m"
         res = None
@@ -481,7 +481,7 @@ class WorkspaceInstaller:
         raise NotADirectoryError(msg)
 
     @staticmethod
-    def _find_dir_with_leaf(folder: Path, leaf: str) -> Path | None:
+    def _find_dir_with_leaf(folder: Path, leaf: str) -> Path:
         root = folder.root
         while str(folder.absolute()) != root:
             if (folder / leaf).exists():
