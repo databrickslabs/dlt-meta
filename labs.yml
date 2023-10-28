@@ -1,7 +1,7 @@
 ---
 name: dlt-meta
 description: Metadata-driven framework based on Databricks Delta Live Tables 
-install_hook: src/databricks/labs/ucx/install.py
+install_hook: src/install.py
 entrypoint: src/__main__.py
 min_python: 3.9
 commands:
