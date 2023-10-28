@@ -1,8 +1,6 @@
-import datetime
 import json
 import logging
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -14,10 +12,8 @@ from typing import Any, Callable
 
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import DatabricksError
-from databricks.sdk.errors import OperationFailed
-from databricks.sdk.mixins.compute import SemVer
 from databricks.sdk.service import compute, jobs
-from databricks.sdk.service.sql import EndpointInfoWarehouseType, SpotInstancePolicy
+from databricks.sdk.service.sql import EndpointInfoWarehouseType
 from databricks.sdk.service.workspace import ImportFormat
 
 from src.config import WorkspaceConfig
@@ -82,6 +78,7 @@ main(f'--config=/Workspace{config_file}',
 """
 
 logger = logging.getLogger('databricks.labs.dltmeta')
+
 
 @dataclass
 class Task:
@@ -181,25 +178,31 @@ class WorkspaceInstaller:
         self._config = WorkspaceConfig(
             dbr_version=self._choice_from_dict("Provide databricks runtime spark version", {
                 sv.name: sv.key for sv in self._ws.clusters.spark_versions().versions
-                    if 'ml' not in sv.key 
-                    and 'aarch64' not in sv.key 
-                    and 'LTS' in sv.name
+                if 'ml' not in sv.key and 'aarch64' not in sv.key and 'LTS' in sv.name
             }),
             source=self._choice("Provide source type", ['cloudfiles', 'kafka', 'eventhub']),
-            dbfs_path=self._question("Provide databricks workspace dbfs path", default=f'dbfs:{self._install_folder}/data'),
+            dbfs_path=self._question(
+                "Provide databricks workspace dbfs path", default=f'dbfs:{self._install_folder}/data'),
         )
         if self._config.source == 'eventhub':
-            self._config.eventhub_name=self._question("Provide eventhub_name e.g iot"),
-            self._config.eventhub_producer_accesskey_name=self._question("Provide access key that has write permission on the eventhub e.g iotProducerAccessKey"),
-            self._config.eventhub_consumer_accesskey_name=self._question("Provide access key that has read permission on the eventhub  e.g iotConsumerAccessKey"),
-            self._config.eventhub_producer_accesskey_secret_name=self._question("Provide name of the secret that stores access key with write permission on the eventhub. Optional if same as `eventhub_producer_accesskey_name` e.g iotProducerAccessKey"),
-            self._config.eventhub_consumer_accesskey_secret_name=self._question("Provide name of the secret that stores access key with read permission on the eventhub. Optional if same as `eventhub_consumer_accesskey_name`  e.g iotConsumerAccessKey"),
-            self._config.eventhub_secrets_scope_name=self._question("Provide eventhub_secrets_scope_name e.g eventhubs_creds"),
-            self._config.eventhub_namespace=self._question("Provide eventhub_namespace e.g topic-standard"),
-            self._config.eventhub_port=self._question("Provide eventhub_port", default='9093'),
+            self._config.eventhub_name = self._question("Provide eventhub_name e.g iot"),
+            self._config.eventhub_producer_accesskey_name = self._question(
+                "Provide access key that has write permission on the eventhub e.g iotProducerAccessKey"),
+            self._config.eventhub_consumer_accesskey_name = self._question(
+                "Provide access key that has read permission on the eventhub  e.g iotConsumerAccessKey"),
+            self._config.eventhub_producer_accesskey_secret_name = self._question(
+                """Provide name of the secret that stores access key with write permission on the eventhub.
+                Optional if same as `eventhub_producer_accesskey_name` e.g iotProducerAccessKey"""),
+            self._config.eventhub_consumer_accesskey_secret_name = self._question(
+                """Provide name of the secret that stores access key with read permission on the eventhub.
+                Optional if same as `eventhub_consumer_accesskey_name`  e.g iotConsumerAccessKey"""),
+            self._config.eventhub_secrets_scope_name = self._question(
+                "Provide eventhub_secrets_scope_name e.g eventhubs_creds"),
+            self._config.eventhub_namespace = self._question("Provide eventhub_namespace e.g topic-standard"),
+            self._config.eventhub_port = self._question("Provide eventhub_port", default='9093'),
         elif self._config.source == 'kafka':
-            self._config.kafka_topic_name=self._question("Provide kafka topic name e.g iot"),
-            self._config.kafka_broker=self._question("Provide kafka broker", default='127.0.0.1:9092'),
+            self._config.kafka_topic_name = self._question("Provide kafka topic name e.g iot"),
+            self._config.kafka_broker = self._question("Provide kafka broker", default='127.0.0.1:9092'),
 
         self._write_config()
         msg = "Open config file in the browser and continue installing?"
@@ -220,7 +223,7 @@ class WorkspaceInstaller:
         self._ws.workspace.upload(self.config_file, config_bytes, format=ImportFormat.AUTO)
 
     def _create_jobs(self):
-        logger.debug(f"Creating jobs from tasks")
+        logger.debug("Creating jobs from tasks")
         remote_wheel = self._upload_wheel()
         self._deployed_steps = self.deployed_steps()
         desired_steps = {'main'}
@@ -318,7 +321,7 @@ class WorkspaceInstaller:
                 logger.info(f"Uploading wheel to /Workspace{remote_wheel}")
                 self._ws.workspace.upload(remote_wheel, f, overwrite=True, format=ImportFormat.AUTO)
         return remote_wheel
-    
+
     @property
     def _app(self):
         return 'dlt-meta'

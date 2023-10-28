@@ -134,6 +134,7 @@ class _Config(Generic[T]):
         serialized["version"] = _CONFIG_VERSION
         return serialized
 
+
 @dataclass
 class WorkspaceConfig(_Config["WorkspaceConfig"]):
     dbr_version: str
