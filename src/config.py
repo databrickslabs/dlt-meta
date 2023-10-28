@@ -21,10 +21,10 @@ class ConnectConfig:
     azure_environment: Optional[str] = None
     cluster_id: Optional[str] = None
     profile: Optional[str] = None
-    debug_headers: bool | None = False
-    rate_limit: int | None = None
-    max_connections_per_pool: int | None = None
-    max_connection_pools: int | None = None
+    debug_headers: bool = False
+    rate_limit: int = None
+    max_connections_per_pool: int = None
+    max_connection_pools: int = None
 
     @staticmethod
     def from_databricks_config(cfg: Config) -> "ConnectConfig":
