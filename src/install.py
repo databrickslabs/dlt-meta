@@ -22,7 +22,7 @@ from databricks.sdk.service.workspace import ImportFormat
 
 from src.config import WorkspaceConfig
 
-from .__about__ import __version__
+from __about__ import __version__
 
 TAG_STEP = "step"
 TAG_APP = "App"
