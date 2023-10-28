@@ -62,7 +62,7 @@ class ConnectConfig:
             rate_limit=self.rate_limit,
             max_connection_pools=self.max_connection_pools,
             max_connections_per_pool=self.max_connections_per_pool,
-            product="ucx",
+            product="dlt-meta",
             product_version=__version__,
         )
 
