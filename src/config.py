@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 from databricks.sdk.core import Config
 from .__about__ import __version__
 from databricks.sdk import WorkspaceClient
@@ -10,17 +10,17 @@ from databricks.sdk import WorkspaceClient
 @dataclass
 class ConnectConfig:
     # Keep all the fields in sync with databricks.sdk.core.Config
-    host: str | None = None
-    account_id: str | None = None
-    token: str | None = None
-    client_id: str | None = None
-    client_secret: str | None = None
-    azure_client_id: str | None = None
-    azure_tenant_id: str | None = None
-    azure_client_secret: str | None = None
-    azure_environment: str | None = None
-    cluster_id: str | None = None
-    profile: str | None = None
+    host: Optional[str] = None
+    account_id: Optional[str] = None
+    token: Optional[str] = None
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+    azure_client_id: Optional[str] = None
+    azure_tenant_id: Optional[str] = None
+    azure_client_secret: Optional[str] = None
+    azure_environment: Optional[str] = None
+    cluster_id: Optional[str] = None
+    profile: Optional[str] = None
     debug_headers: bool | None = False
     rate_limit: int | None = None
     max_connections_per_pool: int | None = None
