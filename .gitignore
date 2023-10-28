@@ -152,3 +152,5 @@ deployment-merged.yaml
 
 # ignore integration test onboarding file.
 integration-tests/conf/dlt-meta/onboarding.json
+
+.databricks

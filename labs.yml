@@ -1,0 +1,30 @@
+---
+name: dlt-meta
+description: Metadata-driven framework based on Databricks Delta Live Tables 
+install_hook: src/databricks/labs/ucx/install.py
+entrypoint: src/__main__.py
+min_python: 3.9
+commands:
+  - name: onboard
+    description: Opens remote configuration in the browser
+    flags:
+      - name: onboarding_file_path
+        description: onboarding file path
+      - name: onboard_layer
+        description: onboard layer
+      - name: database
+        description: database
+      - name: env
+        description: env
+      - name: bronze_dataflowspec_table
+        description: bronze dataflow spec table
+      - name: bronze_dataflowspec_path
+        description: bronze dataflow spec path
+      - name: silver_dataflowspec_table
+        description: silver dataflow spec table
+      - name: silver_dataflowspec_path
+        description: silver dataflow spec path
+      - name: import_author
+        description: import author
+      - name: version
+        description: overwrite
