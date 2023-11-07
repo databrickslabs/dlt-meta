@@ -154,3 +154,4 @@ deployment-merged.yaml
 integration-tests/conf/dlt-meta/onboarding.json
 
 .databricks
+.databricks-login.json
