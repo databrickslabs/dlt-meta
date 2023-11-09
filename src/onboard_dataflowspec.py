@@ -166,7 +166,7 @@ class OnboardDataflowspec:
             ]
         )
 
-        emp_rdd = self.spark.sparkContext.emptyRDD()
+        emp_rdd = []
         env = dict_obj["env"]
         silver_transformation_json_df = self.spark.createDataFrame(data=emp_rdd, schema=columns)
         silver_transformation_json_file = onboarding_df.select(f"silver_transformation_json_{env}").dropDuplicates()
