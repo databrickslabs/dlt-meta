@@ -8,6 +8,7 @@
             "source_schema_path": "{dbfs_path}/integration-tests/resources/eventhub_iot_schema.ddl",
             "eventhub.accessKeyName": "{eventhub_accesskey_name}",
             "eventhub.name": "{eventhub_name}",
+            "eventhub.accessKeySecretName": "{eventhub_accesskey_secret_name}",
             "eventhub.secretsScopeName": "{eventhub_secrets_scope_name}",
             "kafka.sasl.mechanism": "PLAIN",
             "kafka.security.protocol": "SASL_SSL",
@@ -16,7 +17,7 @@
         },
         "bronze_reader_options": {
             "maxOffsetsPerTrigger": "50000",
-            "startingOffsets": "latest",
+            "startingOffsets": "earliest",
             "failOnDataLoss": "false",
             "kafka.request.timeout.ms": "60000",
             "kafka.session.timeout.ms": "60000"
