@@ -11,19 +11,12 @@ draft: false
 
 2. Goto to DLT-META directory
 
-3. Create environment variables.
+3. If you already have datatbricks CLI installed with profile as given [here](https://docs.databricks.com/en/dev-tools/cli/profiles.html), you can skip above export step and provide --profile=<your databricks profile name> option while running command 4.
 
-```
-export DATABRICKS_HOST=<DATABRICKS HOST>
-export DATABRICKS_TOKEN=<DATABRICKS TOKEN> # Account needs permission to create clusters/dlt pipelines.
-```
+4. Run integration test against cloudfile or eventhub or kafka using below options:
+    4a. Run the command for cloudfiles ```python integration-tests/run-integration-test.py  --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=cloudfiles --dbfs_path=dbfs:/tmp/DLT-META/```
 
-4. Commit your local changes to your remote branch used above
-
-5. Run integration test against cloudfile or eventhub or kafka using below options:
-    5a. Run the command for cloudfiles ```python integration-tests/run-integration-test.py  --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=cloudfiles --dbfs_path=dbfs:/tmp/DLT-META/```
-
-    5b. Run the command for eventhub ```python integration-tests/run-integration-test.py --cloud_provider_name=azure --dbr_version=11.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer```
+    4b. Run the command for eventhub ```python integration-tests/run-integration-test.py --cloud_provider_name=azure --dbr_version=11.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer```
 
     For eventhub integration tests, the following are the prerequisites:
     1. Needs eventhub instance running
@@ -39,7 +32,7 @@ export DATABRICKS_TOKEN=<DATABRICKS TOKEN> # Account needs permission to create 
     6. Provide eventhub access key name : --eventhub_consumer_accesskey_name
 
 
-    5c. Run the command for kafka ```python3 integration-tests/run-integration-test.py --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=kafka --dbfs_path=dbfs:/tmp/DLT-META/ --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092```
+    4c. Run the command for kafka ```python3 integration-tests/run-integration-test.py --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=kafka --dbfs_path=dbfs:/tmp/DLT-META/ --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092```
 
     For kafka integration tests, the following are the prerequisites:
     1. Needs kafka instance running

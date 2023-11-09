@@ -87,41 +87,19 @@ class OnboardDataflowspec:
             "database",
             "env",
             "bronze_dataflowspec_table",
-            "bronze_dataflowspec_path",
             "silver_dataflowspec_table",
-            "silver_dataflowspec_path",
             "import_author",
             "version",
             "overwrite",
         ]
-
-        self.__validate_dict_attributes(attributes, self.dict_obj)
+        try:
+            self.__validate_dict_attributes(attributes, self.dict_obj)
+        except ValueError:
+            attributes.append("bronze_dataflowspec_path")
+            attributes.append("silver_dataflowspec_path")
+            self.__validate_dict_attributes(attributes, self.dict_obj)
         self.onboard_bronze_dataflow_spec()
         self.onboard_silver_dataflow_spec()
-
-    def register_bronze_dataflow_spec_tables(self):
-        """Register bronze/silver dataflow specs tables."""
-        self.deltaPipelinesMetaStoreOps.register_table_in_metastore(
-            self.dict_obj["database"],
-            self.dict_obj["bronze_dataflowspec_table"],
-            self.dict_obj["bronze_dataflowspec_path"],
-        )
-        logger.info(
-            f"""onboarded bronze table={ self.dict_obj["database"]}.{self.dict_obj["bronze_dataflowspec_table"]}"""
-        )
-        self.spark.read.table(f"""{ self.dict_obj["database"]}.{self.dict_obj["bronze_dataflowspec_table"]}""").show()
-
-    def register_silver_dataflow_spec_tables(self):
-        """Register bronze dataflow specs tables."""
-        self.deltaPipelinesMetaStoreOps.register_table_in_metastore(
-            self.dict_obj["database"],
-            self.dict_obj["silver_dataflowspec_table"],
-            self.dict_obj["silver_dataflowspec_path"],
-        )
-        logger.info(
-            f"""onboarded silver table={ self.dict_obj["database"]}.{self.dict_obj["silver_dataflowspec_table"]}"""
-        )
-        self.spark.read.table(f"""{ self.dict_obj["database"]}.{self.dict_obj["silver_dataflowspec_table"]}""").show()
 
     def onboard_silver_dataflow_spec(self):
         """Onboard silver dataflow spec.
@@ -146,13 +124,16 @@ class OnboardDataflowspec:
             "database",
             "env",
             "silver_dataflowspec_table",
-            "silver_dataflowspec_path",
             "import_author",
             "version",
             "overwrite",
         ]
         dict_obj = self.silver_dict_obj
-        self.__validate_dict_attributes(attributes, dict_obj)
+        try:
+            self.__validate_dict_attributes(attributes, dict_obj)
+        except ValueError:
+            attributes.append("silver_dataflowspec_path")
+            self.__validate_dict_attributes(attributes, dict_obj)
 
         onboarding_df = self.__get_onboarding_file_dataframe(dict_obj["onboarding_file_path"])
         silver_data_flow_spec_df = self.__get_silver_dataflow_spec_dataframe(onboarding_df, dict_obj["env"])
@@ -201,7 +182,6 @@ class OnboardDataflowspec:
         silver_dataflow_spec_df = silver_dataflow_spec_df.select(silver_fields)
         database = dict_obj["database"]
         table = dict_obj["silver_dataflowspec_table"]
-        location = dict_obj["silver_dataflowspec_path"]
 
         if dict_obj["overwrite"] == "True":
             self.deltaPipelinesMetaStoreOps.create_database(
@@ -212,7 +192,6 @@ class OnboardDataflowspec:
             self.deltaPipelinesMetaStoreOps.create_database(
                 database, comments="creating databse in standard merge block"
             )
-            self.deltaPipelinesMetaStoreOps.register_table_in_metastore(database, table, location)
             original_dataflow_df = self.spark.read.format("delta").table(f"{database}.{table}")
             logger.info("In Merge block for Silver")
             self.deltaPipelinesInternalTableOps.merge(
@@ -395,9 +374,14 @@ class OnboardDataflowspec:
         data = []
         onboarding_rows = onboarding_df.collect()
         mandatory_fields = ["data_flow_id", "data_flow_group", "source_details", f"bronze_database_{env}",
-                            "bronze_table", "bronze_reader_options", f"bronze_table_path_{env}"]
+                            "bronze_table", "bronze_reader_options"] # , f"bronze_table_path_{env}"
         for onboarding_row in onboarding_rows:
-            self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
+            try:
+                self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
+            except ValueError:
+                mandatory_fields.append(f"bronze_table_path_{env}")
+                self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
+                
             bronze_data_flow_spec_id = onboarding_row["data_flow_id"]
             bronze_data_flow_spec_group = onboarding_row["data_flow_group"]
             if "source_format" not in onboarding_row:
@@ -440,8 +424,7 @@ class OnboardDataflowspec:
 
             bronze_target_details = {
                 "database": onboarding_row["bronze_database_{}".format(env)],
-                "table": onboarding_row["bronze_table"],
-                "path": onboarding_row["bronze_table_path_{}".format(env)],
+                "table": onboarding_row["bronze_table"]
             }
 
             bronze_table_properties = {}
@@ -474,7 +457,6 @@ class OnboardDataflowspec:
                         quarantine_target_details = {
                             "database": onboarding_row[f"bronze_database_quarantine_{env}"],
                             "table": onboarding_row["bronze_quarantine_table"],
-                            "path": onboarding_row[f"bronze_quarantine_table_path_{env}"],
                             "partition_columns": quarantine_table_partition_columns,
                         }
                         if (
@@ -590,10 +572,14 @@ class OnboardDataflowspec:
 
         onboarding_rows = onboarding_df.collect()
         mandatory_fields = ["data_flow_id", "data_flow_group", "source_details", f"silver_database_{env}",
-                            "silver_table", f"silver_table_path_{env}", f"silver_transformation_json_{env}"]
+                            "silver_table", f"silver_transformation_json_{env}"] # f"silver_table_path_{env}",
 
         for onboarding_row in onboarding_rows:
-            self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
+            try:
+                self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
+            except ValueError:
+                mandatory_fields.append(f"silver_table_path_{env}")
+                self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
             silver_data_flow_spec_id = onboarding_row["data_flow_id"]
             silver_data_flow_spec_group = onboarding_row["data_flow_group"]
             silver_reader_config_options = {}
@@ -602,13 +588,11 @@ class OnboardDataflowspec:
 
             bronze_target_details = {
                 "database": onboarding_row["bronze_database_{}".format(env)],
-                "table": onboarding_row["bronze_table"],
-                "path": onboarding_row["bronze_table_path_{}".format(env)],
+                "table": onboarding_row["bronze_table"]
             }
             silver_target_details = {
                 "database": onboarding_row["silver_database_{}".format(env)],
-                "table": onboarding_row["silver_table"],
-                "path": onboarding_row["silver_table_path_{}".format(env)],
+                "table": onboarding_row["silver_table"]
             }
 
             silver_table_properties = {}
