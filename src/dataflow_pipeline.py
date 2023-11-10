@@ -30,11 +30,8 @@ class DataflowPipeline:
                 view_name={view_name},
                 view_name_quarantine={view_name_quarantine}"""
         )
-        dftype = type(dataflow_spec)
-        logger.info(f"type(dataflowSpec)={dftype}")
-        if type(dataflow_spec) == BronzeDataflowSpec or type(dataflow_spec) == SilverDataflowSpec:
+        if isinstance(dataflow_spec, BronzeDataflowSpec) or isinstance(dataflow_spec, SilverDataflowSpec):
             self.__initialize_dataflow_pipeline(spark, dataflow_spec, view_name, view_name_quarantine)
-
         else:
             raise Exception("Dataflow not supported!")
 
@@ -49,14 +46,14 @@ class DataflowPipeline:
             self.cdcApplyChanges = DataflowSpecUtils.get_cdc_apply_changes(self.dataflowSpec.cdcApplyChanges)
         else:
             self.cdcApplyChanges = None
-        if type(dataflow_spec) == BronzeDataflowSpec:
-            if dataflow_spec.schema:
+        if isinstance(dataflow_spec, BronzeDataflowSpec):
+            if dataflow_spec.schema is not None:
                 self.schema_json = json.loads(dataflow_spec.schema)
             else:
                 self.schema_json = None
         else:
             self.schema_json = None
-        if type(dataflow_spec) == SilverDataflowSpec:
+        if isinstance(dataflow_spec, SilverDataflowSpec):
             self.silver_schema = self.get_silver_schema()
         else:
             self.silver_schema = None
@@ -68,29 +65,55 @@ class DataflowPipeline:
     def read(self):
         """Read DLT."""
         logger.info("In read function")
-        if type(self.dataflowSpec) == BronzeDataflowSpec:
+        if isinstance(self.dataflowSpec, BronzeDataflowSpec):
             dlt.view(
-                self.read_bronze,
+                self.read_bronze(),
                 name=self.view_name,
                 comment=f"input dataset view for{self.view_name}",
             )
-        elif type(self.dataflowSpec) == SilverDataflowSpec:
+        elif isinstance(self.dataflowSpec, SilverDataflowSpec):
             dlt.view(
-                self.read_silver,
+                self.read_silver(),
                 name=self.view_name,
                 comment=f"input dataset view for{self.view_name}",
             )
         else:
-            raise Exception("Dataflow read not supported for{}")
+            raise Exception("Dataflow read not supported for{}".format(type(self.dataflowSpec)))
 
     def write(self):
         """Write DLT."""
-        if type(self.dataflowSpec) == BronzeDataflowSpec:
+        if isinstance(self.dataflowSpec, BronzeDataflowSpec):
             self.write_bronze()
-        elif type(self.dataflowSpec) == SilverDataflowSpec:
+        elif isinstance(self.dataflowSpec, SilverDataflowSpec):
             self.write_silver()
         else:
             raise Exception(f"Dataflow write not supported for type= {type(self.dataflowSpec)}")
+
+    def write_bronze(self):
+        """Write Bronze Table."""
+        if self.dataflowSpec.sourceFormat == "cloudFiles":
+            PipelineWriters.write_dlt_cloud_files(self.spark, self.dataflowSpec, self.view_name)
+        elif self.dataflowSpec.sourceFormat == "delta":
+            PipelineWriters.write_dlt_delta(self.spark, self.dataflowSpec, self.view_name)
+        elif self.dataflowSpec.sourceFormat == "kafka":
+            PipelineWriters.write_kafka(self.spark, self.dataflowSpec, self.view_name)
+        else:
+            raise Exception(f"{self.dataflowSpec.sourceFormat} source format not supported")
+
+    def write_silver(self):
+        """Write Silver Table."""
+        silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
+        destination_database = silver_dataflow_spec.destinationDetails["database"]
+        destination_table = silver_dataflow_spec.destinationDetails["table"]
+        write_mode = silver_dataflow_spec.writeMode
+        if write_mode == "overwrite":
+            write_mode = "overwrite"
+        elif write_mode == "append":
+            write_mode = "append"
+        else:
+            raise Exception(f"{write_mode} write mode not supported")
+        self.spark.sql(f"DROP TABLE IF EXISTS {destination_database}.{destination_table}")
+        self.spark.sql(f"CREATE TABLE {destination_database}.{destination_table} USING DELTA AS SELECT * FROM {self.view_name}")
 
     def read_bronze(self) -> DataFrame:
         """Read Bronze Table."""

@@ -87,7 +87,8 @@ def create_cloudfiles_workflow_spec(workspace_client, test_info):
                         "version": "v1",
                         "bronze_dataflowspec_path": f"{test_info.dbfs_tmp_path}/data/dlt_spec/bronze",
                         "overwrite": "True",
-                        "env": test_info.env
+                        "env": test_info.env,
+                        "uc_enabled": "True" if test_info.uc_catalog_name else "False"
                     },
                 ),
                 libraries=dlt_lib
@@ -546,9 +547,9 @@ def main():
         run_by_id = workspace_client.jobs.run_now(job_id=created_job.job_id).result()
         print(f"Job run finished. run_id={run_by_id}")
         download_response = workspace_client.files.download(f"{test_info.uc_volume_path}/integration-test-output.csv")
-        print(download_response.contents.read().decode("utf-8"))
+        output = print(download_response.contents.read().decode("utf-8"))
         with open(f"integration-test-output_{test_info.run_id}.csv", 'w') as f:
-            f.write(download_response.contents.read().decode("utf-8"))
+            f.write(output)
     except Exception as e:
         print(e)
     finally:
@@ -728,7 +729,7 @@ def clean_up(workspace_client, test_info):
                     workspace_client.volumes.delete(vol.full_name)
                 tables_list = workspace_client.tables.list(catalog_name=test_info.uc_catalog_name, schema_name=schema.name)
                 for table in tables_list:
-                    print("Deleting table:{table.full_name}")
+                    print(f"Deleting table:{table.full_name}")
                     workspace_client.tables.delete(table.full_name)
                 workspace_client.schemas.delete(schema.full_name)
     print("Cleaning up complete!!!")

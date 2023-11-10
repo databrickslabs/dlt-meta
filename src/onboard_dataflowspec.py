@@ -23,12 +23,13 @@ logger.setLevel(logging.INFO)
 class OnboardDataflowspec:
     """OnboardDataflowSpec class provides bronze/silver onboarding features."""
 
-    def __init__(self, spark, dict_obj, bronze_schema_mapper=None):
+    def __init__(self, spark, dict_obj, bronze_schema_mapper=None, uc_enabled=False):
         """Onboard Dataflowspec Constructor."""
         self.spark = spark
         self.dict_obj = dict_obj
         self.bronze_dict_obj = copy.deepcopy(dict_obj)
         self.silver_dict_obj = copy.deepcopy(dict_obj)
+        self.uc_enabled = uc_enabled
 
         if "silver_dataflowspec_table" in self.bronze_dict_obj:
             del self.bronze_dict_obj["silver_dataflowspec_table"]

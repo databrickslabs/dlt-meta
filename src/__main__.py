@@ -17,7 +17,8 @@ arguments = ["--onboard_layer",
              "--silver_dataflowspec_path",
              "--import_author",
              "--version",
-             "--overwrite"
+             "--overwrite",
+             "--uc_enabled",
              ]
 
 
@@ -35,10 +36,12 @@ def main():
     """Whl file entry point."""
     args = parse_args()
     onboard_layer = args.__getattribute__("onboard_layer")
+    uc_enabled = args.__getattribute__("uc_enabled")
     onboarding_args_dict = args.__dict__
     del onboarding_args_dict['onboard_layer']
+    del onboarding_args_dict['uc_enabled']
     spark = (SparkSession.builder.appName("DLT-META_Onboarding_Task")).getOrCreate()
-    onboard_obj = OnboardDataflowspec(spark, onboarding_args_dict)
+    onboard_obj = OnboardDataflowspec(spark, onboarding_args_dict, uc_enabled)
 
     if onboard_layer.lower() == "bronze_silver":
         onboard_obj.onboard_dataflow_specs()
