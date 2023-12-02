@@ -38,6 +38,9 @@ class DataflowPipeline:
     def __initialize_dataflow_pipeline(self, spark, dataflow_spec, view_name, view_name_quarantine):
         """Initialize dataflow pipeline state."""
         self.spark = spark
+        uc_enabled_str = spark.conf.get("spark.databricks.unityCatalog.enabled", "False")
+        uc_enabled_str = uc_enabled_str.lower()
+        self.uc_enabled = True if uc_enabled_str == "true" else False
         self.dataflowSpec = dataflow_spec
         self.view_name = view_name
         if view_name_quarantine:
@@ -67,13 +70,13 @@ class DataflowPipeline:
         logger.info("In read function")
         if isinstance(self.dataflowSpec, BronzeDataflowSpec):
             dlt.view(
-                self.read_bronze(),
+                self.read_bronze,
                 name=self.view_name,
                 comment=f"input dataset view for{self.view_name}",
             )
         elif isinstance(self.dataflowSpec, SilverDataflowSpec):
             dlt.view(
-                self.read_silver(),
+                self.read_silver,
                 name=self.view_name,
                 comment=f"input dataset view for{self.view_name}",
             )
@@ -90,30 +93,38 @@ class DataflowPipeline:
             raise Exception(f"Dataflow write not supported for type= {type(self.dataflowSpec)}")
 
     def write_bronze(self):
-        """Write Bronze Table."""
-        if self.dataflowSpec.sourceFormat == "cloudFiles":
-            PipelineWriters.write_dlt_cloud_files(self.spark, self.dataflowSpec, self.view_name)
-        elif self.dataflowSpec.sourceFormat == "delta":
-            PipelineWriters.write_dlt_delta(self.spark, self.dataflowSpec, self.view_name)
-        elif self.dataflowSpec.sourceFormat == "kafka":
-            PipelineWriters.write_kafka(self.spark, self.dataflowSpec, self.view_name)
+        """Write Bronze tables."""
+        bronze_dataflow_spec: BronzeDataflowSpec = self.dataflowSpec
+        if bronze_dataflow_spec.dataQualityExpectations:
+            self.write_bronze_with_dqe()
+        elif bronze_dataflow_spec.cdcApplyChanges:
+            self.cdc_apply_changes()
         else:
-            raise Exception(f"{self.dataflowSpec.sourceFormat} source format not supported")
+            target_path = None if self.uc_enabled else bronze_dataflow_spec.targetDetails["path"]
+            dlt.table(
+                self.write_to_delta,
+                name=f"{bronze_dataflow_spec.targetDetails['table']}",
+                partition_cols=DataflowSpecUtils.get_partition_cols(bronze_dataflow_spec.partitionColumns),
+                table_properties=bronze_dataflow_spec.tableProperties,
+                path=target_path,
+                comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}",
+            )
 
     def write_silver(self):
-        """Write Silver Table."""
+        """Write silver tables."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
-        destination_database = silver_dataflow_spec.destinationDetails["database"]
-        destination_table = silver_dataflow_spec.destinationDetails["table"]
-        write_mode = silver_dataflow_spec.writeMode
-        if write_mode == "overwrite":
-            write_mode = "overwrite"
-        elif write_mode == "append":
-            write_mode = "append"
+        if silver_dataflow_spec.cdcApplyChanges:
+            self.cdc_apply_changes()
         else:
-            raise Exception(f"{write_mode} write mode not supported")
-        self.spark.sql(f"DROP TABLE IF EXISTS {destination_database}.{destination_table}")
-        self.spark.sql(f"CREATE TABLE {destination_database}.{destination_table} USING DELTA AS SELECT * FROM {self.view_name}")
+            target_path = None if self.uc_enabled else silver_dataflow_spec.targetDetails["path"]
+            dlt.table(
+                self.write_to_delta,
+                name=f"{silver_dataflow_spec.targetDetails['table']}",
+                partition_cols=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.partitionColumns),
+                table_properties=silver_dataflow_spec.tableProperties,
+                path=target_path,
+                comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}",
+            )
 
     def read_bronze(self) -> DataFrame:
         """Read Bronze Table."""
@@ -169,7 +180,7 @@ class DataflowPipeline:
             f"{source_database}.{source_table}"
         ).selectExpr(
             *select_exp
-        )  # .selectExpr(select_exp.split(","))
+        )
         if where_clause:
             where_clause_str = " ".join(where_clause)
             if len(where_clause_str.strip()) > 0:
@@ -202,6 +213,7 @@ class DataflowPipeline:
         if bronzeDataflowSpec.cdcApplyChanges:
             self.cdc_apply_changes()
         else:
+            target_path = None if self.uc_enabled else bronzeDataflowSpec.targetDetails["path"]
             if expect_dict:
                 dlt_table_with_expectation = dlt.expect_all(expect_dict)(
                     dlt.table(
@@ -209,7 +221,7 @@ class DataflowPipeline:
                         name=f"{bronzeDataflowSpec.targetDetails['table']}",
                         table_properties=bronzeDataflowSpec.tableProperties,
                         partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
-                        # path=bronzeDataflowSpec.targetDetails["path"],
+                        path=target_path,
                         comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
                     )
                 )
@@ -221,7 +233,7 @@ class DataflowPipeline:
                             name=f"{bronzeDataflowSpec.targetDetails['table']}",
                             table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
-                            # path=bronzeDataflowSpec.targetDetails["path"],
+                            path=target_path,
                             comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
                         )
                     )
@@ -235,7 +247,7 @@ class DataflowPipeline:
                             name=f"{bronzeDataflowSpec.targetDetails['table']}",
                             table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
-                            # path=bronzeDataflowSpec.targetDetails["path"],
+                            path=target_path,
                             comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
                         )
                     )
@@ -254,7 +266,7 @@ class DataflowPipeline:
                         name=f"{bronzeDataflowSpec.quarantineTargetDetails['table']}",
                         table_properties=bronzeDataflowSpec.quarantineTableProperties,
                         partition_cols=q_partition_cols,
-                        # path=bronzeDataflowSpec.quarantineTargetDetails["path"],
+                        path=target_path,
                         comment=f"""bronze dlt quarantine_path table
                         {bronzeDataflowSpec.quarantineTargetDetails['table']}""",
                     )
@@ -268,7 +280,7 @@ class DataflowPipeline:
 
         struct_schema = (
             StructType.fromJson(self.schema_json)
-            if type(self.dataflowSpec) == BronzeDataflowSpec
+            if isinstance(self.dataflowSpec, BronzeDataflowSpec)
             else self.silver_schema
         )
 
@@ -287,11 +299,13 @@ class DataflowPipeline:
             struct_schema.add(StructField("__START_AT", sequenced_by_data_type))
             struct_schema.add(StructField("__END_AT", sequenced_by_data_type))
 
+        target_path = None if self.uc_enabled else self.dataflowSpec.targetDetails["path"]
+
         dlt.create_streaming_live_table(
             name=f"{self.dataflowSpec.targetDetails['table']}",
             table_properties=self.dataflowSpec.tableProperties,
             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
-            # path=self.dataflowSpec.targetDetails["path"],
+            path=target_path,
             schema=struct_schema,
         )
 
@@ -320,38 +334,6 @@ class DataflowPipeline:
 
         )
 
-    def write_bronze(self):
-        """Write Bronze tables."""
-        bronze_dataflow_spec: BronzeDataflowSpec = self.dataflowSpec
-        if bronze_dataflow_spec.dataQualityExpectations:
-            self.write_bronze_with_dqe()
-        elif bronze_dataflow_spec.cdcApplyChanges:
-            self.cdc_apply_changes()
-        else:
-            dlt.table(
-                self.write_to_delta,
-                name=f"{bronze_dataflow_spec.targetDetails['table']}",
-                partition_cols=DataflowSpecUtils.get_partition_cols(bronze_dataflow_spec.partitionColumns),
-                table_properties=bronze_dataflow_spec.tableProperties,
-                # path=bronze_dataflow_spec.targetDetails["path"],
-                comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}",
-            )
-
-    def write_silver(self):
-        """Write silver tables."""
-        silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
-        if silver_dataflow_spec.cdcApplyChanges:
-            self.cdc_apply_changes()
-        else:
-            dlt.table(
-                self.write_to_delta,
-                name=f"{silver_dataflow_spec.targetDetails['table']}",
-                partition_cols=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.partitionColumns),
-                table_properties=silver_dataflow_spec.tableProperties,
-                # path=silver_dataflow_spec.targetDetails["path"],
-                comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}",
-            )
-
     def run_dlt(self):
         """Run DLT."""
         logger.info("in run_dlt function")
@@ -377,13 +359,11 @@ class DataflowPipeline:
             logger.info("Printing Dataflow Spec")
             logger.info(dataflowSpec)
             quarantine_input_view_name = None
-            if (
-                type(dataflowSpec) == BronzeDataflowSpec
-                and dataflowSpec.quarantineTargetDetails is not None
-                and dataflowSpec.quarantineTargetDetails != {}
-            ):
+            if isinstance(dataflowSpec, BronzeDataflowSpec) and dataflowSpec.quarantineTargetDetails is not None \
+                    and dataflowSpec.quarantineTargetDetails != {}:
                 quarantine_input_view_name = (
-                    f"{dataflowSpec.quarantineTargetDetails['table']}_{layer}_quarantine_inputView"
+                    f"{dataflowSpec.quarantineTargetDetails['table']}"
+                    f"_{layer}_quarantine_inputView"
                 )
             else:
                 logger.info("quarantine_input_view_name set to None")
@@ -394,4 +374,5 @@ class DataflowPipeline:
                 f"{dataflowSpec.targetDetails['table']}_{layer}_inputView",
                 quarantine_input_view_name,
             )
+
             dlt_data_flow.run_dlt()
