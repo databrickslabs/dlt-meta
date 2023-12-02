@@ -260,6 +260,7 @@ class DataflowPipeline:
                     and bronzeDataflowSpec.quarantineTargetDetails["partition_columns"]
                 ):
                     q_partition_cols = [bronzeDataflowSpec.quarantineTargetDetails["partition_columns"]]
+                target_path = None if self.uc_enabled else bronzeDataflowSpec.quarantineTargetDetails["path"]                    
                 dlt.expect_all_or_drop(expect_or_quarantine_dict)(
                     dlt.table(
                         self.write_to_delta,
