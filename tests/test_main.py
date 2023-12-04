@@ -11,6 +11,7 @@ class MainTests(DLTFrameworkTestCase):
     def test_parse_args(self):
         """Parse arguments."""
         bronze_param_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        bronze_param_map["uc_enabled"] = "False"
         bronze_param_map["onboard_layer"] = "bronze"
         list = ["dummy_test"]
         for key in bronze_param_map:

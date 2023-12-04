@@ -48,7 +48,7 @@ class DLTFrameworkTestCase(unittest.TestCase):
             "silver_dataflowspec_path": self.onboarding_spec_paths + "/silver",
             "overwrite": "True",
             "version": "v1",
-            "import_author": "Ravi",
+            "import_author": "Ravi"
         }
 
     def tearDown(self):

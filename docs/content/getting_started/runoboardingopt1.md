@@ -38,6 +38,8 @@ draft: false
         "import_author": "Ravi",
         "version": "v1",
         "bronze_dataflowspec_path": "dbfs:/onboarding_tables_cdc/bronze",
+        "onboard_layer": "bronze_silver",
+        "uc_enabled": "False",
         "overwrite": "True",
         "env": "dev"
     } 

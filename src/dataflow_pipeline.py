@@ -146,8 +146,11 @@ class DataflowPipeline:
         source_table = silver_dataflow_spec.sourceDetails["table"]
         select_exp = silver_dataflow_spec.selectExp
         where_clause = silver_dataflow_spec.whereClause
-        raw_delta_table_stream = self.spark.read.table(
+        raw_delta_table_stream = self.spark.readStream.table(
             f"{source_database}.{source_table}"
+        ).selectExpr(*select_exp) if self.uc_enabled else self.spark.readStream.load(
+            path=silver_dataflow_spec.sourceDetails["path"],
+            format="delta"
         ).selectExpr(*select_exp)
         raw_delta_table_stream = self.__apply_where_clause(where_clause, raw_delta_table_stream)
         return raw_delta_table_stream.schema
@@ -178,9 +181,11 @@ class DataflowPipeline:
         where_clause = silver_dataflow_spec.whereClause
         raw_delta_table_stream = self.spark.readStream.table(
             f"{source_database}.{source_table}"
-        ).selectExpr(
-            *select_exp
-        )
+        ).selectExpr(*select_exp) if self.uc_enabled else self.spark.readStream.load(
+            path=silver_dataflow_spec.sourceDetails["path"],
+            format="delta"
+        ).selectExpr(*select_exp)
+
         if where_clause:
             where_clause_str = " ".join(where_clause)
             if len(where_clause_str.strip()) > 0:
@@ -260,7 +265,7 @@ class DataflowPipeline:
                     and bronzeDataflowSpec.quarantineTargetDetails["partition_columns"]
                 ):
                     q_partition_cols = [bronzeDataflowSpec.quarantineTargetDetails["partition_columns"]]
-                target_path = None if self.uc_enabled else bronzeDataflowSpec.quarantineTargetDetails["path"]                    
+                target_path = None if self.uc_enabled else bronzeDataflowSpec.quarantineTargetDetails["path"]
                 dlt.expect_all_or_drop(expect_or_quarantine_dict)(
                     dlt.table(
                         self.write_to_delta,
