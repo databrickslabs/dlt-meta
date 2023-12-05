@@ -18,6 +18,8 @@ def process_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--profile",
                         help="provide databricks cli profile name, if not provide databricks_host and token")
+    parser.add_argument("--uc_catalog_name",
+                        help="provide uc_catalog_name")    
     args = parser.parse_args()
     return args
 
@@ -27,15 +29,24 @@ def main():
     args = process_arguments()
     workspace_client = get_workspace_api_client(args.profile)
     print("workspace_client created")
-    # list = workspace_client.pipelines.list_pipelines(filter="name like 'dlt-meta-silver-integration-test-%'")
+    # job_list = workspace_client.jobs.list()
+    # for job in job_list:
+    #     print(f"Deleting job:{job.creator_user_name}")
+        #workspace_client.jobs.delete(job.job_id)
+    # list = workspace_client.pipelines.list_pipelines(filter="name like 'dlt-meta-integration-test-silver-%'")
     # print("List of pipelines:")
     # for pipeline in list:
     #     print(f"id = {pipeline.pipeline_id} , name = {pipeline.name}")
     #     workspace_client.pipelines.delete(pipeline.pipeline_id)
-    uc_catalog_name = "ravi_dlt_meta_uc"
+    # list = workspace_client.pipelines.list_pipelines(filter="name like 'dlt-meta-integration-test-silver-%'")
+    # print("List of pipelines:")
+    # for pipeline in list:
+    #     print(f"id = {pipeline.pipeline_id} , name = {pipeline.name}")
+    #     workspace_client.pipelines.delete(pipeline.pipeline_id)        
+    uc_catalog_name = args.uc_catalog_name
     schema_list = workspace_client.schemas.list(catalog_name=uc_catalog_name)
     for schema in schema_list:
-        if schema.name.startswith("dlt_meta_silver_it_"):
+        if schema.name.startswith("dlt_meta_dataflowspecs_it_"):
             print(f" schema: {schema.name}")
             vol_list = workspace_client.volumes.list(catalog_name=uc_catalog_name, schema_name=schema.name)
             for vol in vol_list:

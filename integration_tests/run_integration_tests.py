@@ -125,28 +125,21 @@ class DLTMETAIntegrationTestRunner:
         self.args = args
         self.workspace_client = workspace_client
         self.base_dir = base_dir
-        # test_info = self.init_test_info()
 
     def init_test_info(self) -> TestInfo:
         run_id = uuid.uuid4().hex
         test_info = TestInfo(run_id=run_id,
                              username=self.args.__dict__['username'],
                              # run_name=self.args.__dict__['run_name'],
-                             # onboarding_file_path=self.args.__dict__['onboarding_file_path'],
                              dbfs_tmp_path=f"{self.args.__dict__['dbfs_path']}/{run_id}",
-                             # int_tests_dir=f"file:./{self.base_dir}",
                              int_tests_dir="file:./",
                              dlt_meta_schema=f"dlt_meta_dataflowspecs_it_{run_id}",
                              bronze_schema=f"dlt_meta_bronze_it_{run_id}",
                              silver_schema=f"dlt_meta_silver_it_{run_id}",
                              runners_nb_path=f"/Users/{self.args.__dict__['username']}/dlt_meta_int_tests/{run_id}",
-                             # runners_nb_path=f"/Workspace/Shared/dlt-meta_int_tests/{run_id}",                             
                              source=self.args.__dict__['source'],
                              node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
                              dbr_version=self.args.__dict__['dbr_version'],
-                             #  cloudfiles_template=f"{self.base_dir}/conf/cloudfiles-onboarding.template",
-                             #  eventhub_template=f"{self.base_dir}/conf/eventhub-onboarding.template",
-                             #  kafka_template=f"{self.base_dir}/conf/kafka-onboarding.template",
                              cloudfiles_template="conf/cloudfiles-onboarding.template",
                              eventhub_template="conf/eventhub-onboarding.template",
                              kafka_template="conf/kafka-onboarding.template",
@@ -158,7 +151,6 @@ class DLTMETAIntegrationTestRunner:
 
         runners_full_local_path = None
         if test_info.source.lower() == "cloudfiles":
-            # runners_full_local_path = f'./{self.base_dir}/cloud_files_runners.dbc'
             runners_full_local_path = './cloud_files_runners.dbc'
         elif test_info.source.lower() == "eventhub":
             runners_full_local_path = './eventhub_runners.dbc'
@@ -198,10 +190,7 @@ class DLTMETAIntegrationTestRunner:
                 )
                 test_info.uc_target_whl_path = uc_target_whl_path
             else:
-                # file_dbfs_path = f"{test_info.dbfs_tmp_path}".replace(":", "")
-                # file_dbfs_path = f"/{file_dbfs_path}/{self.base_dir}/whl/{whl_name}"
                 dbfs_whl_path = f"{test_info.dbfs_tmp_path}/{self.base_dir}/whl/{whl_name}"
-                # self.workspace_client.dbfs.upload(file_dbfs_path, BytesIO(whl_fp.read()), overwrite=True)
                 self.workspace_client.dbfs.upload(dbfs_whl_path, BytesIO(whl_fp.read()), overwrite=True)
                 test_info.dbfs_whl_path = dbfs_whl_path
 
@@ -334,7 +323,6 @@ class DLTMETAIntegrationTestRunner:
             dlt_lib.append(jobs.compute.Library(whl=test_info.uc_target_whl_path))
         else:
             database = test_info.dlt_meta_schema
-            # file_dbfs_path = f"{test_info.dbfs_whl_path}".replace(":", "")
             dlt_lib.append(jobs.compute.Library(whl=test_info.dbfs_whl_path))
         return database, dlt_lib
 
@@ -651,12 +639,10 @@ class DLTMETAIntegrationTestRunner:
         print("Cluster creation started...")
         if test_info.uc_catalog_name:
             mode = compute.DataSecurityMode.SINGLE_USER
-            #mode = compute.DataSecurityMode.SH
             spark_confs = {}
         else:
             mode = compute.DataSecurityMode.LEGACY_SINGLE_USER
             spark_confs = {}
-            # spark_confs = {"spark.master": "local[*, 4]", "spark.databricks.cluster.profile": "singleNode"}
         clstr = self.workspace_client.clusters.create(
             cluster_name=f"dlt-meta-integration-test-{test_info.run_id}",
             spark_version=test_info.dbr_version,
@@ -769,7 +755,6 @@ def get_workspace_api_client(profile=None) -> WorkspaceClient:
 
 args_map = {"--profile": "provide databricks cli profile name, if not provide databricks_host and token",
             "--username": "provide databricks username, this is required to upload runners notebook",
-            # "--onboarding_file_path": "provide onboarding file path, this is required to run integration tests",
             "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
             "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
             "--dbr_version": "Provide databricks runtime spark version e.g 11.3.x-scala2.12",
@@ -786,7 +771,7 @@ args_map = {"--profile": "provide databricks cli profile name, if not provide da
             "--kafka_topic_name": "Provide kafka topic name e.g --kafka_topic_name=iot",
             "--kafka_broker": "Provide kafka broker e.g --127.0.0.1:9092"
             }
-# "onboarding_file_path",
+
 mandatory_args = [
     "username", "uc_catalog_name", "cloud_provider_name",
     "dbr_version", "source", "dbfs_path"
