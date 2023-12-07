@@ -268,9 +268,14 @@ def main(raw):
         databricks_logger.setLevel(log_level.upper())
 
     kwargs = {k.replace("-", "_"): v for k, v in flags.items()}
-    # Todo: parse the command line arguments and translate to Command object then call respective command functions
-    # MAPPING[command](cmd)
-    MAPPING[command](**kwargs)
+    if command == "onboard":
+        cmd = OnboardCommand(**kwargs)
+    elif command == "deploy":
+        cmd = DeployCommand(**kwargs)
+    else:
+        raise ValueError(f"Invalid command: {command}")
+
+    MAPPING[command](cmd)
 
 
 if __name__ == "__main__":
