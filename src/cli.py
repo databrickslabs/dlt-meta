@@ -33,11 +33,25 @@ cloud_node_type_id_dict = {"aws": "i3.xlarge", "azure": "Standard_D3_v2", "gcp":
 @dataclass
 class BaseCommand:
     dbfs_path: str
-    uc_enabled: bool
+    uc_enabled: bool = False
     uc_catalog_name: str
     dlt_meta_schema: str
     cloud: str
     dbr_version: str
+
+    def __post_init__(self):
+        if not self.dbfs_path:
+            raise ValueError("dbfs_path is required")
+        if not self.uc_enabled:
+            raise ValueError("uc_enabled is required")
+        if self.uc_enabled and not self.uc_catalog_name:
+            raise ValueError("uc_catalog_name is required")
+        if not self.dlt_meta_schema:
+            raise ValueError("dlt_meta_schema is required")
+        if not self.cloud:
+            raise ValueError("cloud is required")
+        if not self.dbr_version:
+            raise ValueError("dbr_version is required")
 
 
 @dataclass
@@ -45,26 +59,80 @@ class OnboardCommand(BaseCommand):
     onboarding_file_path: str
     onboarding_files_dir_path: str
     onboard_layer: str
-    bronze_dataflowspec_table: str
+    bronze_dataflowspec_table: str = "bronze_dataflowspec"
     bronze_dataflowspec_path: str
-    silver_dataflowspec_table: str
+    silver_dataflowspec_table: str = "silver_dataflowspec"
     silver_dataflowspec_path: str
-    overwrite: bool
+    overwrite: bool = True
     env: str
     import_author: str
     version: str
 
+    def __post_init__(self):
+        super().__post_init__()
+        if not self.onboarding_file_path:
+            raise ValueError("onboarding_file_path is required")
+        if not self.onboarding_files_dir_path:
+            raise ValueError("onboarding_files_dir_path is required")
+        if not self.onboard_layer:
+            raise ValueError("onboard_layer is required")
+        if self.onboard_layer.lower() not in ["bronze", "silver", "bronze_silver"]:
+            raise ValueError("onboard_layer must be one of bronze, silver, bronze_silver")
+        if self.onboard_layer.lower() == "bronze_silver":
+            if not self.uc_enabled:
+                if not self.bronze_dataflowspec_path:
+                    raise ValueError("bronze_dataflowspec_path is required")            
+                if not self.silver_dataflowspec_path:
+                    raise ValueError("silver_dataflowspec_path is required")
+        elif self.onboard_layer.lower() == "bronze":
+            if not self.uc_enabled:
+                if not self.bronze_dataflowspec_path:
+                    raise ValueError("bronze_dataflowspec_path is required")            
+        elif self.onboard_layer.lower() == "silver":
+            if not self.silver_dataflowspec_table:
+                raise ValueError("silver_dataflowspec_table is required")
+            if not self.uc_enabled:
+                if not self.silver_dataflowspec_path:
+                    raise ValueError("silver_dataflowspec_path is required")
+        if not self.overwrite:
+            raise ValueError("overwrite is required")                
+        if not self.import_author:
+            raise ValueError("import_author is required")
+        if not self.version:
+            raise ValueError("version is required")
+        if not self.env:
+            raise ValueError("env is required")
+
 
 @dataclass
 class DeployCommand(BaseCommand):
-    serverless: bool
+    serverless: bool = False
     num_workers: int
     layer: str
     onboard_group: str
     dataflowspec_table: str
-    dataflowspec_path: str 
-    pipeline_name: str 
+    dataflowspec_path: str
+    pipeline_name: str
     dlt_target_schema: str
+    
+    def __post_init__(self):
+        super().__post_init__()
+        if not self.serverless:
+            raise ValueError("serverless is required")
+        if not self.serverless and not self.num_workers:
+            raise ValueError("num_workers is required")
+        if not self.layer:
+            raise ValueError("layer is required")
+        if not self.onboard_group:
+            raise ValueError("onboard_group is required")
+        if not self.dataflowspec_table:
+            raise ValueError("dataflowspec_table is required")
+        if self.uc_enabled and not self.dataflowspec_path:
+            raise ValueError("dataflowspec_path is required")
+        if not self.pipeline_name:
+            raise ValueError("pipeline_name is required")
+        if not self.dlt_target_schema:
+            raise ValueError("dlt_target_schema is required")
 
 
 def _my_username(ws: WorkspaceClient):
