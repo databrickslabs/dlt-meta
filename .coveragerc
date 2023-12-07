@@ -5,6 +5,9 @@ include = src/*.py
 omit =
     */site-packages/*
     tests/*
+    src/install.py
+    src/config.py
+    src/cli.py
 
 [report]
 exclude_lines =

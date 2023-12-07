@@ -19,6 +19,15 @@ import json
 # Dictionary mapping cloud providers to node types
 cloud_node_type_id_dict = {"aws": "i3.xlarge", "azure": "Standard_D3_v2", "gcp": "n1-highmem-4"}
 
+DLT_META_RUNNER_NOTEBOOK = """
+# Databricks notebook source
+# MAGIC %pip install {remote_wheel}
+# dbutils.library.restartPython()
+# COMMAND ----------
+layer = spark.conf.get("layer", None)
+from src.dataflow_pipeline import DataflowPipeline
+DataflowPipeline.invoke_dlt_pipeline(spark, layer)
+"""
 
 @dataclass
 class DLTMetaRunnerConf:
@@ -124,9 +133,9 @@ class DLTMETARunner:
     - workspace_client: Databricks workspace client
     - runner_conf: test information
     """
-    def __init__(self, args, workspace_client, base_dir):
+    def __init__(self, args, ws, base_dir):
         self.args = args
-        self.workspace_client = workspace_client
+        self.ws = ws
         self.base_dir = base_dir
 
     def init_runner_conf(self) -> DLTMetaRunnerConf:
@@ -141,13 +150,13 @@ class DLTMETARunner:
         run_id = uuid.uuid4().hex
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
-            username=self.args.__dict__['username'],
+            username=self._my_username(self.ws),
             dbfs_tmp_path=f"{self.args.__dict__['dbfs_path']}/{run_id}",
             int_tests_dir="file:./integration_tests",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_it_{run_id}",
             bronze_schema=f"dlt_meta_bronze_it_{run_id}",
             silver_schema=f"dlt_meta_silver_it_{run_id}",
-            runners_nb_path=f"/Users/{self.args.__dict__['username']}/dlt_meta_int_tests/{run_id}",
+            runners_nb_path=f"/Users/{self._my_username(self.ws)}/dlt_meta_int_tests/{run_id}",
             source=self.args.__dict__['source'],
             node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             dbr_version=self.args.__dict__['dbr_version'],
@@ -173,7 +182,12 @@ class DLTMETARunner:
             raise Exception("Supported source not found in argument")
         runner_conf.runners_full_local_path = runners_full_local_path
         return runner_conf
-
+    
+    def _my_username(self, ws):
+        if not hasattr(ws, "_me"):
+            _me = ws.current_user.me()
+        return _me.user_name
+    
     def build_and_upload_package(self, runner_conf: DLTMetaRunnerConf):
         """
         Build and upload the Python package.
@@ -204,7 +218,7 @@ class DLTMETARunner:
                     f"/Volumes/{runner_conf.volume_info.catalog_name}/"
                     f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/{whl_name}"
                 )
-                self.workspace_client.files.upload(
+                self.ws.files.upload(
                     file_path=uc_target_whl_path,
                     contents=BytesIO(whl_fp.read()),
                     overwrite=True
@@ -216,7 +230,7 @@ class DLTMETARunner:
                 runner_conf.uc_target_whl_path = uc_target_whl_path
             else:
                 dbfs_whl_path = f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/whl/{whl_name}"
-                self.workspace_client.dbfs.upload(dbfs_whl_path, BytesIO(whl_fp.read()), overwrite=True)
+                self.ws.dbfs.upload(dbfs_whl_path, BytesIO(whl_fp.read()), overwrite=True)
                 runner_conf.dbfs_whl_path = dbfs_whl_path
 
     def create_dlt_meta_pipeline(self,
@@ -259,7 +273,7 @@ class DLTMETARunner:
             configuration[f"{layer}.dataflowspecTable"] = (
                 f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}.{layer}_dataflowspec_cdc"
             )
-            created = self.workspace_client.pipelines.create(
+            created = self.ws.pipelines.create(
                 catalog=runner_conf.uc_catalog_name,
                 name=pipeline_name,
                 configuration=configuration,
@@ -280,7 +294,7 @@ class DLTMETARunner:
                 f"{runner_conf.dlt_meta_schema}.{layer}_dataflowspec_cdc"
             )
 
-            created = self.workspace_client.pipelines.create(
+            created = self.ws.pipelines.create(
                 name=pipeline_name,
                 # serverless=True,
                 channel="PREVIEW",
@@ -320,7 +334,7 @@ class DLTMETARunner:
             If the job creation fails.
         """
         database, dlt_lib = self.init_db_dltlib(runner_conf)
-        return self.workspace_client.jobs.create(
+        return self.ws.jobs.create(
             name=f"dlt-meta-integration-test-{runner_conf.run_id}",
             tasks=[
                 jobs.Task(
@@ -395,7 +409,7 @@ class DLTMETARunner:
     def create_eventhub_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """Create Job specification."""
         database, dlt_lib = self.init_db_dltlib()
-        return self.workspace_client.jobs.create(
+        return self.ws.jobs.create(
             name=f"dlt-meta-integration-test-{runner_conf['run_id']}",
             tasks=[
                 jobs.Task(
@@ -468,7 +482,7 @@ class DLTMETARunner:
     def create_kafka_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """Create Job specification."""
         database, dlt_lib = self.init_db_dltlib()
-        return self.workspace_client.jobs.create(
+        return self.ws.jobs.create(
             name=f"dlt-meta-integration-test-{runner_conf.run_id}",
             tasks=[
                 jobs.Task(
@@ -673,32 +687,32 @@ class DLTMETARunner:
         self.generate_onboarding_file(runner_conf)
         print("int_tests_dir: ", runner_conf.int_tests_dir)
         print(f"uploading to {runner_conf.dbfs_tmp_path}/{self.base_dir}/")
-        self.workspace_client.dbfs.create(path=runner_conf.dbfs_tmp_path + f"/{self.base_dir}/", overwrite=True)
-        self.workspace_client.dbfs.copy(runner_conf.int_tests_dir,
-                                        runner_conf.dbfs_tmp_path + f"/{self.base_dir}/",
-                                        overwrite=True, recursive=True)
+        self.ws.dbfs.create(path=runner_conf.dbfs_tmp_path + f"/{self.base_dir}/", overwrite=True)
+        self.ws.dbfs.copy(runner_conf.int_tests_dir,
+                          runner_conf.dbfs_tmp_path + f"/{self.base_dir}/",
+                          overwrite=True, recursive=True)
         print(f"uploading to {runner_conf.dbfs_tmp_path}/{self.base_dir}/ complete!!!")
         fp = open(runner_conf.runners_full_local_path, "rb")
         print(f"uploading to {runner_conf.runners_nb_path} started")
-        self.workspace_client.workspace.mkdirs(runner_conf.runners_nb_path)
-        self.workspace_client.workspace.upload(path=f"{runner_conf.runners_nb_path}/runners",
-                                               format=ImportFormat.DBC, content=fp.read())
+        self.ws.workspace.mkdirs(runner_conf.runners_nb_path)
+        self.ws.workspace.upload(path=f"{runner_conf.runners_nb_path}/runners",
+                                 format=ImportFormat.DBC, content=fp.read())
         print(f"uploading to {runner_conf.runners_nb_path} complete!!!")
         if runner_conf.uc_catalog_name:
-            SchemasAPI(self.workspace_client.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                                name=runner_conf.dlt_meta_schema,
-                                                                comment="dlt_meta framework schema")
-            volume_info = self.workspace_client.volumes.create(catalog_name=runner_conf.uc_catalog_name,
-                                                               schema_name=runner_conf.dlt_meta_schema,
-                                                               name=runner_conf.uc_volume_name,
-                                                               volume_type=VolumeType.MANAGED)
+            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                                  name=runner_conf.dlt_meta_schema,
+                                                  comment="dlt_meta framework schema")
+            volume_info = self.ws.volumes.create(catalog_name=runner_conf.uc_catalog_name,
+                                                 schema_name=runner_conf.dlt_meta_schema,
+                                                 name=runner_conf.uc_volume_name,
+                                                 volume_type=VolumeType.MANAGED)
             runner_conf.volume_info = volume_info
-            SchemasAPI(self.workspace_client.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                                name=runner_conf.bronze_schema,
-                                                                comment="bronze_schema")
-            SchemasAPI(self.workspace_client.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                                name=runner_conf.silver_schema,
-                                                                comment="silver_schema")
+            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                                  name=runner_conf.bronze_schema,
+                                                  comment="bronze_schema")
+            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                                  name=runner_conf.silver_schema,
+                                                  comment="silver_schema")
         self.build_and_upload_package(runner_conf)
 
     def create_cluster(self, runner_conf: DLTMetaRunnerConf):
@@ -709,7 +723,7 @@ class DLTMETARunner:
         else:
             mode = compute.DataSecurityMode.LEGACY_SINGLE_USER
             spark_confs = {}
-        clstr = self.workspace_client.clusters.create(
+        clstr = self.ws.clusters.create(
             cluster_name=f"dlt-meta-integration-test-{runner_conf.run_id}",
             spark_version=runner_conf.dbr_version,
             node_type_id=runner_conf.node_type_id,
@@ -739,7 +753,7 @@ class DLTMETARunner:
             self.clean_up(runner_conf)
 
     def download_test_results(self, runner_conf: DLTMetaRunnerConf):
-        download_response = self.workspace_client.files.download(
+        download_response = self.ws.files.download(
             f"{runner_conf.uc_volume_path}/integration_test_output.csv")
         output = print(download_response.contents.read().decode("utf-8"))
         with open(f"integration_test_output_{runner_conf.run_id}.csv", 'w') as f:
@@ -768,44 +782,44 @@ class DLTMETARunner:
             created_job = self.create_kafka_workflow_spec(runner_conf)
         runner_conf.job_id = created_job.job_id
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
-        print(f"Waiting for job to complete. run_id={created_job.job_id}")
-        run_by_id = self.workspace_client.jobs.run_now(job_id=created_job.job_id).result()
+        print(f"Waiting for job to complete. job_id={created_job.job_id}")
+        run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result()
         print(f"Job run finished. run_id={run_by_id}")
         return created_job
 
     def clean_up(self, runner_conf: DLTMetaRunnerConf):
         print("Cleaning up...")
         if runner_conf.job_id:
-            self.workspace_client.jobs.delete(runner_conf.job_id)
+            self.ws.jobs.delete(runner_conf.job_id)
         if runner_conf.bronze_pipeline_id:
-            self.workspace_client.pipelines.delete(runner_conf.bronze_pipeline_id)
+            self.ws.pipelines.delete(runner_conf.bronze_pipeline_id)
         if runner_conf.silver_pipeline_id:
-            self.workspace_client.pipelines.delete(runner_conf.silver_pipeline_id)
+            self.ws.pipelines.delete(runner_conf.silver_pipeline_id)
         if runner_conf.cluster_id:
-            self.workspace_client.clusters.delete(runner_conf.cluster_id)
+            self.ws.clusters.delete(runner_conf.cluster_id)
         if runner_conf.dbfs_tmp_path:
-            self.workspace_client.dbfs.delete(runner_conf.dbfs_tmp_path, recursive=True)
+            self.ws.dbfs.delete(runner_conf.dbfs_tmp_path, recursive=True)
         if runner_conf.uc_catalog_name:
             test_schema_list = [runner_conf.dlt_meta_schema, runner_conf.bronze_schema, runner_conf.silver_schema]
-            schema_list = self.workspace_client.schemas.list(catalog_name=runner_conf.uc_catalog_name)
+            schema_list = self.ws.schemas.list(catalog_name=runner_conf.uc_catalog_name)
             for schema in schema_list:
                 if schema.name in test_schema_list:
                     print(f"Deleting schema: {schema.name}")
-                    vol_list = self.workspace_client.volumes.list(
+                    vol_list = self.ws.volumes.list(
                         catalog_name=runner_conf.uc_catalog_name,
                         schema_name=schema.name
                     )
                     for vol in vol_list:
                         print(f"Deleting volume:{vol.full_name}")
-                        self.workspace_client.volumes.delete(vol.full_name)
-                    tables_list = self.workspace_client.tables.list(
+                        self.ws.volumes.delete(vol.full_name)
+                    tables_list = self.ws.tables.list(
                         catalog_name=runner_conf.uc_catalog_name,
                         schema_name=schema.name
                     )
                     for table in tables_list:
                         print(f"Deleting table:{table.full_name}")
-                        self.workspace_client.tables.delete(table.full_name)
-                    self.workspace_client.schemas.delete(schema.full_name)
+                        self.ws.tables.delete(table.full_name)
+                    self.ws.schemas.delete(schema.full_name)
         print("Cleaning up complete!!!")
 
 
@@ -820,7 +834,6 @@ def get_workspace_api_client(profile=None) -> WorkspaceClient:
 
 
 args_map = {"--profile": "provide databricks cli profile name, if not provide databricks_host and token",
-            "--username": "provide databricks username, this is required to upload runners notebook",
             "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
             "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
             "--dbr_version": "Provide databricks runtime spark version e.g 11.3.x-scala2.12",
@@ -839,7 +852,7 @@ args_map = {"--profile": "provide databricks cli profile name, if not provide da
             }
 
 mandatory_args = [
-    "username", "uc_catalog_name", "cloud_provider_name",
+    "uc_catalog_name", "cloud_provider_name",
     "dbr_version", "source", "dbfs_path"
 ]
 
