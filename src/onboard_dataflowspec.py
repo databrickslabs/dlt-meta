@@ -114,6 +114,7 @@ class OnboardDataflowspec:
 
     def register_bronze_dataflow_spec_tables(self):
         """Register bronze/silver dataflow specs tables."""
+        self.deltaPipelinesMetaStoreOps.create_database(self.dict_obj["database"], "dlt-meta database")
         self.deltaPipelinesMetaStoreOps.register_table_in_metastore(
             self.dict_obj["database"],
             self.dict_obj["bronze_dataflowspec_table"],
@@ -126,6 +127,7 @@ class OnboardDataflowspec:
 
     def register_silver_dataflow_spec_tables(self):
         """Register bronze dataflow specs tables."""
+        self.deltaPipelinesMetaStoreOps.create_database(self.dict_obj["database"], "dlt-meta database")
         self.deltaPipelinesMetaStoreOps.register_table_in_metastore(
             self.dict_obj["database"],
             self.dict_obj["silver_dataflowspec_table"],

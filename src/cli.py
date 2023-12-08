@@ -1,4 +1,4 @@
-"""Main entry point of the Python Wheel."""
+"""Main entry point for the CLI."""
 
 import logging
 import json
@@ -43,6 +43,7 @@ def get_workspace_api_client(profile=None) -> WorkspaceClient:
 
 @dataclass
 class OnboardCommand:
+    """Class representing the onboarding command."""
     dbr_version: str
     dbfs_path: str
     onboarding_file_path: str
@@ -108,6 +109,7 @@ class OnboardCommand:
 
 @dataclass
 class DeployCommand:
+    """Class representing the deploy command."""
     num_workers: int
     layer: str
     onboard_group: str
@@ -147,6 +149,7 @@ def _my_username(ws: WorkspaceClient):
 
 
 def onboard(cmd: OnboardCommand):
+    """Perform the onboarding process."""
     ws = get_workspace_api_client("e2-demo")  # TODO: fix this hardcoding
     logger.info("onboarding_files_dir: ", cmd.onboarding_files_dir_path)
     logger.info(f"uploading to {cmd.dbfs_path}")
@@ -169,16 +172,27 @@ def onboard(cmd: OnboardCommand):
             SchemasAPI(ws.api_client).create(catalog_name=cmd.uc_catalog_name,
                                              name=cmd.dlt_meta_schema,
                                              comment="dlt_meta framework schema")
+    else:
+        try:
+            SchemasAPI(ws.api_client).get(full_name=cmd.dlt_meta_schema)
+        except DatabricksError as e:
+            logger.error(e)
+            logger.info(f"Schema {cmd.dlt_meta_schema} not found. Creating new schema")
+            SchemasAPI(ws.api_client).create(name=cmd.dlt_meta_schema,
+                                             comment="dlt_meta framework schema")
     whl_file_path = build_and_upload_package(cmd, ws)
     created_job = create_onnboarding_job(cmd, ws, whl_file_path)
     logger.info(f"Waiting for job to complete. job_id={created_job.job_id}")
     print(f"Waiting for onboarding job to complete. job_id={created_job.job_id}")
-    run_by_id = ws.jobs.run_now(job_id=created_job.job_id).result()
-    logger.info(f"DLT-META Onboarding Job finished with run_id={run_by_id}. Please check onboarding table for details")
-    print(f"DLT-META Onboarding Job finished with run_id={run_by_id}. Please check onboarding table for details")
+    run_by_id = ws.jobs.run_now(job_id=created_job.job_id)
+    logger.info(f"DLT-META Onboarding Job(job_id={created_job.job_id}) launched with run_id={run_by_id}")
+    logger.info("Please check the job status in databricks workspace jobs tab")
+    print(f"DLT-META Onboarding Job(job_id={created_job.job_id}) launched with run_id={run_by_id}")
+    print("Please check the job status in databricks workspace jobs tab")
 
 
 def get_or_create_dlt_meta_volume(cmd, ws):
+    """Get or create the DLT-META volume."""
     try:
         volume_info = ws.volumes.create(catalog_name=cmd.uc_catalog_name,
                                         schema_name=cmd.dlt_meta_schema,
@@ -193,6 +207,7 @@ def get_or_create_dlt_meta_volume(cmd, ws):
 
 
 def create_onnboarding_job(cmd: OnboardCommand, ws: WorkspaceClient, whl_file_path):
+    """Create the onboarding job."""
     cluster_spec = compute.ClusterSpec(
         spark_version=cmd.dbr_version,
         num_workers=1,
@@ -218,12 +233,12 @@ def create_onnboarding_job(cmd: OnboardCommand, ws: WorkspaceClient, whl_file_pa
                     package_name="dlt_meta",
                     entry_point="run",
                     named_parameters={
-                                "onboard_layer": "bronze_silver",
+                                "onboard_layer": cmd.onboard_layer,
                                 "database":
                                     f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}"
                                     if cmd.uc_enabled else cmd.dlt_meta_schema,
                                 "onboarding_file_path":
-                                f"{cmd.dbfs_path}/dltmeta_conf/conf/{onboarding_filename}",
+                                f"{cmd.dbfs_path}/dltmeta_conf/cli_demo/conf/{onboarding_filename}",
                                 # TODO: fix this by uploading onboarding file to dbfs
                                 "bronze_dataflowspec_table": cmd.bronze_dataflowspec_table,
                                 "bronze_dataflowspec_path": cmd.bronze_dataflowspec_path,
@@ -247,6 +262,9 @@ def _install_folder(ws: WorkspaceClient):
 
 
 def create_dlt_meta_pipeline(cmd: DeployCommand, ws: WorkspaceClient, whl_file_path: str):
+    """Create the DLT-META pipeline."""
+    if not cmd.uc_enabled:
+        whl_file_path = f"/{whl_file_path}".replace(":", "")
     runner_notebook_py = DLT_META_RUNNER_NOTEBOOK.format(remote_wheel=whl_file_path).encode("utf8")
     runner_notebook_path = f"{_install_folder(ws)}/init_dlt_meta_pipeline.py"
     try:
@@ -278,27 +296,22 @@ def create_dlt_meta_pipeline(cmd: DeployCommand, ws: WorkspaceClient, whl_file_p
                                       clusters=[pipelines.PipelineCluster(label="default", num_workers=cmd.num_workers)]
                                       )
     else:
-        file_dbfs_path = f"/{whl_file_path}".replace(":", "")
-        configuration["dlt_meta_whl"] = file_dbfs_path
+        configuration["dlt_meta_whl"] = whl_file_path
         configuration[f"{cmd.layer}.dataflowspecTable"] = (
-            f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}.{cmd.dataflowspec_table}"
+            f"{cmd.dlt_meta_schema}.{cmd.dataflowspec_table}"
         )
         created = ws.pipelines.create(
             name=cmd.pipeline_name,
-            # serverless=True,
-            channel="PREVIEW",
             configuration=configuration,
             libraries=[
                 PipelineLibrary(
                     notebook=NotebookLibrary(
-                        path=f"{cmd.runners_nb_path}/runners/init_dlt_meta_pipeline"
-                        # Todo: change this path to the actual path
+                        path=runner_notebook_path
                     )
                 )
             ],
             target=cmd.dlt_target_schema,
-            clusters=[pipelines.PipelineCluster(label="default", num_workers=4)]
-
+            clusters=[pipelines.PipelineCluster(label="default", num_workers=cmd.num_workers)]
         )
     if created is None:
         raise Exception("Pipeline creation failed")
