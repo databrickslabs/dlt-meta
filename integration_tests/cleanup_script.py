@@ -19,7 +19,7 @@ def process_arguments():
     parser.add_argument("--profile",
                         help="provide databricks cli profile name, if not provide databricks_host and token")
     parser.add_argument("--uc_catalog_name",
-                        help="provide uc_catalog_name")    
+                        help="provide uc_catalog_name")
     args = parser.parse_args()
     return args
 
@@ -32,7 +32,7 @@ def main():
     # job_list = workspace_client.jobs.list()
     # for job in job_list:
     #     print(f"Deleting job:{job.creator_user_name}")
-        #workspace_client.jobs.delete(job.job_id)
+    # workspace_client.jobs.delete(job.job_id)
     # list = workspace_client.pipelines.list_pipelines(filter="name like 'dlt-meta-integration-test-silver-%'")
     # print("List of pipelines:")
     # for pipeline in list:
@@ -42,7 +42,7 @@ def main():
     # print("List of pipelines:")
     # for pipeline in list:
     #     print(f"id = {pipeline.pipeline_id} , name = {pipeline.name}")
-    #     workspace_client.pipelines.delete(pipeline.pipeline_id)        
+    #     workspace_client.pipelines.delete(pipeline.pipeline_id)
     uc_catalog_name = args.uc_catalog_name
     schema_list = workspace_client.schemas.list(catalog_name=uc_catalog_name)
     for schema in schema_list:

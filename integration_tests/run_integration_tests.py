@@ -29,6 +29,7 @@ from src.dataflow_pipeline import DataflowPipeline
 DataflowPipeline.invoke_dlt_pipeline(spark, layer)
 """
 
+
 @dataclass
 class DLTMetaRunnerConf:
     """
@@ -182,12 +183,12 @@ class DLTMETARunner:
             raise Exception("Supported source not found in argument")
         runner_conf.runners_full_local_path = runners_full_local_path
         return runner_conf
-    
+
     def _my_username(self, ws):
         if not hasattr(ws, "_me"):
             _me = ws.current_user.me()
         return _me.user_name
-    
+
     def build_and_upload_package(self, runner_conf: DLTMetaRunnerConf):
         """
         Build and upload the Python package.
@@ -743,7 +744,7 @@ class DLTMETARunner:
         try:
             self.init_dltmeta_runner_conf(runner_conf)
             self.create_bronze_silver_dlt(runner_conf)
-            self.create_cluster(runner_conf)            
+            self.create_cluster(runner_conf)
             self.launch_workflow(runner_conf)
             self.download_test_results(runner_conf)
         except Exception as e:

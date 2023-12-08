@@ -4,14 +4,15 @@ import logging
 import json
 import glob
 import os
+import sys
 from io import BytesIO
 import subprocess
 from dataclasses import dataclass
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import jobs, pipelines, compute
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
-
-from databricks.sdk.service.catalog import VolumeType, SchemasAPI, VolumeInfo
+from databricks.sdk.core import DatabricksError
+from databricks.sdk.service.catalog import VolumeType, SchemasAPI
 logger = logging.getLogger("dlt-meta")
 logger.setLevel(logging.INFO)
 
@@ -30,46 +31,37 @@ DataflowPipeline.invoke_dlt_pipeline(spark, layer)
 cloud_node_type_id_dict = {"aws": "i3.xlarge", "azure": "Standard_D3_v2", "gcp": "n1-highmem-4"}
 
 
+def get_workspace_api_client(profile=None) -> WorkspaceClient:
+    """Get api client with config."""
+    if profile:
+        ws = WorkspaceClient(profile=profile)
+    else:
+        ws = WorkspaceClient(host=input('Databricks Workspace URL: '), token=input('Token: '))
+        ws.files.upload
+    return ws
+
+
 @dataclass
-class BaseCommand:
-    dbfs_path: str
-    uc_enabled: bool = False
-    uc_catalog_name: str
-    dlt_meta_schema: str
-    cloud: str
+class OnboardCommand:
     dbr_version: str
-
-    def __post_init__(self):
-        if not self.dbfs_path:
-            raise ValueError("dbfs_path is required")
-        if not self.uc_enabled:
-            raise ValueError("uc_enabled is required")
-        if self.uc_enabled and not self.uc_catalog_name:
-            raise ValueError("uc_catalog_name is required")
-        if not self.dlt_meta_schema:
-            raise ValueError("dlt_meta_schema is required")
-        if not self.cloud:
-            raise ValueError("cloud is required")
-        if not self.dbr_version:
-            raise ValueError("dbr_version is required")
-
-
-@dataclass
-class OnboardCommand(BaseCommand):
+    dbfs_path: str
     onboarding_file_path: str
     onboarding_files_dir_path: str
     onboard_layer: str
-    bronze_dataflowspec_table: str = "bronze_dataflowspec"
-    bronze_dataflowspec_path: str
-    silver_dataflowspec_table: str = "silver_dataflowspec"
-    silver_dataflowspec_path: str
-    overwrite: bool = True
     env: str
     import_author: str
     version: str
+    cloud: str
+    dlt_meta_schema: str
+    uc_enabled: bool = False
+    uc_catalog_name: str = None
+    overwrite: bool = True
+    bronze_dataflowspec_table: str = "bronze_dataflowspec"
+    silver_dataflowspec_table: str = "silver_dataflowspec"
+    bronze_dataflowspec_path: str = None
+    silver_dataflowspec_path: str = None
 
     def __post_init__(self):
-        super().__post_init__()
         if not self.onboarding_file_path:
             raise ValueError("onboarding_file_path is required")
         if not self.onboarding_files_dir_path:
@@ -81,21 +73,31 @@ class OnboardCommand(BaseCommand):
         if self.onboard_layer.lower() == "bronze_silver":
             if not self.uc_enabled:
                 if not self.bronze_dataflowspec_path:
-                    raise ValueError("bronze_dataflowspec_path is required")            
+                    raise ValueError("bronze_dataflowspec_path is required")
                 if not self.silver_dataflowspec_path:
                     raise ValueError("silver_dataflowspec_path is required")
         elif self.onboard_layer.lower() == "bronze":
             if not self.uc_enabled:
                 if not self.bronze_dataflowspec_path:
-                    raise ValueError("bronze_dataflowspec_path is required")            
+                    raise ValueError("bronze_dataflowspec_path is required")
         elif self.onboard_layer.lower() == "silver":
             if not self.silver_dataflowspec_table:
                 raise ValueError("silver_dataflowspec_table is required")
             if not self.uc_enabled:
                 if not self.silver_dataflowspec_path:
                     raise ValueError("silver_dataflowspec_path is required")
+        # if not self.uc_enabled and not self.uc_catalog_name:
+        #     raise ValueError("uc_catalog_name is required")
+        if not self.dlt_meta_schema:
+            raise ValueError("dlt_meta_schema is required")
+        if not self.cloud:
+            raise ValueError("cloud is required")
+        if not self.dbfs_path:
+            raise ValueError("dbfs_path is required")
+        if not self.dbr_version:
+            raise ValueError("dbr_version is required")
         if not self.overwrite:
-            raise ValueError("overwrite is required")                
+            raise ValueError("overwrite is required")
         if not self.import_author:
             raise ValueError("import_author is required")
         if not self.version:
@@ -105,20 +107,23 @@ class OnboardCommand(BaseCommand):
 
 
 @dataclass
-class DeployCommand(BaseCommand):
-    serverless: bool = False
+class DeployCommand:
     num_workers: int
     layer: str
     onboard_group: str
+    dlt_meta_schema: str
     dataflowspec_table: str
-    dataflowspec_path: str
     pipeline_name: str
     dlt_target_schema: str
-    
+    uc_catalog_name: str = None
+    dataflowspec_path: str = None
+    uc_enabled: bool = False
+    serverless: bool = False
+    dbfs_path: str = None
+
     def __post_init__(self):
-        super().__post_init__()
-        if not self.serverless:
-            raise ValueError("serverless is required")
+        if self.uc_enabled and not self.uc_catalog_name:
+            raise ValueError("uc_catalog_name is required")
         if not self.serverless and not self.num_workers:
             raise ValueError("num_workers is required")
         if not self.layer:
@@ -127,7 +132,7 @@ class DeployCommand(BaseCommand):
             raise ValueError("onboard_group is required")
         if not self.dataflowspec_table:
             raise ValueError("dataflowspec_table is required")
-        if self.uc_enabled and not self.dataflowspec_path:
+        if not self.uc_enabled and not self.dataflowspec_path:
             raise ValueError("dataflowspec_path is required")
         if not self.pipeline_name:
             raise ValueError("pipeline_name is required")
@@ -142,45 +147,59 @@ def _my_username(ws: WorkspaceClient):
 
 
 def onboard(cmd: OnboardCommand):
-    ws = WorkspaceClient()
+    ws = get_workspace_api_client("e2-demo")  # TODO: fix this hardcoding
     logger.info("onboarding_files_dir: ", cmd.onboarding_files_dir_path)
     logger.info(f"uploading to {cmd.dbfs_path}")
-    ws.dbfs.create(path=cmd.dbfs_path + "/dltmeta_conf/", overwrite=True)
+    if not ws.dbfs.exists(cmd.dbfs_path + "/dltmeta_conf/"):
+        ws.dbfs.create(path=cmd.dbfs_path + "/dltmeta_conf/", overwrite=True)
     ws.dbfs.copy(cmd.onboarding_files_dir_path,
                  cmd.dbfs_path + "/dltmeta_conf/",
                  overwrite=True, recursive=True)
     logger.info(f"uploading to  {cmd.dbfs_path}/dltmeta_conf complete!!!")
+    # ws.dbfs.copy(cmd.onboarding_file_path,
+    #              cmd.dbfs_path + "/dltmeta_conf/",
+    #              overwrite=True, recursive=True)
+    print(f"uploading to  {cmd.dbfs_path}/dltmeta_conf complete!!!")
     if cmd.uc_catalog_name:
-        SchemasAPI(ws.api_client).create(catalog_name=cmd.uc_catalog_name,
-                                         name=cmd.dlt_meta_schema,
-                                         comment="dlt_meta framework schema")
+        try:
+            SchemasAPI(ws.api_client).get(full_name=f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}")
+        except DatabricksError as e:
+            logger.error(e)
+            logger.info(f"Schema {cmd.uc_catalog_name}.{cmd.dlt_meta_schema} not found. Creating new schema")
+            SchemasAPI(ws.api_client).create(catalog_name=cmd.uc_catalog_name,
+                                             name=cmd.dlt_meta_schema,
+                                             comment="dlt_meta framework schema")
+    whl_file_path = build_and_upload_package(cmd, ws)
+    created_job = create_onnboarding_job(cmd, ws, whl_file_path)
+    logger.info(f"Waiting for job to complete. job_id={created_job.job_id}")
+    print(f"Waiting for onboarding job to complete. job_id={created_job.job_id}")
+    run_by_id = ws.jobs.run_now(job_id=created_job.job_id).result()
+    logger.info(f"DLT-META Onboarding Job finished with run_id={run_by_id}. Please check onboarding table for details")
+    print(f"DLT-META Onboarding Job finished with run_id={run_by_id}. Please check onboarding table for details")
+
+
+def get_or_create_dlt_meta_volume(cmd, ws):
+    try:
         volume_info = ws.volumes.create(catalog_name=cmd.uc_catalog_name,
                                         schema_name=cmd.dlt_meta_schema,
                                         name=f"{cmd.uc_catalog_name}_volumne_dlt_meta",
                                         volume_type=VolumeType.MANAGED)
-        SchemasAPI(ws.api_client).create(catalog_name=cmd.uc_catalog_name,
-                                         name=cmd.bronze_schema,
-                                         comment="bronze_schema")
-        SchemasAPI(ws.api_client).create(catalog_name=cmd.uc_catalog_name,
-                                         name=cmd.silver_schema,
-                                         comment="silver_schema")
-    whl_file_path = build_and_upload_package(cmd, ws, volume_info)
-    created_job = create_onnboarding_job(cmd, ws, volume_info, whl_file_path)
-    logger.info(f"Waiting for job to complete. job_id={created_job.job_id}")
-    run_by_id = ws.jobs.run_now(job_id=created_job.job_id).result()
-    logger.info(f"DLT-META Onboarding Job finished with run_id={run_by_id}. Please check onboarding table for details")
+    except DatabricksError as e:
+        logger.error(e)
+        volume_info = ws.volumes.read(
+            full_name_arg=f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}.{cmd.uc_catalog_name}_volumne_dlt_meta"
+        )
+    return volume_info
 
 
-def create_onnboarding_job(cmd: OnboardCommand, ws: WorkspaceClient, volume_info: VolumeInfo, whl_file_path):
+def create_onnboarding_job(cmd: OnboardCommand, ws: WorkspaceClient, whl_file_path):
     cluster_spec = compute.ClusterSpec(
-        cluster_name="dlt_meta_onboarding_cluster",
         spark_version=cmd.dbr_version,
         num_workers=1,
         driver_node_type_id=cloud_node_type_id_dict[cmd.cloud],
         node_type_id=cloud_node_type_id_dict[cmd.cloud],
         data_security_mode=compute.DataSecurityMode.SINGLE_USER
         if cmd.uc_enabled else compute.DataSecurityMode.LEGACY_SINGLE_USER,
-        autotermination_minutes=30,
         spark_conf={},
         spark_env_vars={
             "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
@@ -201,16 +220,18 @@ def create_onnboarding_job(cmd: OnboardCommand, ws: WorkspaceClient, volume_info
                     named_parameters={
                                 "onboard_layer": "bronze_silver",
                                 "database":
-                                    cmd.uc_catalog_name.dlt_meta_schema if cmd.uc_catalog_name else cmd.dlt_meta_schema,
+                                    f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}"
+                                    if cmd.uc_enabled else cmd.dlt_meta_schema,
                                 "onboarding_file_path":
-                                f"{cmd.dbfs_path}/dltmeta_conf{onboarding_filename}",
+                                f"{cmd.dbfs_path}/dltmeta_conf/conf/{onboarding_filename}",
+                                # TODO: fix this by uploading onboarding file to dbfs
                                 "bronze_dataflowspec_table": cmd.bronze_dataflowspec_table,
                                 "bronze_dataflowspec_path": cmd.bronze_dataflowspec_path,
                                 "silver_dataflowspec_table": cmd.silver_dataflowspec_table,
                                 "silver_dataflowspec_path": cmd.silver_dataflowspec_path,
                                 "import_author": cmd.import_author,
                                 "version": cmd.version,
-                                "overwrite": cmd.overwrite,
+                                "overwrite": "True" if cmd.overwrite else "False",
                                 "env": cmd.env,
                                 "uc_enabled": "True" if cmd.uc_enabled else "False"
                     },
@@ -228,6 +249,10 @@ def _install_folder(ws: WorkspaceClient):
 def create_dlt_meta_pipeline(cmd: DeployCommand, ws: WorkspaceClient, whl_file_path: str):
     runner_notebook_py = DLT_META_RUNNER_NOTEBOOK.format(remote_wheel=whl_file_path).encode("utf8")
     runner_notebook_path = f"{_install_folder(ws)}/init_dlt_meta_pipeline.py"
+    try:
+        ws.workspace.mkdirs(_install_folder(ws))
+    except DatabricksError as e:
+        logger.error(e)
     ws.workspace.upload(runner_notebook_path, runner_notebook_py, overwrite=True)
     configuration = {
         "layer": cmd.layer,
@@ -239,7 +264,7 @@ def create_dlt_meta_pipeline(cmd: DeployCommand, ws: WorkspaceClient, whl_file_p
         configuration[f"{cmd.layer}.dataflowspecTable"] = (
             f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}.{cmd.dataflowspec_table}"
         )
-        created = ws.pipelines.create(catalog=ws.uc_catalog_name,
+        created = ws.pipelines.create(catalog=cmd.uc_catalog_name,
                                       name=cmd.pipeline_name,
                                       configuration=configuration,
                                       libraries=[
@@ -256,7 +281,7 @@ def create_dlt_meta_pipeline(cmd: DeployCommand, ws: WorkspaceClient, whl_file_p
         file_dbfs_path = f"/{whl_file_path}".replace(":", "")
         configuration["dlt_meta_whl"] = file_dbfs_path
         configuration[f"{cmd.layer}.dataflowspecTable"] = (
-            f"{cmd.dlt_meta_schema}.{cmd.dataflowspec_table}"
+            f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}.{cmd.dataflowspec_table}"
         )
         created = ws.pipelines.create(
             name=cmd.pipeline_name,
@@ -280,7 +305,7 @@ def create_dlt_meta_pipeline(cmd: DeployCommand, ws: WorkspaceClient, whl_file_p
     return created.pipeline_id
 
 
-def build_and_upload_package(cmd: BaseCommand, ws: WorkspaceClient, volume_info: VolumeInfo):
+def build_and_upload_package(cmd, ws: WorkspaceClient):
     child = subprocess.Popen(
         ["pip3", "wheel", "-w", "dist", ".", "--no-deps"]
     )
@@ -292,6 +317,7 @@ def build_and_upload_package(cmd: BaseCommand, ws: WorkspaceClient, volume_info:
         whl_fp = open(whl_path, "rb")
         whl_name = os.path.basename(whl_path)
         if cmd.uc_catalog_name:
+            volume_info = get_or_create_dlt_meta_volume(cmd, ws)
             uc_target_whl_path = (
                 f"/Volumes/{volume_info.catalog_name}/"
                 f"{volume_info.schema_name}/{volume_info.name}/dltmeta_whl/{whl_name}"
@@ -309,17 +335,19 @@ def build_and_upload_package(cmd: BaseCommand, ws: WorkspaceClient, volume_info:
 
 
 def deploy(cmd: DeployCommand):
-    ws = WorkspaceClient()
+    ws = get_workspace_api_client("e2-demo")  # TODO: fix this hardcoding
     whll_file_path = build_and_upload_package(cmd, ws)
     pipeline_id = create_dlt_meta_pipeline(cmd, ws, whll_file_path)
     update_response = ws.pipelines.start_update(pipeline_id=pipeline_id)
     logger.info(f"dlt-meta pipeline={pipeline_id} created and launched with update_id={update_response.update_id}")
     logger.info("Please check the pipeline status in databricks workspace workflows-> Delta Live Tables tab")
+    print(f"dlt-meta pipeline={pipeline_id} created and launched with update_id={update_response.update_id}")
+    print("Please check the pipeline status in databricks workspace workflows-> Delta Live Tables tab")
 
 
 MAPPING = {
     "onboard": onboard,
-    "deloy": deploy,
+    "deploy": deploy,
 }
 
 
@@ -347,4 +375,4 @@ def main(raw):
 
 
 if __name__ == "__main__":
-    main()
+    main(*sys.argv[1:])

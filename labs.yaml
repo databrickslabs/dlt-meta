@@ -64,5 +64,3 @@ commands:
         description: dlt pipeline name
       - name: channel
         description: dlt channel name current or preview
-      - name: cloud
-        description: cloud name aws or azure or gcp

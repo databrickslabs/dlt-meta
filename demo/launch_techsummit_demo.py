@@ -66,7 +66,7 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         self.args = args
         self.ws = ws
         self.base_dir = base_dir
-    
+
     def init_runner_conf(self) -> TechsummitRunnerConf:
         """
         Initializes the TechsummitRunnerConf object with the provided configuration parameters.
@@ -91,7 +91,7 @@ class DLTMETATechSummitDemo(DLTMETARunner):
             table_count=self.args.__dict__['table_count'] if self.args.__dict__['table_count'] else "100",
             table_column_count=(self.args.__dict__['table_column_count'] if self.args.__dict__['table_column_count']
                                 else "5"),
-            table_data_rows_count=(self.args.__dict__['table_data_rows_count'] 
+            table_data_rows_count=(self.args.__dict__['table_data_rows_count']
                                    if self.args.__dict__['table_data_rows_count'] else "10"),
             worker_nodes=self.args.__dict__['worker_nodes'] if self.args.__dict__['worker_nodes'] else "4",
             source=self.args.__dict__['source'],
@@ -163,7 +163,7 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         print(f"Waiting for job to complete. run_id={created_job.job_id}")
         run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result()
         print(f"Job run finished. run_id={run_by_id}")
-        
+
     def create_techsummit_demo_workflow(self, runner_conf: TechsummitRunnerConf):
         """
         Creates the workflow for the Techsummit Demo by defining the tasks and their dependencies.
