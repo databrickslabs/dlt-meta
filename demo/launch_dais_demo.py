@@ -22,7 +22,7 @@ class DLTMETADAISDemo(DLTMETARunner):
         self.args = args
         self.ws = ws
         self.base_dir = base_dir
-    
+
     def init_runner_conf(self) -> DLTMetaRunnerConf:
         """
         Initialize the runner configuration.
@@ -70,7 +70,7 @@ class DLTMETADAISDemo(DLTMETARunner):
             print(e)
         # finally:
         #     self.clean_up(runner_conf)
-            
+
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
         """
         Launch the workflow for DLT-META DAIS DEMO.
@@ -84,7 +84,7 @@ class DLTMETADAISDemo(DLTMETARunner):
         print(f"Waiting for job to complete. run_id={created_job.job_id}")
         run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result()
         print(f"Job run finished. run_id={run_by_id}")
-            
+
     def create_daisdemo_workflow(self, runner_conf: DLTMetaRunnerConf):
         """
         Create the workflow for DLT-META DAIS DEMO.

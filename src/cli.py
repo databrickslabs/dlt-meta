@@ -324,13 +324,13 @@ class DLTMeta:
                 "Provide bronze dataflow spec table name", default='bronze_dataflowspec')
             if not onboard_cmd_dict["uc_enabled"]:
                 onboard_cmd_dict["bronze_dataflowspec_path"] = self._wsi._question(
-                    "Provide bronze dataflow spec path", default=f'{self._install_folder()}/bronze_dataflow_specs')                    
+                    "Provide bronze dataflow spec path", default=f'{self._install_folder()}/bronze_dataflow_specs')
         if onboard_cmd_dict["onboard_layer"] == "silver":
             onboard_cmd_dict["silver_dataflowspec_table"] = self._wsi._question(
                 "Provide silver dataflow spec table name", default='silver_dataflowspec')
             if not onboard_cmd_dict["uc_enabled"]:
                 onboard_cmd_dict["silver_dataflowspec_path"] = self._wsi._question(
-                    "Provide silver dataflow spec path", default=f'{self._install_folder()}/silver_dataflow_specs')                                        
+                    "Provide silver dataflow spec path", default=f'{self._install_folder()}/silver_dataflow_specs')
         if onboard_cmd_dict["onboard_layer"] == "bronze_silver":
             onboard_cmd_dict["bronze_dataflowspec_table"] = self._wsi._question(
                 "Provide bronze dataflow spec table name", default='bronze_dataflowspec')
