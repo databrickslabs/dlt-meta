@@ -4,7 +4,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
 from pyspark.sql.functions import from_json, col
 
-logger = logging.getLogger("dlt-meta")
+logger = logging.getLogger('databricks.labs.dltmeta')
 logger.setLevel(logging.INFO)
 
 
