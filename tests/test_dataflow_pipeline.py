@@ -398,6 +398,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         with self.assertRaises(Exception):
             dlt_data_flow.cdc_apply_changes()
 
+    @patch('dlt.view', new_callable=MagicMock)
     def test_dlt_view_bronze_call(self, mock_view):
         mock_view.view.return_value = None
         bronze_dataflow_spec = BronzeDataflowSpec(
