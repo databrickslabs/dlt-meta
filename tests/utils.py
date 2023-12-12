@@ -50,6 +50,19 @@ class DLTFrameworkTestCase(unittest.TestCase):
             "version": "v1",
             "import_author": "Ravi"
         }
+        self.onboarding_bronze_silver_params_uc_map = {
+            "onboarding_file_path": self.onboarding_json_file,
+            "database": "ravi_dlt_demo",
+            "env": "dev",
+            "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
+            "bronze_dataflowspec_path": self.onboarding_spec_paths + "/bronze",
+            "silver_dataflowspec_table": "silver_dataflowspec_cdc",
+            "silver_dataflowspec_path": self.onboarding_spec_paths + "/silver",
+            "overwrite": "True",
+            "version": "v1",
+            "import_author": "Ravi",
+            "uc_enabled": "True"
+        }     
 
     def tearDown(self):
         """Tear down."""

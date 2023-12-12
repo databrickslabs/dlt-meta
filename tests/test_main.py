@@ -77,3 +77,17 @@ class MainTests(DLTFrameworkTestCase):
         sys.argv = list
         with self.assertRaises(Exception):
             __main__.main()
+
+    def test_main_bronze_uc(self):
+        """Test bronze onboarding."""
+        bronze_param_map = copy.deepcopy(self.onboarding_bronze_silver_params_uc_map)
+        bronze_param_map["onboard_layer"] = "bronze"
+        list = ["dummy_test"]
+        for key in bronze_param_map:
+            list.append(f"--{key}={bronze_param_map[key]}")
+        sys.argv = list
+        __main__.main()
+        bronze_dataflowSpec_df = (self.spark.read.format("delta").table(
+            f"{bronze_param_map['database']}.{bronze_param_map['bronze_dataflowspec_table']}")
+        )
+        self.assertEqual(bronze_dataflowSpec_df.count(), 3)

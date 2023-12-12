@@ -27,7 +27,6 @@ from src.dataflow_pipeline import DataflowPipeline
 DataflowPipeline.invoke_dlt_pipeline(spark, layer)
 """
 
-# TODO: use databricks sdk vs cluserselect node type
 cloud_node_type_id_dict = {"aws": "i3.xlarge", "azure": "Standard_D3_v2", "gcp": "n1-highmem-4"}
 
 
@@ -400,21 +399,21 @@ class DLTMeta:
         return DeployCommand(**deploy_cmd_dict)
 
 
-def onboard_cli(dltmeta):
+def onboard(dltmeta: DLTMeta):
     logger.info("Please answer a couple of questions to for launching DLT META onboarding job")
     cmd = dltmeta._load_onboard_config()
     dltmeta.onboard(cmd)
 
 
-def deploy_cli(dltmeta):
+def deploy(dltmeta: DLTMeta):
     logger.info("Please answer a couple of questions to for launching DLT META deployment job")
     cmd = dltmeta._load_deploy_config()
     dltmeta.deploy(cmd)
 
 
 MAPPING = {
-    "onboard": onboard_cli,
-    "deploy": deploy_cli,
+    "onboard": onboard,
+    "deploy": deploy,
 }
 
 

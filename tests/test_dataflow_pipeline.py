@@ -10,6 +10,8 @@ from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec
 sys.modules["dlt"] = MagicMock()
 from src.dataflow_pipeline import DataflowPipeline
 from src.onboard_dataflowspec import OnboardDataflowspec
+from src.dataflow_spec import DataflowSpecUtils
+from src.pipeline_readers import PipelineReaders
 
 dlt = MagicMock()
 dlt.expect_all_or_drop = MagicMock()
@@ -381,7 +383,6 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
             .mode("overwrite").saveAsTable("bronze.customer")
          )
-
         dlt_data_flow = DataflowPipeline(
             self.spark,
             silver_dataflow_spec,
@@ -396,3 +397,191 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         dlt_data_flow.cdc_apply_changes = None
         with self.assertRaises(Exception):
             dlt_data_flow.cdc_apply_changes()
+                
+    @patch('dlt.view', new_callable=MagicMock)
+    def test_dlt_view_bronze_call(self, mock_view):
+        mock_view.view.return_value = None
+        bronze_dataflow_spec = BronzeDataflowSpec(
+            **DataflowPipelineTests.bronze_dataflow_spec_map
+        )
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        pipeline.read_bronze = MagicMock()
+        pipeline.view_name = view_name
+        pipeline.read()
+        assert mock_view.called_once_with(
+            pipeline.read_bronze,
+            name=pipeline.view_name,
+            comment=f"input dataset view for {pipeline.view_name}"
+        )
+
+    @patch('dlt.view', new_callable=MagicMock)
+    def test_dlt_view_silver_call(self, mock_view):
+        mock_view.view.return_value = None
+        silver_dataflow_spec = SilverDataflowSpec(
+            **DataflowPipelineTests.silver_dataflow_spec_map
+        )
+        view_name = f"{silver_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, view_name, None)
+        pipeline.read_bronze = MagicMock()
+        pipeline.view_name = view_name
+        pipeline.read()
+        assert mock_view.called_once_with(
+            pipeline.read_silver,
+            name=pipeline.view_name,
+            comment=f"input dataset view for {pipeline.view_name}"
+        )
+
+    @patch('dlt.table', new_callable=MagicMock)
+    def test_dlt_write_bronze(self, mock_dlt_table):
+        mock_dlt_table.table.return_value = None
+        bronze_dataflow_spec = BronzeDataflowSpec(
+            **DataflowPipelineTests.bronze_dataflow_spec_map
+        )
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        bronze_dataflow_spec.cdcApplyChanges = None
+        bronze_dataflow_spec.dataQualityExpectations = None
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        pipeline.read_bronze = MagicMock()
+        pipeline.view_name = view_name
+        target_path = None
+        pipeline.write_bronze()
+        assert mock_dlt_table.called_once_with(
+            pipeline.write_to_delta,
+            name=f"{bronze_dataflow_spec.targetDetails['table']}",
+            partition_cols=DataflowSpecUtils.get_partition_cols(bronze_dataflow_spec.partitionColumns),
+            table_properties=bronze_dataflow_spec.tableProperties,
+            path=target_path,
+            comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}"
+        )        
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "False")
+        target_path = bronze_dataflow_spec.targetDetails["path"]
+        pipeline.write_bronze()
+        assert mock_dlt_table.called_once_with(
+            pipeline.write_to_delta,
+            name=f"{bronze_dataflow_spec.targetDetails['table']}",
+            partition_cols=DataflowSpecUtils.get_partition_cols(bronze_dataflow_spec.partitionColumns),
+            table_properties=bronze_dataflow_spec.tableProperties,
+            path=target_path,
+            comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}"
+        )         
+
+    @patch('dlt.table', new_callable=MagicMock)
+    def test_dlt_write_silver(self, mock_dlt_table):
+        DataflowPipeline.get_silver_schema = MagicMock
+        mock_dlt_table.table.return_value = None
+        # Arrange
+        silver_dataflow_spec = SilverDataflowSpec(
+            **DataflowPipelineTests.silver_dataflow_spec_map
+        )
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        view_name = f"{silver_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, view_name, None)
+        pipeline.read_bronze = MagicMock()
+        pipeline.view_name = view_name
+        target_path = None
+        silver_dataflow_spec.cdcApplyChanges = None
+        pipeline.write_silver()
+        assert mock_dlt_table.called_once_with(
+            pipeline.write_to_delta,
+            name=f"{silver_dataflow_spec.targetDetails['table']}",
+            partition_cols=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.partitionColumns),
+            table_properties=silver_dataflow_spec.tableProperties,
+            path=target_path,
+            comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}"
+        )        
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "False")
+        target_path = silver_dataflow_spec.targetDetails["path"]
+        pipeline.write_silver()
+        assert mock_dlt_table.called_once_with(
+            pipeline.write_to_delta,
+            name=f"{silver_dataflow_spec.targetDetails['table']}",
+            partition_cols=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.partitionColumns),
+            table_properties=silver_dataflow_spec.tableProperties,
+            path=target_path,
+            comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}"
+        )    
+
+    @patch.object(DataflowPipeline, 'write_silver', new_callable=MagicMock)
+    def test_dataflowpipeline_silver_write(self, mock_dfp):
+        mock_dfp.write_bronze.return_value = None
+        DataflowPipeline.get_silver_schema = MagicMock
+        silver_dataflow_spec = SilverDataflowSpec(
+            **DataflowPipelineTests.silver_dataflow_spec_map
+        )
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        view_name = f"{silver_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, view_name, None)
+        pipeline.read_bronze = MagicMock()
+        pipeline.view_name = view_name
+        silver_dataflow_spec.cdcApplyChanges = None
+        pipeline.write()
+        assert mock_dfp.called
+
+    @patch.object(DataflowPipeline, 'write_bronze', new_callable=MagicMock)
+    def test_dataflowpipeline_bronze_write(self, mock_dfp):
+        mock_dfp.write_bronze.return_value = None
+        DataflowPipeline.get_silver_schema = MagicMock
+        bronze_dataflow_spec = BronzeDataflowSpec(
+            **DataflowPipelineTests.bronze_dataflow_spec_map
+        )
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        pipeline.read_bronze = MagicMock()
+        pipeline.view_name = view_name
+        bronze_dataflow_spec.cdcApplyChanges = None
+        pipeline.write()
+        assert mock_dfp.called
+
+    @patch.object(PipelineReaders, 'read_dlt_cloud_files', mock_cloud_files=MagicMock)
+    def test_dataflow_pipeline_read_bronze_cloudfiles(self, mock_cloud_files):
+        mock_cloud_files.return_value = None
+        bronze_dataflow_spec = BronzeDataflowSpec(
+            **DataflowPipelineTests.bronze_dataflow_spec_map
+        )
+        bronze_dataflow_spec.sourceFormat = "cloudFiles"
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        bronze_dataflow_spec.cdcApplyChanges = None
+        bronze_dataflow_spec.dataQualityExpectations = None
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        pipeline.read_bronze()
+        assert mock_cloud_files.called
+        bronze_dataflow_spec.sourceFormat = "delta"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        bronze_dataflow_spec.sourceFormat = "eventhub"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        bronze_dataflow_spec.sourceFormat = "kafka"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+
+    @patch.object(PipelineReaders, 'read_dlt_delta', mock_read_dlt_delta=MagicMock)
+    def test_dataflow_pipeline_read_bronze_delta(self, mock_read_dlt_delta):
+        mock_read_dlt_delta.return_value = None
+        bronze_dataflow_spec = BronzeDataflowSpec(
+            **DataflowPipelineTests.bronze_dataflow_spec_map
+        )
+        bronze_dataflow_spec.sourceFormat = "delta"
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        bronze_dataflow_spec.cdcApplyChanges = None
+        bronze_dataflow_spec.dataQualityExpectations = None
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        pipeline.read_bronze()
+        assert mock_read_dlt_delta.called
+
+    @patch.object(PipelineReaders, 'read_kafka', mock_read_kafka=MagicMock)
+    def test_dataflow_pipeline_read_bronze_kafka(self, mock_read_kafka):
+        mock_read_kafka.return_value = None
+        bronze_dataflow_spec = BronzeDataflowSpec(
+            **DataflowPipelineTests.bronze_dataflow_spec_map
+        )
+        bronze_dataflow_spec.sourceFormat = "kafka"
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        bronze_dataflow_spec.cdcApplyChanges = None
+        bronze_dataflow_spec.dataQualityExpectations = None
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        pipeline.read_bronze()
+        assert mock_read_kafka.called
