@@ -62,7 +62,7 @@ class DLTFrameworkTestCase(unittest.TestCase):
             "version": "v1",
             "import_author": "Ravi",
             "uc_enabled": "True"
-        }     
+        }
 
     def tearDown(self):
         """Tear down."""

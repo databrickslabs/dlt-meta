@@ -397,8 +397,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         dlt_data_flow.cdc_apply_changes = None
         with self.assertRaises(Exception):
             dlt_data_flow.cdc_apply_changes()
-                
-    @patch('dlt.view', new_callable=MagicMock)
+
     def test_dlt_view_bronze_call(self, mock_view):
         mock_view.view.return_value = None
         bronze_dataflow_spec = BronzeDataflowSpec(
@@ -454,7 +453,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             table_properties=bronze_dataflow_spec.tableProperties,
             path=target_path,
             comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}"
-        )        
+        )
         self.spark.conf.set("spark.databricks.unityCatalog.enabled", "False")
         target_path = bronze_dataflow_spec.targetDetails["path"]
         pipeline.write_bronze()
@@ -465,7 +464,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             table_properties=bronze_dataflow_spec.tableProperties,
             path=target_path,
             comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}"
-        )         
+        )
 
     @patch('dlt.table', new_callable=MagicMock)
     def test_dlt_write_silver(self, mock_dlt_table):
@@ -490,7 +489,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             table_properties=silver_dataflow_spec.tableProperties,
             path=target_path,
             comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}"
-        )        
+        )
         self.spark.conf.set("spark.databricks.unityCatalog.enabled", "False")
         target_path = silver_dataflow_spec.targetDetails["path"]
         pipeline.write_silver()
@@ -501,7 +500,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             table_properties=silver_dataflow_spec.tableProperties,
             path=target_path,
             comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}"
-        )    
+        )
 
     @patch.object(DataflowPipeline, 'write_silver', new_callable=MagicMock)
     def test_dataflowpipeline_silver_write(self, mock_dfp):

@@ -1,9 +1,8 @@
 """Test OnboardDataflowSpec class."""
 import copy
-import json
 from tests.utils import DLTFrameworkTestCase
 from src.onboard_dataflowspec import OnboardDataflowspec
-from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec
+from src.dataflow_spec import BronzeDataflowSpec
 from unittest.mock import MagicMock, patch
 from pyspark.sql import DataFrame
 
@@ -30,7 +29,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         print(onboard_dfs.silver_dict_obj)
         self.assertNotIn('silver_dataflowspec_path', onboard_dfs.bronze_dict_obj)
         self.assertNotIn('bronze_dataflowspec_path', onboard_dfs.silver_dict_obj)
-        
+
     def test_validate_params_for_onboardSilverDataflowSpec(self):
         """Test for onboardDataflowspec parameters."""
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
@@ -181,8 +180,8 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
             self.onboarding_bronze_silver_params_map['database'],
             self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
-    
-    @patch.object(DataFrame, "write", new_callable=MagicMock) 
+
+    @patch.object(DataFrame, "write", new_callable=MagicMock)
     def test_silver_dataflow_spec_dataframe_withuc(self, mock_write):
         """Test for onboardDataflowspec with merge scenario."""
         mock_write.format.return_value.mode.return_value.saveAsTable.return_value = None
@@ -200,7 +199,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         mock_write.format.assert_called_once_with("delta")
         mock_write.format.return_value.mode.assert_called_once_with("overwrite")
         mock_write.format.return_value.mode.return_value.saveAsTable.assert_called_once_with(f"{database}.{table}")
-        
+
     @patch.object(DataFrame, "write", new_callable=MagicMock)
     def test_bronze_dataflow_spec_dataframe_withuc(self, mock_write):
         """Test for onboardDataflowspec with merge scenario."""
