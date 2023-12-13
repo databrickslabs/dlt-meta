@@ -43,6 +43,8 @@ class OnboardCommand:
     version: str
     cloud: str
     dlt_meta_schema: str
+    bronze_schema: str = None
+    silver_schema: str = None
     uc_enabled: bool = False
     uc_catalog_name: str = None
     overwrite: bool = True
@@ -50,6 +52,7 @@ class OnboardCommand:
     silver_dataflowspec_table: str = "silver_dataflowspec"
     bronze_dataflowspec_path: str = None
     silver_dataflowspec_path: str = None
+    update_paths: bool = True
 
     def __post_init__(self):
         if not self.onboarding_file_path or self.onboarding_file_path == "":
@@ -147,6 +150,7 @@ class DLTMeta:
 
     def onboard(self, cmd: OnboardCommand):
         """Perform the onboarding process."""
+        self.update_ws_onboarding_paths(cmd)
         if not self._ws.dbfs.exists(cmd.dbfs_path + "/dltmeta_conf/"):
             self._ws.dbfs.create(path=cmd.dbfs_path + "/dltmeta_conf/", overwrite=True)
         ob_file = open(cmd.onboarding_file_path, "rb")
@@ -302,9 +306,9 @@ class DLTMeta:
     def _load_onboard_config(self) -> OnboardCommand:
         onboard_cmd_dict = {}
         onboard_cmd_dict["onboarding_file_path"] = self._wsi._question(
-            "Provide onboarding file path", default='cli_demo/conf/onboarding.json')
+            "Provide onboarding file path", default='demo/conf/onboarding.template')
         onboarding_files_dir_path = self._wsi._question(
-            "Provide onboarding files local directory", default='cli_demo/conf')
+            "Provide onboarding files local directory", default='demo/')
         onboard_cmd_dict["onboarding_files_dir_path"] = f"file:./{onboarding_files_dir_path}"
         onboard_cmd_dict["dbfs_path"] = self._wsi._question(
             "Provide dbfs path", default="dbfs:/dlt-meta_cli_demo")
@@ -318,6 +322,10 @@ class DLTMeta:
                 "Provide unity catalog name")
         onboard_cmd_dict["dlt_meta_schema"] = self._wsi._question(
             "Provide dlt meta schema name", default=f'dlt_meta_dataflowspecs_{uuid.uuid4().hex}')
+        onboard_cmd_dict["bronze_schema"] = self._wsi._question(
+            "Provide dlt meta bronze layer schema name", default=f'dltmeta_bronze_{uuid.uuid4().hex}')
+        onboard_cmd_dict["silver_schema"] = self._wsi._question(
+            "Provide dlt meta silver layer schema name", default=f'dltmeta_silver_{uuid.uuid4().hex}')
         onboard_cmd_dict["onboard_layer"] = self._wsi._choice(
             "Provide dlt meta layer", ['bronze', 'silver', 'bronze_silver'])
         if onboard_cmd_dict["onboard_layer"] == "bronze":
@@ -352,7 +360,11 @@ class DLTMeta:
             "Provide import author name", default=self._wsi._short_name)
         onboard_cmd_dict["cloud"] = self._wsi._choice(
             "Provide cloud provider name", ['aws', 'azure', 'gcp'])
+        onboard_cmd_dict["update_paths"] = self._wsi._choice(
+            "Update workspace/dbfs paths, unity catalog name, bronze/silver schema names in onboarding file?",
+            ['True', 'False'])
         cmd = OnboardCommand(**onboard_cmd_dict)
+
         return cmd
 
     def _load_deploy_config(self) -> DeployCommand:
@@ -399,6 +411,48 @@ class DLTMeta:
         deploy_cmd_dict["dlt_target_schema"] = self._wsi._question(
             "Provide dlt target schema name")
         return DeployCommand(**deploy_cmd_dict)
+
+    def update_ws_onboarding_paths(self, cmd: OnboardCommand):
+        """Create onboarding file for cloudfiles as source."""
+        with open(f"{cmd.onboarding_file_path}") as f:
+            onboard_obj = json.load(f)
+
+        for data_flow in onboard_obj:
+            for key, value in data_flow.items():
+                if key == "source_details":
+                    for source_key, source_value in value.items():
+                        if 'dbfs_path' in source_value:
+                            data_flow[key][source_key] = source_value.format(dbfs_path=f"{cmd.dbfs_path}/dltmeta_conf/")
+                if 'dbfs_path' in value:
+                    data_flow[key] = value.format(dbfs_path=f"{cmd.dbfs_path}/dltmeta_conf/")
+                elif 'uc_catalog_name' in value and 'bronze_schema' in value:
+                    if cmd.uc_catalog_name:
+                        data_flow[key] = value.format(
+                            uc_catalog_name=cmd.uc_catalog_name,
+                            bronze_schema=cmd.bronze_schema
+                        )
+                    else:
+                        data_flow[key] = value.format(
+                            uc_catalog_name=cmd.bronze_schema,
+                            bronze_schema=""
+                        ).replace(".", "")
+
+                elif 'uc_catalog_name' in value and 'silver_schema' in value:
+                    if cmd.uc_catalog_name:
+                        data_flow[key] = value.format(
+                            uc_catalog_name=cmd.uc_catalog_name,
+                            silver_schema=cmd.silver_schema
+                        )
+                    else:
+                        data_flow[key] = value.format(
+                            uc_catalog_name=cmd.silver_schema,
+                            silver_schema=""
+                        ).replace(".", "")
+        onboarding_filename = os.path.basename(cmd.onboarding_file_path)
+        updated_ob_file_path = cmd.onboarding_file_path.replace(onboarding_filename, "onboarding.json")
+        with open(updated_ob_file_path, "w") as onboarding_file:
+            json.dump(onboard_obj, onboarding_file)
+        cmd.onboarding_file_path = updated_ob_file_path
 
 
 def onboard(dltmeta: DLTMeta):
