@@ -18,11 +18,11 @@ class DLTMETADAISDemo(DLTMETARunner):
     - workspace_client: Databricks workspace client
     - base_dir: base directory
     """
-    def __init__(self, args, workspace_client, base_dir):
+    def __init__(self, args, ws, base_dir):
         self.args = args
-        self.workspace_client = workspace_client
+        self.ws = ws
         self.base_dir = base_dir
-    
+
     def init_runner_conf(self) -> DLTMetaRunnerConf:
         """
         Initialize the runner configuration.
@@ -33,13 +33,13 @@ class DLTMETADAISDemo(DLTMETARunner):
         run_id = uuid.uuid4().hex
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
-            username=self.args.__dict__['username'],
+            username=self._my_username(self.ws),
             dbfs_tmp_path=f"{self.args.__dict__['dbfs_path']}/{run_id}",
             int_tests_dir="file:./demo",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_demo_{run_id}",
             bronze_schema=f"dlt_meta_bronze_dais_demo_{run_id}",
             silver_schema=f"dlt_meta_silver_dais_demo_{run_id}",
-            runners_nb_path=f"/Users/{self.args.__dict__['username']}/dlt_meta_dais_demo/{run_id}",
+            runners_nb_path=f"/Users/{self._my_username(self.ws)}/dlt_meta_dais_demo/{run_id}",
             node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             dbr_version=self.args.__dict__['dbr_version'],
             cloudfiles_template="demo/conf/onboarding.template",
@@ -70,7 +70,7 @@ class DLTMETADAISDemo(DLTMETARunner):
             print(e)
         # finally:
         #     self.clean_up(runner_conf)
-            
+
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
         """
         Launch the workflow for DLT-META DAIS DEMO.
@@ -82,9 +82,9 @@ class DLTMETADAISDemo(DLTMETARunner):
         runner_conf.job_id = created_job.job_id
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
         print(f"Waiting for job to complete. run_id={created_job.job_id}")
-        run_by_id = self.workspace_client.jobs.run_now(job_id=created_job.job_id).result()
+        run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result()
         print(f"Job run finished. run_id={run_by_id}")
-            
+
     def create_daisdemo_workflow(self, runner_conf: DLTMetaRunnerConf):
         """
         Create the workflow for DLT-META DAIS DEMO.
@@ -96,7 +96,7 @@ class DLTMETADAISDemo(DLTMETARunner):
         - created_job: created job object
         """
         database, dlt_lib = self.init_db_dltlib(runner_conf)
-        return self.workspace_client.jobs.create(
+        return self.ws.jobs.create(
             name=f"dltmeta_dais_demo-{runner_conf.run_id}",
             tasks=[
                 jobs.Task(
@@ -174,7 +174,6 @@ class DLTMETADAISDemo(DLTMETARunner):
 
 
 dais_args_map = {"--profile": "provide databricks cli profile name, if not provide databricks_host and token",
-                 "--username": "provide databricks username, this is required to upload runners notebook",
                  "--source": "provide source. Supported values are cloudfiles, eventhub, kafka",
                  "--uc_catalog_name": "provide databricks uc_catalog name, \
                      this is required to create volume, schema, table",
@@ -183,7 +182,7 @@ dais_args_map = {"--profile": "provide databricks cli profile name, if not provi
                  "--dbfs_path": "Provide databricks workspace dbfs path where you want run integration tests \
                         e.g --dbfs_path=dbfs:/tmp/DLT-META/"}
 
-dais_mandatory_args = ["username", "source", "cloud_provider_name",
+dais_mandatory_args = ["source", "cloud_provider_name",
                        "dbr_version", "dbfs_path"]
 
 

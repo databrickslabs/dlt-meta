@@ -41,8 +41,10 @@ def main():
     del onboarding_args_dict['onboard_layer']
     del onboarding_args_dict['uc_enabled']
     if uc_enabled:
-        del onboarding_args_dict['bronze_dataflowspec_path']
-        del onboarding_args_dict['silver_dataflowspec_path']
+        if 'bronze_dataflowspec_path' in onboarding_args_dict:
+            del onboarding_args_dict['bronze_dataflowspec_path']
+        if 'silver_dataflowspec_path' in onboarding_args_dict:
+            del onboarding_args_dict['silver_dataflowspec_path']
     spark = SparkSession.builder.appName("DLT-META_Onboarding_Task").getOrCreate()
     onboard_obj = OnboardDataflowspec(spark, onboarding_args_dict, uc_enabled=uc_enabled)
 

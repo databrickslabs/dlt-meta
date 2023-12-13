@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-INSTALL_REQUIRES = ["setuptools"]
+INSTALL_REQUIRES = ["setuptools", "databricks-sdk"]
 
 DEV_REQUIREMENTS = [
     "flake8==6.0",
@@ -21,7 +21,7 @@ setup(
     name="dlt_meta",
     version="0.0.4",
     python_requires=">=3.8",
-    setup_requires=["wheel>=0.37.1,<=0.41.2"],
+    setup_requires=["wheel>=0.37.1,<=0.42.0"],
     install_requires=INSTALL_REQUIRES,
     extras_require={"dev": DEV_REQUIREMENTS, "IT": IT_REQUIREMENTS},
     author="Ravi Gawai",

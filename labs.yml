@@ -1,0 +1,12 @@
+---
+name: dlt-meta
+description: Metadata-driven framework based on Databricks Delta Live Tables 
+install:
+  script: src/install.py
+entrypoint: src/cli.py
+min_python: 3.10
+commands:
+  - name: onboard
+    description: onboards dlt-meta configuration for bronze and silver layers
+  - name: deploy
+    description: Deploys DLT-Meta pipelines for bronze and silver layers after onboarding dataflowspecs is complete

@@ -62,11 +62,11 @@ class DLTMETATechSummitDemo(DLTMETARunner):
     - workspace_client: Databricks workspace client.
     - base_dir: Base directory.
     """
-    def __init__(self, args, workspace_client, base_dir):
+    def __init__(self, args, ws, base_dir):
         self.args = args
-        self.workspace_client = workspace_client
+        self.ws = ws
         self.base_dir = base_dir
-    
+
     def init_runner_conf(self) -> TechsummitRunnerConf:
         """
         Initializes the TechsummitRunnerConf object with the provided configuration parameters.
@@ -78,19 +78,20 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         print(f"run_id={run_id}")
         runner_conf = TechsummitRunnerConf(
             run_id=run_id,
+            username=self._my_username(self.ws),
             dbfs_tmp_path=f"{self.args.__dict__['dbfs_path']}/{run_id}",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_demo_{run_id}",
             bronze_schema=f"dlt_meta_bronze_demo_{run_id}",
             silver_schema=f"dlt_meta_silver_demo_{run_id}",
             runners_full_local_path='./demo/dbc/tech_summit_dlt_meta_runners.dbc',
-            runners_nb_path=f"/Users/{self.args.__dict__['username']}/dlt_meta_techsummit_demo/{run_id}",
+            runners_nb_path=f"/Users/{self._my_username(self.ws)}/dlt_meta_techsummit_demo/{run_id}",
             node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             dbr_version=self.args.__dict__['dbr_version'],
             env="prod",
             table_count=self.args.__dict__['table_count'] if self.args.__dict__['table_count'] else "100",
             table_column_count=(self.args.__dict__['table_column_count'] if self.args.__dict__['table_column_count']
                                 else "5"),
-            table_data_rows_count=(self.args.__dict__['table_data_rows_count'] 
+            table_data_rows_count=(self.args.__dict__['table_data_rows_count']
                                    if self.args.__dict__['table_data_rows_count'] else "10"),
             worker_nodes=self.args.__dict__['worker_nodes'] if self.args.__dict__['worker_nodes'] else "4",
             source=self.args.__dict__['source'],
@@ -110,24 +111,24 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         - runner_conf: The DLTMetaRunnerConf object containing the runner configuration parameters.
         """
         fp = open(runner_conf.runners_full_local_path, "rb")
-        self.workspace_client.workspace.mkdirs(runner_conf.runners_nb_path)
-        self.workspace_client.workspace.upload(path=f"{runner_conf.runners_nb_path}/runners",
-                                               format=ImportFormat.DBC, content=fp.read())
+        self.ws.workspace.mkdirs(runner_conf.runners_nb_path)
+        self.ws.workspace.upload(path=f"{runner_conf.runners_nb_path}/runners",
+                                 format=ImportFormat.DBC, content=fp.read())
         if runner_conf.uc_catalog_name:
-            SchemasAPI(self.workspace_client.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                                name=runner_conf.dlt_meta_schema,
-                                                                comment="dlt_meta framework schema")
-            volume_info = self.workspace_client.volumes.create(catalog_name=runner_conf.uc_catalog_name,
-                                                               schema_name=runner_conf.dlt_meta_schema,
-                                                               name=runner_conf.uc_volume_name,
-                                                               volume_type=VolumeType.MANAGED)
+            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                                  name=runner_conf.dlt_meta_schema,
+                                                  comment="dlt_meta framework schema")
+            volume_info = self.ws.volumes.create(catalog_name=runner_conf.uc_catalog_name,
+                                                 schema_name=runner_conf.dlt_meta_schema,
+                                                 name=runner_conf.uc_volume_name,
+                                                 volume_type=VolumeType.MANAGED)
             runner_conf.volume_info = volume_info
-            SchemasAPI(self.workspace_client.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                                name=runner_conf.bronze_schema,
-                                                                comment="bronze_schema")
-            SchemasAPI(self.workspace_client.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                                name=runner_conf.silver_schema,
-                                                                comment="silver_schema")
+            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                                  name=runner_conf.bronze_schema,
+                                                  comment="bronze_schema")
+            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                                  name=runner_conf.silver_schema,
+                                                  comment="silver_schema")
 
         self.build_and_upload_package(runner_conf)  # comment this line before merging to master
 
@@ -160,9 +161,9 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         runner_conf.job_id = created_job.job_id
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
         print(f"Waiting for job to complete. run_id={created_job.job_id}")
-        run_by_id = self.workspace_client.jobs.run_now(job_id=created_job.job_id).result()
+        run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result()
         print(f"Job run finished. run_id={run_by_id}")
-        
+
     def create_techsummit_demo_workflow(self, runner_conf: TechsummitRunnerConf):
         """
         Creates the workflow for the Techsummit Demo by defining the tasks and their dependencies.
@@ -174,7 +175,7 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         - created_job: The created job object.
         """
         database, dlt_lib = self.init_db_dltlib(runner_conf)
-        return self.workspace_client.jobs.create(
+        return self.ws.jobs.create(
             name=f"dlt-meta-dais-demo-{runner_conf.run_id}",
             tasks=[
                 jobs.Task(
@@ -240,7 +241,6 @@ class DLTMETATechSummitDemo(DLTMETARunner):
 
 
 techsummit_args_map = {"--profile": "provide databricks cli profile name, if not provide databricks_host and token",
-                       "--username": "provide databricks username, this is required to upload runners notebook",
                        "--source": "provide --source=cloudfiles",
                        "--uc_catalog_name": "provide databricks uc_catalog name, \
                                             this is required to create volume, schema, table",
@@ -253,7 +253,7 @@ techsummit_args_map = {"--profile": "provide databricks cli profile name, if not
                        "--table_data_rows_count": "table_data_rows_count"
                        }
 
-techsummit_mandatory_args = ["username", "source", "cloud_provider_name", "dbr_version", "dbfs_path"]
+techsummit_mandatory_args = ["source", "cloud_provider_name", "dbr_version", "dbfs_path"]
 
 
 def main():

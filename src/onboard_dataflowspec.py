@@ -16,7 +16,7 @@ from pyspark.sql.types import (
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
 from src.metastore_ops import DeltaPipelinesMetaStoreOps, DeltaPipelinesInternalTableOps
 
-logger = logging.getLogger("dlt-meta")
+logger = logging.getLogger('databricks.labs.dltmeta')
 logger.setLevel(logging.INFO)
 
 
@@ -47,10 +47,10 @@ class OnboardDataflowspec:
         if "bronze_dataflowspec_path" in self.silver_dict_obj:
             del self.silver_dict_obj["bronze_dataflowspec_path"]
         if uc_enabled:
-            if "bronze_dataflowspec_path" in self.silver_dict_obj:
-                del self.silver_dict_obj["bronze_dataflowspec_path"]
-            if "silver_dataflowspec_path" in self.bronze_dict_obj:
-                del self.bronze_dict_obj["silver_dataflowspec_path"]
+            if "bronze_dataflowspec_path" in self.bronze_dict_obj:
+                del self.bronze_dict_obj["bronze_dataflowspec_path"]
+            if "silver_dataflowspec_path" in self.silver_dict_obj:
+                del self.silver_dict_obj["silver_dataflowspec_path"]
 
     @staticmethod
     def __validate_dict_attributes(attributes, dict_obj):
@@ -104,6 +104,10 @@ class OnboardDataflowspec:
             "overwrite",
         ]
         if self.uc_enabled:
+            if "bronze_dataflowspec_path" in self.dict_obj:
+                del self.dict_obj["bronze_dataflowspec_path"]
+            if "silver_dataflowspec_path" in self.dict_obj:
+                del self.dict_obj["silver_dataflowspec_path"]
             self.__validate_dict_attributes(attributes, self.dict_obj)
         else:
             attributes.append("bronze_dataflowspec_path")
@@ -114,6 +118,7 @@ class OnboardDataflowspec:
 
     def register_bronze_dataflow_spec_tables(self):
         """Register bronze/silver dataflow specs tables."""
+        self.deltaPipelinesMetaStoreOps.create_database(self.dict_obj["database"], "dlt-meta database")
         self.deltaPipelinesMetaStoreOps.register_table_in_metastore(
             self.dict_obj["database"],
             self.dict_obj["bronze_dataflowspec_table"],
@@ -126,6 +131,7 @@ class OnboardDataflowspec:
 
     def register_silver_dataflow_spec_tables(self):
         """Register bronze dataflow specs tables."""
+        self.deltaPipelinesMetaStoreOps.create_database(self.dict_obj["database"], "dlt-meta database")
         self.deltaPipelinesMetaStoreOps.register_table_in_metastore(
             self.dict_obj["database"],
             self.dict_obj["silver_dataflowspec_table"],

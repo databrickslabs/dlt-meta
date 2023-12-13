@@ -68,6 +68,9 @@ With this framework you need to record the source and target metadata in an onbo
 
 ## Getting Started
 Refer to the [Getting Started](https://databrickslabs.github.io/dlt-meta/getting_started)
+### Databricks Labs DLT-META CLI lets you run onboard and deploy in interactive python terminal
+- ```databricks labs dlt-meta onboard``` 
+- ```databricks labs dlt-meta deploy```
 
 ## More questions
 Refer to the [FAQ](https://databrickslabs.github.io/dlt-meta/faq)

@@ -9,7 +9,7 @@ from pyspark.sql.types import StructType, StructField
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
 from src.pipeline_readers import PipelineReaders
 
-logger = logging.getLogger("dlt-meta")
+logger = logging.getLogger('databricks.labs.dltmeta')
 logger.setLevel(logging.INFO)
 
 
@@ -294,14 +294,15 @@ class DataflowPipeline:
 
         if cdc_apply_changes.except_column_list:
             modified_schema = StructType([])
-            for field in struct_schema.fields:
-                if field.name not in cdc_apply_changes.except_column_list:
-                    modified_schema.add(field)
-                if field.name == cdc_apply_changes.sequence_by:
-                    sequenced_by_data_type = field.dataType
-            struct_schema = modified_schema
+            if struct_schema:
+                for field in struct_schema.fields:
+                    if field.name not in cdc_apply_changes.except_column_list:
+                        modified_schema.add(field)
+                    if field.name == cdc_apply_changes.sequence_by:
+                        sequenced_by_data_type = field.dataType
+                struct_schema = modified_schema
 
-        if cdc_apply_changes.scd_type == "2":
+        if struct_schema and cdc_apply_changes.scd_type == "2":
             struct_schema.add(StructField("__START_AT", sequenced_by_data_type))
             struct_schema.add(StructField("__END_AT", sequenced_by_data_type))
 
