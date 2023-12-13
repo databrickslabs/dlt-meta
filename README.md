@@ -69,9 +69,94 @@ With this framework you need to record the source and target metadata in an onbo
 ## Getting Started
 Refer to the [Getting Started](https://databrickslabs.github.io/dlt-meta/getting_started)
 ### Databricks Labs DLT-META CLI lets you run onboard and deploy in interactive python terminal
+- ``` git clone dlt-meta ```
+- ``` cd dlt-meta ```
 - ```databricks labs dlt-meta onboard``` 
+- - Above command will prompt you to provide onboarding details. If you have cloned dlt-meta git repo then accept defaults which will launch config from demo folder
+ ```Provide onboarding file path (default: demo/conf/onboarding.template): 
+    Provide onboarding files local directory (default: demo/): 
+    Provide dbfs path (default: dbfs:/dlt-meta_cli_demo): 
+    Provide databricks runtime version (default: 14.2.x-scala2.12): 
+    Run onboarding with unity catalog enabled?
+    [0] False
+    [1] True
+    Enter a number between 0 and 1: 1
+    Provide unity catalog name: ravi_dlt_meta_uc
+    Provide dlt meta schema name (default: dlt_meta_dataflowspecs_203b9da04bdc49f78cdc6c379d1c9ead): 
+    Provide dlt meta bronze layer schema name (default: dltmeta_bronze_cf5956873137432294892fbb2dc34fdb): 
+    Provide dlt meta silver layer schema name (default: dltmeta_silver_5afa2184543342f98f87b30d92b8c76f): 
+    Provide dlt meta layer
+    [0] bronze
+    [1] bronze_silver
+    [2] silver
+    Enter a number between 0 and 2: 1
+    Provide bronze dataflow spec table name (default: bronze_dataflowspec): 
+    Provide silver dataflow spec table name (default: silver_dataflowspec): 
+    Overwrite dataflow spec?
+    [0] False
+    [1] True
+    Enter a number between 0 and 1: 1
+    Provide dataflow spec version (default: v1): 
+    Provide environment name (default: prod): prod
+    Provide import author name (default: ravi.gawai): 
+    Provide cloud provider name
+    [0] aws
+    [1] azure
+    [2] gcp
+    Enter a number between 0 and 2: 0
+    Do you want to update ws paths, catalog, schema details to your onboarding file?
+    [0] False
+    [1] True
+```
+- Goto your databricks workspace and located onboarding job under: Workflow->Jobs runs
+- Once onboarding jobs is finished deploy `bronze` and `silver` DLT using below command
 - ```databricks labs dlt-meta deploy```
+- - Above command will prompt you to provide dlt details. Please provide respective details for schema which you provided in above steps
+- - Bronze DLT
+```
+    Deploy DLT-META with unity catalog enabled?
+    [0] False
+    [1] True
+    Enter a number between 0 and 1: 1
+    Provide unity catalog name: ravi_dlt_meta_uc
+    Deploy DLT-META with serverless?
+    [0] False
+    [1] True
+    Enter a number between 0 and 1: 1
+    Provide dlt meta layer
+    [0] bronze
+    [1] silver
+    Enter a number between 0 and 1: 0
+    Provide dlt meta onboard group: A1  
+    Provide dlt_meta dataflowspec schema name: dlt_meta_dataflowspecs_203b9da04bdc49f78cdc6c379d1c9ead
+    Provide bronze dataflowspec table name (default: bronze_dataflowspec): 
+    Provide dlt meta pipeline name (default: dlt_meta_bronze_pipeline_2aee3eb837f3439899eef61b76b80d53): 
+    Provide dlt target schema name: dltmeta_bronze_cf5956873137432294892fbb2dc34fdb
+```
 
+- Silver DLT
+- - ```databricks labs dlt-meta deploy```
+- - Above command will prompt you to provide dlt details. Please provide respective details for schema which you provided in above steps
+```
+    Deploy DLT-META with unity catalog enabled?
+    [0] False
+    [1] True
+    Enter a number between 0 and 1: 1
+    Provide unity catalog name: ravi_dlt_meta_uc
+    Deploy DLT-META with serverless?
+    [0] False
+    [1] True
+    Enter a number between 0 and 1: 1
+    Provide dlt meta layer
+    [0] bronze
+    [1] silver
+    Enter a number between 0 and 1: 1
+    Provide dlt meta onboard group: A1
+    Provide dlt_meta dataflowspec schema name: dlt_meta_dataflowspecs_203b9da04bdc49f78cdc6c379d1c9ead
+    Provide silver dataflowspec table name (default: silver_dataflowspec): 
+    Provide dlt meta pipeline name (default: dlt_meta_silver_pipeline_2147545f9b6b4a8a834f62e873fa1364): 
+    Provide dlt target schema name: dltmeta_silver_5afa2184543342f98f87b30d92b8c76f
+```
 ## More questions
 Refer to the [FAQ](https://databrickslabs.github.io/dlt-meta/faq)
 and DLT-META [documentation](https://databrickslabs.github.io/dlt-meta/)
