@@ -36,6 +36,7 @@ class DLTFrameworkTestCase(unittest.TestCase):
         self.onboarding_invalid_read_options_file = "tests/resources/onboarding_invalid_read_options.json"
         self.onboarding_json_dups = "tests/resources/onboarding_with_dups.json"
         self.onboarding_missing_keys_file = "tests/resources/onboarding_missing_keys.json"
+        self.onboarding_type2_json_file = "tests/resources/onboarding_ac_type2.json"
         self.deltaPipelinesMetaStoreOps.drop_database("ravi_dlt_demo")
         self.deltaPipelinesMetaStoreOps.create_database("ravi_dlt_demo", "Unittest")
         self.onboarding_bronze_silver_params_map = {
