@@ -6,7 +6,6 @@ import tempfile
 import copy
 from pyspark.sql.functions import lit, expr
 import pyspark.sql.types as T
-from pyspark.sql.types import StructType
 from tests.utils import DLTFrameworkTestCase
 from unittest.mock import MagicMock, patch
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec
