@@ -1,0 +1,68 @@
+[
+    {
+        "data_flow_id": "201",
+        "data_flow_group": "A1",
+        "source_system": "mysql",
+        "source_format": "cloudFiles",
+        "source_details": {
+           "source_database": "products",
+           "source_table": "products",
+           "source_path_dev": "tests/resources/data/products",
+           "source_schema_path": "tests/resources/schema/products.ddl"
+        },
+        "bronze_database_dev": "uc_catalog_name.bronze",
+        "bronze_table": "products",
+        "bronze_reader_options": {
+           "cloudFiles.format": "csv",
+           "cloudFiles.rescuedDataColumn": "_rescued_data",
+           "header": "true"
+        },
+        "bronze_table_path_dev": "tests/resources/delta/bronze/products",
+        "bronze_cdc_apply_changes": {
+         "keys": [
+            "product_id"
+         ],
+         "sequence_by": "dmsTimestamp",
+         "scd_type": "2",
+         "apply_as_deletes": "Op = 'D'",
+         "except_column_list": [
+            "Op",
+            "dmsTimestamp",
+            "_rescued_data"
+         ]
+      }        
+     },
+     {
+        "data_flow_id": "202",
+        "data_flow_group": "A1",
+        "source_system": "mysql",
+        "source_format": "cloudFiles",
+        "source_details": {
+           "source_database": "stores",
+           "source_table": "stores",
+           "source_path_dev": "tests/resources/data/stores",
+           "source_schema_path": "tests/resources/schema/stores.ddl"
+        },
+        "bronze_database_dev": "uc_catalog_name.bronze",
+        "bronze_table": "stores",
+        "bronze_reader_options": {
+           "cloudFiles.format": "csv",
+           "cloudFiles.rescuedDataColumn": "_rescued_data",
+           "header": "true"
+        },
+        "bronze_table_path_dev": "tests/resources/delta/bronze/stores",
+        "bronze_cdc_apply_changes": {
+         "keys": [
+            "store_id"
+         ],
+         "sequence_by": "dmsTimestamp",
+         "scd_type": "2",
+         "apply_as_deletes": "Op = 'D'",
+         "except_column_list": [
+            "Op",
+            "dmsTimestamp",
+            "_rescued_data"
+         ]
+      }
+     }
+  ]

@@ -66,6 +66,28 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
     def read_dataflowspec(self, database, table):
         return self.spark.read.table(f"{database}.{table}")
 
+    def test_onboardDataFlowSpecs_with_uc_enabled(self):
+        """Test for onboardDataflowspec."""
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark,
+                                                   self.onboarding_bronze_silver_params_uc_map,
+                                                   uc_enabled=True)
+        self.assertNotIn('bronze_dataflowspec_path', onboardDataFlowSpecs.bronze_dict_obj)
+        self.assertNotIn('silver_dataflowspec_path', onboardDataFlowSpecs.silver_dict_obj)
+
+    @patch.object(OnboardDataflowspec, 'onboard_bronze_dataflow_spec', new_callable=MagicMock())
+    @patch.object(OnboardDataflowspec, 'onboard_silver_dataflow_spec', new_callable=MagicMock())
+    def test_onboardDataFlowSpecs_validate_with_uc_enabled(self, mock_bronze, mock_silver):
+        """Test for onboardDataflowspec."""
+        mock_bronze.return_value = None
+        mock_silver.return_value = None
+        bronze_silver_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_uc_map)
+        del bronze_silver_params_map["uc_enabled"]
+        OnboardDataflowspec(self.spark,
+                            bronze_silver_params_map,
+                            uc_enabled=True).onboard_dataflow_specs()
+        assert mock_bronze.called
+        assert mock_silver.called
+
     def test_onboardDataFlowSpecs_with_merge(self):
         """Test for onboardDataflowspec with merge scenario."""
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)

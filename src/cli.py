@@ -149,6 +149,9 @@ class DLTMeta:
         """Perform the onboarding process."""
         if not self._ws.dbfs.exists(cmd.dbfs_path + "/dltmeta_conf/"):
             self._ws.dbfs.create(path=cmd.dbfs_path + "/dltmeta_conf/", overwrite=True)
+        ob_file = open(cmd.onboarding_file_path, "rb")
+        onboarding_filename = os.path.basename(cmd.onboarding_file_path)
+        self._ws.dbfs.upload(cmd.dbfs_path + f"/dltmeta_conf/{onboarding_filename}", ob_file, overwrite=True)
         self._ws.dbfs.copy(cmd.onboarding_files_dir_path,
                            cmd.dbfs_path + "/dltmeta_conf/",
                            overwrite=True, recursive=True)
@@ -208,8 +211,7 @@ class DLTMeta:
                                         f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}"
                                         if cmd.uc_enabled else cmd.dlt_meta_schema,
                                     "onboarding_file_path":
-                                    f"{cmd.dbfs_path}/dltmeta_conf/cli_demo/conf/{onboarding_filename}",
-                                    # TODO: fix this by uploading onboarding file to dbfs
+                                    f"{cmd.dbfs_path}/dltmeta_conf/{onboarding_filename}",
                                     "bronze_dataflowspec_table": cmd.bronze_dataflowspec_table,
                                     "bronze_dataflowspec_path": cmd.bronze_dataflowspec_path,
                                     "silver_dataflowspec_table": cmd.silver_dataflowspec_table,

@@ -91,3 +91,13 @@ class MainTests(DLTFrameworkTestCase):
             f"{bronze_param_map['database']}.{bronze_param_map['bronze_dataflowspec_table']}")
         )
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
+
+    def test_main_layer_missing(self):
+        """Test bronze and silver onboarding."""
+        param_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        list = ["dummy_test"]
+        for key in param_map:
+            list.append(f"--{key}={param_map[key]}")
+        sys.argv = list
+        with self.assertRaises(Exception):
+            __main__.main()

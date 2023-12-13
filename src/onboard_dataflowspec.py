@@ -47,10 +47,10 @@ class OnboardDataflowspec:
         if "bronze_dataflowspec_path" in self.silver_dict_obj:
             del self.silver_dict_obj["bronze_dataflowspec_path"]
         if uc_enabled:
-            if "bronze_dataflowspec_path" in self.silver_dict_obj:
-                del self.silver_dict_obj["bronze_dataflowspec_path"]
-            if "silver_dataflowspec_path" in self.bronze_dict_obj:
-                del self.bronze_dict_obj["silver_dataflowspec_path"]
+            if "bronze_dataflowspec_path" in self.bronze_dict_obj:
+                del self.bronze_dict_obj["bronze_dataflowspec_path"]
+            if "silver_dataflowspec_path" in self.silver_dict_obj:
+                del self.silver_dict_obj["silver_dataflowspec_path"]
 
     @staticmethod
     def __validate_dict_attributes(attributes, dict_obj):
@@ -104,6 +104,10 @@ class OnboardDataflowspec:
             "overwrite",
         ]
         if self.uc_enabled:
+            if "bronze_dataflowspec_path" in self.dict_obj:
+                del self.dict_obj["bronze_dataflowspec_path"]
+            if "silver_dataflowspec_path" in self.dict_obj:
+                del self.dict_obj["silver_dataflowspec_path"]
             self.__validate_dict_attributes(attributes, self.dict_obj)
         else:
             attributes.append("bronze_dataflowspec_path")
