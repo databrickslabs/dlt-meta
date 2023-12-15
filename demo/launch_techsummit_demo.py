@@ -27,6 +27,7 @@ from databricks.sdk.service import jobs
 from databricks.sdk.service.catalog import VolumeType, SchemasAPI
 from databricks.sdk.service.workspace import ImportFormat
 from dataclasses import dataclass
+from src.install import WorkspaceInstaller
 from integration_tests.run_integration_tests import (
     DLTMETARunner,
     DLTMetaRunnerConf,
@@ -65,6 +66,7 @@ class DLTMETATechSummitDemo(DLTMETARunner):
     def __init__(self, args, ws, base_dir):
         self.args = args
         self.ws = ws
+        self.wsi = WorkspaceInstaller(ws)
         self.base_dir = base_dir
 
     def init_runner_conf(self) -> TechsummitRunnerConf:

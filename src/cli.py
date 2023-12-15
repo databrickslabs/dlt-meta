@@ -198,6 +198,12 @@ class DLTMeta:
             }
         )
         onboarding_filename = os.path.basename(cmd.onboarding_file_path)
+        remote_wheel = (
+            f"/Workspace{self._wsi._upload_wheel()}"
+            if cmd.uc_enabled
+            else f"dbfs:{self._wsi._upload_wheel()}"
+        )
+
         return self._ws.jobs.create(
             name="dlt_meta_onboarding_job",
             tasks=[
@@ -227,7 +233,7 @@ class DLTMeta:
                                     "uc_enabled": "True" if cmd.uc_enabled else "False"
                         },
                     ),
-                    libraries=[jobs.compute.Library(whl=f"/Workspace{self._wsi._upload_wheel()}")]
+                    libraries=[jobs.compute.Library(whl=remote_wheel)]
                 ),
             ]
         )
