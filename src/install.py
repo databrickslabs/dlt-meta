@@ -13,7 +13,7 @@ from databricks.sdk.service.workspace import ImportFormat
 from databricks.sdk.service import compute
 from databricks.sdk.service.sql import EndpointInfoWarehouseType
 from src.config import WorkspaceConfig
-from __about__ import __version__
+from src.__about__ import __version__
 
 
 logger = logging.getLogger('databricks.labs.dltmeta')

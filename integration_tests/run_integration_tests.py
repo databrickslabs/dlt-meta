@@ -1,18 +1,15 @@
 """ A script to run integration tests for DLT-Meta."""
 
 # Import necessary modules
-import os
 import uuid
-import glob
-import subprocess
 import argparse
-from io import BytesIO
 from dataclasses import dataclass
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
 from databricks.sdk.service import jobs, pipelines, compute
 from databricks.sdk.service.workspace import ImportFormat
-from databricks.sdk.service.catalog import VolumeType, SchemasAPI, VolumeInfo
+from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo
+from src.install import WorkspaceInstaller
 
 import json
 
@@ -116,6 +113,7 @@ class DLTMetaRunnerConf:
     volume_info: VolumeInfo = None
     uc_volume_path: str = None
     uc_target_whl_path: str = None
+    remote_whl_path: str = None
     dbfs_whl_path: str = None
     node_type_id: str = None
     dbr_version: str = None
@@ -123,6 +121,7 @@ class DLTMetaRunnerConf:
     silver_pipeline_id: str = None
     cluster_id: str = None
     job_id: str = None
+    test_output_file_path: str = None
 
 
 class DLTMETARunner:
@@ -137,6 +136,7 @@ class DLTMETARunner:
     def __init__(self, args, ws, base_dir):
         self.args = args
         self.ws = ws
+        self.wsi = WorkspaceInstaller(ws)
         self.base_dir = base_dir
 
     def init_runner_conf(self) -> DLTMetaRunnerConf:
@@ -151,13 +151,13 @@ class DLTMETARunner:
         run_id = uuid.uuid4().hex
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
-            username=self._my_username(self.ws),
+            username=self.wsi._my_username,
             dbfs_tmp_path=f"{self.args.__dict__['dbfs_path']}/{run_id}",
             int_tests_dir="file:./integration_tests",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_it_{run_id}",
             bronze_schema=f"dlt_meta_bronze_it_{run_id}",
             silver_schema=f"dlt_meta_silver_it_{run_id}",
-            runners_nb_path=f"/Users/{self._my_username(self.ws)}/dlt_meta_int_tests/{run_id}",
+            runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
             source=self.args.__dict__['source'],
             node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             dbr_version=self.args.__dict__['dbr_version'],
@@ -165,11 +165,15 @@ class DLTMETARunner:
             eventhub_template="integration_tests/conf/eventhub-onboarding.template",
             kafka_template="integration_tests/conf/kafka-onboarding.template",
             onboarding_file_path="integration_tests/conf/onboarding.json",
-            env="it"
+            env="it",
+            test_output_file_path=(
+                f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/"
+                f"{run_id}/integration-test-output.csv"
+            )
+
         )
         if self.args.__dict__['uc_catalog_name']:
             runner_conf.uc_catalog_name = self.args.__dict__['uc_catalog_name']
-            runner_conf.uc_volume_name = f"{self.args.__dict__['uc_catalog_name']}_volume_{run_id}"
 
         runners_full_local_path = None
 
@@ -183,6 +187,9 @@ class DLTMETARunner:
             raise Exception("Supported source not found in argument")
         runner_conf.runners_full_local_path = runners_full_local_path
         return runner_conf
+
+    def _install_folder(self):
+        return f"/Users/{self._my_username()}/dlt-meta"
 
     def _my_username(self, ws):
         if not hasattr(ws, "_me"):
@@ -203,36 +210,7 @@ class DLTMETARunner:
         Exception
             If the build process fails.
         """
-        child = subprocess.Popen(
-            ["pip3", "wheel", "-w", "dist", ".", "--no-deps"]
-        )
-        exit_code = child.wait()
-        if exit_code != 0:
-            raise Exception("Non-zero exitcode: %s" % (exit_code))
-        else:
-            whl_path = glob.glob("dist/*.whl")[0]
-            whl_fp = open(whl_path, "rb")
-            whl_name = os.path.basename(whl_path)
-            if runner_conf.uc_catalog_name:
-                uc_target_whl_path = None
-                uc_target_whl_path = (
-                    f"/Volumes/{runner_conf.volume_info.catalog_name}/"
-                    f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/{whl_name}"
-                )
-                self.ws.files.upload(
-                    file_path=uc_target_whl_path,
-                    contents=BytesIO(whl_fp.read()),
-                    overwrite=True
-                )
-                runner_conf.uc_volume_path = (
-                    f"/Volumes/{runner_conf.volume_info.catalog_name}/"
-                    f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/"
-                )
-                runner_conf.uc_target_whl_path = uc_target_whl_path
-            else:
-                dbfs_whl_path = f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/whl/{whl_name}"
-                self.ws.dbfs.upload(dbfs_whl_path, BytesIO(whl_fp.read()), overwrite=True)
-                runner_conf.dbfs_whl_path = dbfs_whl_path
+        runner_conf.remote_whl_path = f"/Workspace{self.wsi._upload_wheel()}"
 
     def create_dlt_meta_pipeline(self,
                                  pipeline_name: str,
@@ -267,10 +245,10 @@ class DLTMETARunner:
         configuration = {
             "layer": layer,
             f"{layer}.group": "A1",
+            "dlt_meta_whl": runner_conf.remote_whl_path,
         }
         created = None
         if runner_conf.uc_catalog_name:
-            configuration["dlt_meta_whl"] = runner_conf.uc_target_whl_path
             configuration[f"{layer}.dataflowspecTable"] = (
                 f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}.{layer}_dataflowspec_cdc"
             )
@@ -289,12 +267,9 @@ class DLTMETARunner:
                 clusters=[pipelines.PipelineCluster(label="default", num_workers=4)]
             )
         else:
-            file_dbfs_path = f"/{runner_conf.dbfs_whl_path}".replace(":", "")
-            configuration["dlt_meta_whl"] = file_dbfs_path
             configuration[f"{layer}.dataflowspecTable"] = (
                 f"{runner_conf.dlt_meta_schema}.{layer}_dataflowspec_cdc"
             )
-
             created = self.ws.pipelines.create(
                 name=pipeline_name,
                 # serverless=True,
@@ -383,15 +358,18 @@ class DLTMETARunner:
                     description="test",
                     depends_on=[jobs.TaskDependency(task_key="silver_dlt_pipeline")],
                     existing_cluster_id=runner_conf.cluster_id,
-                    notebook_task=jobs.NotebookTask(notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
-                                                    base_parameters={
-                                                        "uc_catalog_name": f"{runner_conf.uc_catalog_name}",
-                                                        "bronze_schema": f"{runner_conf.bronze_schema}",
-                                                        "silver_schema": f"{runner_conf.silver_schema}",
-                                                        "dbfs_tmp_path": runner_conf.dbfs_tmp_path,
-                                                        "uc_volume_path": runner_conf.uc_volume_path,
-                                                        "run_id": runner_conf.run_id
-                                                    })
+                    notebook_task=jobs.NotebookTask(
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
+                        base_parameters={
+                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False",
+                            "uc_catalog_name": f"{runner_conf.uc_catalog_name}",
+                            "bronze_schema": f"{runner_conf.bronze_schema}",
+                            "silver_schema": f"{runner_conf.silver_schema}",
+                            "output_file_path": f"/Workspace{runner_conf.test_output_file_path}",
+                            "run_id": runner_conf.run_id
+                        }
+                    )
+
                 ),
             ]
         )
@@ -401,10 +379,10 @@ class DLTMETARunner:
         dlt_lib = []
         if runner_conf.uc_catalog_name:
             database = f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}"
-            dlt_lib.append(jobs.compute.Library(whl=runner_conf.uc_target_whl_path))
+            dlt_lib.append(jobs.compute.Library(whl=runner_conf.remote_whl_path))
         else:
             database = runner_conf.dlt_meta_schema
-            dlt_lib.append(jobs.compute.Library(whl=runner_conf.dbfs_whl_path))
+            dlt_lib.append(jobs.compute.Library(whl=runner_conf.remote_whl_path.replace("/Workspace", "dbfs:")))
         return database, dlt_lib
 
     def create_eventhub_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
@@ -427,11 +405,11 @@ class DLTMETARunner:
                             "onboarding_file_path":
                             f"{runner_conf['dbfs_tmp_path']}/{self.base_dir}/conf/onboarding.json",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
-                            "silver_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/data/dlt_spec/silver",
+                            "silver_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/dltmeta/data/dlt_spec/silver",
                             "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                             "import_author": "Ravi",
                             "version": "v1",
-                            "bronze_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/data/dlt_spec/bronze",
+                            "bronze_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/dltmeta/data/dlt_spec/bronze",
                             "overwrite": "True",
                             "env": runner_conf['env']
                         },
@@ -471,9 +449,10 @@ class DLTMETARunner:
                         notebook_path=f"{runner_conf['runners_nb_path']}/runners/validate",
                         base_parameters={
                             "run_id": runner_conf.run_id,
+                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False",
                             "uc_catalog_name": runner_conf.uc_catalog_name,
-                            "uc_volume_path": runner_conf.uc_volume_path,
-                            "bronze_schema": runner_conf.bronze_schema
+                            "bronze_schema": runner_conf.bronze_schema,
+                            "output_file_path": f"/Workspace{runner_conf.test_output_file_path}"
                         }
                     )
                 ),
@@ -500,11 +479,11 @@ class DLTMETARunner:
                             "onboarding_file_path":
                             f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/conf/onboarding.json",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
-                            "silver_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/data/dlt_spec/silver",
+                            "silver_dataflowspec_path": f"{self._install_folder()}/dltmeta/data/dlt_spec/silver",
                             "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                             "import_author": "Ravi",
                             "version": "v1",
-                            "bronze_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/data/dlt_spec/bronze",
+                            "bronze_dataflowspec_path": f"{self._install_folder()}/dltmeta/data/dlt_spec/bronze",
                             "overwrite": "True",
                             "env": runner_conf.env
                         },
@@ -542,9 +521,10 @@ class DLTMETARunner:
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
                         base_parameters={
                             "run_id": runner_conf.run_id,
+                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False",
                             "uc_catalog_name": runner_conf.uc_catalog_name,
-                            "uc_volume_path": runner_conf.uc_volume_path,
-                            "bronze_schema": runner_conf.bronze_schema
+                            "bronze_schema": runner_conf.bronze_schema,
+                            "output_file_path": f"/Workspace{runner_conf.test_output_file_path}"
                         }
                     )
                 ),
@@ -703,11 +683,6 @@ class DLTMETARunner:
             SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
                                                   name=runner_conf.dlt_meta_schema,
                                                   comment="dlt_meta framework schema")
-            volume_info = self.ws.volumes.create(catalog_name=runner_conf.uc_catalog_name,
-                                                 schema_name=runner_conf.dlt_meta_schema,
-                                                 name=runner_conf.uc_volume_name,
-                                                 volume_type=VolumeType.MANAGED)
-            runner_conf.volume_info = volume_info
             SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
                                                   name=runner_conf.bronze_schema,
                                                   comment="bronze_schema")
@@ -719,10 +694,10 @@ class DLTMETARunner:
     def create_cluster(self, runner_conf: DLTMetaRunnerConf):
         print("Cluster creation started...")
         if runner_conf.uc_catalog_name:
-            mode = compute.DataSecurityMode.SINGLE_USER
+            mode = compute.DataSecurityMode.USER_ISOLATION
             spark_confs = {}
         else:
-            mode = compute.DataSecurityMode.LEGACY_SINGLE_USER
+            mode = compute.DataSecurityMode.NONE
             spark_confs = {}
         clstr = self.ws.clusters.create(
             cluster_name=f"dlt-meta-integration-test-{runner_conf.run_id}",
@@ -754,11 +729,9 @@ class DLTMETARunner:
             self.clean_up(runner_conf)
 
     def download_test_results(self, runner_conf: DLTMetaRunnerConf):
-        download_response = self.ws.files.download(
-            f"{runner_conf.uc_volume_path}/integration_test_output.csv")
-        output = print(download_response.contents.read().decode("utf-8"))
-        with open(f"integration_test_output_{runner_conf.run_id}.csv", 'w') as f:
-            f.write(output)
+        ws_output_file = self.ws.workspace.download(runner_conf.test_output_file_path)
+        with open(f"integration_test_output_{runner_conf.run_id}.csv", "wb") as output_file:
+            output_file.write(ws_output_file.read())
 
     def create_bronze_silver_dlt(self, runner_conf: DLTMetaRunnerConf):
         runner_conf.bronze_pipeline_id = self.create_dlt_meta_pipeline(

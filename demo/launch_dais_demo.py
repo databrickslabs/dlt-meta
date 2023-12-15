@@ -1,5 +1,6 @@
 import uuid
 from databricks.sdk.service import jobs
+from src.install import WorkspaceInstaller
 from integration_tests.run_integration_tests import (
     DLTMETARunner,
     DLTMetaRunnerConf,
@@ -21,6 +22,7 @@ class DLTMETADAISDemo(DLTMETARunner):
     def __init__(self, args, ws, base_dir):
         self.args = args
         self.ws = ws
+        self.wsi = WorkspaceInstaller(ws)
         self.base_dir = base_dir
 
     def init_runner_conf(self) -> DLTMetaRunnerConf:

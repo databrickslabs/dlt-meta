@@ -155,3 +155,5 @@ integration-tests/conf/dlt-meta/onboarding.json
 
 .databricks
 .databricks-login.json
+demo/conf/onboarding.json
+integration_tests/conf/onboarding.json
