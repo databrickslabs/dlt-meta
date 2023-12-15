@@ -27,12 +27,12 @@ This Demo launches Bronze and Silver DLT pipleines with following activities:
     - cloud_provider_name : aws or azure or gcp
     - db_version : Databricks Runtime Version
     - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
-    - you can provide --profile=databricks_profile name in case you already have databricks cli otherwise command prompt will ask host and token
+    - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
 
-    6a. Databricks Workspace URL:
-        - Enter your workspace URL, with the format https://<instance-name>.cloud.databricks.com. To get your workspace URL, see Workspace instance names, URLs, and IDs.
+    - - 6a. Databricks Workspace URL:
+    - - Enter your workspace URL, with the format https://<instance-name>.cloud.databricks.com. To get your workspace URL, see Workspace instance names, URLs, and IDs.
 
-    6b. Token:
+    - - 6b. Token:
         - In your Databricks workspace, click your Databricks username in the top bar, and then select User Settings from the drop down.
 
         - On the Access tokens tab, click Generate new token.
@@ -65,12 +65,12 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
     - cloud_provider_name : aws or azure or gcp
     - db_version : Databricks Runtime Version
     - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
-    - you can provide --profile=databricks_profile name in case you already have databricks cli otherwise command prompt will ask host and token
+    - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
-    6a. Databricks Workspace URL:
+    - - 6a. Databricks Workspace URL:
         - Enter your workspace URL, with the format https://<instance-name>.cloud.databricks.com. To get your workspace URL, see Workspace instance names, URLs, and IDs.
 
-    6b. Token:
+    - - 6b. Token:
         - In your Databricks workspace, click your Databricks username in the top bar, and then select User Settings from the drop down.
 
         - On the Access tokens tab, click Generate new token.
