@@ -121,6 +121,41 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
             if bronze_row.dataFlowId == "103":
                 self.assertEqual(bronze_row.readerConfigOptions.get("maxOffsetsPerTrigger"), "60000")
 
+    def test_onboardDataFlowSpecs_with_merge_uc(self):
+        """Test for onboardDataflowspec with merge scenario."""
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_uc_map)
+        local_params["onboarding_file_path"] = self.onboarding_json_file
+        del local_params["uc_enabled"]
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params, uc_enabled=True)
+        onboardDataFlowSpecs.onboard_dataflow_specs()
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
+        self.assertEqual(bronze_dataflowSpec_df.count(), 3)
+        self.assertEqual(silver_dataflowSpec_df.count(), 3)
+        local_params["overwrite"] = "False"
+        local_params["onboarding_file_path"] = self.onboarding_v2_json_file
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params, uc_enabled=True)
+        onboardDataFlowSpecs.onboard_dataflow_specs()
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
+        self.assertEqual(bronze_dataflowSpec_df.count(), 3)
+        self.assertEqual(silver_dataflowSpec_df.count(), 3)
+        bronze_df_rows = bronze_dataflowSpec_df.collect()
+        for bronze_df_row in bronze_df_rows:
+            bronze_row = BronzeDataflowSpec(**bronze_df_row.asDict())
+            if bronze_row.dataFlowId in ["101", "102"]:
+                self.assertIsNone(bronze_row.readerConfigOptions.get("cloudFiles.rescuedDataColumn"))
+            if bronze_row.dataFlowId == "103":
+                self.assertEqual(bronze_row.readerConfigOptions.get("maxOffsetsPerTrigger"), "60000")
+
     def test_onboardBronzeDataflowSpec_positive(self):
         """Test for onboardDataflowspec."""
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)

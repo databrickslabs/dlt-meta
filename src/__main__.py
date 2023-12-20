@@ -35,6 +35,10 @@ def parse_args():
 def main():
     """Whl file entry point."""
     args = parse_args()
+    onboard_dataflowspecs(args)
+
+
+def onboard_dataflowspecs(args):
     onboard_layer = args.onboard_layer
     uc_enabled = True if args.uc_enabled and args.uc_enabled.lower() == "true" else False
     onboarding_args_dict = args.__dict__

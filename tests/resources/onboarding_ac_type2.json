@@ -31,6 +31,7 @@
            "sequence_by": "dmsTimestamp",
            "scd_type": "2",
            "apply_as_deletes": "Op = 'D'",
+           "apply_as_truncates": "Op = 'T'",
            "except_column_list": [
               "Op",
               "dmsTimestamp",
@@ -72,6 +73,7 @@
            "sequence_by": "dmsTimestamp",
            "scd_type": "2",
            "apply_as_deletes": "Op = 'D'",
+           "apply_as_truncates": "Op = 'T'",
            "except_column_list": [
               "Op",
               "dmsTimestamp",

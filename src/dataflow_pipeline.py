@@ -360,7 +360,6 @@ class DataflowPipeline:
             dataflowspec_list = DataflowSpecUtils.get_bronze_dataflow_spec(spark)
         elif "silver" == layer.lower():
             dataflowspec_list = DataflowSpecUtils.get_silver_dataflow_spec(spark)
-
         logger.info(f"Length of Dataflow Spec {len(dataflowspec_list)}")
         for dataflowSpec in dataflowspec_list:
             logger.info("Printing Dataflow Spec")
