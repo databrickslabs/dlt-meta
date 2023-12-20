@@ -69,11 +69,14 @@ With this framework you need to record the source and target metadata in an onbo
 ## Getting Started
 Refer to the [Getting Started](https://databrickslabs.github.io/dlt-meta/getting_started)
 ### Databricks Labs DLT-META CLI lets you run onboard and deploy in interactive python terminal
+#### pre-requisites:
+- [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/tutorial.html)
+- Python 3.8.0 +
+#### Steps:
 - ``` git clone dlt-meta ```
 - ``` cd dlt-meta ```
 - ``` python -m venv .venv ```
 - ```source .venv/bin/activate ```
-- ``` pip install databricks ```
 - ``` pip install databricks-sdk ```
 - ```databricks labs dlt-meta onboard``` 
 - - Above command will prompt you to provide onboarding details. If you have cloned dlt-meta git repo then accept defaults which will launch config from demo folder.

@@ -105,7 +105,6 @@ class PipelineReaders:
             # add date, hour, and minute columns derived from eventhub enqueued timestamp
             .selectExpr("*", "to_date(timestamp) as date", "hour(timestamp) as hour", "minute(timestamp) as minute")
         )
-
         if schema_json:
             schema = StructType.fromJson(schema_json)
             return (
