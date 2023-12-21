@@ -1,11 +1,12 @@
 ---
 title: "Launch Generic DLT pipeline"
 date: 2021-08-04T14:25:26-04:00
-weight: 20
+weight: 21
 draft: false
 ---
+### Option#2: Manual
 
-### 1. Create a Delta Live Tables launch notebook
+#### 1. Create a Delta Live Tables launch notebook
 
 1. Go to your Databricks landing page and select Create a notebook, or click New Icon New in the sidebar and select Notebook. The Create Notebook dialog appears.
 
