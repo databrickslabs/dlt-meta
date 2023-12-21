@@ -1,54 +1,64 @@
 ---
-title: "Running Onboarding"
+title: "Run Onboarding"
 date: 2021-08-04T14:25:26-04:00
 weight: 17
 draft: false
 ---
 
-#### Option#1: Python whl job
-1. Go to your Databricks landing page and do one of the following:
+#### Option#1: Databricks Labs CLI 
+##### pre-requisites:
+- [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/tutorial.html)
+- Python 3.8.0 +
+##### Steps:
+1. ``` git clone dlt-meta ```
+2. ``` cd dlt-meta ```
+3. ``` python -m venv .venv ```
+4. ```source .venv/bin/activate ```
+5. ``` pip install databricks-sdk ```
 
-2. In the sidebar, click Jobs Icon Workflows and click Create Job Button.
+##### run dlt-meta cli command: 
+ ```shell 
+    databricks labs dlt-meta onboard
+``` 
+-  Above command will prompt you to provide onboarding details.
+- If you have cloned dlt-meta git repo then accepting defaults will launch config from [demo/conf](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf) folder.
+- You can create onboarding files e.g onboarding.json, data quality and silver transformations and put it in conf folder as show in [demo/conf](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf)
 
-3. In the sidebar, click New Icon New and select Job from the menu.
-
-4. In the task dialog box that appears on the Tasks tab, replace Add a name for your job… with your job name, for example, Python wheel example.
-
-5. In Task name, enter a name for the task, for example, ```dlt_meta_onboarding_pythonwheel_task```.
-
-6. In Type, select Python wheel.
-
-5. In Package name, enter ```dlt_meta```.
-
-6. In Entry point, enter ``run``. 
-
-7. Click Add under Dependent Libraries. In the Add dependent library dialog, under Library Type, click PyPI. Enter Package = ```dlt-meta```
-
-8. Click Add.
-
-9. In Parameters, select keyword argument then select JSON. Past below json parameters with :
-```json 
-    {                   
-        "onboard_layer": "bronze_silver",
-        "database": "dlt_demo",
-        "onboarding_file_path": "dbfs:/onboarding_files/users_onboarding.json",
-        "silver_dataflowspec_table": "silver_dataflowspec_table",
-        "silver_dataflowspec_path": "dbfs:/onboarding_tables_cdc/silver",
-        "bronze_dataflowspec_table": "bronze_dataflowspec_table",
-        "import_author": "Ravi",
-        "version": "v1",
-        "bronze_dataflowspec_path": "dbfs:/onboarding_tables_cdc/bronze",
-        "onboard_layer": "bronze_silver",
-        "uc_enabled": "False",
-        "overwrite": "True",
-        "env": "dev"
-    } 
+```shell
+		Provide onboarding file path (default: demo/conf/onboarding.template): 
+        Provide onboarding files local directory (default: demo/): 
+        Provide dbfs path (default: dbfs:/dlt-meta_cli_demo): 
+        Provide databricks runtime version (default: 14.2.x-scala2.12): 
+        Run onboarding with unity catalog enabled?
+        [0] False
+        [1] True
+        Enter a number between 0 and 1: 1
+        Provide unity catalog name: uc_catalog_name
+        Provide dlt meta schema name (default: dlt_meta_dataflowspecs_203b9): 
+        Provide dlt meta bronze layer schema name (default: dltmeta_bronze_cf595): 
+        Provide dlt meta silver layer schema name (default: dltmeta_silver_5afa2): 
+        Provide dlt meta layer
+        [0] bronze
+        [1] bronze_silver
+        [2] silver
+        Enter a number between 0 and 2: 1
+        Provide bronze dataflow spec table name (default: bronze_dataflowspec): 
+        Provide silver dataflow spec table name (default: silver_dataflowspec): 
+        Overwrite dataflow spec?
+        [0] False
+        [1] True
+        Enter a number between 0 and 1: 1
+        Provide dataflow spec version (default: v1): 
+        Provide environment name (default: prod): prod
+        Provide import author name (default: ravi.gawai): 
+        Provide cloud provider name
+        [0] aws
+        [1] azure
+        [2] gcp
+        Enter a number between 0 and 2: 0
+        Do you want to update ws paths, catalog, schema details to your onboarding file?
+        [0] False
+        [1] True
 ```
 
-Alternatly you can enter keyword arguments, click + Add and enter a key and value. Click + Add again to enter more arguments. 
-
-10. Click Save task.
-
-11. Run now
-
-12. Make sure job run successfully. Verify metadata in your dataflow spec tables entered in step: 11 e.g ```dlt_demo.bronze_dataflowspec_table``` , ```dlt_demo.silver_dataflowspec_table```
+- Goto your databricks workspace and located onboarding job under: Workflow->Jobs runs

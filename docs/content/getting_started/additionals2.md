@@ -1,12 +1,11 @@
 ---
 title: "Additionals"
 date: 2021-08-04T14:25:26-04:00
-weight: 21
+weight: 22
 draft: false
 ---
- This is easist way to launch dlt-meta to your databricks workspace with following steps.
 
-## Run Integration Tests
+#### Run Integration Tests
 1. Launch Terminal/Command promt
 
 2. Goto to DLT-META directory
