@@ -36,7 +36,9 @@ class DLTFrameworkTestCase(unittest.TestCase):
         self.onboarding_invalid_read_options_file = "tests/resources/onboarding_invalid_read_options.json"
         self.onboarding_json_dups = "tests/resources/onboarding_with_dups.json"
         self.onboarding_missing_keys_file = "tests/resources/onboarding_missing_keys.json"
-
+        self.onboarding_type2_json_file = "tests/resources/onboarding_ac_type2.json"
+        self.onboarding_bronze_type2_json_file = "tests/resources/onboarding_ac_bronze_type2.json"
+        self.deltaPipelinesMetaStoreOps.drop_database("ravi_dlt_demo")
         self.deltaPipelinesMetaStoreOps.create_database("ravi_dlt_demo", "Unittest")
         self.onboarding_bronze_silver_params_map = {
             "onboarding_file_path": self.onboarding_json_file,
@@ -48,11 +50,25 @@ class DLTFrameworkTestCase(unittest.TestCase):
             "silver_dataflowspec_path": self.onboarding_spec_paths + "/silver",
             "overwrite": "True",
             "version": "v1",
+            "import_author": "Ravi"
+        }
+        self.onboarding_bronze_silver_params_uc_map = {
+            "onboarding_file_path": self.onboarding_json_file,
+            "database": "ravi_dlt_demo",
+            "env": "dev",
+            "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
+            "bronze_dataflowspec_path": self.onboarding_spec_paths + "/bronze",
+            "silver_dataflowspec_table": "silver_dataflowspec_cdc",
+            "silver_dataflowspec_path": self.onboarding_spec_paths + "/silver",
+            "overwrite": "True",
+            "version": "v1",
             "import_author": "Ravi",
+            "uc_enabled": "True"
         }
 
     def tearDown(self):
         """Tear down."""
+        self.deltaPipelinesMetaStoreOps.drop_database("ravi_dlt_demo")
         self.sc.stop()
         shutil.rmtree(self.onboarding_spec_paths)
         shutil.rmtree(self.temp_delta_tables_path)

@@ -45,18 +45,20 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
 
     def test_getBronzeDataflowSpec_positive(self):
         """Test Dataflowspec for Bronze layer."""
-        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
-        del onboarding_params_map["silver_dataflowspec_table"]
-        del onboarding_params_map["silver_dataflowspec_path"]
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        opm = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        del opm["silver_dataflowspec_table"]
+        del opm["silver_dataflowspec_path"]
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, opm)
         onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
-        bronze_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/bronze")
+        bronze_dataflowSpec_df = (self.spark.read.format("delta")
+                                            .table(f"{opm['database']}.{opm['bronze_dataflowspec_table']}")
+                                  )
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
 
         bronze_dataflowSpec_path = self.onboarding_spec_paths + "/bronze"
-        self.spark.sql("CREATE DATABASE if not exists " + onboarding_params_map["database"])
+        self.spark.sql("CREATE DATABASE if not exists " + opm["database"])
 
-        bronze_table_name = f"{onboarding_params_map['database']}.{onboarding_params_map['bronze_dataflowspec_table']}"
+        bronze_table_name = f"{opm['database']}.{opm['bronze_dataflowspec_table']}"
         self.spark.sql(
             "CREATE TABLE if not exists "
             + bronze_table_name
@@ -83,30 +85,21 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
 
     def test_getSilverDataflowSpec_positive(self):
         """Test silverdataflowspec."""
-        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
-        del onboarding_params_map["bronze_dataflowspec_table"]
-        del onboarding_params_map["bronze_dataflowspec_path"]
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        opm = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        del opm["bronze_dataflowspec_table"]
+        del opm["bronze_dataflowspec_path"]
+        self.spark.sql("CREATE DATABASE if not exists " + opm["database"])
+
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, opm)
         onboardDataFlowSpecs.onboard_silver_dataflow_spec()
-        silver_dataflowSpec_df = self.spark.read.format("delta").load(self.onboarding_spec_paths + "/silver")
+        silver_dataflowSpec_df = (self.spark.read.format("delta")
+                                  .table(f"{opm['database']}.{opm['silver_dataflowspec_table']}")
+                                  )
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
-
-        self.spark.sql("CREATE DATABASE if not exists " + onboarding_params_map["database"])
-
-        silver_dataflowSpec_path = self.onboarding_spec_paths + "/silver"
-        silver_table_name = f"{onboarding_params_map['database']}.{onboarding_params_map['silver_dataflowspec_table']}"
-
-        self.spark.sql(
-            "CREATE TABLE if not exists "
-            + silver_table_name
-            + " USING DELTA LOCATION '"
-            + silver_dataflowSpec_path
-            + "'"
-        )
 
         self.spark.conf.set("layer", "silver")
         self.spark.conf.set("silver.group", "A1")
-        self.spark.conf.set("silver.dataflowspecTable", silver_table_name)
+        self.spark.conf.set("silver.dataflowspecTable", f"{opm['database']}.{opm['silver_dataflowspec_table']}")
 
         dataflowspec_list = DataflowSpecUtils.get_silver_dataflow_spec(self.spark)
         self.assertEqual(len(dataflowspec_list), 2)

@@ -1,6 +1,7 @@
 """Test for pipeline readers."""
 from datetime import datetime
 import sys
+import os
 from src.dataflow_spec import BronzeDataflowSpec
 from src.pipeline_readers import PipelineReaders
 from tests.utils import DLTFrameworkTestCase
@@ -180,12 +181,39 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         customer_df = PipelineReaders.read_dlt_cloud_files(self.spark, bronze_dataflow_spec, schema)
         self.assertIsNotNone(customer_df)
 
+    def test_read_cloud_files_no_schema(self):
+        """Test read_cloud_files positive."""
+        mock_format = MagicMock()
+        mock_options = MagicMock()
+        mock_load = MagicMock()
+        spark.readStream.format.return_value = mock_format
+        mock_format.options.return_value = mock_options
+        mock_options.load.return_value = mock_load
+
+        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
+        source_format_map = {"sourceFormat": "json"}
+        bronze_map.update(source_format_map)
+        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
+        source_format_map = {"sourceFormat": "json"}
+        bronze_map.update(source_format_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        PipelineReaders.read_dlt_cloud_files(spark, bronze_dataflow_spec, None)
+        spark.readStream.format.assert_called_once_with("json")
+        spark.readStream.format.return_value.options.assert_called_once_with(**bronze_dataflow_spec.readerConfigOptions)
+        spark.readStream.format.return_value.options.return_value.load.assert_called_once_with(
+            bronze_dataflow_spec.sourceDetails["path"])
+
     def test_read_delta_positive(self):
         """Test read_cloud_files positive."""
         bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
         source_format_map = {"sourceFormat": "delta"}
         bronze_map.update(source_format_map)
-        source_details_map = {"sourceDetails": {"path": "tests/resources/delta/customers"}}
+        self.spark.sql("CREATE DATABASE IF NOT EXISTS source_bronze")
+        full_path = os.path.abspath("tests/resources/delta/customers")
+        self.spark.sql(f"CREATE TABLE if not exists source_bronze.customer USING DELTA LOCATION '{full_path}' ")
+
+        source_details_map = {"sourceDetails": {"database": "source_bronze", "table": "customer"}}
+
         bronze_map.update(source_details_map)
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
         customer_df = PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
@@ -196,7 +224,10 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
         source_format_map = {"sourceFormat": "delta"}
         bronze_map.update(source_format_map)
-        source_details_map = {"sourceDetails": {"path": "tests/resources/delta/customers"}}
+        self.spark.sql("CREATE DATABASE IF NOT EXISTS source_bronze")
+        full_path = os.path.abspath("tests/resources/delta/customers")
+        self.spark.sql(f"CREATE TABLE if not exists source_bronze.customer USING DELTA LOCATION '{full_path}' ")
+        source_details_map = {"sourceDetails": {"database": "source_bronze", "table": "customer"}}
         bronze_map.update(source_details_map)
         reader_config = {"readerConfigOptions": {"maxFilesPerTrigger": "1"}}
         bronze_map.update(reader_config)

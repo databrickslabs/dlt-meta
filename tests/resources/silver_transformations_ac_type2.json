@@ -1,0 +1,23 @@
+[
+  {
+    "target_table": "products",
+    "select_exp": [
+      "product_id",
+      "name",
+      "price",
+      "dmsTimestamp",
+      "Op",
+      "_rescued_data"
+    ]
+  },
+  {
+    "target_table": "stores",
+    "select_exp": [
+      "store_id",
+      "address",
+      "dmsTimestamp",
+      "Op",
+      "_rescued_data"
+    ]
+  }
+]

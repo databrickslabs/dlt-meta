@@ -4,7 +4,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
 from pyspark.sql.functions import from_json, col
 
-logger = logging.getLogger("dlt-meta")
+logger = logging.getLogger('databricks.labs.dltmeta')
 logger.setLevel(logging.INFO)
 
 
@@ -57,19 +57,21 @@ class PipelineReaders:
             DataFrame: _description_
         """
         logger.info("In read_dlt_cloud_files func")
-        source_path = bronze_dataflow_spec.sourceDetails["path"]
         reader_config_options = bronze_dataflow_spec.readerConfigOptions
 
         if reader_config_options and len(reader_config_options) > 0:
             return (
-                spark.readStream.format(bronze_dataflow_spec.sourceFormat)
-                .options(**reader_config_options)
-                .load(source_path)
+                spark.readStream.options(**reader_config_options).table(
+                    f"""{bronze_dataflow_spec.sourceDetails["database"]}
+                        .{bronze_dataflow_spec.sourceDetails["table"]}"""
+                )
             )
         else:
             return (
-                spark.readStream.format(bronze_dataflow_spec.sourceFormat)
-                .load(source_path)
+                spark.readStream.table(
+                    f"""{bronze_dataflow_spec.sourceDetails["database"]}
+                        .{bronze_dataflow_spec.sourceDetails["table"]}"""
+                )
             )
 
     @staticmethod
@@ -103,7 +105,6 @@ class PipelineReaders:
             # add date, hour, and minute columns derived from eventhub enqueued timestamp
             .selectExpr("*", "to_date(timestamp) as date", "hour(timestamp) as hour", "minute(timestamp) as minute")
         )
-
         if schema_json:
             schema = StructType.fromJson(schema_json)
             return (

@@ -17,7 +17,8 @@ arguments = ["--onboard_layer",
              "--silver_dataflowspec_path",
              "--import_author",
              "--version",
-             "--overwrite"
+             "--overwrite",
+             "--uc_enabled",
              ]
 
 
@@ -34,11 +35,22 @@ def parse_args():
 def main():
     """Whl file entry point."""
     args = parse_args()
-    onboard_layer = args.__getattribute__("onboard_layer")
+    onboard_dataflowspecs(args)
+
+
+def onboard_dataflowspecs(args):
+    onboard_layer = args.onboard_layer
+    uc_enabled = True if args.uc_enabled and args.uc_enabled.lower() == "true" else False
     onboarding_args_dict = args.__dict__
     del onboarding_args_dict['onboard_layer']
-    spark = (SparkSession.builder.appName("DLT-META_Onboarding_Task")).getOrCreate()
-    onboard_obj = OnboardDataflowspec(spark, onboarding_args_dict)
+    del onboarding_args_dict['uc_enabled']
+    if uc_enabled:
+        if 'bronze_dataflowspec_path' in onboarding_args_dict:
+            del onboarding_args_dict['bronze_dataflowspec_path']
+        if 'silver_dataflowspec_path' in onboarding_args_dict:
+            del onboarding_args_dict['silver_dataflowspec_path']
+    spark = SparkSession.builder.appName("DLT-META_Onboarding_Task").getOrCreate()
+    onboard_obj = OnboardDataflowspec(spark, onboarding_args_dict, uc_enabled=uc_enabled)
 
     if onboard_layer.lower() == "bronze_silver":
         onboard_obj.onboard_dataflow_specs()
