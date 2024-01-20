@@ -652,17 +652,25 @@ class OnboardDataflowspec:
 
             silver_target_format = "delta"
 
-            bronze_target_details = {
-                "database": onboarding_row["bronze_database_{}".format(env)],
-                "table": onboarding_row["bronze_table"]
-            }
+            if f"bronze_database_{env}" in onboarding_row:
+                source_details = {
+                    "database": onboarding_row["bronze_database_{}".format(env)],
+                    "table": onboarding_row["bronze_table"]
+                }
+            else:
+                source_details = {
+                    "database" : onboarding_row["source_details"]["source_database"],
+                    "table": onboarding_row["source_details"]["source_table"],
+                }
+
             silver_target_details = {
                 "database": onboarding_row["silver_database_{}".format(env)],
                 "table": onboarding_row["silver_table"]
             }
 
             if not self.uc_enabled:
-                bronze_target_details["path"] = onboarding_row[f"bronze_table_path_{env}"]
+                if f"bronze_table_path_{env}" in onboarding_row:
+                    source_details["path"] = onboarding_row[f"bronze_table_path_{env}"]
                 silver_target_details["path"] = onboarding_row[f"silver_table_path_{env}"]
 
             silver_table_properties = {}
@@ -684,7 +692,7 @@ class OnboardDataflowspec:
                 silver_data_flow_spec_id,
                 silver_data_flow_spec_group,
                 "delta",
-                bronze_target_details,
+                source_details,
                 silver_reader_config_options,
                 silver_target_format,
                 silver_target_details,
