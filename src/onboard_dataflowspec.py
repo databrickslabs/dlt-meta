@@ -659,7 +659,7 @@ class OnboardDataflowspec:
                 }
             else:
                 source_details = {
-                    "database" : onboarding_row["source_details"]["source_database"],
+                    "database": onboarding_row["source_details"]["source_database"],
                     "table": onboarding_row["source_details"]["source_table"],
                 }
 
