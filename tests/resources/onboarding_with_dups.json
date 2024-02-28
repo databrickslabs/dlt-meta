@@ -38,7 +38,9 @@
             ]
         },
         "silver_table_path_dev": "tests/resources/data/silver/customers",
-        "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
+        "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
+        "silver_data_quality_expectations_json_dev": "tests/resources/dqe/customers/silver_data_quality_expectations.json"
+
     },
     {
         "data_flow_id": "100",
@@ -78,6 +80,7 @@
             ]
         },
         "silver_table_path_dev": "tests/resources/data/silver/customers",
-        "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
+        "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
+        "silver_data_quality_expectations_json_dev": "tests/resources/dqe/customers/silver_data_quality_expectations.json"
     }
 ]

@@ -38,7 +38,8 @@
          ]
       },
       "silver_table_path_dev": "tests/resources/data/silver/customers",
-      "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
+      "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
+      "silver_data_quality_expectations_json_dev": "tests/resources/dqe/customers/silver_data_quality_expectations.json"
    },
    {
       "data_flow_id": "101",
@@ -89,7 +90,8 @@
          ]
       },
       "silver_table_path_dev": "tests/resources/data/silver/transactions",
-      "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
+      "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
+      "silver_data_quality_expectations_json_dev": "tests/resources/dqe/transactions/silver_data_quality_expectations.json"
    },
    {
       "data_flow_id": "103",
@@ -129,6 +131,7 @@
          "except_column_list": []
       },
       "silver_table_path_dev": "tests/resources/data/silver/iot_cdc",
-      "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
+      "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
+      "silver_data_quality_expectations_json_dev": "tests/resources/dqe/iot_cdc/silver_data_quality_expectations.json"
    }
 ]

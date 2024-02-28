@@ -1,0 +1,5 @@
+{
+    "expect_or_drop": {
+        "valid_store_id": "store_id IS NOT NULL"
+    }
+}

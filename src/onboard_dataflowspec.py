@@ -615,6 +615,7 @@ class OnboardDataflowspec:
             "tableProperties",
             "partitionColumns",
             "cdcApplyChanges",
+            "dataQualityExpectations"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -632,6 +633,7 @@ class OnboardDataflowspec:
                 StructField("tableProperties", MapType(StringType(), StringType(), True), True),
                 StructField("partitionColumns", ArrayType(StringType(), True), True),
                 StructField("cdcApplyChanges", StringType(), True),
+                StructField("dataQualityExpectations", StringType(), True)
             ]
         )
         data = []
@@ -679,7 +681,12 @@ class OnboardDataflowspec:
                 silver_cdc_apply_changes_row = onboarding_row["silver_cdc_apply_changes"]
                 if self.onboard_file_type == "json":
                     silver_cdc_apply_changes = json.dumps(self.__delete_none(silver_cdc_apply_changes_row.asDict()))
-
+            data_quality_expectations = None
+            if f"silver_data_quality_expectations_json_{env}" in onboarding_row:
+                silver_data_quality_expectations_json = onboarding_row[f"silver_data_quality_expectations_json_{env}"]
+                if silver_data_quality_expectations_json:
+                    data_quality_expectations = (
+                        self.__get_data_quality_expecations(silver_data_quality_expectations_json))
             silver_row = (
                 silver_data_flow_spec_id,
                 silver_data_flow_spec_group,
@@ -691,6 +698,7 @@ class OnboardDataflowspec:
                 silver_table_properties,
                 silver_parition_columns,
                 silver_cdc_apply_changes,
+                data_quality_expectations
             )
             data.append(silver_row)
             logger.info(f"silver_data ==== {data}")

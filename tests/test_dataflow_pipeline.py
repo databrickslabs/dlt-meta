@@ -93,6 +93,13 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "whereClause": ["id IS NOT NULL", "email is not NULL"],
         "partitionColumns": ["operation_date"],
         "cdcApplyChanges": json.dumps(silver_cdc_apply_changes),
+        "dataQualityExpectations": """{
+            "expect_or_drop": {
+                "no_rescued_data": "_rescued_data IS NULL",
+                "valid_id": "id IS NOT NULL",
+                "valid_operation": "operation IN ('APPEND', 'DELETE', 'UPDATE')"
+            }
+        }""",
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
