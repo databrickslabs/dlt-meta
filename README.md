@@ -39,6 +39,8 @@
     </a>
 </p>
 
+[![lines of code](https://tokei.rs/b1/github/databrickslabs/dlt-meta)]([https://codecov.io/github/databrickslabs/dlt-meta](https://github.com/databrickslabs/dlt-meta))
+
 ---
 
 # Project Overview
