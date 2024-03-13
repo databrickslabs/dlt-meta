@@ -38,7 +38,7 @@ draft: false
 | silver_table_path_{env} | 	Silver table storage path. |
 | silver_table_properties | 	DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false"}` |
 | silver_transformation_json | 	Silver table sql transformation json path |
-
+| silver_data_quality_expectations_json_{env} | Silver table data quality expectations json file path
 
 ### Data Quality Rules File Structure
 | Field | Description |
@@ -46,7 +46,7 @@ draft: false
 | expect | Specify multiple data quality sql for each field when records that fail validation should be included in the target dataset| 
 | expect_or_fail  | Specify multiple data quality sql for each field when records that fail validation should halt pipeline execution |
 | expect_or_drop  | Specify multiple data quality sql for each field when records that fail validation should be dropped from the target dataset |
-| expect_or_quarantine  | Specify multiple data quality sql for each field when records that fails validation will be dropped from main table and inserted into quarantine table specified in dataflowspec  |
+| expect_or_quarantine  | Specify multiple data quality sql for each field when records that fails validation will be dropped from main table and inserted into quarantine table specified in dataflowspec (only applicable for Bronze layer) |
 
 ### Silver transformation File Structure
 | Field | Description |
