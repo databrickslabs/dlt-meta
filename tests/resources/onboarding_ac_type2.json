@@ -39,7 +39,8 @@
            ]
         },
         "silver_table_path_dev": "tests/resources/delta/silver/products",
-        "silver_transformation_json_dev": "tests/resources/silver_transformations_ac_type2.json"
+        "silver_transformation_json_dev": "tests/resources/silver_transformations_ac_type2.json",
+        "silver_data_quality_expectations_json_dev": "tests/resources/dqe/product/silver_data_quality_expectations.json"
      },
      {
         "data_flow_id": "202",
