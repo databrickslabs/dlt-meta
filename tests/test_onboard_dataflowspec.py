@@ -50,6 +50,19 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
             with self.assertRaises(ValueError):
                 OnboardDataflowspec(self.spark, test_onboarding_params_map).onboard_dataflow_specs()
 
+    def test_upgrade_onboardDataFlowSpecs_positive(self):
+        """Test for onboardDataflowspec."""
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
+        onboardDataFlowSpecs.onboard_dataflow_specs()
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
+        self.assertEqual(bronze_dataflowSpec_df.count(), 3)
+        self.assertEqual(silver_dataflowSpec_df.count(), 3)
+
     def test_onboardDataFlowSpecs_positive(self):
         """Test for onboardDataflowspec."""
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
@@ -241,7 +254,8 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
     @patch.object(DataFrame, "write", new_callable=MagicMock)
     def test_silver_dataflow_spec_dataframe_withuc(self, mock_write):
         """Test for onboardDataflowspec with merge scenario."""
-        mock_write.format.return_value.mode.return_value.saveAsTable.return_value = None
+        mock_write.format.return_value.mode.return_value.option.return_value.saveAsTable.return_value = None
+
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_uc_map)
         del onboarding_params_map["uc_enabled"]
         del onboarding_params_map["bronze_dataflowspec_table"]
@@ -255,12 +269,14 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         table = onboarding_params_map["silver_dataflowspec_table"]
         mock_write.format.assert_called_once_with("delta")
         mock_write.format.return_value.mode.assert_called_once_with("overwrite")
-        mock_write.format.return_value.mode.return_value.saveAsTable.assert_called_once_with(f"{database}.{table}")
+        mock_write.format.return_value.mode.return_value.option.assert_called_once_with("mergeSchema", "true")
+        mock_write.format.return_value.mode.return_value.option.return_value.saveAsTable.assert_called_once_with(
+            f"{database}.{table}")
 
     @patch.object(DataFrame, "write", new_callable=MagicMock)
     def test_bronze_dataflow_spec_dataframe_withuc(self, mock_write):
         """Test for onboardDataflowspec with merge scenario."""
-        mock_write.format.return_value.mode.return_value.saveAsTable.return_value = None
+        mock_write.format.return_value.mode.return_value.option.return_value.saveAsTable.return_value = None
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_uc_map)
         del onboarding_params_map["uc_enabled"]
         del onboarding_params_map["silver_dataflowspec_table"]
@@ -274,4 +290,6 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         table = onboarding_params_map["bronze_dataflowspec_table"]
         mock_write.format.assert_called_once_with("delta")
         mock_write.format.return_value.mode.assert_called_once_with("overwrite")
-        mock_write.format.return_value.mode.return_value.saveAsTable.assert_called_once_with(f"{database}.{table}")
+        mock_write.format.return_value.mode.return_value.option.assert_called_once_with("mergeSchema", "true")
+        mock_write.format.return_value.mode.return_value.option.return_value.saveAsTable.assert_called_once_with(
+            f"{database}.{table}")

@@ -224,9 +224,11 @@ class OnboardDataflowspec:
 
         if dict_obj["overwrite"] == "True":
             if self.uc_enabled:
-                silver_dataflow_spec_df.write.format("delta").mode("overwrite").saveAsTable(f"{database}.{table}")
+                (silver_dataflow_spec_df.write.format("delta").mode("overwrite").option("mergeSchema", "true")
+                 .saveAsTable(f"{database}.{table}")
+                 )
             else:
-                silver_dataflow_spec_df.write.mode("overwrite").format("delta").save(
+                silver_dataflow_spec_df.write.mode("overwrite").format("delta").option("mergeSchema", "true").save(
                     dict_obj["silver_dataflowspec_path"]
                 )
         else:
@@ -301,13 +303,13 @@ class OnboardDataflowspec:
         table = dict_obj["bronze_dataflowspec_table"]
         if dict_obj["overwrite"] == "True":
             if self.uc_enabled:
-                bronze_dataflow_spec_df.write.format("delta").mode("overwrite").saveAsTable(
-                    f"{database}.{table}"
-                )
+                (bronze_dataflow_spec_df.write.format("delta").mode("overwrite").option("mergeSchema", "true")
+                 .saveAsTable(f"{database}.{table}")
+                 )
             else:
-                bronze_dataflow_spec_df.write.mode("overwrite").format("delta").save(
-                    path=dict_obj["bronze_dataflowspec_path"]
-                )
+                (bronze_dataflow_spec_df.write.mode("overwrite").format("delta").option("mergeSchema", "true")
+                 .save(path=dict_obj["bronze_dataflowspec_path"])
+                 )
         else:
             if self.uc_enabled:
                 original_dataflow_df = self.spark.read.format("delta").table(f"{database}.{table}")
