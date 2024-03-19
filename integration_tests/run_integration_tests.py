@@ -668,7 +668,15 @@ class DLTMETARunner:
         self.generate_onboarding_file(runner_conf)
         print("int_tests_dir: ", runner_conf.int_tests_dir)
         print(f"uploading to {runner_conf.dbfs_tmp_path}/{self.base_dir}/")
-        self.ws.dbfs.create(path=runner_conf.dbfs_tmp_path + f"/{self.base_dir}/", overwrite=True)
+        if runner_conf.uc_catalog_name:
+            self.ws.dbfs.create(path=runner_conf.dbfs_tmp_path + f"/{self.base_dir}/", overwrite=True)
+        else:
+            try:
+                self.ws.dbfs.mkdirs(runner_conf.dbfs_tmp_path + f"/{self.base_dir}/")
+            except Exception as e:
+                print(f"Error in creating directory {runner_conf.dbfs_tmp_path + f'/{self.base_dir}/'}")
+                print(e)
+                print(runner_conf.dbfs_tmp_path + f"/{self.base_dir}/ must be already present")
         self.ws.dbfs.copy(runner_conf.int_tests_dir,
                           runner_conf.dbfs_tmp_path + f"/{self.base_dir}/",
                           overwrite=True, recursive=True)
@@ -726,7 +734,7 @@ class DLTMETARunner:
             print(e)
         finally:
             print("Cleaning up...")
-            self.clean_up(runner_conf)
+    #        self.clean_up(runner_conf)
 
     def download_test_results(self, runner_conf: DLTMetaRunnerConf):
         ws_output_file = self.ws.workspace.download(runner_conf.test_output_file_path)

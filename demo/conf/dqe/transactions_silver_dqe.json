@@ -1,0 +1,6 @@
+{
+    "expect_or_drop": {
+        "valid_transaction_id": "transaction_id IS NOT NULL",
+        "valid_customer_id": "customer_id IS NOT NULL"
+    }
+}

@@ -55,6 +55,7 @@ class SilverDataflowSpec:
     whereClause: list
     partitionColumns: list
     cdcApplyChanges: str
+    dataQualityExpectations: str
     version: str
     createDate: datetime
     createdBy: str

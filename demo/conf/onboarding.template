@@ -38,7 +38,9 @@
             "_rescued_data"
          ]
       },
-      "silver_transformation_json_prod": "{dbfs_path}/demo/conf/silver_transformations.json"
+      "silver_transformation_json_prod": "{dbfs_path}/demo/conf/silver_transformations.json",
+      "silver_data_quality_expectations_json_prod": "{dbfs_path}/demo/conf/dqe/customers_silver_dqe.json"
+
    },
    {
       "data_flow_id": "101",
@@ -80,7 +82,8 @@
          ]
       },
       "silver_table_path_prod": "{dbfs_path}/demo/resources/data/silver/transactions",
-      "silver_transformation_json_prod": "{dbfs_path}/demo/conf/silver_transformations.json"
+      "silver_transformation_json_prod": "{dbfs_path}/demo/conf/silver_transformations.json",
+      "silver_data_quality_expectations_json_prod": "{dbfs_path}/demo/conf/dqe/transactions_silver_dqe.json"
    },
    {
       "data_flow_id": "103",
@@ -123,7 +126,8 @@
          ]
       },
       "silver_table_path_prod": "{dbfs_path}/demo/resources/data/silver/products",
-      "silver_transformation_json_prod": "{dbfs_path}/demo/conf/silver_transformations.json"
+      "silver_transformation_json_prod": "{dbfs_path}/demo/conf/silver_transformations.json",
+      "silver_data_quality_expectations_json_prod": "{dbfs_path}/demo/conf/dqe/products_silver_dqe.json"
    },
    {
       "data_flow_id": "104",
@@ -166,6 +170,7 @@
          ]
       },
       "silver_table_path_prod": "{dbfs_path}/demo/resources/data/silver/stores",
-      "silver_transformation_json_prod": "{dbfs_path}/demo/conf/silver_transformations.json"
+      "silver_transformation_json_prod": "{dbfs_path}/demo/conf/silver_transformations.json",
+      "silver_data_quality_expectations_json_prod": "{dbfs_path}/demo/conf/dqe/stores_silver_dqe.json"
    }
 ]

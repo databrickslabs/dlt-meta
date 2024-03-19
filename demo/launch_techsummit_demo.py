@@ -178,7 +178,7 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         """
         database, dlt_lib = self.init_db_dltlib(runner_conf)
         return self.ws.jobs.create(
-            name=f"dlt-meta-dais-demo-{runner_conf.run_id}",
+            name=f"dlt-meta-techsummit-demo-{runner_conf.run_id}",
             tasks=[
                 jobs.Task(
                     task_key="generate_data",

@@ -207,12 +207,18 @@ class DataflowPipeline:
         dlt_table_with_expectation = None
         expect_or_quarantine_dict = None
 
+        if "expect_all" in data_quality_expectations_json:
+            expect_dict = data_quality_expectations_json["expect_all"]
         if "expect" in data_quality_expectations_json:
             expect_dict = data_quality_expectations_json["expect"]
         if "expect_or_fail" in data_quality_expectations_json:
             expect_or_fail_dict = data_quality_expectations_json["expect_or_fail"]
+        if "expect_all_or_fail" in data_quality_expectations_json:
+            expect_or_fail_dict = data_quality_expectations_json["expect_all_or_fail"]
         if "expect_or_drop" in data_quality_expectations_json:
             expect_or_drop_dict = data_quality_expectations_json["expect_or_drop"]
+        if "expect_all_or_drop" in data_quality_expectations_json:
+            expect_or_drop_dict = data_quality_expectations_json["expect_all_or_drop"]
         if "expect_or_quarantine" in data_quality_expectations_json:
             expect_or_quarantine_dict = data_quality_expectations_json["expect_or_quarantine"]
         if bronzeDataflowSpec.cdcApplyChanges:
@@ -308,12 +314,33 @@ class DataflowPipeline:
 
         target_path = None if self.uc_enabled else self.dataflowSpec.targetDetails["path"]
 
-        dlt.create_streaming_live_table(
+        expect_all_dict = None
+        expect_all_or_drop_dict = None
+        expect_all_or_fail_dict = None
+        if self.table_has_expectations():
+            data_quality_expectations_json = json.loads(self.dataflowSpec.dataQualityExpectations)
+            if "expect_all" in data_quality_expectations_json:
+                expect_all_dict = data_quality_expectations_json["expect_all"]
+            if "expect" in data_quality_expectations_json:
+                expect_all_dict = data_quality_expectations_json["expect"]
+            if "expect_all_or_drop" in data_quality_expectations_json:
+                expect_all_or_drop_dict = data_quality_expectations_json["expect_all_or_drop"]
+            if "expect_or_drop" in data_quality_expectations_json:
+                expect_all_or_drop_dict = data_quality_expectations_json["expect_or_drop"]
+            if "expect_all_or_fail" in data_quality_expectations_json:
+                expect_all_or_fail_dict = data_quality_expectations_json["expect_all_or_fail"]
+            if "expect_or_fail" in data_quality_expectations_json:
+                expect_all_or_fail_dict = data_quality_expectations_json["expect_or_fail"]
+
+        dlt.create_streaming_table(
             name=f"{self.dataflowSpec.targetDetails['table']}",
             table_properties=self.dataflowSpec.tableProperties,
             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
             path=target_path,
             schema=struct_schema,
+            expect_all=expect_all_dict,
+            expect_all_or_drop=expect_all_or_drop_dict,
+            expect_all_or_fail=expect_all_or_fail_dict,
         )
 
         apply_as_deletes = None

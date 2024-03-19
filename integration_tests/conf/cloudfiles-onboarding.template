@@ -48,7 +48,8 @@
    "silver_table_properties": {
          "pipelines.reset.allowed": "false",
          "pipelines.autoOptimize.zOrderCols": "id, email"         
-   }   
+   },
+   "silver_data_quality_expectations_json_it": "{dbfs_path}/integration_tests/conf/dqe/customers/silver_data_quality_expectations.json"
 },
 {
    "data_flow_id": "101",
@@ -98,6 +99,7 @@
    },
    "silver_table_path_it": "{dbfs_path}/data/silver/transactions",
    "silver_transformation_json_it": "{dbfs_path}/integration_tests/conf/silver_transformations.json",
+   "silver_data_quality_expectations_json_it": "{dbfs_path}/integration_tests/conf/dqe/transactions/silver_data_quality_expectations.json",
    "silver_table_properties": {
          "pipelines.reset.allowed": "false",
          "pipelines.autoOptimize.zOrderCols": "id, customer_id"         

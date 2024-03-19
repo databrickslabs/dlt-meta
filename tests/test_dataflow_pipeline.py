@@ -93,6 +93,13 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "whereClause": ["id IS NOT NULL", "email is not NULL"],
         "partitionColumns": ["operation_date"],
         "cdcApplyChanges": json.dumps(silver_cdc_apply_changes),
+        "dataQualityExpectations": """{
+            "expect_or_drop": {
+                "no_rescued_data": "_rescued_data IS NULL",
+                "valid_id": "id IS NOT NULL",
+                "valid_operation": "operation IN ('APPEND', 'DELETE', 'UPDATE')"
+            }
+        }""",
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -617,8 +624,11 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
         data_quality_expectations_json = json.loads(bronze_dataflow_spec.dataQualityExpectations)
-        if "expect" in data_quality_expectations_json:
-            expect_dict = data_quality_expectations_json["expect"]
+        expect_dict = {}
+        if "expect" in data_quality_expectations_json or "expect_all" in data_quality_expectations_json:
+            expect_dict.update(data_quality_expectations_json["expect"])
+        if "expect_all" in data_quality_expectations_json:
+            expect_dict.update(data_quality_expectations_json["expect_all"])
         if "expect_or_fail" in data_quality_expectations_json:
             expect_or_fail_dict = data_quality_expectations_json["expect_or_fail"]
         if "expect_or_drop" in data_quality_expectations_json:
@@ -663,6 +673,22 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         )
         bronze_df_row = silver_dataflowSpec_df.filter(silver_dataflowSpec_df.dataFlowId == "201").collect()[0]
         silver_dataflow_spec = SilverDataflowSpec(**bronze_df_row.asDict())
+        data_quality_expectations_json = json.loads(silver_dataflow_spec.dataQualityExpectations)
+        expect_dict = {}
+        expect_or_fail_dict = {}
+        expect_or_drop_dict = {}
+        if "expect" in data_quality_expectations_json or "expect_all" in data_quality_expectations_json:
+            expect_dict.update(data_quality_expectations_json["expect"])
+        if "expect_all" in data_quality_expectations_json:
+            expect_dict.update(data_quality_expectations_json["expect_all"])
+        if "expect_or_fail" in data_quality_expectations_json:
+            expect_or_fail_dict.update(data_quality_expectations_json["expect_or_fail"])
+        if "expect_all_or_fail" in data_quality_expectations_json:
+            expect_or_fail_dict.update(data_quality_expectations_json["expect_all_or_fail"])
+        if "expect_all_or_drop" in data_quality_expectations_json:
+            expect_or_drop_dict.update(data_quality_expectations_json["expect_all_or_drop"])
+        if "expect_or_drop" in data_quality_expectations_json:
+            expect_or_drop_dict.update(data_quality_expectations_json["expect_or_drop"])
         view_name = f"{silver_dataflow_spec.targetDetails['table']}_inputView"
         pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, view_name, None)
         target_path = silver_dataflow_spec.targetDetails["path"]
@@ -682,7 +708,10 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             name=f"{silver_dataflowSpec_df.targetDetails['table']}",
             table_properties=silver_dataflowSpec_df.tableProperties,
             path=target_path,
-            schema=struct_schema
+            schema=struct_schema,
+            expect_all=expect_dict,
+            expect_all_or_drop=expect_or_drop_dict,
+            expect_all_or_fail=expect_or_fail_dict
         )
         assert mock_apply_changes.called_once_with(
             name=f"{silver_dataflowSpec_df.targetDetails['table']}",
@@ -700,12 +729,12 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             track_history_except_column_list=cdc_apply_changes.track_history_except_column_list
         )
 
-    @patch('dlt.create_streaming_live_table', new_callable=MagicMock)
+    @patch('dlt.create_streaming_table', new_callable=MagicMock)
     @patch('dlt.apply_changes', new_callable=MagicMock)
     def test_bronze_cdc_apply_changes(self,
-                                      mock_create_streaming_live_table,
+                                      mock_create_streaming_table,
                                       mock_apply_changes):
-        mock_create_streaming_live_table.return_value = None
+        mock_create_streaming_table.return_value = None
         mock_apply_changes.apply_changes.return_value = None
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         onboarding_params_map['onboarding_file_path'] = self.onboarding_bronze_type2_json_file
@@ -729,7 +758,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
         struct_schema = json.loads(bronze_dataflow_spec.schema)
         pipeline.write_bronze()
-        assert mock_create_streaming_live_table.called_once_with(
+        assert mock_create_streaming_table.called_once_with(
             name=f"{bronze_dataflowSpec_df.targetDetails['table']}",
             table_properties=bronze_dataflowSpec_df.tableProperties,
             path=target_path,
