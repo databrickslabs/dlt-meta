@@ -62,14 +62,14 @@ class PipelineReaders:
         if reader_config_options and len(reader_config_options) > 0:
             return (
                 spark.readStream.options(**reader_config_options).table(
-                    f"""{bronze_dataflow_spec.sourceDetails["database"]}
+                    f"""{bronze_dataflow_spec.sourceDetails["source_database"]}
                         .{bronze_dataflow_spec.sourceDetails["table"]}"""
                 )
             )
         else:
             return (
                 spark.readStream.table(
-                    f"""{bronze_dataflow_spec.sourceDetails["database"]}
+                    f"""{bronze_dataflow_spec.sourceDetails["source_database"]}
                         .{bronze_dataflow_spec.sourceDetails["table"]}"""
                 )
             )
