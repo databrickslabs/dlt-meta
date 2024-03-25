@@ -98,7 +98,7 @@ databricks auth login --host WORKSPACE_HOST
 ```commandline
     databricks labs install dlt-meta
 ```
-- Onboard using dlt-meta CLI:
+### Onboard using dlt-meta CLI:
 ```commandline
     databricks labs dlt-meta onboard
 ```
@@ -140,6 +140,7 @@ Above command will prompt you to provide onboarding details. If you have cloned 
         [1] True
 ```
 - Goto your databricks workspace and located onboarding job under: Workflow->Jobs runs
+### depoly using dlt-meta CLI:
 - Once onboarding jobs is finished deploy `bronze` and `silver` DLT using below command
 - ```databricks labs dlt-meta deploy```
 - - Above command will prompt you to provide dlt details. Please provide respective details for schema which you provided in above steps
