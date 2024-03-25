@@ -72,16 +72,37 @@ With this framework you need to record the source and target metadata in an onbo
 Refer to the [Getting Started](https://databrickslabs.github.io/dlt-meta/getting_started)
 ### Databricks Labs DLT-META CLI lets you run onboard and deploy in interactive python terminal
 #### pre-requisites:
-- [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/tutorial.html)
+
 - Python 3.8.0 +
-#### Steps:
-- ``` git clone dlt-meta ```
-- ``` cd dlt-meta ```
-- ``` python -m venv .venv ```
-- ```source .venv/bin/activate ```
-- ``` pip install databricks-sdk ```
-- ```databricks labs dlt-meta onboard``` 
-- - Above command will prompt you to provide onboarding details. If you have cloned dlt-meta git repo then accept defaults which will launch config from demo folder.
+
+- Databricks CLI v0.213 or later. See [instructions](https://docs.databricks.com/en/dev-tools/cli/tutorial.html)
+
+- Install Databricks CLI on macOS:
+- ![macos_install_databricks](docs/static/images/macos_1_databrickslabsmac_installdatabricks.gif)
+
+
+- Install Databricks CLI on Windows:
+- ![windows_install_databricks.png](docs/static/images/windows_install_databricks.png)
+
+Once you install Databricks CLI, authenticate your current machine to a Databricks Workspace:
+
+```commandline
+databricks auth login --host WORKSPACE_HOST
+```
+
+    To enable debug logs, simply add `--debug` flag to any command.
+
+### Installing dlt-meta:
+- Install dlt-meta via Databricks CLI:
+
+```commandline
+    databricks labs install dlt-meta
+```
+- Onboard using dlt-meta CLI:
+```commandline
+    databricks labs dlt-meta onboard
+```
+Above command will prompt you to provide onboarding details. If you have cloned dlt-meta git repo then accept defaults which will launch config from demo folder.
 
 ```     Provide onboarding file path (default: demo/conf/onboarding.template): 
         Provide onboarding files local directory (default: demo/): 
