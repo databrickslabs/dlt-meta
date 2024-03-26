@@ -99,9 +99,30 @@ databricks auth login --host WORKSPACE_HOST
     databricks labs install dlt-meta
 ```
 ### Onboard using dlt-meta CLI:
+
+
+If you want to run existing demo files please follow these steps before running onboard command:
+
+```commandline
+    git clone dlt-meta
+```
+```commandline
+    cd dlt-meta
+```
+```commandline
+    python -m venv .venv
+```
+```commandline
+    source .venv/bin/activate 
+```
+```commandline
+    pip install databricks-sdk
+```
+
 ```commandline
     databricks labs dlt-meta onboard
 ```
+
 Above command will prompt you to provide onboarding details. If you have cloned dlt-meta git repo then accept defaults which will launch config from demo folder.
 
 ```     Provide onboarding file path (default: demo/conf/onboarding.template): 
@@ -142,7 +163,9 @@ Above command will prompt you to provide onboarding details. If you have cloned 
 - Goto your databricks workspace and located onboarding job under: Workflow->Jobs runs
 ### depoly using dlt-meta CLI:
 - Once onboarding jobs is finished deploy `bronze` and `silver` DLT using below command
-- ```databricks labs dlt-meta deploy```
+- ```commandline 
+     databricks labs dlt-meta deploy
+   ```
 - - Above command will prompt you to provide dlt details. Please provide respective details for schema which you provided in above steps
 - - Bronze DLT
 ```
