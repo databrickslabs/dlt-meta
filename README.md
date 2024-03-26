@@ -190,7 +190,9 @@ Above command will prompt you to provide onboarding details. If you have cloned 
 ```
 
 - Silver DLT
-- - ```databricks labs dlt-meta deploy```
+- - ```commandline
+       databricks labs dlt-meta deploy
+    ```
 - - Above command will prompt you to provide dlt details. Please provide respective details for schema which you provided in above steps
 ```
     Deploy DLT-META with unity catalog enabled?
