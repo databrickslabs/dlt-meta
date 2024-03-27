@@ -21,6 +21,8 @@ raw_delta_table_stream = MagicMock()
 
 
 class DataflowPipelineTests(DLTFrameworkTestCase):
+
+
     """Test for Dataflowpipeline."""
 
     bronze_dataflow_spec_map = {
@@ -431,7 +433,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         )
         view_name = f"{silver_dataflow_spec.targetDetails['table']}_inputView"
         pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, view_name, None)
-        pipeline.read_bronze = MagicMock()
+        pipeline.read_silver = MagicMock()
         pipeline.view_name = view_name
         pipeline.read()
         assert mock_view.called_once_with(
@@ -440,6 +442,20 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             comment=f"input dataset view for {pipeline.view_name}"
         )
 
+    @patch('dlt.view', new_callable=MagicMock)
+    def test_dlt_view_not_bronze_nor_silver_read_call(self, mock_view):
+        mock_view.view.return_value = None
+        silver_dataflow_spec = SilverDataflowSpec(
+            **DataflowPipelineTests.silver_dataflow_spec_map
+        )
+        view_name = f"{silver_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, view_name, None)
+        #take silver_dataflow_spec and set to none to test if an exception is raised
+        pipeline.dataflowSpec = None
+        with self.assertRaises(Exception):
+            pipeline.read()
+
+            
     @patch('dlt.table', new_callable=MagicMock)
     def test_dlt_write_bronze(self, mock_dlt_table):
         mock_dlt_table.table.return_value = None
@@ -607,7 +623,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
                                          mock_dlt_expect_all_or_fail,
                                          mock_dlt_expect_all_or_drop):
         mock_dlt_table.return_value = None
-        mock_dlt_expect_all.return_value = None
+        mock_dlt_expect_all.return_value = "Called"
         mock_dlt_expect_all_or_fail.return_value = None
         mock_dlt_expect_all_or_drop.return_value = None
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
@@ -779,3 +795,4 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             track_history_column_list=cdc_apply_changes.track_history_column_list,
             track_history_except_column_list=cdc_apply_changes.track_history_except_column_list
         )
+
