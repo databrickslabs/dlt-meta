@@ -138,10 +138,10 @@ If you want to run existing demo files please follow these steps before running 
     databricks labs dlt-meta onboard
 ```
 
-![onboardingDLTMeta.gif](docs/content/getting_started/onboardingDLTMeta.gif)
+![onboardingDLTMeta.gif](docs/static/images/onboardingDLTMeta.gif)
 
 Above commands will prompt you to provide onboarding details. If you have cloned dlt-meta git repo then accept defaults which will launch config from demo folder.
-![onboardingDLTMeta_2.gif](docs/content/getting_started/onboardingDLTMeta_2.gif)
+![onboardingDLTMeta_2.gif](docs/static/images/onboardingDLTMeta_2.gif)
 
 
 - Goto your databricks workspace and located onboarding job under: Workflow->Jobs runs
@@ -155,7 +155,7 @@ Above commands will prompt you to provide onboarding details. If you have cloned
 - - Above command will prompt you to provide dlt details. Please provide respective details for schema which you provided in above steps
 - - Bronze DLT
 
-![deployingDLTMeta_bronze.gif](docs/content/getting_started/deployingDLTMeta_bronze.gif)
+![deployingDLTMeta_bronze.gif](docs/static/images/deployingDLTMeta_bronze.gif)
 
 
 - Silver DLT
@@ -164,7 +164,7 @@ Above commands will prompt you to provide onboarding details. If you have cloned
     ```
 - - Above command will prompt you to provide dlt details. Please provide respective details for schema which you provided in above steps
 
-![deployingDLTMeta_silver.gif](docs/content/getting_started/deployingDLTMeta_silver.gif)
+![deployingDLTMeta_silver.gif](docs/static/images/deployingDLTMeta_silver.gif)
 
 
 ## More questions
