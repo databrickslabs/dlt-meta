@@ -16,7 +16,7 @@ draft: false
 4. ```source .venv/bin/activate ```
 5. ``` pip install databricks-sdk ```
 
-![onboardingDLTMeta.gif](docs/content/getting_started/onboardingDLTMeta.gif)
+![onboardingDLTMeta.gif](docs/static/images/onboardingDLTMeta.gif)
 
 ##### run dlt-meta cli command: 
  ```shell 
@@ -26,6 +26,6 @@ draft: false
 - If you have cloned dlt-meta git repo then accepting defaults will launch config from [demo/conf](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf) folder.
 - You can create onboarding files e.g onboarding.json, data quality and silver transformations and put it in conf folder as show in [demo/conf](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf)
 
-![onboardingDLTMeta_2.gif](docs/content/getting_started/onboardingDLTMeta_2.gif)
+![onboardingDLTMeta_2.gif](docs/static/images/onboardingDLTMeta_2.gif)
 
 - Goto your databricks workspace and located onboarding job under: Workflow->Jobs runs
