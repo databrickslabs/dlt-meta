@@ -18,7 +18,7 @@ draft: false
  databricks labs dlt-meta onboard
  ```
  
-![onboardingDLTMeta.gif](docs/static/images/onboardingDLTMeta.gif)
+![onboardingDLTMeta.gif](/images/onboardingDLTMeta.gif)
 
 - Once onboarding jobs is finished deploy `bronze` and `silver` DLT using below command
 #### Deploy Bronze DLT
@@ -27,7 +27,7 @@ draft: false
    ```
 - Above command will prompt you to provide dlt details. Please provide respective details for schema which you provided in above steps
 
-![deployingDLTMeta_bronze.gif](docs/static/images/deployingDLTMeta_bronze.gif)
+![deployingDLTMeta_bronze.gif](/images/deployingDLTMeta_bronze.gif)
 
 #### Deploy Silver DLT
  ```shell 
@@ -35,4 +35,4 @@ draft: false
 ```
 - - Above command will prompt you to provide dlt details. Please provide respective details for schema which you provided in above steps
 
-![deployingDLTMeta_silver.gif](docs/static/images/deployingDLTMeta_silver.gif)
+![deployingDLTMeta_silver.gif](/images/deployingDLTMeta_silver.gif)
