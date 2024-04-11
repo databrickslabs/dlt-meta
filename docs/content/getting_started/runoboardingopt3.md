@@ -18,7 +18,6 @@ onboarding_params_map = {
 		"silver_dataflowspec_table": "silver_dataflowspec_table",
 		"silver_dataflowspec_path": "dbfs:/onboarding_tables_cdc/silver",
 		"overwrite": "True",
-		"onboard_layer": "bronze_silver",
 		"env": "dev",
 		"version": "v1",
 		"import_author": "Ravi"
@@ -35,7 +34,6 @@ onboarding_params_map = {
 		"bronze_dataflowspec_table": "bronze_dataflowspec_table", 
 		"silver_dataflowspec_table": "silver_dataflowspec_table",
 		"overwrite": "True",
-		"onboard_layer": "bronze_silver",
 		"env": "dev",
 		"version": "v1",
 		"import_author": "Ravi"
