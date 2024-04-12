@@ -23,6 +23,7 @@ Note: This script requires certain command line arguments to be provided in orde
 """
 
 import uuid
+import webbrowser
 from databricks.sdk.service import jobs
 from databricks.sdk.service.catalog import VolumeType, SchemasAPI
 from databricks.sdk.service.workspace import ImportFormat
@@ -163,7 +164,9 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         runner_conf.job_id = created_job.job_id
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
         print(f"Waiting for job to complete. run_id={created_job.job_id}")
-        run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result()
+        run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id)
+        webbrowser.open(f"{self.ws.config.host}/jobs/{runner_conf.job_id}/runs/{run_by_id}?o={self.ws.get_workspace_id()}/") 
+        print(f"Job launched with url={self.ws.config.host}/jobs/{runner_conf.job_id}/runs/{run_by_id}?o={self.ws.get_workspace_id()}/")        
         print(f"Job run finished. run_id={run_by_id}")
 
     def create_techsummit_demo_workflow(self, runner_conf: TechsummitRunnerConf):

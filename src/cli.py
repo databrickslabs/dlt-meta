@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import uuid
+import webbrowser
 from dataclasses import dataclass
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import jobs, pipelines, compute
@@ -182,6 +183,9 @@ class DLTMeta:
             "launched with run_id={}, Please check the job status in databricks workspace jobs tab"
         ).format(created_job.job_id, run.run_id)
         logger.info(msg)
+        webbrowser.open(f"{self._ws.config.host}/jobs/{created_job.job_id}?o={self._ws.get_workspace_id()}")
+        
+        
 
     def create_onnboarding_job(self, cmd: OnboardCommand):
         """Create the onboarding job."""
@@ -308,6 +312,7 @@ class DLTMeta:
             "Please check the pipeline status in databricks workspace under workflows -> Delta Live Tables tab"
         )
         logger.info(msg)
+        webbrowser.open(f"{self._ws.config.host}/#joblist/pipelines/{pipeline_id}?o={self._ws.get_workspace_id()}/")
 
     def _load_onboard_config(self) -> OnboardCommand:
         onboard_cmd_dict = {}

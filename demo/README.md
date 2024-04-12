@@ -61,7 +61,7 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
         export PYTHONPATH=<<local dlt-meta path>>
     ```
 
-6. Run the command ```python demo/launch_techsummit_demo.py --username=ravi.gawai@databricks.com --source=cloudfiles --cloud_provider_name=aws --dbr_version=13.3.x-scala2.12 --dbfs_path=dbfs:/techsummit-dlt-meta-demo-automated ```
+6. Run the command ```python demo/launch_techsummit_demo.py --source=cloudfiles --cloud_provider_name=aws --dbr_version=13.3.x-scala2.12 --dbfs_path=dbfs:/techsummit-dlt-meta-demo-automated ```
     - cloud_provider_name : aws or azure or gcp
     - db_version : Databricks Runtime Version
     - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
