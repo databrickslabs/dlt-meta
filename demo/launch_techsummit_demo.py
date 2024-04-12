@@ -165,9 +165,9 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
         print(f"Waiting for job to complete. run_id={created_job.job_id}")
         run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id)
-        webbrowser.open(f"{self.ws.config.host}/jobs/{runner_conf.job_id}/runs/{run_by_id}?o={self.ws.get_workspace_id()}/") 
-        print(f"Job launched with url={self.ws.config.host}/jobs/{runner_conf.job_id}/runs/{run_by_id}?o={self.ws.get_workspace_id()}/")        
-        print(f"Job run finished. run_id={run_by_id}")
+        url = f"{self.ws.config.host}/jobs/{runner_conf.job_id}/runs/{run_by_id}?o={self.ws.get_workspace_id()}/"
+        webbrowser.open(url)
+        print(f"Job launched with url={url}")
 
     def create_techsummit_demo_workflow(self, runner_conf: TechsummitRunnerConf):
         """

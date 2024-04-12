@@ -184,8 +184,6 @@ class DLTMeta:
         ).format(created_job.job_id, run.run_id)
         logger.info(msg)
         webbrowser.open(f"{self._ws.config.host}/jobs/{created_job.job_id}?o={self._ws.get_workspace_id()}")
-        
-        
 
     def create_onnboarding_job(self, cmd: OnboardCommand):
         """Create the onboarding job."""
