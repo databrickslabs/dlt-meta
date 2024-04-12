@@ -4,7 +4,7 @@ description: Metadata-driven framework based on Databricks Delta Live Tables
 install:
   script: src/install.py
 entrypoint: src/cli.py
-min_python: 3.10
+min_python: 3.8
 commands:
   - name: onboard
     description: onboards dlt-meta configuration for bronze and silver layers
