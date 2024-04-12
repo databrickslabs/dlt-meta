@@ -26,13 +26,6 @@
         <img src="https://img.shields.io/codecov/c/github/databrickslabs/dlt-meta?style=for-the-badge&amp;token=2CxLj3YBam"
              alt="codecov"/>
     </a>
-    <a href="https://lgtm.com/projects/g/databrickslabs/dlt-meta/alerts">
-        <img src="https://img.shields.io/lgtm/alerts/github/databricks/dlt-meta?style=for-the-badge" alt="lgtm-alerts"/>
-    </a>
-    <a href="https://lgtm.com/projects/g/databrickslabs/dlt-meta/context:python">
-        <img src="https://img.shields.io/lgtm/grade/python/github/databrickslabs/dbx?style=for-the-badge"
-             alt="lgtm-code-quality"/>
-    </a>
     <a href="https://pypistats.org/packages/dl-meta">
         <img src="https://img.shields.io/pypi/dm/dlt-meta?style=for-the-badge" alt="downloads"/>
     </a>
