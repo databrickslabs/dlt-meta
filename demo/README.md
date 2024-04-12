@@ -3,7 +3,8 @@
  2. [Databricks Techsummit Demo](#databricks-tech-summit-fy2024-demo): 100s of data sources ingestion in bronze and silver DLT pipelines automatically.
 
 
-# DAIS 2023 DEMO
+# DAIS 2023 DEMO 
+## [DAIS 2023 Session Recording](https://www.youtube.com/watch?v=WYv5haxLlfA)
 This Demo launches Bronze and Silver DLT pipleines with following activities:
 - Customer and Transactions feeds for initial load
 - Adds new feeds Product and Stores to existing Bronze and Silver DLT pipelines with metadata changes.
