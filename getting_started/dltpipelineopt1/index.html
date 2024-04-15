@@ -7,17 +7,17 @@
 <meta name=author content="Ravi Gawai (Databricks)">
 <link rel=icon href=https://databrickslabs.github.io/dlt-meta/images/favicon.png type=image/png>
 <title>Launch Generic DLT pipeline :: DLT-META</title>
-<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1710887757 rel=stylesheet>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1710887757></script>
+<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1713198720 rel=stylesheet>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1713198720></script>
 <style>:root #header+#content>#left>#rlblock_left{display:none!important}</style>
 <script async defer src=https://buttons.github.io/buttons.js></script>
 </head>
@@ -33,10 +33,10 @@
 <input data-search-input id=search-by type=search placeholder=Search...>
 <span data-search-clear><i class="fas fa-times"></i></span>
 </div>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1710887757></script>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1710887757></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1713198720></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1713198720></script>
 <script type=text/javascript>var baseurl="https://databrickslabs.github.io/dlt-meta/"</script>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1710887757></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1713198720></script>
 </div>
 <section id=homelinks>
 <ul>
@@ -173,13 +173,14 @@ Launch Generic DLT pipeline
 <li>Python 3.8.0 +</li>
 </ul>
 <h5 id=steps>Steps:</h5>
-<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell> git clone dlt-meta 
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell> git clone https://github.com/databrickslabs/dlt-meta.git 
  cd dlt-meta
  python -m venv .venv 
  source .venv/bin/activate 
  pip install databricks-sdk 
  databricks labs dlt-meta onboard
-</code></pre></div><ul>
+</code></pre></div><p><img src=https://databrickslabs.github.io/dlt-meta/images/onboardingDLTMeta.gif alt=onboardingDLTMeta.gif></p>
+<ul>
 <li>Once onboarding jobs is finished deploy <code>bronze</code> and <code>silver</code> DLT using below command</li>
 </ul>
 <h4 id=deploy-bronze-dlt>Deploy Bronze DLT</h4>
@@ -187,25 +188,8 @@ Launch Generic DLT pipeline
 </code></pre></div><ul>
 <li>Above command will prompt you to provide dlt details. Please provide respective details for schema which you provided in above steps</li>
 </ul>
-<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>    Deploy DLT-META with unity catalog enabled?
-    <span style=color:#f92672>[</span>0<span style=color:#f92672>]</span> False
-    <span style=color:#f92672>[</span>1<span style=color:#f92672>]</span> True
-    Enter a number between <span style=color:#ae81ff>0</span> and 1: <span style=color:#ae81ff>1</span>
-    Provide unity catalog name: uc_catalog_name
-    Deploy DLT-META with serverless?
-    <span style=color:#f92672>[</span>0<span style=color:#f92672>]</span> False
-    <span style=color:#f92672>[</span>1<span style=color:#f92672>]</span> True
-    Enter a number between <span style=color:#ae81ff>0</span> and 1: <span style=color:#ae81ff>1</span>
-    Provide dlt meta layer
-    <span style=color:#f92672>[</span>0<span style=color:#f92672>]</span> bronze
-    <span style=color:#f92672>[</span>1<span style=color:#f92672>]</span> silver
-    Enter a number between <span style=color:#ae81ff>0</span> and 1: <span style=color:#ae81ff>0</span>
-    Provide dlt meta onboard group: A1  
-    Provide dlt_meta dataflowspec schema name: dlt_meta_dataflowspecs_203b9
-    Provide bronze dataflowspec table name <span style=color:#f92672>(</span>default: bronze_dataflowspec<span style=color:#f92672>)</span>: 
-    Provide dlt meta pipeline name <span style=color:#f92672>(</span>default: dlt_meta_bronze_pipeline_2aee<span style=color:#f92672>)</span>: 
-    Provide dlt target schema name: dltmeta_bronze_cf595
-</code></pre></div><h4 id=deploy-silver-dlt>Deploy Silver DLT</h4>
+<p><img src=https://databrickslabs.github.io/dlt-meta/images/deployingDLTMeta_bronze.gif alt=deployingDLTMeta_bronze.gif></p>
+<h4 id=deploy-silver-dlt>Deploy Silver DLT</h4>
 <div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>       databricks labs dlt-meta deploy
 </code></pre></div><ul>
 <li>
@@ -214,25 +198,7 @@ Launch Generic DLT pipeline
 </ul>
 </li>
 </ul>
-<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>    Deploy DLT-META with unity catalog enabled?
-    <span style=color:#f92672>[</span>0<span style=color:#f92672>]</span> False
-    <span style=color:#f92672>[</span>1<span style=color:#f92672>]</span> True
-    Enter a number between <span style=color:#ae81ff>0</span> and 1: <span style=color:#ae81ff>1</span>
-    Provide unity catalog name: uc_catalog_name
-    Deploy DLT-META with serverless?
-    <span style=color:#f92672>[</span>0<span style=color:#f92672>]</span> False
-    <span style=color:#f92672>[</span>1<span style=color:#f92672>]</span> True
-    Enter a number between <span style=color:#ae81ff>0</span> and 1: <span style=color:#ae81ff>1</span>
-    Provide dlt meta layer
-    <span style=color:#f92672>[</span>0<span style=color:#f92672>]</span> bronze
-    <span style=color:#f92672>[</span>1<span style=color:#f92672>]</span> silver
-    Enter a number between <span style=color:#ae81ff>0</span> and 1: <span style=color:#ae81ff>1</span>
-    Provide dlt meta onboard group: A1
-    Provide dlt_meta dataflowspec schema name: dlt_meta_dataflowspecs_203b9
-    Provide silver dataflowspec table name <span style=color:#f92672>(</span>default: silver_dataflowspec<span style=color:#f92672>)</span>: 
-    Provide dlt meta pipeline name <span style=color:#f92672>(</span>default: dlt_meta_silver_pipeline_21475<span style=color:#f92672>)</span>: 
-    Provide dlt target schema name: dltmeta_silver_5afa2
-</code></pre></div>
+<p><img src=https://databrickslabs.github.io/dlt-meta/images/deployingDLTMeta_silver.gif alt=deployingDLTMeta_silver.gif></p>
 <footer class=footline>
 </footer>
 </div>
@@ -245,17 +211,17 @@ Launch Generic DLT pipeline
 <div style=left:-1000px;overflow:scroll;position:absolute;top:-1000px;border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px>
 <div style=border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px></div>
 </div>
-<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1710887757></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1713198720></script>
 <script>hljs.initHighlightingOnLoad()</script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1710887757></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1713198720></script>
 <script>mermaid.initialize({startOnLoad:!0})</script>
 </body>
 </html>

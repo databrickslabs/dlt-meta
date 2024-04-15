@@ -7,17 +7,17 @@
 <meta name=author content="Ravi Gawai (Databricks)">
 <link rel=icon href=https://databrickslabs.github.io/dlt-meta/images/favicon.png type=image/png>
 <title>Run Onboarding :: DLT-META</title>
-<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1710887757 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1710887757 rel=stylesheet>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1710887757></script>
+<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1713198720 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1713198720 rel=stylesheet>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1713198720></script>
 <style>:root #header+#content>#left>#rlblock_left{display:none!important}</style>
 <script async defer src=https://buttons.github.io/buttons.js></script>
 </head>
@@ -33,10 +33,10 @@
 <input data-search-input id=search-by type=search placeholder=Search...>
 <span data-search-clear><i class="fas fa-times"></i></span>
 </div>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1710887757></script>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1710887757></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1713198720></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1713198720></script>
 <script type=text/javascript>var baseurl="https://databrickslabs.github.io/dlt-meta/"</script>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1710887757></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1713198720></script>
 </div>
 <section id=homelinks>
 <ul>
@@ -174,12 +174,13 @@ Run Onboarding
 </ul>
 <h5 id=steps>Steps:</h5>
 <ol>
-<li><code>git clone dlt-meta</code></li>
+<li><code>git clone https://github.com/databrickslabs/dlt-meta.git</code></li>
 <li><code>cd dlt-meta</code></li>
 <li><code>python -m venv .venv</code></li>
 <li><code>source .venv/bin/activate </code></li>
 <li><code>pip install databricks-sdk</code></li>
 </ol>
+<p><img src=https://databrickslabs.github.io/dlt-meta/images/onboardingDLTMeta.gif alt=onboardingDLTMeta.gif></p>
 <h5 id=run-dlt-meta-cli-command>run dlt-meta cli command:</h5>
 <div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>   databricks labs dlt-meta onboard
 </code></pre></div><ul>
@@ -187,41 +188,8 @@ Run Onboarding
 <li>If you have cloned dlt-meta git repo then accepting defaults will launch config from <a href=https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf>demo/conf</a> folder.</li>
 <li>You can create onboarding files e.g onboarding.json, data quality and silver transformations and put it in conf folder as show in <a href=https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf>demo/conf</a></li>
 </ul>
-<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>		Provide onboarding file path <span style=color:#f92672>(</span>default: demo/conf/onboarding.template<span style=color:#f92672>)</span>: 
-        Provide onboarding files local directory <span style=color:#f92672>(</span>default: demo/<span style=color:#f92672>)</span>: 
-        Provide dbfs path <span style=color:#f92672>(</span>default: dbfs:/dlt-meta_cli_demo<span style=color:#f92672>)</span>: 
-        Provide databricks runtime version <span style=color:#f92672>(</span>default: 14.2.x-scala2.12<span style=color:#f92672>)</span>: 
-        Run onboarding with unity catalog enabled?
-        <span style=color:#f92672>[</span>0<span style=color:#f92672>]</span> False
-        <span style=color:#f92672>[</span>1<span style=color:#f92672>]</span> True
-        Enter a number between <span style=color:#ae81ff>0</span> and 1: <span style=color:#ae81ff>1</span>
-        Provide unity catalog name: uc_catalog_name
-        Provide dlt meta schema name <span style=color:#f92672>(</span>default: dlt_meta_dataflowspecs_203b9<span style=color:#f92672>)</span>: 
-        Provide dlt meta bronze layer schema name <span style=color:#f92672>(</span>default: dltmeta_bronze_cf595<span style=color:#f92672>)</span>: 
-        Provide dlt meta silver layer schema name <span style=color:#f92672>(</span>default: dltmeta_silver_5afa2<span style=color:#f92672>)</span>: 
-        Provide dlt meta layer
-        <span style=color:#f92672>[</span>0<span style=color:#f92672>]</span> bronze
-        <span style=color:#f92672>[</span>1<span style=color:#f92672>]</span> bronze_silver
-        <span style=color:#f92672>[</span>2<span style=color:#f92672>]</span> silver
-        Enter a number between <span style=color:#ae81ff>0</span> and 2: <span style=color:#ae81ff>1</span>
-        Provide bronze dataflow spec table name <span style=color:#f92672>(</span>default: bronze_dataflowspec<span style=color:#f92672>)</span>: 
-        Provide silver dataflow spec table name <span style=color:#f92672>(</span>default: silver_dataflowspec<span style=color:#f92672>)</span>: 
-        Overwrite dataflow spec?
-        <span style=color:#f92672>[</span>0<span style=color:#f92672>]</span> False
-        <span style=color:#f92672>[</span>1<span style=color:#f92672>]</span> True
-        Enter a number between <span style=color:#ae81ff>0</span> and 1: <span style=color:#ae81ff>1</span>
-        Provide dataflow spec version <span style=color:#f92672>(</span>default: v1<span style=color:#f92672>)</span>: 
-        Provide environment name <span style=color:#f92672>(</span>default: prod<span style=color:#f92672>)</span>: prod
-        Provide import author name <span style=color:#f92672>(</span>default: ravi.gawai<span style=color:#f92672>)</span>: 
-        Provide cloud provider name
-        <span style=color:#f92672>[</span>0<span style=color:#f92672>]</span> aws
-        <span style=color:#f92672>[</span>1<span style=color:#f92672>]</span> azure
-        <span style=color:#f92672>[</span>2<span style=color:#f92672>]</span> gcp
-        Enter a number between <span style=color:#ae81ff>0</span> and 2: <span style=color:#ae81ff>0</span>
-        Do you want to update ws paths, catalog, schema details to your onboarding file?
-        <span style=color:#f92672>[</span>0<span style=color:#f92672>]</span> False
-        <span style=color:#f92672>[</span>1<span style=color:#f92672>]</span> True
-</code></pre></div><ul>
+<p><img src=https://databrickslabs.github.io/dlt-meta/images/onboardingDLTMeta_2.gif alt=onboardingDLTMeta_2.gif></p>
+<ul>
 <li>Goto your databricks workspace and located onboarding job under: Workflow->Jobs runs</li>
 </ul>
 <footer class=footline>
@@ -236,17 +204,17 @@ Run Onboarding
 <div style=left:-1000px;overflow:scroll;position:absolute;top:-1000px;border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px>
 <div style=border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px></div>
 </div>
-<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1710887757></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1713198720></script>
 <script>hljs.initHighlightingOnLoad()</script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1710887757></script>
-<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1710887757></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1713198720></script>
+<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1713198720></script>
 <script>mermaid.initialize({startOnLoad:!0})</script>
 </body>
 </html>
