@@ -3,7 +3,8 @@
  2. [Databricks Techsummit Demo](#databricks-tech-summit-fy2024-demo): 100s of data sources ingestion in bronze and silver DLT pipelines automatically.
 
 
-# DAIS 2023 DEMO
+# DAIS 2023 DEMO 
+## [DAIS 2023 Session Recording](https://www.youtube.com/watch?v=WYv5haxLlfA)
 This Demo launches Bronze and Silver DLT pipleines with following activities:
 - Customer and Transactions feeds for initial load
 - Adds new feeds Product and Stores to existing Bronze and Silver DLT pipelines with metadata changes.
@@ -23,7 +24,7 @@ This Demo launches Bronze and Silver DLT pipleines with following activities:
         export PYTHONPATH=<<local dlt-meta path>>
     ```
 
-6. Run the command ```python demo/launch_dais_demo.py --username=<<your databricks username>> --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --cloud_provider_name=aws --dbr_version=13.3.x-scala2.12 --dbfs_path=dbfs:/dais-dlt-meta-demo-automated_new```
+6. Run the command ```python demo/launch_dais_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --cloud_provider_name=aws --dbr_version=13.3.x-scala2.12 --dbfs_path=dbfs:/dais-dlt-meta-demo-automated_new```
     - cloud_provider_name : aws or azure or gcp
     - db_version : Databricks Runtime Version
     - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
@@ -61,7 +62,7 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
         export PYTHONPATH=<<local dlt-meta path>>
     ```
 
-6. Run the command ```python demo/launch_techsummit_demo.py --username=ravi.gawai@databricks.com --source=cloudfiles --cloud_provider_name=aws --dbr_version=13.3.x-scala2.12 --dbfs_path=dbfs:/techsummit-dlt-meta-demo-automated ```
+6. Run the command ```python demo/launch_techsummit_demo.py --source=cloudfiles --cloud_provider_name=aws --dbr_version=13.3.x-scala2.12 --dbfs_path=dbfs:/techsummit-dlt-meta-demo-automated ```
     - cloud_provider_name : aws or azure or gcp
     - db_version : Databricks Runtime Version
     - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines

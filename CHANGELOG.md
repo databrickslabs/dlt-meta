@@ -1,5 +1,10 @@
 # Changelog
 
+## [v.0.0.7] 
+- Added dlt-meta cli documentation and readme with browser support: [PR](https://github.com/databrickslabs/dlt-meta/pull/45)
+
+## [v.0.0.6] 
+- migrate to create streaming table api from create streaming live table: [PR](https://github.com/databrickslabs/dlt-meta/pull/39)
 
 ## [v.0.0.5] 
 - Enabled Unity Catalog support: [PR](https://github.com/databrickslabs/dlt-meta/pull/28)
