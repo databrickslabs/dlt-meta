@@ -153,7 +153,7 @@ class DLTMeta:
         """Perform the onboarding process."""
         self.update_ws_onboarding_paths(cmd)
         if not self._ws.dbfs.exists(cmd.dbfs_path + "/dltmeta_conf/"):
-            self._ws.dbfs.create(path=cmd.dbfs_path + "/dltmeta_conf/", overwrite=True)
+            self._ws.dbfs.mkdirs(f"{cmd.dbfs_path}/dltmeta_conf/")
         ob_file = open(cmd.onboarding_file_path, "rb")
         onboarding_filename = os.path.basename(cmd.onboarding_file_path)
         self._ws.dbfs.upload(cmd.dbfs_path + f"/dltmeta_conf/{onboarding_filename}", ob_file, overwrite=True)
