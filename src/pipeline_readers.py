@@ -1,5 +1,6 @@
 """PipelineReaders providers DLT readers functionality."""
 import logging
+import json
 from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
 from pyspark.sql.functions import from_json, col
@@ -30,21 +31,40 @@ class PipelineReaders:
         logger.info("In read_dlt_cloud_files func")
         source_path = bronze_dataflow_spec.sourceDetails["path"]
         reader_config_options = bronze_dataflow_spec.readerConfigOptions
-
+        input_df = None
         if schema_json and bronze_dataflow_spec.sourceFormat.lower() != "delta":
             schema = StructType.fromJson(schema_json)
-            return (
+            input_df = (
                 spark.readStream.format(bronze_dataflow_spec.sourceFormat)
                 .options(**reader_config_options)
                 .schema(schema)
                 .load(source_path)
             )
         else:
-            return (
+            input_df = (
                 spark.readStream.format(bronze_dataflow_spec.sourceFormat)
                 .options(**reader_config_options)
                 .load(source_path)
             )
+        if bronze_dataflow_spec.sourceDetails and "source_metadata" in bronze_dataflow_spec.sourceDetails.keys():
+            input_df = PipelineReaders.add_cloudfiles_metadata(bronze_dataflow_spec, input_df)
+        return input_df
+
+    @staticmethod
+    def add_cloudfiles_metadata(bronze_dataflow_spec, input_df):
+        source_metadata_json = json.loads(bronze_dataflow_spec.sourceDetails.get("source_metadata"))
+        keys = source_metadata_json.keys()
+        if "include_autoloader_metadata_column" in keys:
+            if source_metadata_json["autoloader_metadata_col_name"]:
+                source_metadata_col_name = source_metadata_json["autoloader_metadata_col_name"]
+                input_df = input_df.selectExpr("*", f"_metadata as {source_metadata_col_name}")
+            else:
+                input_df = input_df.selectExpr("*", "_metadata as source_metadata")
+            if source_metadata_json["select_metadata_cols"]:
+                select_metadata_cols = source_metadata_json["select_metadata_cols"]
+                for select_metadata_col in select_metadata_cols:
+                    input_df = input_df.withColumn(select_metadata_col, col(source_metadata_json[select_metadata_col]))
+        return input_df
 
     @staticmethod
     def read_dlt_delta(spark, bronze_dataflow_spec) -> DataFrame:

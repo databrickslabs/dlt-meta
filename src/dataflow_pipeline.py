@@ -23,7 +23,7 @@ class DataflowPipeline:
         [type]: [description]
     """
 
-    def __init__(self, spark, dataflow_spec, view_name, view_name_quarantine=None):
+    def __init__(self, spark, dataflow_spec, view_name, view_name_quarantine=None, tranform_func=None):
         """Initialize Constructor."""
         logger.info(
             f"""dataflowSpec={dataflow_spec} ,
@@ -31,11 +31,11 @@ class DataflowPipeline:
                 view_name_quarantine={view_name_quarantine}"""
         )
         if isinstance(dataflow_spec, BronzeDataflowSpec) or isinstance(dataflow_spec, SilverDataflowSpec):
-            self.__initialize_dataflow_pipeline(spark, dataflow_spec, view_name, view_name_quarantine)
+            self.__initialize_dataflow_pipeline(spark, dataflow_spec, view_name, view_name_quarantine, tranform_func)
         else:
             raise Exception("Dataflow not supported!")
 
-    def __initialize_dataflow_pipeline(self, spark, dataflow_spec, view_name, view_name_quarantine):
+    def __initialize_dataflow_pipeline(self, spark, dataflow_spec, view_name, view_name_quarantine, tranform_func):
         """Initialize dataflow pipeline state."""
         self.spark = spark
         uc_enabled_str = spark.conf.get("spark.databricks.unityCatalog.enabled", "False")
@@ -45,6 +45,7 @@ class DataflowPipeline:
         self.view_name = view_name
         if view_name_quarantine:
             self.view_name_quarantine = view_name_quarantine
+        self.tranform_func = tranform_func
         if dataflow_spec.cdcApplyChanges:
             self.cdcApplyChanges = DataflowSpecUtils.get_cdc_apply_changes(self.dataflowSpec.cdcApplyChanges)
         else:
@@ -375,7 +376,7 @@ class DataflowPipeline:
         self.write()
 
     @staticmethod
-    def invoke_dlt_pipeline(spark, layer):
+    def invoke_dlt_pipeline(spark, layer, tranform_func=None):
         """Invoke dlt pipeline will launch dlt with given dataflowspec.
 
         Args:
@@ -396,7 +397,8 @@ class DataflowPipeline:
                     and dataflowSpec.quarantineTargetDetails != {}:
                 quarantine_input_view_name = (
                     f"{dataflowSpec.quarantineTargetDetails['table']}"
-                    f"_{layer}_quarantine_inputView"
+                    f"_{layer}_quarantine_inputView",
+                    tranform_func
                 )
             else:
                 logger.info("quarantine_input_view_name set to None")
@@ -406,6 +408,7 @@ class DataflowPipeline:
                 dataflowSpec,
                 f"{dataflowSpec.targetDetails['table']}_{layer}_inputView",
                 quarantine_input_view_name,
+                tranform_func
             )
 
             dlt_data_flow.run_dlt()

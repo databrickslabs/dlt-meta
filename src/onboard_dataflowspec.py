@@ -388,6 +388,24 @@ class OnboardDataflowspec:
             if not onboarding_row[field]:
                 raise Exception(f"Missing field={field} in onboarding_row")
 
+    def flatten_data(y):
+        out = {}
+
+        def flatten(x, name=''):
+            if type(x) is dict:
+                for a in x:
+                    flatten(x[a], name + a + '_')
+            elif type(x) is list:
+                i = 0
+                for a in x:
+                    flatten(a, name + str(i) + '_')
+                    i += 1
+            else:
+                out[name[:-1]] = x
+
+        flatten(y)
+        return out
+
     def __get_bronze_dataflow_spec_dataframe(self, onboarding_df, env):
         """Get bronze dataflow spec method will convert onboarding dataframe to Bronze Dataflowspec dataframe.
 
@@ -470,6 +488,14 @@ class OnboardDataflowspec:
                         source_details["source_database"] = source_details_file["source_database"]
                     if "source_table" in source_details_file:
                         source_details["source_table"] = source_details_file["source_table"]
+                    if "source_metadata" in source_details_file:
+                        source_metadata_dict = source_details_file["source_metadata"].asDict()
+                        if "select_metadata_cols" in source_metadata_dict:
+                            select_metadata_cols = self.__delete_none(
+                                source_details_file["source_metadata"].asDict()["select_metadata_cols"].asDict()
+                            )
+                            source_metadata_dict["select_metadata_cols"] = select_metadata_cols
+                        source_details["source_metadata"] = json.dumps(self.__delete_none(source_metadata_dict))
                 elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
                     source_details = source_details_file
                 if "source_schema_path" in source_details_file:
