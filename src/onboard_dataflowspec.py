@@ -489,10 +489,10 @@ class OnboardDataflowspec:
                     if "source_table" in source_details_file:
                         source_details["source_table"] = source_details_file["source_table"]
                     if "source_metadata" in source_details_file:
-                        source_metadata_dict = source_details_file["source_metadata"].asDict()
+                        source_metadata_dict = self.__delete_none(source_details_file["source_metadata"].asDict())
                         if "select_metadata_cols" in source_metadata_dict:
                             select_metadata_cols = self.__delete_none(
-                                source_details_file["source_metadata"].asDict()["select_metadata_cols"].asDict()
+                                source_metadata_dict["select_metadata_cols"].asDict()
                             )
                             source_metadata_dict["select_metadata_cols"] = select_metadata_cols
                         source_details["source_metadata"] = json.dumps(self.__delete_none(source_metadata_dict))

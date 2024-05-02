@@ -55,15 +55,15 @@ class PipelineReaders:
         source_metadata_json = json.loads(bronze_dataflow_spec.sourceDetails.get("source_metadata"))
         keys = source_metadata_json.keys()
         if "include_autoloader_metadata_column" in keys:
-            if source_metadata_json["autoloader_metadata_col_name"]:
+            if "autoloader_metadata_col_name" in source_metadata_json:
                 source_metadata_col_name = source_metadata_json["autoloader_metadata_col_name"]
                 input_df = input_df.selectExpr("*", f"_metadata as {source_metadata_col_name}")
             else:
                 input_df = input_df.selectExpr("*", "_metadata as source_metadata")
-            if source_metadata_json["select_metadata_cols"]:
+            if "select_metadata_cols" in source_metadata_json:
                 select_metadata_cols = source_metadata_json["select_metadata_cols"]
                 for select_metadata_col in select_metadata_cols:
-                    input_df = input_df.withColumn(select_metadata_col, col(source_metadata_json[select_metadata_col]))
+                    input_df = input_df.withColumn(select_metadata_col, col(select_metadata_cols[select_metadata_col]))
         return input_df
 
     @staticmethod

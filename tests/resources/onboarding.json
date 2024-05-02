@@ -70,13 +70,8 @@
             "source_path_prd": "tests/resources/data/transactions",
             "source_path_dev": "tests/resources/data/transactions",
             "source_metadata": {
-                "include_autoloader_metadata_column": "True",
-                "autoloader_metadata_col_name": "source_metadata",
-                "select_metadata_cols": {
-                    "input_file_name": "_metadata.file_name",
-                    "input_file_path": "_metadata.file_path"
-                }
-            }
+                "include_autoloader_metadata_column": "True"
+          }   
         },
         "bronze_database_dev": "bronze",
         "bronze_database_staging": "bronze",
