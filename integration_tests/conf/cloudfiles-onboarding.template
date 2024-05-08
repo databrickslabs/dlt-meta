@@ -14,7 +14,7 @@
                "input_file_name": "_metadata.file_name",
                "input_file_path": "_metadata.file_path"
             }
-      }      
+      }     
    },
    "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",
    "bronze_table": "customers",
