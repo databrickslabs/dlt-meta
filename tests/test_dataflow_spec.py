@@ -178,7 +178,66 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
             None,
             None,
             None,
+            None,
             None
         )
         spark_schema = DataflowSpecUtils.get_schema_json(self.spark, dataflowSpec)
         self.assertIsNotNone(spark_schema)
+
+    def test_get_append_flow_positive(self):
+        append_flow_spec = """[{
+            "name":"customer_bronze_flow1",
+            "create_streaming_table":true,
+            "source_format":"cloudFiles",
+            "source_details":{
+                "source_database":"ravi_dlt_demo",
+                "table":"bronze_dataflowspec_cdc"
+            },
+            "reader_options":{},
+            "spark_conf":{},
+            "sink_options":{},
+            "once":true
+        }]"""
+        append_flows = DataflowSpecUtils.get_append_flows(append_flow_spec)
+        append_flow = append_flows[0]
+        self.assertEqual(append_flow.create_streaming_table, True)
+        self.assertEqual(append_flow.source_format, "cloudFiles")
+        self.assertEqual(append_flow.source_details, {"source_database": "ravi_dlt_demo",
+                                                      "table": "bronze_dataflowspec_cdc"})
+        self.assertEqual(append_flow.reader_options, {})
+        self.assertEqual(append_flow.spark_conf, {})
+        self.assertEqual(append_flow.sink_options, {})
+        self.assertEqual(append_flow.once, True)
+
+    append_flow_mandatory_attributes = ["name", "source_format", "create_streaming_table", "source_details"]
+
+    def test_get_append_flow_mandatory_params(self):
+        append_flow_spec = """[{
+            "name":"customer_bronze_flow1",
+            "create_streaming_table":false,
+            "source_format":"cloudFiles",
+            "source_details":{
+                "source_database":"ravi_dlt_demo",
+                "table":"bronze_dataflowspec_cdc"
+            }
+        }]"""
+        append_flow = DataflowSpecUtils.get_append_flows(append_flow_spec)[0]
+        self.assertEqual(append_flow.name, "customer_bronze_flow1")
+        self.assertEqual(append_flow.source_format, "cloudFiles")
+        self.assertEqual(append_flow.create_streaming_table, False)
+        self.assertEqual(append_flow.source_details, {"source_database": "ravi_dlt_demo",
+                                                      "table": "bronze_dataflowspec_cdc"})
+
+    def test_get_append_flow_missing_mandatory_params(self):
+        append_flow_spec = """{"name":"customer_bronze_flow1", "create_streaming_table":false}"""
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_append_flows(append_flow_spec)
+        append_flow_spec = """{"name":"customer_bronze_flow1", "source_format":"cloudFiles"}"""
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_append_flows(append_flow_spec)
+        append_flow_spec = """ "name":"customer_bronze_flow1","source_details":{
+                "source_database":"ravi_dlt_demo",
+                "table":"bronze_dataflowspec_cdc"
+            }"""
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_append_flows(append_flow_spec)

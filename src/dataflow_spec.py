@@ -32,6 +32,7 @@ class BronzeDataflowSpec:
     dataQualityExpectations: str
     quarantineTargetDetails: map
     quarantineTableProperties: map
+    appendFlows: str
     version: str
     createDate: datetime
     createdBy: str
@@ -56,6 +57,7 @@ class SilverDataflowSpec:
     partitionColumns: list
     cdcApplyChanges: str
     dataQualityExpectations: str
+    appendFlows: str
     version: str
     createDate: datetime
     createdBy: str
@@ -78,6 +80,24 @@ class CDCApplyChanges:
     scd_type: str
     track_history_column_list: list
     track_history_except_column_list: list
+    flow_name: str
+    once: bool
+    ignore_null_updates_column_list: list
+    ignore_null_updates_except_column_list: list
+
+
+@dataclass
+class AppendFlow:
+    """Append Flow structure."""
+    name: str
+    comment: str
+    create_streaming_table: bool
+    source_format: str
+    source_details: map
+    reader_options: map
+    spark_conf: map
+    sink_options: map
+    once: bool
 
 
 class DataflowSpecUtils:
@@ -95,9 +115,13 @@ class DataflowSpecUtils:
         "except_column_list",
         "scd_type",
         "track_history_column_list",
-        "track_history_except_column_list"
-
+        "track_history_except_column_list",
+        "flow_name",
+        "once",
+        "ignore_null_updates_column_list",
+        "ignore_null_updates_except_column_list"
     ]
+
     cdc_applychanges_api_attributes_defaults = {
         "where": None,
         "ignore_null_updates": False,
@@ -106,8 +130,22 @@ class DataflowSpecUtils:
         "column_list": None,
         "except_column_list": None,
         "track_history_column_list": None,
-        "track_history_except_column_list": None
+        "track_history_except_column_list": None,
+        "flow_name": None,
+        "once": False,
+        "ignore_null_updates_column_list": None,
+        "ignore_null_updates_except_column_list": None
+    }
 
+    append_flow_mandatory_attributes = ["name", "source_format", "create_streaming_table", "source_details"]
+
+    append_flow_api_attributes_defaults = {
+        "comment": None,
+        "create_streaming_table": False,
+        "reader_options": None,
+        "spark_conf": None,
+        "sink_options": None,
+        "once": False
     }
 
     @staticmethod
@@ -239,6 +277,42 @@ class DataflowSpecUtils:
 
         logger.info(f"final mergeInfo={json_cdc_apply_changes}")
         return CDCApplyChanges(**json_cdc_apply_changes)
+
+    @staticmethod
+    def get_append_flows(append_flows) -> list[AppendFlow]:
+        """Get append flow metadata."""
+        logger.info(append_flows)
+        json_append_flows = json.loads(append_flows)
+        logger.info(f"actual appendFlow={json_append_flows}")
+        list_append_flows = []
+        for json_append_flow in json_append_flows:
+            payload_keys = json_append_flow.keys()
+            missing_append_flow_payload_keys = (
+                set(DataflowSpecUtils.append_flow_api_attributes_defaults)
+                .difference(payload_keys)
+            )
+            logger.info(f"missing append flow payload keys:{missing_append_flow_payload_keys}")
+            if set(DataflowSpecUtils.append_flow_mandatory_attributes) - set(payload_keys):
+                missing_mandatory_attr = (
+                    set(DataflowSpecUtils.append_flow_mandatory_attributes)
+                    - set(payload_keys)
+                )
+                logger.info(f"mandatory missing keys= {missing_mandatory_attr}")
+                raise Exception(f"mandatory missing keys= {missing_mandatory_attr} for append flow")
+            else:
+                logger.info(
+                    f"""all mandatory keys
+                    {DataflowSpecUtils.append_flow_mandatory_attributes} exists"""
+                )
+
+            for missing_append_flow_payload_key in missing_append_flow_payload_keys:
+                json_append_flow[
+                    missing_append_flow_payload_key
+                ] = DataflowSpecUtils.append_flow_api_attributes_defaults[missing_append_flow_payload_key]
+
+            logger.info(f"final appendFlow={json_append_flow}")
+            list_append_flows.append(AppendFlow(**json_append_flow))
+        return list_append_flows
 
     @staticmethod
     def get_schema_json(spark, dataflow_spec):

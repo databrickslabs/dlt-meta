@@ -6,6 +6,7 @@ from src.dataflow_spec import BronzeDataflowSpec
 from src.pipeline_readers import PipelineReaders
 from tests.utils import DLTFrameworkTestCase
 from unittest.mock import MagicMock, patch
+from pyspark.sql import SparkSession
 sys.modules["dlt"] = MagicMock()
 sys.modules["pyspark.dbutils"] = MagicMock()
 
@@ -38,6 +39,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
         "quarantineTableProperties": None,
+        "appendFlows": None,
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -76,6 +78,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
         "quarantineTableProperties": None,
+        "appendFlows": None,
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -113,6 +116,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
         "quarantineTableProperties": None,
+        "appendFlows": None,
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -142,6 +146,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
         "quarantineTableProperties": None,
+        "appendFlows": None,
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -178,29 +183,43 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         source_format_map = {"sourceFormat": "json"}
         bronze_map.update(source_format_map)
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        customer_df = PipelineReaders.read_dlt_cloud_files(self.spark, bronze_dataflow_spec, schema)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            schema
+        )
+        customer_df = pipeline_readers.read_dlt_cloud_files()
         self.assertIsNotNone(customer_df)
 
-    def test_read_cloud_files_no_schema(self):
+    @patch.object(SparkSession, "readStream")
+    def test_read_cloud_files_no_schema(self, SparkSession):
         """Test read_cloud_files positive."""
         mock_format = MagicMock()
         mock_options = MagicMock()
         mock_load = MagicMock()
-        spark.readStream.format.return_value = mock_format
+        SparkSession.readStream.format.return_value = mock_format
         mock_format.options.return_value = mock_options
         mock_options.load.return_value = mock_load
 
         bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
         source_format_map = {"sourceFormat": "json"}
         bronze_map.update(source_format_map)
-        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
-        source_format_map = {"sourceFormat": "json"}
-        bronze_map.update(source_format_map)
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        PipelineReaders.read_dlt_cloud_files(spark, bronze_dataflow_spec, None)
-        spark.readStream.format.assert_called_once_with("json")
-        spark.readStream.format.return_value.options.assert_called_once_with(**bronze_dataflow_spec.readerConfigOptions)
-        spark.readStream.format.return_value.options.return_value.load.assert_called_once_with(
+        pipeline_readers = PipelineReaders(
+            SparkSession,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        pipeline_readers.read_dlt_cloud_files()
+        SparkSession.readStream.format.assert_called_once_with("json")
+        SparkSession.readStream.format.return_value.options.assert_called_once_with(
+            **bronze_dataflow_spec.readerConfigOptions
+        )
+        SparkSession.readStream.format.return_value.options.return_value.load.assert_called_once_with(
             bronze_dataflow_spec.sourceDetails["path"])
 
     def test_read_delta_positive(self):
@@ -216,7 +235,14 @@ class PipelineReadersTests(DLTFrameworkTestCase):
 
         bronze_map.update(source_details_map)
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        customer_df = PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        customer_df = pipeline_readers.read_dlt_delta()
         self.assertIsNotNone(customer_df)
 
     def test_read_delta_with_read_config_positive(self):
@@ -232,7 +258,14 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         reader_config = {"readerConfigOptions": {"maxFilesPerTrigger": "1"}}
         bronze_map.update(reader_config)
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        customer_df = PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        customer_df = pipeline_readers.read_dlt_delta()
         self.assertIsNotNone(customer_df)
 
     @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
@@ -241,7 +274,14 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         """Test Get kafka options."""
         bronze_map = PipelineReadersTests.bronze_eventhub_dataflow_spec_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        kafka_options = PipelineReaders.get_eventhub_kafka_options(self.spark, bronze_dataflow_spec)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        kafka_options = pipeline_readers.get_eventhub_kafka_options()
         self.assertIsNotNone(kafka_options)
 
     @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
@@ -250,7 +290,14 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         """Test Get kafka options."""
         bronze_map = PipelineReadersTests.bronze_eventhub_dataflow_spec_omit_secret_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        kafka_options = PipelineReaders.get_eventhub_kafka_options(self.spark, bronze_dataflow_spec)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        kafka_options = pipeline_readers.get_eventhub_kafka_options()
         self.assertIsNotNone(kafka_options)
 
     @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
@@ -266,24 +313,47 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         }
         bronze_map['sourceDetails'] = source_details_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
         with self.assertRaises(Exception):
-            PipelineReaders.get_kafka_options(self.spark, bronze_dataflow_spec)
+            pipeline_readers.get_kafka_options()
 
     def test_get_kafka_options_positive(self):
         """Test Get kafka options."""
         bronze_map = PipelineReadersTests.bronze_kafka_dataflow_spec_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        kafka_options = PipelineReaders.get_kafka_options(self.spark, bronze_dataflow_spec)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        kafka_options = pipeline_readers.get_kafka_options()
         self.assertIsNotNone(kafka_options)
 
     def test_get_db_utils(self):
         """Test Get kafka options."""
-        dbutils = PipelineReaders.get_db_utils(self.spark)
+        bronze_map = PipelineReadersTests.bronze_kafka_dataflow_spec_map
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        dbutils = pipeline_readers.get_db_utils()
         self.assertIsNotNone(dbutils)
 
-    @patch.object(spark, "readStream", return_value={"called"})
+    @patch.object(SparkSession, "readStream", return_value={"called"})
     @patch.object(dbutils, "secrets.get", return_value={"called"})
-    def test_kafka_positive(self, spark, dbutils):
+    def test_kafka_positive(self, SparkSession, dbutils):
         """Test kafka read positive."""
         bronze_map = PipelineReadersTests.bronze_kafka_dataflow_spec_map
         source_details = bronze_map['sourceDetails']
@@ -298,13 +368,27 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         }
         bronze_map['sourceDetails'] = source_details_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        customer_df = PipelineReaders.read_kafka(spark, bronze_dataflow_spec, None)
+        pipeline_readers = PipelineReaders(
+            SparkSession,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        customer_df = pipeline_readers.read_kafka()
         self.assertIsNotNone(customer_df)
 
-    @patch.object(spark, "readStream", return_value={"called"})
-    def test_eventhub_positive(self, spark):
+    @patch.object(SparkSession, "readStream", return_value={"called"})
+    def test_eventhub_positive(self, SparkSession):
         """Test eventhub read positive."""
         bronze_map = PipelineReadersTests.bronze_eventhub_dataflow_spec_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        customer_df = PipelineReaders.read_kafka(spark, bronze_dataflow_spec, None)
+        pipeline_readers = PipelineReaders(
+            SparkSession,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        customer_df = pipeline_readers.read_kafka()
         self.assertIsNotNone(customer_df)

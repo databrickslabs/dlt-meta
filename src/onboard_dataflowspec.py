@@ -412,7 +412,8 @@ class OnboardDataflowspec:
             "cdcApplyChanges",
             "dataQualityExpectations",
             "quarantineTargetDetails",
-            "quarantineTableProperties"
+            "quarantineTableProperties",
+            "appendFlows"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -433,7 +434,8 @@ class OnboardDataflowspec:
                 StructField("cdcApplyChanges", StringType(), True),
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField("quarantineTargetDetails", MapType(StringType(), StringType(), True), True),
-                StructField("quarantineTableProperties", MapType(StringType(), StringType(), True), True)
+                StructField("quarantineTableProperties", MapType(StringType(), StringType(), True), True),
+                StructField("appendFlows", StringType(), True)
             ]
         )
         data = []
@@ -454,38 +456,10 @@ class OnboardDataflowspec:
             source_format = onboarding_row["source_format"]
             if source_format.lower() not in ["cloudfiles", "eventhub", "kafka", "delta"]:
                 raise Exception(f"Source format {source_format} not supported in DLT-META! row={onboarding_row}")
-            source_details = {}
-            bronze_reader_config_options = {}
-            schema = None
-            bronze_reader_options_json = onboarding_row["bronze_reader_options"]
-            if bronze_reader_options_json:
-                bronze_reader_config_options = self.__delete_none(bronze_reader_options_json.asDict())
-            source_details_json = onboarding_row["source_details"]
-            if source_details_json:
-                source_details_file = self.__delete_none(source_details_json.asDict())
-                if source_format.lower() == "cloudfiles" or source_format.lower() == "delta":
-                    if f"source_path_{env}" in source_details_file:
-                        source_details["path"] = source_details_file[f"source_path_{env}"]
-                    if "source_database" in source_details_file:
-                        source_details["source_database"] = source_details_file["source_database"]
-                    if "source_table" in source_details_file:
-                        source_details["source_table"] = source_details_file["source_table"]
-                elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
-                    source_details = source_details_file
-                if "source_schema_path" in source_details_file:
-                    source_schema_path = source_details_file["source_schema_path"]
-                    if source_schema_path:
-                        if self.bronze_schema_mapper is not None:
-                            schema = self.bronze_schema_mapper(source_schema_path, self.spark)
-                        else:
-                            schema = self.__get_bronze_schema(source_schema_path)
-                    else:
-                        logger.info(f"no input schema provided for row={onboarding_row}")
-
-                logger.info("spark_schmea={}".format(schema))
+            source_details, bronze_reader_config_options, schema = self.get_bronze_source_details_reader_options_schema(
+                onboarding_row, env)
 
             bronze_target_format = "delta"
-
             bronze_target_details = {
                 "database": onboarding_row["bronze_database_{}".format(env)],
                 "table": onboarding_row["bronze_table"]
@@ -533,6 +507,7 @@ class OnboardDataflowspec:
                         ):
                             quarantine_table_properties = self.__delete_none(
                                 onboarding_row["bronze_quarantine_table_properties"].asDict())
+            append_flows = self.get_append_flows_json(onboarding_row, "bronze", env)
             bronze_row = (
                 bronze_data_flow_spec_id,
                 bronze_data_flow_spec_group,
@@ -547,7 +522,8 @@ class OnboardDataflowspec:
                 cdc_apply_changes,
                 data_quality_expectations,
                 quarantine_target_details,
-                quarantine_table_properties
+                quarantine_table_properties,
+                append_flows
             )
             data.append(bronze_row)
             # logger.info(bronze_parition_columns)
@@ -555,6 +531,32 @@ class OnboardDataflowspec:
         data_flow_spec_rows_df = self.spark.createDataFrame(data, data_flow_spec_schema).toDF(*data_flow_spec_columns)
 
         return data_flow_spec_rows_df
+
+    def get_append_flows_json(self, onboarding_row, layer, env):
+        append_flows = None
+        if f"{layer}_append_flows" in onboarding_row and onboarding_row[f"{layer}_append_flows"]:
+            self.__validate_append_flow(onboarding_row, layer)
+            json_append_flows = onboarding_row[f"{layer}_append_flows"]
+            from pyspark.sql.types import Row
+            af_list = []
+            for json_append_flow in json_append_flows:
+                json_append_flow = json_append_flow.asDict()
+                append_flow_map = {}
+                for key in json_append_flow.keys():
+                    if isinstance(json_append_flow[key], Row):
+                        fs = json_append_flow[key].__fields__
+                        mp = {}
+                        for ff in fs:
+                            if f"source_path_{env}" == ff:
+                                mp['path'] = json_append_flow[key][f'{ff}']
+                            else:
+                                mp[f'{ff}'] = json_append_flow[key][f'{ff}']
+                        append_flow_map[key] = self.__delete_none(mp)
+                    else:
+                        append_flow_map[key] = json_append_flow[key]
+                af_list.append(self.__delete_none(append_flow_map))
+            append_flows = json.dumps(af_list)
+        return append_flows
 
     def __validate_apply_changes(self, onboarding_row, layer):
         cdc_apply_changes = onboarding_row[f"{layer}_cdc_apply_changes"]
@@ -581,6 +583,76 @@ class OnboardDataflowspec:
                 f"""all mandatory {layer}_cdc_apply_changes atrributes
                  {DataflowSpecUtils.cdc_applychanges_api_mandatory_attributes} exists"""
             )
+
+    def get_bronze_source_details_reader_options_schema(self, onboarding_row, env):
+
+        """Get bronze source reader options.
+
+        Args:
+            onboarding_row ([type]): [description]
+
+        Returns:
+            [type]: [description]
+        """
+        source_details = {}
+        bronze_reader_config_options = {}
+        schema = None
+        source_format = onboarding_row["source_format"]
+        bronze_reader_options_json = onboarding_row["bronze_reader_options"]
+        if bronze_reader_options_json:
+            bronze_reader_config_options = self.__delete_none(bronze_reader_options_json.asDict())
+        source_details_json = onboarding_row["source_details"]
+        if source_details_json:
+            source_details_file = self.__delete_none(source_details_json.asDict())
+            if source_format.lower() == "cloudfiles" or source_format.lower() == "delta":
+                if f"source_path_{env}" in source_details_file:
+                    source_details["path"] = source_details_file[f"source_path_{env}"]
+                if "source_database" in source_details_file:
+                    source_details["source_database"] = source_details_file["source_database"]
+                if "source_table" in source_details_file:
+                    source_details["source_table"] = source_details_file["source_table"]
+            elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
+                source_details = source_details_file
+            if "source_schema_path" in source_details_file:
+                source_schema_path = source_details_file["source_schema_path"]
+                if source_schema_path:
+                    if self.bronze_schema_mapper is not None:
+                        schema = self.bronze_schema_mapper(source_schema_path, self.spark)
+                    else:
+                        schema = self.__get_bronze_schema(source_schema_path)
+                else:
+                    logger.info(f"no input schema provided for row={onboarding_row}")
+                logger.info("spark_schmea={}".format(schema))
+
+        return source_details, bronze_reader_config_options, schema
+
+    def __validate_append_flow(self, onboarding_row, layer):
+        append_flows = onboarding_row[f"{layer}_append_flows"]
+        for append_flow in append_flows:
+            json_append_flow = append_flow.asDict()
+            logger.info(f"actual appendFlow={json_append_flow}")
+            payload_keys = json_append_flow.keys()
+            missing_append_flow_payload_keys = (
+                set(DataflowSpecUtils.append_flow_api_attributes_defaults)
+                .difference(payload_keys)
+            )
+            logger.info(
+                f"""missing append flow payload keys:{missing_append_flow_payload_keys}
+                    for onboarding row = {onboarding_row}"""
+            )
+            if set(DataflowSpecUtils.append_flow_mandatory_attributes) - set(payload_keys):
+                missing_mandatory_attr = set(DataflowSpecUtils.append_flow_mandatory_attributes) - set(payload_keys)
+                logger.info(f"mandatory missing keys= {missing_mandatory_attr}")
+                raise Exception(
+                    f"""mandatory missing atrributes for {layer}_append_flow = {
+                    missing_mandatory_attr}
+                    for onboarding row = {onboarding_row}"""
+                )
+            else:
+                logger.info(
+                    f"""all mandatory {layer}_append_flow atrributes
+                    {DataflowSpecUtils.append_flow_mandatory_attributes} exists"""
+                )
 
     def __get_data_quality_expecations(self, json_file_path):
         """Get Data Quality expections from json file.
@@ -617,7 +689,8 @@ class OnboardDataflowspec:
             "tableProperties",
             "partitionColumns",
             "cdcApplyChanges",
-            "dataQualityExpectations"
+            "dataQualityExpectations",
+            "appendFlows"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -635,7 +708,8 @@ class OnboardDataflowspec:
                 StructField("tableProperties", MapType(StringType(), StringType(), True), True),
                 StructField("partitionColumns", ArrayType(StringType(), True), True),
                 StructField("cdcApplyChanges", StringType(), True),
-                StructField("dataQualityExpectations", StringType(), True)
+                StructField("dataQualityExpectations", StringType(), True),
+                StructField("appendFlows", StringType(), True)
             ]
         )
         data = []
@@ -689,6 +763,7 @@ class OnboardDataflowspec:
                 if silver_data_quality_expectations_json:
                     data_quality_expectations = (
                         self.__get_data_quality_expecations(silver_data_quality_expectations_json))
+            append_flows = self.get_append_flows_json(onboarding_row, layer="silver", env=env)
             silver_row = (
                 silver_data_flow_spec_id,
                 silver_data_flow_spec_group,
@@ -700,7 +775,8 @@ class OnboardDataflowspec:
                 silver_table_properties,
                 silver_parition_columns,
                 silver_cdc_apply_changes,
-                data_quality_expectations
+                data_quality_expectations,
+                append_flows
             )
             data.append(silver_row)
             logger.info(f"silver_data ==== {data}")
