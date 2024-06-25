@@ -63,14 +63,14 @@ class PipelineReaders:
             return (
                 spark.readStream.options(**reader_config_options).table(
                     f"""{bronze_dataflow_spec.sourceDetails["source_database"]}
-                        .{bronze_dataflow_spec.sourceDetails["table"]}"""
+                        .{bronze_dataflow_spec.sourceDetails["source_table"]}"""
                 )
             )
         else:
             return (
                 spark.readStream.table(
                     f"""{bronze_dataflow_spec.sourceDetails["source_database"]}
-                        .{bronze_dataflow_spec.sourceDetails["table"]}"""
+                        .{bronze_dataflow_spec.sourceDetails["source_table"]}"""
                 )
             )
 
