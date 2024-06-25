@@ -47,7 +47,7 @@ class CliTests(unittest.TestCase):
         mock_workspace_client.dbfs = mock_dbfs
         mock_workspace_client.jobs = mock_jobs
         mock_workspace_client.dbfs.exists.return_value = False
-        mock_workspace_client.dbfs.create.return_value = None
+        mock_workspace_client.dbfs.mkdirs.return_value = None
         mock_workspace_client.dbfs.upload.return_value = None
         mock_workspace_client.dbfs.copy.return_value = None
         mock_workspace_client.jobs.create.return_value = MagicMock(job_id="job_id")
@@ -59,10 +59,7 @@ class CliTests(unittest.TestCase):
             dltmeta.onboard(self.onboard_cmd)
 
         mock_workspace_client.dbfs.exists.assert_called_once_with('/dbfs/dltmeta_conf/')
-        mock_workspace_client.dbfs.create.assert_called_once_with(
-            path="/dbfs/dltmeta_conf/",
-            overwrite=True
-        )
+        mock_workspace_client.dbfs.mkdirs.assert_called_once_with("/dbfs/dltmeta_conf/")
         mock_workspace_client.dbfs.upload.assert_called_once()
         print(mock_workspace_client.dbfs.copy.call_args_list)
         mock_workspace_client.dbfs.copy.assert_called_once_with(
