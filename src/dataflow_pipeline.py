@@ -145,6 +145,8 @@ class DataflowPipeline:
                              name=f"{append_flow.name}_view",
                              comment=f"append flow input dataset view for{append_flow.name}_view"
                              )
+        else:
+            raise Exception(f"Append Flows not found for dataflowSpec={self.dataflowSpec}")
 
     def write(self):
         """Write DLT."""
@@ -407,6 +409,8 @@ class DataflowPipeline:
                     if field.name == cdc_apply_changes.sequence_by:
                         sequenced_by_data_type = field.dataType
                 struct_schema = modified_schema
+            else:
+                raise Exception(f"Schema is None for {self.dataflowSpec} for cdc_apply_changes! ")
 
         if struct_schema and cdc_apply_changes.scd_type == "2":
             struct_schema.add(StructField("__START_AT", sequenced_by_data_type))

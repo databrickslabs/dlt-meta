@@ -708,6 +708,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
                                             wholetext=True).collect()[0]["value"]
         struct_schema = T._parse_datatype_string(ddlSchemaStr)
         mock_get_silver_schema.return_value = json.dumps(struct_schema.jsonValue())
+        pipeline.silver_schema = struct_schema
         pipeline.write_silver()
         assert mock_create_streaming_table.called_once_with(
             schema=struct_schema,
@@ -870,16 +871,16 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         onboarding_params_map['onboarding_file_path'] = self.onboarding_append_flow_json_file
         o_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
-        o_dfs.onboard_bronze_dataflow_spec()
+        o_dfs.onboard_dataflow_specs()
         bronze_dataflowSpec_df = self.spark.read.format("delta").load(
             self.onboarding_bronze_silver_params_map['bronze_dataflowspec_path']
         )
         bronze_df_row = bronze_dataflowSpec_df.filter(bronze_dataflowSpec_df.dataFlowId == "100").collect()[0]
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_df_row.asDict())
-        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        silver_dataflow_spec = BronzeDataflowSpec(**bronze_df_row.asDict())
+        view_name = f"{silver_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, view_name, None)
         pipeline.read_append_flows()
-        append_flow = DataflowSpecUtils.get_append_flows(bronze_dataflow_spec.appendFlows)[0]
+        append_flow = DataflowSpecUtils.get_append_flows(silver_dataflow_spec.appendFlows)[0]
         pipeline_reader = PipelineReaders(
             self.spark,
             append_flow.source_format,
@@ -907,3 +908,27 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             pipeline_reader.read_kafka,
             name=f"{append_flow.name}_view",
             comment=f"append flow input dataset view for{append_flow.name}_view")
+
+        silver_dataflowSpec_df = self.spark.read.format("delta").load(
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_path']
+        )
+        silver_df_row = silver_dataflowSpec_df.filter(silver_dataflowSpec_df.dataFlowId == "101").collect()[0]
+        silver_dataflow_spec = SilverDataflowSpec(**silver_df_row.asDict())
+        view_name = f"{silver_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, view_name, None)
+        pipeline.read_append_flows()
+        append_flow = DataflowSpecUtils.get_append_flows(silver_dataflow_spec.appendFlows)[0]
+        pipeline_reader = PipelineReaders(
+            self.spark,
+            append_flow.source_format,
+            append_flow.source_details,
+            append_flow.reader_options
+        )
+        assert mock_view.called_once_with(
+            pipeline_reader.read_dlt_delta,
+            name=f"{append_flow.name}_view",
+            comment=f"append flow input dataset view for{append_flow.name}_view")        
+
+        bronze_dataflowSpec_df.appendFlows = None
+        with self.assertRaises(Exception):
+            pipeline = DataflowPipeline(self.spark, bronze_dataflowSpec_df, view_name, None)  

@@ -59,7 +59,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
             "eventhub.secretsScopeName": "eventhubs_creds",
             "kafka.sasl.mechanism": "PLAIN",
             "kafka.security.protocol": "SASL_SSL",
-            "eventhub.namespace": "ganesh-standard",
+            "eventhub.namespace": "standard",
             "eventhub.port": "9093"
         },
         "readerConfigOptions": {
@@ -97,7 +97,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
             "eventhub.secretsScopeName": "eventhubs_creds",
             "kafka.sasl.mechanism": "PLAIN",
             "kafka.security.protocol": "SASL_SSL",
-            "eventhub.namespace": "ganesh-standard",
+            "eventhub.namespace": "standard",
             "eventhub.port": "9093"
         },
         "readerConfigOptions": {

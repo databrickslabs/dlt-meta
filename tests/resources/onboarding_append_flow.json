@@ -164,7 +164,7 @@
         "silver_data_quality_expectations_json_dev": "tests/resources/dqe/transactions/silver_data_quality_expectations.json",
         "silver_append_flows": [{
             "name": "transactions_silver_flow",
-            "target": "transactions",
+            "create_streaming_table": false,
             "source_format": "delta",
             "source_details":{
                 "source_database": "APP",
@@ -191,7 +191,7 @@
             "eventhub.secretsScopeName": "eventhubs_creds",
             "kafka.sasl.mechanism": "PLAIN",
             "kafka.security.protocol": "SASL_SSL",
-            "kafka.bootstrap.servers": "ganesh-standard.servicebus.windows.net:9093"
+            "kafka.bootstrap.servers": "standard.servicebus.windows.net:9093"
         },
         "bronze_database_dev": "bronze",
         "bronze_database_staging": "bronze",
@@ -220,7 +220,7 @@
                 "eventhub.secretsScopeName": "eventhubs_creds",
                 "kafka.sasl.mechanism": "PLAIN",
                 "kafka.security.protocol": "SASL_SSL",
-                "kafka.bootstrap.servers": "ganesh-standard.servicebus.windows.net:9093"
+                "kafka.bootstrap.servers": "standard.servicebus.windows.net:9093"
             },
             "reader_options": {
                 "maxOffsetsPerTrigger": "50000",

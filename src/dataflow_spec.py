@@ -173,7 +173,7 @@ class DataflowSpecUtils:
 
         if group or dataflow_ids:
             dataflow_spec_df = dataflow_spec_df.where(
-                col("dataFlowGroup") == lit(group) if group else f"dataFlowId in ('{dataflow_ids}')"
+                col("dataFlowGroup") == lit(group) if group else f"dataFlowId in ({dataflow_ids})"
             )
 
         version_history = Window.partitionBy(col("dataFlowGroup"), col("dataFlowId")).orderBy(col("version").desc())
@@ -313,30 +313,3 @@ class DataflowSpecUtils:
             logger.info(f"final appendFlow={json_append_flow}")
             list_append_flows.append(AppendFlow(**json_append_flow))
         return list_append_flows
-
-    @staticmethod
-    def get_schema_json(spark, dataflow_spec):
-        """Get schema json from dataflow spec."""
-        source_path = dataflow_spec.sourceDetails["path"]
-        reader_config_options = dataflow_spec.readerConfigOptions
-        schema_json = None
-        if reader_config_options["cloudFiles.format"].lower() == "parquet":
-            schema = spark.read.options(**reader_config_options).parquet(source_path).limit(100).schema
-            schema_json = schema.jsonValue()
-        elif reader_config_options["cloudFiles.format"].lower() == "json":
-            schema = (
-                spark.read.options(**reader_config_options)
-                .json(source_path)
-                .limit(100)
-                .schema
-            )
-            schema_json = schema.jsonValue()
-        elif reader_config_options["cloudFiles.format"].lower() == "csv":
-            json_schema_string_value = dataflow_spec.schema
-            schema_json = json.loads(json_schema_string_value)
-        else:
-            raise Exception(
-                f"""Dataflow schema not supported for type = {type(dataflow_spec.dataFlowId)}!
-                    Please correct dataflowSpec or implement schema reader options"""
-            )
-        return schema_json
