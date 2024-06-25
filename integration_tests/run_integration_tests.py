@@ -734,7 +734,7 @@ class DLTMETARunner:
             print(e)
         finally:
             print("Cleaning up...")
-    #        self.clean_up(runner_conf)
+            self.clean_up(runner_conf)
 
     def download_test_results(self, runner_conf: DLTMetaRunnerConf):
         ws_output_file = self.ws.workspace.download(runner_conf.test_output_file_path)
