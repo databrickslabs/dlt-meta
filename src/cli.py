@@ -316,9 +316,10 @@ class DLTMeta:
         onboard_cmd_dict = {}
         onboard_cmd_dict["onboarding_file_path"] = self._wsi._question(
             "Provide onboarding file path", default='demo/conf/onboarding.template')
+        cwd = os.getcwd()
         onboarding_files_dir_path = self._wsi._question(
-            "Provide onboarding files local directory", default='demo/')
-        onboard_cmd_dict["onboarding_files_dir_path"] = f"file:./{onboarding_files_dir_path}"
+            "Provide onboarding files local directory", default=f'{cwd}/demo/')
+        onboard_cmd_dict["onboarding_files_dir_path"] = f"file:///{onboarding_files_dir_path}"
         onboard_cmd_dict["dbfs_path"] = self._wsi._question(
             "Provide dbfs path", default="dbfs:/dlt-meta_cli_demo")
         onboard_cmd_dict["dbr_version"] = self._wsi._question(
