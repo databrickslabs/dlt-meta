@@ -231,7 +231,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         full_path = os.path.abspath("tests/resources/delta/customers")
         self.spark.sql(f"CREATE TABLE if not exists source_bronze.customer USING DELTA LOCATION '{full_path}' ")
 
-        source_details_map = {"sourceDetails": {"source_database": "source_bronze", "table": "customer"}}
+        source_details_map = {"sourceDetails": {"source_database": "source_bronze", "source_table": "customer"}}
 
         bronze_map.update(source_details_map)
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
@@ -253,7 +253,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         self.spark.sql("CREATE DATABASE IF NOT EXISTS source_bronze")
         full_path = os.path.abspath("tests/resources/delta/customers")
         self.spark.sql(f"CREATE TABLE if not exists source_bronze.customer USING DELTA LOCATION '{full_path}' ")
-        source_details_map = {"sourceDetails": {"source_database": "source_bronze", "table": "customer"}}
+        source_details_map = {"sourceDetails": {"source_database": "source_bronze", "source_table": "customer"}}
         bronze_map.update(source_details_map)
         reader_config = {"readerConfigOptions": {"maxFilesPerTrigger": "1"}}
         bronze_map.update(reader_config)
