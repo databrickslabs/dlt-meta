@@ -6,7 +6,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql.functions import expr
 from pyspark.sql.types import StructType, StructField
 
-from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils, AppendFlow
+from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
 from src.pipeline_readers import PipelineReaders
 
 logger = logging.getLogger('databricks.labs.dltmeta')
@@ -212,19 +212,6 @@ class DataflowPipeline:
             return PipelineReaders.read_dlt_delta()
         elif bronze_dataflow_spec.sourceFormat == "eventhub" or bronze_dataflow_spec.sourceFormat == "kafka":
             return PipelineReaders.read_kafka()
-        else:
-            raise Exception(f"{bronze_dataflow_spec.sourceFormat} source format not supported")
-
-    def read_bronze_append_flow(self, append_flow: AppendFlow) -> DataFrame:
-        """Read Bronze Table."""
-        logger.info("In read_bronze func")
-        bronze_dataflow_spec: BronzeDataflowSpec = self.dataflowSpec
-        if append_flow.source_format == "cloudFiles":
-            return PipelineReaders.read_dlt_cloud_files(self.spark, append_flow, self.schema_json)
-        elif append_flow.sourceFormat == "delta":
-            return PipelineReaders.read_dlt_delta(self.spark, append_flow)
-        elif append_flow.sourceFormat == "eventhub" or append_flow.sourceFormat == "kafka":
-            return PipelineReaders.read_kafka(self.spark, append_flow, self.schema_json)
         else:
             raise Exception(f"{bronze_dataflow_spec.sourceFormat} source format not supported")
 

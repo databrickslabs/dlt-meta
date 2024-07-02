@@ -343,7 +343,6 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
         }]"""
         with self.assertRaises(Exception):
             DataflowSpecUtils.get_append_flows(missing_name_append_flow_spec)
-        
         missing_sf_append_flow_spec = """[{
             "name":"customer_bronze_flow",
             "create_streaming_table":false,
@@ -360,7 +359,7 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
             "once":true
         }]"""
         with self.assertRaises(Exception):
-            DataflowSpecUtils.get_append_flows(missing_sf_append_flow_spec)            
+            DataflowSpecUtils.get_append_flows(missing_sf_append_flow_spec)
 
         missing_st_append_flow_spec = """[{
             "name":"customer_bronze_flow",
@@ -378,7 +377,7 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
             "once":true
         }]"""
         with self.assertRaises(Exception):
-            DataflowSpecUtils.get_append_flows(missing_st_append_flow_spec)     
+            DataflowSpecUtils.get_append_flows(missing_st_append_flow_spec)
 
         missing_sd_append_flow_spec = """[{
             "name":"customer_bronze_flow",
@@ -393,4 +392,3 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
         }]"""
         with self.assertRaises(Exception):
             DataflowSpecUtils.get_append_flows(missing_sd_append_flow_spec)
-

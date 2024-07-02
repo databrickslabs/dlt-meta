@@ -59,16 +59,16 @@ class PipelineReaders:
 
         if self.reader_config_options and len(self.reader_config_options) > 0:
             return (
-                self.spark.readStream.options(**reader_config_options).table(
-                    f"""{bronze_dataflow_spec.sourceDetails["source_database"]}
-                        .{bronze_dataflow_spec.sourceDetails["source_table"]}"""
+                self.spark.readStream.options(**self.reader_config_options).table(
+                    f"""{self.source_details["source_database"]}
+                        .{self.source_details["source_table"]}"""
                 )
             )
         else:
             return (
                 self.spark.readStream.table(
-                    f"""{bronze_dataflow_spec.sourceDetails["source_database"]}
-                        .{bronze_dataflow_spec.sourceDetails["source_table"]}"""
+                    f"""{self.source_details["source_database"]}
+                        .{self.source_details["source_table"]}"""
                 )
             )
 
