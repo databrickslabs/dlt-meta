@@ -927,8 +927,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         assert mock_view.called_once_with(
             pipeline_reader.read_dlt_delta,
             name=f"{append_flow.name}_view",
-            comment=f"append flow input dataset view for{append_flow.name}_view")        
-
+            comment=f"append flow input dataset view for{append_flow.name}_view")
         bronze_dataflowSpec_df.appendFlows = None
         with self.assertRaises(Exception):
-            pipeline = DataflowPipeline(self.spark, bronze_dataflowSpec_df, view_name, None)  
+            pipeline = DataflowPipeline(self.spark, bronze_dataflowSpec_df, view_name, None)
