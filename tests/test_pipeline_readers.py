@@ -347,6 +347,5 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         df = (self.spark.read.json("tests/resources/data/customers")
               .withColumn('_metadata', struct(*[lit("filename").alias("file_name"),
                                                 lit("file_path").alias('file_path')])))
-        df.show()
         df = PipelineReaders.add_cloudfiles_metadata(bronze_dataflow_spec, df)
         self.assertIsNotNone(df)
