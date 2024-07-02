@@ -156,7 +156,6 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
 
         def custom_tranform_func_test(input_df) -> DataFrame:
             return input_df.withColumn('custom_col', lit('test_value'))
-        
         DataflowPipeline.invoke_dlt_pipeline(self.spark, "silver", custom_tranform_func_test)
         assert run_dlt.called
 
