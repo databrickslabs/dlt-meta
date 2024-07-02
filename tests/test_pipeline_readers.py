@@ -26,7 +26,9 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "dataFlowId": "1",
         "dataFlowGroup": "A1",
         "sourceFormat": "json",
-        "sourceDetails": {"path": "tests/resources/data/customers"},
+        "sourceDetails": {
+            "path": "tests/resources/data/customers",
+        },
         "readerConfigOptions": {
         },
         "targetFormat": "delta",
@@ -181,6 +183,22 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         customer_df = PipelineReaders.read_dlt_cloud_files(self.spark, bronze_dataflow_spec, schema)
         self.assertIsNotNone(customer_df)
 
+    @patch.object(PipelineReaders, "add_cloudfiles_metadata", return_value={"called"})
+    @patch.object(spark, "readStream", return_value={"called"})
+    def test_read_cloud_files_withmetadata_cols_positive(self, readStream, add_cloudfiles_metadata):
+        """Test read_cloud_files positive."""
+        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
+        schema_ddl = "tests/resources/schema/customer_schema.ddl"
+        ddlSchemaStr = self.spark.read.text(paths=schema_ddl, wholetext=True).collect()[0]["value"]
+        spark_schema = T._parse_datatype_string(ddlSchemaStr)
+        schema = spark_schema.jsonValue()
+        schema_map = {"schema": schema}
+        bronze_map.update(schema_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        customer_df = PipelineReaders.read_dlt_cloud_files(self.spark, bronze_dataflow_spec, schema)
+        self.assertIsNotNone(customer_df)
+        assert add_cloudfiles_metadata.called
+
     def test_read_cloud_files_no_schema(self):
         """Test read_cloud_files positive."""
         mock_format = MagicMock()
@@ -308,3 +326,23 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
         customer_df = PipelineReaders.read_kafka(spark, bronze_dataflow_spec, None)
         self.assertIsNotNone(customer_df)
+
+    def test_add_cloudfiles_metadata(self):
+        """Test add_cloudfiles_metadata."""
+        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
+        source_format_map = {"sourceFormat": "json"}
+        bronze_map.update(source_format_map)
+        source_metdata_json = {
+            "include_autoloader_metadata_column": "True",
+            "autoloader_metadata_col_name": "source_metadata",
+            "select_metadata_cols": {
+                "input_file_name": "_metadata.file_name",
+                "input_file_path": "_metadata.file_path"
+            }
+        }
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        import json
+        bronze_dataflow_spec.sourceDetails["source_metadata"] = json.dumps(source_metdata_json)
+        df = self.spark.read.json("tests/resources/data/customers")
+        df = PipelineReaders.add_cloudfiles_metadata(bronze_dataflow_spec, df)
+        self.assertIsNotNone(df)

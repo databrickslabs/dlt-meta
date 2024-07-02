@@ -6,6 +6,7 @@ import tempfile
 import copy
 from pyspark.sql.functions import lit, expr
 import pyspark.sql.types as T
+from pyspark.sql import DataFrame
 from tests.utils import DLTFrameworkTestCase
 from unittest.mock import MagicMock, patch
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec
@@ -124,7 +125,11 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             "bronze.dataflowspecTable",
             f"{database}.{bronze_dataflow_table}",
         )
-        DataflowPipeline.invoke_dlt_pipeline(self.spark, "bronze")
+
+        def custom_tranform_func_test(input_df) -> DataFrame:
+            return input_df.withColumn('custom_col', lit('test_value'))
+
+        DataflowPipeline.invoke_dlt_pipeline(self.spark, "bronze", custom_tranform_func_test)
         assert run_dlt.called
 
     @patch.object(DataflowPipeline, "run_dlt", return_value={"called"})
@@ -149,7 +154,10 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             .mode("overwrite").saveAsTable("bronze.transactions_cdc")
          )
 
-        DataflowPipeline.invoke_dlt_pipeline(self.spark, "silver")
+        def custom_tranform_func_test(input_df) -> DataFrame:
+            return input_df.withColumn('custom_col', lit('test_value'))
+        
+        DataflowPipeline.invoke_dlt_pipeline(self.spark, "silver", custom_tranform_func_test)
         assert run_dlt.called
 
     @patch.object(DataflowPipeline, "read", return_value={"called"})
