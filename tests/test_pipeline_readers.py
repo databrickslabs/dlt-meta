@@ -2,6 +2,7 @@
 from datetime import datetime
 import sys
 import os
+from pyspark.sql.functions import lit, struct
 from src.dataflow_spec import BronzeDataflowSpec
 from src.pipeline_readers import PipelineReaders
 from tests.utils import DLTFrameworkTestCase
@@ -343,6 +344,9 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
         import json
         bronze_dataflow_spec.sourceDetails["source_metadata"] = json.dumps(source_metdata_json)
-        df = self.spark.read.json("tests/resources/data/customers")
+        df = (self.spark.read.json("tests/resources/data/customers")
+              .withColumn('_metadata', struct(*[lit("filename").alias("file_name"),
+                                                lit("file_path").alias('file_path')])))
+        df.show()
         df = PipelineReaders.add_cloudfiles_metadata(bronze_dataflow_spec, df)
         self.assertIsNotNone(df)
