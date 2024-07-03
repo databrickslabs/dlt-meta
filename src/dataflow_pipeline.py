@@ -40,7 +40,7 @@ class AppendFlowWriter:
                         target=self.target,
                         comment=comment,
                         spark_conf=self.append_flow.spark_conf,
-                        sink_options=self.append_flow.sink_options,
+                        # sink_options=self.append_flow.sink_options,
                         once=self.append_flow.once,
                         )(self.write_af_to_delta)
 
