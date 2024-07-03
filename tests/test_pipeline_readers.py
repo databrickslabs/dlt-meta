@@ -212,7 +212,6 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         self.assertIsNotNone(customer_df)
         assert add_cloudfiles_metadata.called
 
-
     @patch.object(SparkSession, "readStream")
     def test_read_cloud_files_no_schema(self, SparkSession):
         """Test read_cloud_files positive."""
