@@ -31,6 +31,7 @@ draft: false
 | bronze_quarantine_table_path_{env} | 	Bronze database for quarantine data which fails expectations. |
 | bronze_quarantine_table_partitions | 	Bronze quarantine tables partition cols |
 | bronze_quarantine_table_properties | 	DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false" }` |
+| bronze_append_flows | Bronze table append flows json. e.g.`"bronze_append_flows":[{"name":"customer_bronze_flow", "create_streaming_table": false,"source_format": "cloudFiles", "source_details": {"source_database": "APP","source_table":"CUSTOMERS", "source_path_dev": "tests/resources/data/customers", "source_schema_path": "tests/resources/schema/customer_schema.ddl"},"reader_options": {"cloudFiles.format": "json","cloudFiles.inferColumnTypes": "true","cloudFiles.rescuedDataColumn": "_rescued_data"},"once": true}]` |
 | silver_database_{env} | 	Silver database name. |
 | silver_table | 	Silver table name |
 | silver_partition_columns | 	Silver table partition columns list |
@@ -39,7 +40,7 @@ draft: false
 | silver_table_properties | 	DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false"}` |
 | silver_transformation_json | 	Silver table sql transformation json path |
 | silver_data_quality_expectations_json_{env} | Silver table data quality expectations json file path
-
+| silver_append_flows | Silver table append flows json. e.g.`"silver_append_flows":[{"name":"customer_bronze_flow", "create_streaming_table": false,"source_format": "cloudFiles", "source_details": {"source_database": "APP","source_table":"CUSTOMERS", "source_path_dev": "tests/resources/data/customers", "source_schema_path": "tests/resources/schema/customer_schema.ddl"},"reader_options": {"cloudFiles.format": "json","cloudFiles.inferColumnTypes": "true","cloudFiles.rescuedDataColumn": "_rescued_data"},"once": true}]` 
 ### Data Quality Rules File Structure
 | Field | Description |
 | :-----------: | :----------- |

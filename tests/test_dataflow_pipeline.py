@@ -48,6 +48,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             "database": "bronze", "table": "customer_dqe", "path": "tests/localtest/delta/customers_dqe"
         },
         "quarantineTableProperties": {},
+        "appendFlows": [],
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -101,6 +102,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
                 "valid_operation": "operation IN ('APPEND', 'DELETE', 'UPDATE')"
             }
         }""",
+        "appendFlows": [],
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -660,13 +662,16 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         assert mock_dlt_expect_all.called_once_with(expect_dict)
         assert mock_dlt_expect_all_or_drop.expect_all_or_drop(expect_or_quarantine_dict)
 
+    @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
     @patch('dlt.create_streaming_live_table', new_callable=MagicMock)
     @patch('dlt.apply_changes', new_callable=MagicMock)
     @patch.object(DataflowPipeline, 'get_silver_schema', new_callable=MagicMock)
     def test_dataflowpipeline_silver_cdc_apply_changes(self,
+                                                       mock_create_streaming_table,
                                                        mock_create_streaming_live_table,
                                                        mock_apply_changes,
                                                        mock_get_silver_schema):
+        mock_create_streaming_table.return_value = None
         mock_create_streaming_live_table.return_value = None
         mock_apply_changes.apply_changes.return_value = None
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
@@ -710,7 +715,12 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
                                             wholetext=True).collect()[0]["value"]
         struct_schema = T._parse_datatype_string(ddlSchemaStr)
         mock_get_silver_schema.return_value = json.dumps(struct_schema.jsonValue())
+        pipeline.silver_schema = struct_schema
         pipeline.write_silver()
+        assert mock_create_streaming_table.called_once_with(
+            schema=struct_schema,
+            name=f"{silver_dataflowSpec_df.targetDetails['table']}"
+        )
         assert mock_create_streaming_live_table.called_once_with(
             name=f"{silver_dataflowSpec_df.targetDetails['table']}",
             table_properties=silver_dataflowSpec_df.tableProperties,
@@ -736,13 +746,16 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             track_history_except_column_list=cdc_apply_changes.track_history_except_column_list
         )
 
-    @patch('dlt.create_streaming_table', new_callable=MagicMock)
+    @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
+    @patch('dlt.create_streaming_live_table', new_callable=MagicMock)
     @patch('dlt.apply_changes', new_callable=MagicMock)
     def test_bronze_cdc_apply_changes(self,
                                       mock_create_streaming_table,
+                                      mock_create_streaming_live_table,
                                       mock_apply_changes):
         mock_create_streaming_table.return_value = None
         mock_apply_changes.apply_changes.return_value = None
+        mock_create_streaming_live_table.return_value = None
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         onboarding_params_map['onboarding_file_path'] = self.onboarding_bronze_type2_json_file
         o_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
@@ -754,7 +767,6 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_df_row.asDict())
         view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
-        target_path = bronze_dataflow_spec.targetDetails["path"]
         cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(bronze_dataflow_spec.cdcApplyChanges)
         apply_as_deletes = None
         if cdc_apply_changes.apply_as_deletes:
@@ -766,10 +778,17 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         struct_schema = json.loads(bronze_dataflow_spec.schema)
         pipeline.write_bronze()
         assert mock_create_streaming_table.called_once_with(
+            schema=struct_schema,
+            name=f"{bronze_dataflowSpec_df.targetDetails['table']}"
+        )
+        assert mock_create_streaming_live_table.called_once_with(
             name=f"{bronze_dataflowSpec_df.targetDetails['table']}",
             table_properties=bronze_dataflowSpec_df.tableProperties,
-            path=target_path,
-            schema=struct_schema
+            path=bronze_dataflowSpec_df.targetDetails["path"],
+            schema=struct_schema,
+            expect_all=None,
+            expect_all_or_drop=None,
+            expect_all_or_fail=None
         )
         assert mock_apply_changes.called_once_with(
             name=f"{bronze_dataflowSpec_df.targetDetails['table']}",
@@ -786,3 +805,135 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             track_history_column_list=cdc_apply_changes.track_history_column_list,
             track_history_except_column_list=cdc_apply_changes.track_history_except_column_list
         )
+
+    @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
+    @patch.object(DataflowPipeline, "write_to_delta", new_callable=MagicMock)
+    @patch('dlt.create_streaming_live_table', new_callable=MagicMock)
+    @patch('dlt.append_flow', new_callable=MagicMock)
+    def test_bronze_append_flow_positive(self,
+                                         mock_create_streaming_table,
+                                         mock_write_to_delta,
+                                         mock_create_streaming_live_table,
+                                         mock_append_flow):
+        mock_create_streaming_table.return_value = None
+        mock_write_to_delta.return_value = None
+        mock_create_streaming_live_table.return_value = None
+        mock_append_flow.return_value = None
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        onboarding_params_map['onboarding_file_path'] = self.onboarding_append_flow_json_file
+        o_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        o_dfs.onboard_bronze_dataflow_spec()
+        bronze_dataflowSpec_df = self.spark.read.format("delta").load(
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_path']
+        )
+        bronze_df_row = bronze_dataflowSpec_df.filter(bronze_dataflowSpec_df.dataFlowId == "100").collect()[0]
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_df_row.asDict())
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        struct_schema = json.loads(bronze_dataflow_spec.schema)
+        append_flows = DataflowSpecUtils.get_append_flows(bronze_dataflow_spec.appendFlows)
+        pipeline.write_bronze()
+        for append_flow in append_flows:
+            assert mock_create_streaming_table.called_once_with(
+                schema=struct_schema,
+                name=f"{bronze_dataflowSpec_df.targetDetails['table']}"
+            )
+            assert mock_create_streaming_live_table.called_once_with(
+                name=f"{bronze_dataflowSpec_df.targetDetails['table']}",
+                table_properties=bronze_dataflowSpec_df.tableProperties,
+                path=bronze_dataflowSpec_df.targetDetails["path"],
+                schema=struct_schema,
+                expect_all=None,
+                expect_all_or_drop=None,
+                expect_all_or_fail=None
+            )
+            target_table = bronze_dataflow_spec.targetDetails["table"]
+            assert mock_append_flow.called_once_with(
+                name=append_flow.name,
+                target=target_table,
+                comment=f"append_flow={append_flow.name} for target={target_table}",
+                spark_conf=append_flow.spark_conf,
+                once=append_flow.once
+            )(mock_write_to_delta.called_once())
+
+    def test_get_dq_expectations(self):
+        o_dfs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
+        o_dfs.onboard_bronze_dataflow_spec()
+        bronze_dataflowSpec_df = self.spark.read.format("delta").load(
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_path']
+        )
+        bronze_df_row = bronze_dataflowSpec_df.filter(bronze_dataflowSpec_df.dataFlowId == "100").collect()[0]
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_df_row.asDict())
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = pipeline.get_dq_expectations()
+        self.assertIsNotNone(expect_all_or_drop_dict)
+        self.assertIsNone(expect_all_or_fail_dict)
+        self.assertIsNone(expect_all_dict)
+
+    @patch('dlt.view', new_callable=MagicMock)
+    def test_read_append_flows(self, mock_view):
+        mock_view.view.return_value = None
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        onboarding_params_map['onboarding_file_path'] = self.onboarding_append_flow_json_file
+        o_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        o_dfs.onboard_dataflow_specs()
+        bronze_dataflowSpec_df = self.spark.read.format("delta").load(
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_path']
+        )
+        bronze_df_row = bronze_dataflowSpec_df.filter(bronze_dataflowSpec_df.dataFlowId == "100").collect()[0]
+        silver_dataflow_spec = BronzeDataflowSpec(**bronze_df_row.asDict())
+        view_name = f"{silver_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, view_name, None)
+        pipeline.read_append_flows()
+        append_flow = DataflowSpecUtils.get_append_flows(silver_dataflow_spec.appendFlows)[0]
+        pipeline_reader = PipelineReaders(
+            self.spark,
+            append_flow.source_format,
+            append_flow.source_details,
+            append_flow.reader_options
+        )
+        assert mock_view.called_once_with(
+            pipeline_reader.read_dlt_cloud_files,
+            name=f"{append_flow.name}_view",
+            comment=f"append flow input dataset view for{append_flow.name}_view")
+
+        bronze_df_row = bronze_dataflowSpec_df.filter(bronze_dataflowSpec_df.dataFlowId == "103").collect()[0]
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_df_row.asDict())
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        pipeline.read_append_flows()
+        append_flow = DataflowSpecUtils.get_append_flows(bronze_dataflow_spec.appendFlows)[0]
+        pipeline_reader = PipelineReaders(
+            self.spark,
+            append_flow.source_format,
+            append_flow.source_details,
+            append_flow.reader_options
+        )
+        assert mock_view.called_once_with(
+            pipeline_reader.read_kafka,
+            name=f"{append_flow.name}_view",
+            comment=f"append flow input dataset view for{append_flow.name}_view")
+
+        silver_dataflowSpec_df = self.spark.read.format("delta").load(
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_path']
+        )
+        silver_df_row = silver_dataflowSpec_df.filter(silver_dataflowSpec_df.dataFlowId == "101").collect()[0]
+        silver_dataflow_spec = SilverDataflowSpec(**silver_df_row.asDict())
+        view_name = f"{silver_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, view_name, None)
+        pipeline.read_append_flows()
+        append_flow = DataflowSpecUtils.get_append_flows(silver_dataflow_spec.appendFlows)[0]
+        pipeline_reader = PipelineReaders(
+            self.spark,
+            append_flow.source_format,
+            append_flow.source_details,
+            append_flow.reader_options
+        )
+        assert mock_view.called_once_with(
+            pipeline_reader.read_dlt_delta,
+            name=f"{append_flow.name}_view",
+            comment=f"append flow input dataset view for{append_flow.name}_view")
+        bronze_dataflowSpec_df.appendFlows = None
+        with self.assertRaises(Exception):
+            pipeline = DataflowPipeline(self.spark, bronze_dataflowSpec_df, view_name, None)

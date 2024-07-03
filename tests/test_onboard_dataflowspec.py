@@ -293,3 +293,20 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         mock_write.format.return_value.mode.return_value.option.assert_called_once_with("mergeSchema", "true")
         mock_write.format.return_value.mode.return_value.option.return_value.saveAsTable.assert_called_once_with(
             f"{database}.{table}")
+
+    def test_bronze_dataflow_spec_append_flow(self):
+        """Test for onboardDataflowspec with appendflow scenario."""
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = self.onboarding_append_flow_json_file
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        onboardDataFlowSpecs.onboard_dataflow_specs()
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
+        bronze_dataflowSpec_df.show(truncate=False)
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
+        silver_dataflowSpec_df.show(truncate=False)
+        self.assertEqual(bronze_dataflowSpec_df.count(), 3)
+        self.assertEqual(silver_dataflowSpec_df.count(), 3)

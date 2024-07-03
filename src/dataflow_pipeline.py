@@ -13,6 +13,37 @@ logger = logging.getLogger('databricks.labs.dltmeta')
 logger.setLevel(logging.INFO)
 
 
+class AppendFlowWriter:
+    """Append Flow Writer class."""
+
+    def __init__(self, spark, append_flow, target, struct_schema):
+        """Init."""
+        self.spark = spark
+        self.target = target
+        self.append_flow = append_flow
+        self.struct_schema = struct_schema
+
+    def write_af_to_delta(self):
+        """Write to Delta."""
+        return dlt.read_stream(f"{self.append_flow.name}_view")
+
+    def write_flow(self):
+        """Write Append Flow."""
+        if self.append_flow.create_streaming_table:
+            self.create_streaming_table(self.struct_schema)
+        if self.append_flow.comment:
+            comment = self.append_flow.comment
+        else:
+            comment = f"append_flow={self.append_flow.name} for target={self.target}"
+
+        dlt.append_flow(name=self.append_flow.name,
+                        target=self.target,
+                        comment=comment,
+                        spark_conf=self.append_flow.spark_conf,
+                        once=self.append_flow.once,
+                        )(self.write_af_to_delta)
+
+
 class DataflowPipeline:
     """This class uses dataflowSpec to launch DLT.
 
@@ -54,6 +85,10 @@ class DataflowPipeline:
             self.cdcApplyChanges = DataflowSpecUtils.get_cdc_apply_changes(self.dataflowSpec.cdcApplyChanges)
         else:
             self.cdcApplyChanges = None
+        if dataflow_spec.appendFlows:
+            self.appendFlows = DataflowSpecUtils.get_append_flows(dataflow_spec.appendFlows)
+        else:
+            self.appendFlows = None
         if isinstance(dataflow_spec, BronzeDataflowSpec):
             if dataflow_spec.schema is not None:
                 self.schema_json = json.loads(dataflow_spec.schema)
@@ -79,6 +114,8 @@ class DataflowPipeline:
                 name=self.view_name,
                 comment=f"input dataset view for{self.view_name}",
             )
+            if self.appendFlows:
+                self.read_append_flows()
         elif isinstance(self.dataflowSpec, SilverDataflowSpec):
             dlt.view(
                 self.read_silver,
@@ -87,6 +124,33 @@ class DataflowPipeline:
             )
         else:
             raise Exception("Dataflow read not supported for{}".format(type(self.dataflowSpec)))
+
+    def read_append_flows(self):
+        if self.dataflowSpec.appendFlows:
+            for append_flow in self.appendFlows:
+                pipeline_reader = PipelineReaders(
+                    self.spark,
+                    append_flow.source_format,
+                    append_flow.source_details,
+                    append_flow.reader_options
+                )
+                if append_flow.source_format == "cloudFiles":
+                    dlt.view(pipeline_reader.read_dlt_cloud_files,
+                             name=f"{append_flow.name}_view",
+                             comment=f"append flow input dataset view for{append_flow.name}_view"
+                             )
+                elif append_flow.source_format == "delta":
+                    dlt.view(pipeline_reader.read_dlt_delta,
+                             name=f"{append_flow.name}_view",
+                             comment=f"append flow input dataset view for{append_flow.name}_view"
+                             )
+                elif append_flow.source_format == "eventhub" or append_flow.source_format == "kafka":
+                    dlt.view(pipeline_reader.read_kafka,
+                             name=f"{append_flow.name}_view",
+                             comment=f"append flow input dataset view for{append_flow.name}_view"
+                             )
+        else:
+            raise Exception(f"Append Flows not found for dataflowSpec={self.dataflowSpec}")
 
     def write(self):
         """Write DLT."""
@@ -114,11 +178,15 @@ class DataflowPipeline:
                 path=target_path,
                 comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}",
             )
+        if bronze_dataflow_spec.appendFlows:
+            self.write_append_flows()
 
     def write_silver(self):
         """Write silver tables."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
-        if silver_dataflow_spec.cdcApplyChanges:
+        if silver_dataflow_spec.appendFlows:
+            self.write_append_flows()
+        elif silver_dataflow_spec.cdcApplyChanges:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else silver_dataflow_spec.targetDetails["path"]
@@ -134,14 +202,21 @@ class DataflowPipeline:
     def read_bronze(self) -> DataFrame:
         """Read Bronze Table."""
         logger.info("In read_bronze func")
+        pipeline_reader = PipelineReaders(
+            self.spark,
+            self.dataflowSpec.sourceFormat,
+            self.dataflowSpec.sourceDetails,
+            self.dataflowSpec.readerConfigOptions,
+            self.schema_json
+        )
         bronze_dataflow_spec: BronzeDataflowSpec = self.dataflowSpec
         input_df = None
         if bronze_dataflow_spec.sourceFormat == "cloudFiles":
-            input_df = PipelineReaders.read_dlt_cloud_files(self.spark, bronze_dataflow_spec, self.schema_json)
+            input_df = pipeline_reader.read_dlt_cloud_files()
         elif bronze_dataflow_spec.sourceFormat == "delta":
-            input_df = PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
+            input_df = PipelineReaders.read_dlt_delta()
         elif bronze_dataflow_spec.sourceFormat == "eventhub" or bronze_dataflow_spec.sourceFormat == "kafka":
-            input_df = PipelineReaders.read_kafka(self.spark, bronze_dataflow_spec, self.schema_json)
+            input_df = PipelineReaders.read_kafka()
         else:
             raise Exception(f"{bronze_dataflow_spec.sourceFormat} source format not supported")
         return self.apply_custom_transform_fun(input_df)
@@ -213,32 +288,18 @@ class DataflowPipeline:
         """Write Bronze table with data quality expectations."""
         bronzeDataflowSpec: BronzeDataflowSpec = self.dataflowSpec
         data_quality_expectations_json = json.loads(bronzeDataflowSpec.dataQualityExpectations)
-        expect_dict = None
-        expect_or_fail_dict = None
-        expect_or_drop_dict = None
+
         dlt_table_with_expectation = None
         expect_or_quarantine_dict = None
-
-        if "expect_all" in data_quality_expectations_json:
-            expect_dict = data_quality_expectations_json["expect_all"]
-        if "expect" in data_quality_expectations_json:
-            expect_dict = data_quality_expectations_json["expect"]
-        if "expect_or_fail" in data_quality_expectations_json:
-            expect_or_fail_dict = data_quality_expectations_json["expect_or_fail"]
-        if "expect_all_or_fail" in data_quality_expectations_json:
-            expect_or_fail_dict = data_quality_expectations_json["expect_all_or_fail"]
-        if "expect_or_drop" in data_quality_expectations_json:
-            expect_or_drop_dict = data_quality_expectations_json["expect_or_drop"]
-        if "expect_all_or_drop" in data_quality_expectations_json:
-            expect_or_drop_dict = data_quality_expectations_json["expect_all_or_drop"]
+        expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = self.get_dq_expectations()
         if "expect_or_quarantine" in data_quality_expectations_json:
             expect_or_quarantine_dict = data_quality_expectations_json["expect_or_quarantine"]
         if bronzeDataflowSpec.cdcApplyChanges:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else bronzeDataflowSpec.targetDetails["path"]
-            if expect_dict:
-                dlt_table_with_expectation = dlt.expect_all(expect_dict)(
+            if expect_all_dict:
+                dlt_table_with_expectation = dlt.expect_all(expect_all_dict)(
                     dlt.table(
                         self.write_to_delta,
                         name=f"{bronzeDataflowSpec.targetDetails['table']}",
@@ -248,9 +309,9 @@ class DataflowPipeline:
                         comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
                     )
                 )
-            if expect_or_fail_dict:
-                if expect_dict is None:
-                    dlt_table_with_expectation = dlt.expect_all_or_fail(expect_or_fail_dict)(
+            if expect_all_or_fail_dict:
+                if expect_all_dict is None:
+                    dlt_table_with_expectation = dlt.expect_all_or_fail(expect_all_or_fail_dict)(
                         dlt.table(
                             self.write_to_delta,
                             name=f"{bronzeDataflowSpec.targetDetails['table']}",
@@ -261,10 +322,11 @@ class DataflowPipeline:
                         )
                     )
                 else:
-                    dlt_table_with_expectation = dlt.expect_all_or_fail(expect_or_fail_dict)(dlt_table_with_expectation)
-            if expect_or_drop_dict:
-                if expect_dict is None and expect_or_fail_dict is None:
-                    dlt_table_with_expectation = dlt.expect_all_or_drop(expect_or_drop_dict)(
+                    dlt_table_with_expectation = dlt.expect_all_or_fail(expect_all_or_fail_dict)(
+                        dlt_table_with_expectation)
+            if expect_all_or_drop_dict:
+                if expect_all_dict is None and expect_all_or_fail_dict is None:
+                    dlt_table_with_expectation = dlt.expect_all_or_drop(expect_all_or_drop_dict)(
                         dlt.table(
                             self.write_to_delta,
                             name=f"{bronzeDataflowSpec.targetDetails['table']}",
@@ -275,7 +337,8 @@ class DataflowPipeline:
                         )
                     )
                 else:
-                    dlt_table_with_expectation = dlt.expect_all_or_drop(expect_or_drop_dict)(dlt_table_with_expectation)
+                    dlt_table_with_expectation = dlt.expect_all_or_drop(expect_all_or_drop_dict)(
+                        dlt_table_with_expectation)
             if expect_or_quarantine_dict:
                 q_partition_cols = None
                 if (
@@ -295,6 +358,31 @@ class DataflowPipeline:
                         {bronzeDataflowSpec.quarantineTargetDetails['table']}""",
                     )
                 )
+
+    def write_append_flows(self):
+        """Creates an append flow for the target specified in the dataflowSpec.
+
+        This method creates a streaming table with the given schema and target path.
+        It then appends the flow to the table using the specified parameters.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+        for append_flow in self.appendFlows:
+            struct_schema = None
+            if self.schema_json:
+                struct_schema = (
+                    StructType.fromJson(self.schema_json)
+                    if isinstance(self.dataflowSpec, BronzeDataflowSpec)
+                    else self.silver_schema
+                )
+            append_flow_writer = AppendFlowWriter(
+                self.spark, append_flow, self.dataflowSpec.targetDetails['table'], struct_schema
+            )
+            append_flow_writer.write_flow()
 
     def cdc_apply_changes(self):
         """CDC Apply Changes against dataflowspec."""
@@ -319,6 +407,8 @@ class DataflowPipeline:
                     if field.name == cdc_apply_changes.sequence_by:
                         sequenced_by_data_type = field.dataType
                 struct_schema = modified_schema
+            else:
+                raise Exception(f"Schema is None for {self.dataflowSpec} for cdc_apply_changes! ")
 
         if struct_schema and cdc_apply_changes.scd_type == "2":
             struct_schema.add(StructField("__START_AT", sequenced_by_data_type))
@@ -326,34 +416,7 @@ class DataflowPipeline:
 
         target_path = None if self.uc_enabled else self.dataflowSpec.targetDetails["path"]
 
-        expect_all_dict = None
-        expect_all_or_drop_dict = None
-        expect_all_or_fail_dict = None
-        if self.table_has_expectations():
-            data_quality_expectations_json = json.loads(self.dataflowSpec.dataQualityExpectations)
-            if "expect_all" in data_quality_expectations_json:
-                expect_all_dict = data_quality_expectations_json["expect_all"]
-            if "expect" in data_quality_expectations_json:
-                expect_all_dict = data_quality_expectations_json["expect"]
-            if "expect_all_or_drop" in data_quality_expectations_json:
-                expect_all_or_drop_dict = data_quality_expectations_json["expect_all_or_drop"]
-            if "expect_or_drop" in data_quality_expectations_json:
-                expect_all_or_drop_dict = data_quality_expectations_json["expect_or_drop"]
-            if "expect_all_or_fail" in data_quality_expectations_json:
-                expect_all_or_fail_dict = data_quality_expectations_json["expect_all_or_fail"]
-            if "expect_or_fail" in data_quality_expectations_json:
-                expect_all_or_fail_dict = data_quality_expectations_json["expect_or_fail"]
-
-        dlt.create_streaming_table(
-            name=f"{self.dataflowSpec.targetDetails['table']}",
-            table_properties=self.dataflowSpec.tableProperties,
-            partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
-            path=target_path,
-            schema=struct_schema,
-            expect_all=expect_all_dict,
-            expect_all_or_drop=expect_all_or_drop_dict,
-            expect_all_or_fail=expect_all_or_fail_dict,
-        )
+        self.create_streaming_table(struct_schema, target_path)
 
         apply_as_deletes = None
         if cdc_apply_changes.apply_as_deletes:
@@ -376,9 +439,54 @@ class DataflowPipeline:
             except_column_list=cdc_apply_changes.except_column_list,
             stored_as_scd_type=cdc_apply_changes.scd_type,
             track_history_column_list=cdc_apply_changes.track_history_column_list,
-            track_history_except_column_list=cdc_apply_changes.track_history_except_column_list
-
+            track_history_except_column_list=cdc_apply_changes.track_history_except_column_list,
+            flow_name=cdc_apply_changes.flow_name,
+            once=cdc_apply_changes.once,
+            ignore_null_updates_column_list=cdc_apply_changes.ignore_null_updates_column_list,
+            ignore_null_updates_except_column_list=cdc_apply_changes.ignore_null_updates_except_column_list
         )
+
+    def create_streaming_table(self, struct_schema, target_path=None):
+        expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = self.get_dq_expectations()
+        dlt.create_streaming_table(
+            name=f"{self.dataflowSpec.targetDetails['table']}",
+            table_properties=self.dataflowSpec.tableProperties,
+            partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
+            path=target_path,
+            schema=struct_schema,
+            expect_all=expect_all_dict,
+            expect_all_or_drop=expect_all_or_drop_dict,
+            expect_all_or_fail=expect_all_or_fail_dict,
+        )
+
+    def get_dq_expectations(self):
+        """
+        Retrieves the data quality expectations for the table.
+
+        Returns:
+            A tuple containing three dictionaries:
+            - expect_all_dict: A dictionary containing the 'expect_all' data quality expectations.
+            - expect_all_or_drop_dict: A dictionary containing the 'expect_all_or_drop' data quality expectations.
+            - expect_all_or_fail_dict: A dictionary containing the 'expect_all_or_fail' data quality expectations.
+        """
+        expect_all_dict = None
+        expect_all_or_drop_dict = None
+        expect_all_or_fail_dict = None
+        if self.table_has_expectations():
+            data_quality_expectations_json = json.loads(self.dataflowSpec.dataQualityExpectations)
+            if "expect_all" in data_quality_expectations_json:
+                expect_all_dict = data_quality_expectations_json["expect_all"]
+            if "expect" in data_quality_expectations_json:
+                expect_all_dict = data_quality_expectations_json["expect"]
+            if "expect_all_or_drop" in data_quality_expectations_json:
+                expect_all_or_drop_dict = data_quality_expectations_json["expect_all_or_drop"]
+            if "expect_or_drop" in data_quality_expectations_json:
+                expect_all_or_drop_dict = data_quality_expectations_json["expect_or_drop"]
+            if "expect_all_or_fail" in data_quality_expectations_json:
+                expect_all_or_fail_dict = data_quality_expectations_json["expect_all_or_fail"]
+            if "expect_or_fail" in data_quality_expectations_json:
+                expect_all_or_fail_dict = data_quality_expectations_json["expect_or_fail"]
+        return expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict
 
     def run_dlt(self):
         """Run DLT."""
@@ -413,7 +521,6 @@ class DataflowPipeline:
                 )
             else:
                 logger.info("quarantine_input_view_name set to None")
-
             dlt_data_flow = DataflowPipeline(
                 spark,
                 dataflowSpec,
