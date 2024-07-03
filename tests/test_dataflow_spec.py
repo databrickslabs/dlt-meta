@@ -184,7 +184,6 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
             },
             "reader_options":{},
             "spark_conf":{},
-            "sink_options":{},
             "once":true
         }]"""
         append_flows = DataflowSpecUtils.get_append_flows(append_flow_spec)
@@ -195,7 +194,6 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
                                                       "table": "bronze_dataflowspec_cdc"})
         self.assertEqual(append_flow.reader_options, {})
         self.assertEqual(append_flow.spark_conf, {})
-        self.assertEqual(append_flow.sink_options, {})
         self.assertEqual(append_flow.once, True)
 
     append_flow_mandatory_attributes = ["name", "source_format", "create_streaming_table", "source_details"]

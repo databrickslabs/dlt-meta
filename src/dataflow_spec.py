@@ -96,7 +96,6 @@ class AppendFlow:
     source_details: map
     reader_options: map
     spark_conf: map
-    sink_options: map
     once: bool
 
 
@@ -144,7 +143,6 @@ class DataflowSpecUtils:
         "create_streaming_table": False,
         "reader_options": None,
         "spark_conf": None,
-        "sink_options": None,
         "once": False
     }
 

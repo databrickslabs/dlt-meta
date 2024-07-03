@@ -846,7 +846,6 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
                 target=target_table,
                 comment=f"append_flow={append_flow.name} for target={target_table}",
                 spark_conf=append_flow.spark_conf,
-                sink_options=append_flow.sink_options,
                 once=append_flow.once
             )(mock_write_to_delta.called_once())
 
