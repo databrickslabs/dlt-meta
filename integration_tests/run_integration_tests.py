@@ -215,6 +215,7 @@ class DLTMETARunner:
     def create_dlt_meta_pipeline(self,
                                  pipeline_name: str,
                                  layer: str,
+                                 group: str,
                                  target_schema: str,
                                  runner_conf: DLTMetaRunnerConf
                                  ):
@@ -244,7 +245,7 @@ class DLTMETARunner:
         """
         configuration = {
             "layer": layer,
-            f"{layer}.group": "A1",
+            f"{layer}.group": group,
             "dlt_meta_whl": runner_conf.remote_whl_path,
         }
         created = None
@@ -264,7 +265,7 @@ class DLTMETARunner:
                     )
                 ],
                 target=target_schema,
-                clusters=[pipelines.PipelineCluster(label="default", num_workers=4)]
+                clusters=[pipelines.PipelineCluster(label="default", num_workers=2)]
             )
         else:
             configuration[f"{layer}.dataflowspecTable"] = (
@@ -283,7 +284,7 @@ class DLTMETARunner:
                     )
                 ],
                 target=target_schema,
-                clusters=[pipelines.PipelineCluster(label="default", num_workers=4)]
+                clusters=[pipelines.PipelineCluster(label="default", num_workers=2)]
 
             )
         if created is None:
@@ -629,10 +630,11 @@ class DLTMETARunner:
 
         for data_flow in onboard_obj:
             for key, value in data_flow.items():
-                if key == "source_details":
-                    for source_key, source_value in value.items():
-                        if 'dbfs_path' in source_value:
-                            data_flow[key][source_key] = source_value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                self.__populate_source_details(runner_conf, data_flow, key, value)
+                if isinstance(value, list):
+                    for val in value:
+                        for k, v in val.items():
+                            self.__populate_source_details(runner_conf, val, k, v)
                 if 'dbfs_path' in value:
                     data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
                 elif 'run_id' in value:
@@ -663,6 +665,12 @@ class DLTMETARunner:
 
         with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
             json.dump(onboard_obj, onboarding_file)
+
+    def __populate_source_details(self, runner_conf, data_flow, key, value):
+        if key == "source_details":
+            for source_key, source_value in value.items():
+                if 'dbfs_path' in source_value:
+                    data_flow[key][source_key] = source_value.format(dbfs_path=runner_conf.dbfs_tmp_path)
 
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
         self.generate_onboarding_file(runner_conf)
@@ -745,6 +753,7 @@ class DLTMETARunner:
         runner_conf.bronze_pipeline_id = self.create_dlt_meta_pipeline(
             f"dlt-meta-integration-test-bronze-{runner_conf.run_id}",
             "bronze",
+            "A1",
             runner_conf.bronze_schema,
             runner_conf)
 
@@ -752,6 +761,7 @@ class DLTMETARunner:
             runner_conf.silver_pipeline_id = self.create_dlt_meta_pipeline(
                 f"dlt-meta-integration-test-silver-{runner_conf.run_id}",
                 "silver",
+                "A1",
                 runner_conf.silver_schema,
                 runner_conf)
 
