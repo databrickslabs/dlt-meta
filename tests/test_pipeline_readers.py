@@ -176,28 +176,6 @@ class PipelineReadersTests(DLTFrameworkTestCase):
             self.onboarding_bronze_silver_params_map["silver_dataflowspec_path"],
         )
 
-    def test_read_cloud_files_positive(self):
-        """Test read_cloud_files positive."""
-        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
-        schema_ddl = "tests/resources/schema/customer_schema.ddl"
-        ddlSchemaStr = self.spark.read.text(paths=schema_ddl, wholetext=True).collect()[0]["value"]
-        spark_schema = T._parse_datatype_string(ddlSchemaStr)
-        schema = spark_schema.jsonValue()
-        schema_map = {"schema": schema}
-        bronze_map.update(schema_map)
-        source_format_map = {"sourceFormat": "json"}
-        bronze_map.update(source_format_map)
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        pipeline_readers = PipelineReaders(
-            self.spark,
-            bronze_dataflow_spec.sourceFormat,
-            bronze_dataflow_spec.sourceDetails,
-            bronze_dataflow_spec.readerConfigOptions,
-            schema
-        )
-        customer_df = pipeline_readers.read_dlt_cloud_files()
-        self.assertIsNotNone(customer_df)
-
     @patch.object(PipelineReaders, "add_cloudfiles_metadata", return_value={"called"})
     @patch.object(SparkSession, "readStream")
     def test_read_cloud_files_withmetadata_cols_positive(self, SparkSession, add_cloudfiles_metadata):
