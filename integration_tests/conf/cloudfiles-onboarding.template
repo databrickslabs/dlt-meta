@@ -15,7 +15,7 @@
                "input_file_name": "_metadata.file_name",
                "input_file_path": "_metadata.file_path"
             }
-      }     
+      },
       "source_schema_path": "{dbfs_path}/integration_tests/resources/customers.ddl"
    },
    "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",
@@ -90,7 +90,7 @@
       "source_path_it": "{dbfs_path}/integration_tests/resources/data/transactions",
       "source_metadata": {
             "include_autoloader_metadata_column": "True"
-      }      
+      },      
       "source_schema_path": "{dbfs_path}/integration_tests/resources/transactions.ddl"
    },   
    "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",

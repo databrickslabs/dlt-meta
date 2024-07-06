@@ -724,7 +724,8 @@ class DLTMETARunner:
             spark_conf=spark_confs,
             autotermination_minutes=30,
             spark_env_vars={
-                "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+                "PYSPARK_PYTHON": "/databricks/python3/bin/python3",
+                "WSFS_ENABLE": "false"
             },
             data_security_mode=mode
         ).result()

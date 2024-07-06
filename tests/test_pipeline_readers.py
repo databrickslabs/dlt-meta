@@ -2,7 +2,9 @@
 from datetime import datetime
 import sys
 import os
+import json
 from pyspark.sql.functions import lit, struct
+from pyspark.sql.types import StructType
 from src.dataflow_spec import BronzeDataflowSpec
 from src.pipeline_readers import PipelineReaders
 from tests.utils import DLTFrameworkTestCase
@@ -197,9 +199,17 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         self.assertIsNotNone(customer_df)
 
     @patch.object(PipelineReaders, "add_cloudfiles_metadata", return_value={"called"})
-    @patch.object(spark, "readStream", return_value={"called"})
-    def test_read_cloud_files_withmetadata_cols_positive(self, readStream, add_cloudfiles_metadata):
+    @patch.object(SparkSession, "readStream")
+    def test_read_cloud_files_withmetadata_cols_positive(self, SparkSession, add_cloudfiles_metadata):
         """Test read_cloud_files positive."""
+        mock_format = MagicMock()
+        mock_options = MagicMock()
+        mock_load = MagicMock()
+        mock_schema = MagicMock()
+        SparkSession.readStream.format.return_value = mock_format
+        mock_format.options.return_value = mock_options
+        mock_options.schema.return_value = mock_schema
+        mock_schema.load.return_value = mock_load
         bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
         schema_ddl = "tests/resources/schema/customer_schema.ddl"
         ddlSchemaStr = self.spark.read.text(paths=schema_ddl, wholetext=True).collect()[0]["value"]
@@ -207,9 +217,33 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         schema = spark_schema.jsonValue()
         schema_map = {"schema": schema}
         bronze_map.update(schema_map)
+        source_metdata_json = {
+            "include_autoloader_metadata_column": "True",
+            "autoloader_metadata_col_name": "source_metadata",
+            "select_metadata_cols": {
+                "input_file_name": "_metadata.file_name",
+                "input_file_path": "_metadata.file_path"
+            }
+        }
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        customer_df = PipelineReaders.read_dlt_cloud_files(self.spark, bronze_dataflow_spec, schema)
-        self.assertIsNotNone(customer_df)
+        bronze_dataflow_spec.sourceDetails["source_metadata"] = json.dumps(source_metdata_json)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        pipeline_readers = PipelineReaders(
+            SparkSession,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            schema
+        )
+        pipeline_readers.read_dlt_cloud_files()
+        SparkSession.readStream.format.assert_called_once_with("json")
+        SparkSession.readStream.format.return_value.options.assert_called_once_with(
+            **bronze_dataflow_spec.readerConfigOptions
+        )
+        struct_schema = StructType.fromJson(schema)
+        SparkSession.readStream.format.return_value.options.return_value.schema.assert_called_once_with(struct_schema)
+        (SparkSession.readStream.format.return_value.options.return_value.schema
+         .return_value.load.assert_called_once_with(bronze_dataflow_spec.sourceDetails["path"]))
         assert add_cloudfiles_metadata.called
 
     @patch.object(SparkSession, "readStream")
@@ -426,10 +460,9 @@ class PipelineReadersTests(DLTFrameworkTestCase):
             }
         }
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        import json
         bronze_dataflow_spec.sourceDetails["source_metadata"] = json.dumps(source_metdata_json)
         df = (self.spark.read.json("tests/resources/data/customers")
               .withColumn('_metadata', struct(*[lit("filename").alias("file_name"),
                                                 lit("file_path").alias('file_path')])))
-        df = PipelineReaders.add_cloudfiles_metadata(bronze_dataflow_spec, df)
+        df = PipelineReaders.add_cloudfiles_metadata(bronze_dataflow_spec.sourceDetails, df)
         self.assertIsNotNone(df)

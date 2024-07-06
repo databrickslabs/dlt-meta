@@ -46,8 +46,8 @@ class PipelineReaders:
                 .options(**self.reader_config_options)
                 .load(source_path)
             )
-        if self.sourceDetails and "source_metadata" in self.sourceDetails.keys():
-            input_df = PipelineReaders.add_cloudfiles_metadata(self.sourceDetails, input_df)
+        if self.source_details and "source_metadata" in self.source_details.keys():
+            input_df = PipelineReaders.add_cloudfiles_metadata(self.source_details, input_df)
         return input_df
 
     @staticmethod
