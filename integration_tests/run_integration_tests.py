@@ -724,7 +724,8 @@ class DLTMETARunner:
             spark_conf=spark_confs,
             autotermination_minutes=30,
             spark_env_vars={
-                "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+                "PYSPARK_PYTHON": "/databricks/python3/bin/python3",
+                "WSFS_ENABLE": "false"
             },
             data_security_mode=mode
         ).result()
@@ -742,7 +743,7 @@ class DLTMETARunner:
             print(e)
         finally:
             print("Cleaning up...")
-    #        self.clean_up(runner_conf)
+            self.clean_up(runner_conf)
 
     def download_test_results(self, runner_conf: DLTMetaRunnerConf):
         ws_output_file = self.ws.workspace.download(runner_conf.test_output_file_path)

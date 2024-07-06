@@ -1,5 +1,6 @@
 """PipelineReaders providers DLT readers functionality."""
 import logging
+import json
 from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
 from pyspark.sql.functions import from_json, col
@@ -29,22 +30,41 @@ class PipelineReaders:
             DataFrame: _description_
         """
         logger.info("In read_dlt_cloud_files func")
+        input_df = None
         source_path = self.source_details["path"]
-
         if self.schema_json and self.source_format != "delta":
             schema = StructType.fromJson(self.schema_json)
-            return (
+            input_df = (
                 self.spark.readStream.format(self.source_format)
                 .options(**self.reader_config_options)
                 .schema(schema)
                 .load(source_path)
             )
         else:
-            return (
+            input_df = (
                 self.spark.readStream.format(self.source_format)
                 .options(**self.reader_config_options)
                 .load(source_path)
             )
+        if self.source_details and "source_metadata" in self.source_details.keys():
+            input_df = PipelineReaders.add_cloudfiles_metadata(self.source_details, input_df)
+        return input_df
+
+    @staticmethod
+    def add_cloudfiles_metadata(sourceDetails, input_df):
+        source_metadata_json = json.loads(sourceDetails.get("source_metadata"))
+        keys = source_metadata_json.keys()
+        if "include_autoloader_metadata_column" in keys:
+            if "autoloader_metadata_col_name" in source_metadata_json:
+                source_metadata_col_name = source_metadata_json["autoloader_metadata_col_name"]
+                input_df = input_df.selectExpr("*", f"_metadata as {source_metadata_col_name}")
+            else:
+                input_df = input_df.selectExpr("*", "_metadata as source_metadata")
+            if "select_metadata_cols" in source_metadata_json:
+                select_metadata_cols = source_metadata_json["select_metadata_cols"]
+                for select_metadata_col in select_metadata_cols:
+                    input_df = input_df.withColumn(select_metadata_col, col(select_metadata_cols[select_metadata_col]))
+        return input_df
 
     def read_dlt_delta(self) -> DataFrame:
         """Read dlt delta.

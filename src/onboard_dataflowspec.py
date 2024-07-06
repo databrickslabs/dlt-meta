@@ -458,7 +458,6 @@ class OnboardDataflowspec:
                 raise Exception(f"Source format {source_format} not supported in DLT-META! row={onboarding_row}")
             source_details, bronze_reader_config_options, schema = self.get_bronze_source_details_reader_options_schema(
                 onboarding_row, env)
-
             bronze_target_format = "delta"
             bronze_target_details = {
                 "database": onboarding_row["bronze_database_{}".format(env)],
@@ -611,6 +610,14 @@ class OnboardDataflowspec:
                     source_details["source_database"] = source_details_file["source_database"]
                 if "source_table" in source_details_file:
                     source_details["source_table"] = source_details_file["source_table"]
+                if "source_metadata" in source_details_file:
+                    source_metadata_dict = self.__delete_none(source_details_file["source_metadata"].asDict())
+                    if "select_metadata_cols" in source_metadata_dict:
+                        select_metadata_cols = self.__delete_none(
+                            source_metadata_dict["select_metadata_cols"].asDict()
+                        )
+                        source_metadata_dict["select_metadata_cols"] = select_metadata_cols
+                    source_details["source_metadata"] = json.dumps(self.__delete_none(source_metadata_dict))
             elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
                 source_details = source_details_file
             if "source_schema_path" in source_details_file:
