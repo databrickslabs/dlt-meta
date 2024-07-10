@@ -16,12 +16,14 @@ logger.setLevel(logging.INFO)
 class AppendFlowWriter:
     """Append Flow Writer class."""
 
-    def __init__(self, spark, append_flow, target, struct_schema):
+    def __init__(self, spark, append_flow, target, struct_schema, table_properties=None, partition_cols=None):
         """Init."""
         self.spark = spark
         self.target = target
         self.append_flow = append_flow
         self.struct_schema = struct_schema
+        self.table_properties = table_properties
+        self.partition_cols = partition_cols
 
     def write_af_to_delta(self):
         """Write to Delta."""
@@ -30,12 +32,19 @@ class AppendFlowWriter:
     def write_flow(self):
         """Write Append Flow."""
         if self.append_flow.create_streaming_table:
-            self.create_streaming_table(self.struct_schema)
+            dlt.create_streaming_table(
+                name=self.target,
+                table_properties=self.table_properties,
+                partition_cols=self.partition_cols,
+                schema=self.struct_schema,
+                expect_all=None,
+                expect_all_or_drop=None,
+                expect_all_or_fail=None,
+            )
         if self.append_flow.comment:
             comment = self.append_flow.comment
         else:
             comment = f"append_flow={self.append_flow.name} for target={self.target}"
-
         dlt.append_flow(name=self.append_flow.name,
                         target=self.target,
                         comment=comment,
@@ -368,7 +377,11 @@ class DataflowPipeline:
                     else self.silver_schema
                 )
             append_flow_writer = AppendFlowWriter(
-                self.spark, append_flow, self.dataflowSpec.targetDetails['table'], struct_schema
+                self.spark, append_flow,
+                self.dataflowSpec.targetDetails['table'],
+                struct_schema,
+                self.dataflowSpec.tableProperties,
+                self.dataflowSpec.partitionColumns
             )
             append_flow_writer.write_flow()
 

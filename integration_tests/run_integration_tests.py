@@ -710,7 +710,7 @@ class DLTMETARunner:
     def create_cluster(self, runner_conf: DLTMetaRunnerConf):
         print("Cluster creation started...")
         if runner_conf.uc_catalog_name:
-            mode = compute.DataSecurityMode.USER_ISOLATION
+            mode = compute.DataSecurityMode.SINGLE_USER
             spark_confs = {}
         else:
             mode = compute.DataSecurityMode.NONE
