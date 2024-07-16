@@ -190,7 +190,7 @@ class DLTMETARunner:
         return runner_conf
 
     def _install_folder(self):
-        return f"/Users/{self._my_username()}/dlt-meta"
+        return f"/Users/{self.wsi._my_username}/dlt-meta"
 
     def _my_username(self, ws):
         if not hasattr(ws, "_me"):
@@ -465,7 +465,8 @@ class DLTMETARunner:
 
     def create_kafka_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """Create Job specification."""
-        database, dlt_lib = self.init_db_dltlib()
+        database, dlt_lib = self.init_db_dltlib(runner_conf)
+        dbfs_path = runner_conf.dbfs_tmp_path.replace("dbfs:/", "/dbfs/")
         return self.ws.jobs.create(
             name=f"dlt-meta-integration-test-{runner_conf.run_id}",
             tasks=[
@@ -478,7 +479,7 @@ class DLTMETARunner:
                         package_name="dlt_meta",
                         entry_point="run",
                         named_parameters={
-                            "onboard_layer": "bronze_silver",
+                            "onboard_layer": "bronze",
                             "database": database,
                             "onboarding_file_path":
                             f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/conf/onboarding.json",
@@ -489,7 +490,8 @@ class DLTMETARunner:
                             "version": "v1",
                             "bronze_dataflowspec_path": f"{self._install_folder()}/dltmeta/data/dlt_spec/bronze",
                             "overwrite": "True",
-                            "env": runner_conf.env
+                            "env": runner_conf.env,
+                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
                         },
                     ),
                     libraries=dlt_lib
@@ -504,8 +506,7 @@ class DLTMETARunner:
                         base_parameters={
                             "kafka_topic": self.args.__getattribute__("kafka_topic_name"),
                             "kafka_broker": self.args.__getattribute__("kafka_broker"),
-                            "kafka_input_data": f"/{runner_conf.dbfs_tmp_path}"
-                                                "/{self.base_dir}/resources/data/iot/iot.json"
+                            "kafka_input_data": f"/{dbfs_path}/{self.base_dir}/resources/data/iot/iot.json"
                         }
                     )
                 ),
