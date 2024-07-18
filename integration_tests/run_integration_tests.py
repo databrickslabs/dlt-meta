@@ -97,6 +97,7 @@ class DLTMetaRunnerConf:
     run_name: str = None
     uc_catalog_name: str = None
     onboarding_file_path: str = None
+    onboarding_A2_file_path: str = None
     dbfs_tmp_path: str = None
     uc_volume_name: str = None
     int_tests_dir: str = None
@@ -107,6 +108,7 @@ class DLTMetaRunnerConf:
     runners_full_local_path: str = None
     source: str = None
     cloudfiles_template: str = None
+    cloudfiles_A2_template: str = None
     eventhub_template: str = None
     kafka_template: str = None
     env: str = None
@@ -119,6 +121,7 @@ class DLTMetaRunnerConf:
     node_type_id: str = None
     dbr_version: str = None
     bronze_pipeline_id: str = None
+    bronze_pipeline_A2_id: str = None
     silver_pipeline_id: str = None
     cluster_id: str = None
     job_id: str = None
@@ -163,9 +166,11 @@ class DLTMETARunner:
             node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             dbr_version=self.args.__dict__['dbr_version'],
             cloudfiles_template="integration_tests/conf/cloudfiles-onboarding.template",
+            cloudfiles_A2_template="integration_tests/conf/cloudfiles-onboarding_A2.template",
             eventhub_template="integration_tests/conf/eventhub-onboarding.template",
             kafka_template="integration_tests/conf/kafka-onboarding.template",
             onboarding_file_path="integration_tests/conf/onboarding.json",
+            onboarding_A2_file_path="integration_tests/conf/onboarding_A2.json",
             env="it",
             test_output_file_path=(
                 f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/"
@@ -349,8 +354,40 @@ class DLTMETARunner:
                     ),
                 ),
                 jobs.Task(
-                    task_key="silver_dlt_pipeline",
+                    task_key="onboard_spec_A2",
                     depends_on=[jobs.TaskDependency(task_key="bronze_dlt_pipeline")],
+                    description="test",
+                    existing_cluster_id=runner_conf.cluster_id,
+                    timeout_seconds=0,
+                    python_wheel_task=jobs.PythonWheelTask(
+                        package_name="dlt_meta",
+                        entry_point="run",
+                        named_parameters={
+                            "onboard_layer": "bronze",
+                            "database": database,
+                            "onboarding_file_path":
+                            f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/conf/onboarding_A2.json",
+                            "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
+                            "import_author": "Ravi",
+                            "version": "v1",
+                            "bronze_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/data/dlt_spec/bronze",
+                            "overwrite": "False",
+                            "env": runner_conf.env,
+                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
+                        },
+                    ),
+                    libraries=dlt_lib
+                ),
+                jobs.Task(
+                    task_key="bronze_A2_dlt_pipeline",
+                    depends_on=[jobs.TaskDependency(task_key="onboard_spec_A2")],
+                    pipeline_task=jobs.PipelineTask(
+                        pipeline_id=runner_conf.bronze_pipeline_A2_id
+                    ),
+                ),
+                jobs.Task(
+                    task_key="silver_dlt_pipeline",
+                    depends_on=[jobs.TaskDependency(task_key="bronze_A2_dlt_pipeline")],
                     pipeline_task=jobs.PipelineTask(
                         pipeline_id=runner_conf.silver_pipeline_id
                     )
@@ -710,6 +747,16 @@ class DLTMETARunner:
                             self.__populate_source_details(runner_conf, val, k, v)
                 if 'dbfs_path' in value:
                     data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                if key == 'silver_append_flows':
+                    counter = 0
+                    for flows in value:
+                        for flow_key, flow_value in flows.items():
+                            if flow_key == "source_details":
+                                for source_key, source_value in flows[flow_key].items():
+                                    if '{uc_catalog_name}.{bronze_schema}' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            uc_catalog_name=runner_conf.uc_catalog_name,
+                                            bronze_schema=runner_conf.bronze_schema)
                 elif 'run_id' in value:
                     data_flow[key] = value.format(run_id=runner_conf.run_id)
                 elif 'uc_catalog_name' in value and 'bronze_schema' in value:
@@ -737,6 +784,24 @@ class DLTMETARunner:
                         ).replace(".", "")
 
         with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
+            json.dump(onboard_obj, onboarding_file)
+
+        with open(f"{runner_conf.cloudfiles_A2_template}") as f:
+            onboard_obj = json.load(f)
+
+        for data_flow in onboard_obj:
+            for key, value in data_flow.items():
+                self.__populate_source_details(runner_conf, data_flow, key, value)
+                if 'dbfs_path' in value:
+                    data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                if 'uc_catalog_name' in value and 'bronze_schema' in value:
+                    if runner_conf.uc_catalog_name:
+                        data_flow[key] = value.format(
+                            uc_catalog_name=runner_conf.uc_catalog_name,
+                            bronze_schema=runner_conf.bronze_schema
+                        )
+
+        with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file:
             json.dump(onboard_obj, onboarding_file)
 
     def __populate_source_details(self, runner_conf, data_flow, key, value):
@@ -837,9 +902,9 @@ class DLTMETARunner:
             self.download_test_results(runner_conf)
         except Exception as e:
             print(e)
-        finally:
-            print("Cleaning up...")
-            self.clean_up(runner_conf)
+        # finally:
+        #     print("Cleaning up...")
+        #     self.clean_up(runner_conf)
 
     def download_test_results(self, runner_conf: DLTMetaRunnerConf):
         ws_output_file = self.ws.workspace.download(runner_conf.test_output_file_path)
@@ -855,6 +920,13 @@ class DLTMETARunner:
             runner_conf)
 
         if runner_conf.source and runner_conf.source.lower() == "cloudfiles":
+            runner_conf.bronze_pipeline_A2_id = self.create_dlt_meta_pipeline(
+                f"dlt-meta-integration-test-bronze-A2-{runner_conf.run_id}",
+                "bronze",
+                "A2",
+                runner_conf.bronze_schema,
+                runner_conf)
+
             runner_conf.silver_pipeline_id = self.create_dlt_meta_pipeline(
                 f"dlt-meta-integration-test-silver-{runner_conf.run_id}",
                 "silver",
