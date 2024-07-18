@@ -34,7 +34,7 @@
                     "source_database": "APP",
                     "source_table": "CUSTOMERS",
                     "source_path_dev": "tests/resources/data/customers_af",
-                    "source_schema_path": "tests/resources/schema/customers.ddl"
+                    "source_schema_path": "tests/resources/schema/customer_schema.ddl"
                 },
                 "reader_options": {
                     "cloudFiles.format": "json",
@@ -128,7 +128,7 @@
                 "source_table": "TRANSACTIONS",
                 "source_path_prd": "tests/resources/data/transactions",
                 "source_path_dev": "tests/resources/data/transactions_af",
-                "source_schema_path": "tests/resources/schema/transactions.ddl"
+                "source_schema_path": "tests/resources/schema/transactions_schema.ddl"
             },
             "reader_options": {
                 "cloudFiles.format": "json",

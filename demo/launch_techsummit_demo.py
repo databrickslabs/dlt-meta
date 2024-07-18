@@ -164,8 +164,7 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         runner_conf.job_id = created_job.job_id
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
         print(f"Waiting for job to complete. run_id={created_job.job_id}")
-        run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id)
-        url = f"{self.ws.config.host}/jobs/{runner_conf.job_id}/runs/{run_by_id}?o={self.ws.get_workspace_id()}/"
+        url = f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
         webbrowser.open(url)
         print(f"Job launched with url={url}")
 

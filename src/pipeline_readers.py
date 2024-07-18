@@ -131,7 +131,7 @@ class PipelineReaders:
 
     def get_eventhub_kafka_options(self):
         """Get eventhub options from dataflowspec."""
-        dbutils = PipelineReaders.get_db_utils(self.spark)
+        dbutils = self.get_db_utils()
         eh_namespace = self.source_details.get("eventhub.namespace")
         eh_port = self.source_details.get("eventhub.port")
         eh_name = self.source_details.get("eventhub.name")
