@@ -429,11 +429,14 @@ class DLTMETARunner:
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events",
                         base_parameters={
                             "eventhub_name": self.args.__getattribute__("eventhub_name"),
+                            "eventhub_name_append_flow": self.args.__getattribute__("eventhub_name_append_flow"),
                             "eventhub_namespace": self.args.__getattribute__("eventhub_namespace"),
                             "eventhub_secrets_scope_name": self.args.__getattribute__("eventhub_secrets_scope_name"),
                             "eventhub_accesskey_name": self.args.__getattribute__("eventhub_producer_accesskey_name"),
                             "eventhub_input_data":
-                            f"/{dbfs_path}/{self.base_dir}/resources/data/iot/iot.json"
+                            f"/{dbfs_path}/{self.base_dir}/resources/data/iot/iot.json",
+                            "eventhub_append_flow_input_data":
+                            f"/{dbfs_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",
                         }
                     )
                 ),
@@ -586,6 +589,7 @@ class DLTMETARunner:
         with open(f"{runner_conf.eventhub_template}") as f:
             onboard_obj = json.load(f)
         eventhub_name = self.args.__getattribute__("eventhub_name").lower()
+        eventhub_name_append_flow = self.args.__getattribute__("eventhub_name_append_flow").lower()
         eventhub_accesskey_name = self.args.__getattribute__("eventhub_consumer_accesskey_name").lower()
         eventhub_accesskey_secret_name = self.args.__getattribute__("eventhub_accesskey_secret_name").lower()
         eventhub_secrets_scope_name = self.args.__getattribute__("eventhub_secrets_scope_name").lower()
@@ -612,6 +616,34 @@ class DLTMETARunner:
                             data_flow[key][source_key] = source_value.format(eventhub_nmspace=eventhub_namespace)
                         if 'eventhub_port' in source_value:
                             data_flow[key][source_key] = source_value.format(eventhub_port=eventhub_port)
+                if key == 'bronze_append_flows':
+                    counter = 0
+                    for flows in value:
+                        for flow_key, flow_value in flows.items():
+                            if flow_key == "source_details":
+                                for source_key, source_value in flows[flow_key].items():
+                                    if 'dbfs_path' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            dbfs_path=runner_conf.dbfs_tmp_path)
+                                    if 'eventhub_name_append_flow' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            eventhub_name_append_flow=eventhub_name_append_flow)
+                                    if 'eventhub_accesskey_name' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            eventhub_accesskey_name=eventhub_accesskey_name)
+                                    if 'eventhub_secrets_scope_name' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            eventhub_secrets_scope_name=eventhub_secrets_scope_name)
+                                    if 'eventhub_accesskey_secret_name' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            eventhub_accesskey_secret_name=eventhub_accesskey_secret_name)
+                                    if 'eventhub_nmspace' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            eventhub_nmspace=eventhub_namespace)
+                                    if 'eventhub_port' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            eventhub_port=eventhub_port)
+                        counter += 1
                 if 'dbfs_path' in value:
                     data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
                 elif 'run_id' in value:
@@ -630,6 +662,39 @@ class DLTMETARunner:
 
         with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
             json.dump(onboard_obj, onboarding_file)
+
+    def replace_eventhub_source_details_values(self,
+                                               runner_conf,
+                                               eventhub_name,
+                                               eventhub_name_append_flow,
+                                               eventhub_accesskey_name,
+                                               eventhub_accesskey_secret_name,
+                                               eventhub_secrets_scope_name,
+                                               eventhub_namespace,
+                                               eventhub_port,
+                                               data_flow,
+                                               key,
+                                               source_key,
+                                               source_value):
+        if 'dbfs_path' in source_value:
+            data_flow[key][source_key] = source_value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+        if 'eventhub_name' in source_value:
+            data_flow[key][source_key] = source_value.format(eventhub_name=eventhub_name)
+        if 'eventhub_name_append_flow' in source_value:
+            data_flow[key][source_key] = source_value.format(eventhub_name_append_flow=eventhub_name_append_flow)
+        if 'eventhub_accesskey_name' in source_value:
+            data_flow[key][source_key] = source_value.format(
+                eventhub_accesskey_name=eventhub_accesskey_name)
+        if 'eventhub_secrets_scope_name' in source_value:
+            data_flow[key][source_key] = source_value.format(
+                eventhub_secrets_scope_name=eventhub_secrets_scope_name)
+        if 'eventhub_accesskey_secret_name' in source_value:
+            data_flow[key][source_key] = source_value.format(
+                eventhub_accesskey_secret_name=eventhub_accesskey_secret_name)
+        if 'eventhub_nmspace' in source_value:
+            data_flow[key][source_key] = source_value.format(eventhub_nmspace=eventhub_namespace)
+        if 'eventhub_port' in source_value:
+            data_flow[key][source_key] = source_value.format(eventhub_port=eventhub_port)
 
     def create_cloudfiles_onboarding(self, runner_conf: DLTMetaRunnerConf):
         """Create onboarding file for cloudfiles as source."""
@@ -686,7 +751,7 @@ class DLTMETARunner:
         if main_dir.endswith('/'):
             base_dir_name = main_dir[:-1]
         if base_dir_name is None:
-            base_dir_name = main_dir[main_dir.rfind('/') + 1:] 
+            base_dir_name = main_dir[main_dir.rfind('/') + 1:]
         else:
             base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:-1]
         for root, dirs, files in os.walk(main_dir):
@@ -694,8 +759,9 @@ class DLTMETARunner:
                 target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
                 dbfs_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
                 contents = open(os.path.join(root, filename), "rb")
-                print(f"local_path {os.path.join(root, filename)}, dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
-                self.ws.dbfs.upload(dbfs_path, contents, overwrite=True)         
+                print(f"local_path={os.path.join(root, filename)}",
+                      f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
+                self.ws.dbfs.upload(dbfs_path, contents, overwrite=True)
 
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
         self.generate_onboarding_file(runner_conf)
@@ -772,7 +838,7 @@ class DLTMETARunner:
             print(e)
         finally:
             print("Cleaning up...")
-            # self.clean_up(runner_conf)
+            self.clean_up(runner_conf)
 
     def download_test_results(self, runner_conf: DLTMetaRunnerConf):
         ws_output_file = self.ws.workspace.download(runner_conf.test_output_file_path)
@@ -805,7 +871,7 @@ class DLTMETARunner:
         runner_conf.job_id = created_job.job_id
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
         import webbrowser
-        webbrowser.open(f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}")                
+        webbrowser.open(f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}")
         print(f"Waiting for job to complete. job_id={created_job.job_id}")
         run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result()
         print(f"Job run finished. run_id={run_by_id}")
@@ -864,6 +930,7 @@ args_map = {"--profile": "provide databricks cli profile name, if not provide da
                         e.g --dbfs_path=dbfs:/tmp/DLT-META/",
             "--source": "Provide source type e.g --source=cloudfiles",
             "--eventhub_name": "Provide eventhub_name e.g --eventhub_name=iot",
+            "--eventhub_name_append_flow": "Provide eventhub_name_append_flow e.g --eventhub_name_append_flow=iot_af",
             "--eventhub_producer_accesskey_name": "Provide access key that has write permission on the eventhub",
             "--eventhub_consumer_accesskey_name": "Provide access key that has read permission on the eventhub",
             "--eventhub_secrets_scope_name": "Provide eventhub_secrets_scope_name e.g \
@@ -915,7 +982,7 @@ def post_arg_processing(args):
     if source.lower() not in supported_sources:
         raise Exception("Invalid value for --source! Supported values: --source=cloudfiles")
     if source.lower() == "eventhub":
-        eventhub_madatory_args = ["eventhub_name", "eventhub_producer_accesskey_name",
+        eventhub_madatory_args = ["eventhub_name", "eventhub_name_append_flow", "eventhub_producer_accesskey_name",
                                   "eventhub_consumer_accesskey_name", "eventhub_secrets_scope_name",
                                   "eventhub_namespace", "eventhub_port"]
         check_mandatory_arg(args, eventhub_madatory_args)

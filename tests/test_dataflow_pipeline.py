@@ -48,6 +48,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         },
         "quarantineTableProperties": {},
         "appendFlows": [],
+        "appendFlowsSchemas": {},
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -102,6 +103,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             }
         }""",
         "appendFlows": [],
+        "appendFlowsSchemas": {},
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",

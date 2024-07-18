@@ -33,6 +33,7 @@ class BronzeDataflowSpec:
     quarantineTargetDetails: map
     quarantineTableProperties: map
     appendFlows: str
+    appendFlowsSchemas: map
     version: str
     createDate: datetime
     createdBy: str
@@ -58,6 +59,7 @@ class SilverDataflowSpec:
     cdcApplyChanges: str
     dataQualityExpectations: str
     appendFlows: str
+    appendFlowsSchemas: map
     version: str
     createDate: datetime
     createdBy: str

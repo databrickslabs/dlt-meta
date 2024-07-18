@@ -131,12 +131,17 @@ class DataflowPipeline:
 
     def read_append_flows(self):
         if self.dataflowSpec.appendFlows:
+            append_flows_schema_map = self.dataflowSpec.appendFlowsSchemas
             for append_flow in self.appendFlows:
+                flow_schema = None
+                if append_flows_schema_map:
+                    flow_schema = append_flows_schema_map.get(append_flow.name)
                 pipeline_reader = PipelineReaders(
                     self.spark,
                     append_flow.source_format,
                     append_flow.source_details,
-                    append_flow.reader_options
+                    append_flow.reader_options,
+                    json.loads(flow_schema) if flow_schema else None
                 )
                 if append_flow.source_format == "cloudFiles":
                     dlt.view(pipeline_reader.read_dlt_cloud_files,
