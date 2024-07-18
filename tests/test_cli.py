@@ -150,7 +150,6 @@ class CliTests(unittest.TestCase):
             "overwrite": "True",
             "env": "dev",
             "uc_enabled": "True",
-            "bronze_dataflowspec_table": "bronze_dataflowspec",
-            "silver_dataflowspec_table": "silver_dataflowspec"
+            "bronze_dataflowspec_table": "bronze_dataflowspec"
         }
         self.assertEqual(named_parameters, expected_named_parameters)
