@@ -126,13 +126,13 @@ You can add the [example dlt pipeline](https://github.com/databrickslabs/dlt-met
 ```
         from pyspark.sql import DataFrame
         from pyspark.sql.functions import lit
-        def custom_tranform_func_test(input_df) -> DataFrame:
+        def custom_transform_func_test(input_df) -> DataFrame:
         return input_df.withColumn('custom_col', lit('test'))
 ```
 ```
         layer = spark.conf.get("layer", None)
         from src.dataflow_pipeline import DataflowPipeline
-        DataflowPipeline.invoke_dlt_pipeline(spark, layer, custom_tranform_func=custom_tranform_func_test)
+        DataflowPipeline.invoke_dlt_pipeline(spark, layer, custom_transform_func_test=custom_transform_func_test)
 ```
 
 **Q. How to add autloaders file metadata to bronze table?**
