@@ -40,10 +40,9 @@
 ---
 
 # Project Overview
+`DLT-META` is a metadata-driven framework designed to work with [Delta Live Tables](https://www.databricks.com/product/delta-live-tables). This framework enables the automation of bronze and silver data pipelines by leveraging metadata recorded in an onboarding JSON file. This file, known as the Dataflowspec, serves as the data flow specification, detailing the source and target metadata required for the pipelines.
 
-`DLT-META` is a metadata-driven framework based on Databricks [Delta Live Tables](https://www.databricks.com/product/delta-live-tables) (aka DLT) which lets you automate your bronze and silver data pipelines.
-
-With this framework you need to record the source and target metadata in an onboarding json file which acts as the data flow specification aka Dataflowspec. A single generic `DLT` pipeline takes the `Dataflowspec` and runs your workloads.
+In practice, a single generic DLT pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads. This approach streamlines the development and management of data pipelines, allowing for a more efficient and scalable data processing workflow
 
 ### Components:
 
@@ -131,6 +130,13 @@ If you want to run existing demo files please follow these steps before running 
     databricks labs dlt-meta onboard
 ```
 
+```commandline
+    dlt_meta_home=$(pwd)
+```
+
+```commandline
+    export PYTHONPATH=$dlt_meta_home
+```
 ![onboardingDLTMeta.gif](docs/static/images/onboardingDLTMeta.gif)
 
 Above commands will prompt you to provide onboarding details. If you have cloned dlt-meta git repo then accept defaults which will launch config from demo folder.

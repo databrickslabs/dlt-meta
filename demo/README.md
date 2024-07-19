@@ -5,13 +5,13 @@
 
 # DAIS 2023 DEMO 
 ## [DAIS 2023 Session Recording](https://www.youtube.com/watch?v=WYv5haxLlfA)
-This Demo launches Bronze and Silver DLT pipleines with following activities:
+This Demo launches Bronze and Silver DLT pipelines with following activities:
 - Customer and Transactions feeds for initial load
 - Adds new feeds Product and Stores to existing Bronze and Silver DLT pipelines with metadata changes.
 - Runs Bronze and Silver DLT for incremental load for CDC events
 
 ### Steps:
-1. Launch Terminal/Command promt 
+1. Launch Terminal/Command prompt 
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 

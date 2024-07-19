@@ -5,10 +5,11 @@ draft: false
 ---
 
 # DLT-META 
-DLT META is a metadata-driven Databricks Delta Live Tables (aka DLT) framework which lets you automate your bronze and silver pipelines.
 
 ## Project Overview
-With this framework you need to record the source and target metadata in an onboarding json file which acts as the Dataflowspec. A single generice dlt pipeline takes the Dataflowspec and runs your workloads.
+DLT-META is a metadata-driven framework designed to work with Databricks Delta Live Tables (DLT). This framework enables the automation of bronze and silver data pipelines by leveraging metadata recorded in an onboarding JSON file. This file, known as the Dataflowspec, serves as the data flow specification, detailing the source and target metadata required for the pipelines.
+
+In practice, a single generic DLT pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads. This approach streamlines the development and management of data pipelines, allowing for a more efficient and scalable data processing workflow
 
 ### DLT-META components:
 
@@ -29,12 +30,15 @@ With this framework you need to record the source and target metadata in an onbo
 
 ## How does DLT-META work?
 ![DLT-META Stages](/images/dlt-meta_stages.png)
-- Prepare [onboarding file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding.json)
-- DLT-META have onboarding API: `OnboardDataflowspec.onboard_dataflow_specs()` which coverts onboarding json file into DataflowSpecs delta table for bronze and silver layer. Dataflowspecs are used by DataflowPipeline which launches DLT for respective bronze and silver layer.
-- During onboarding process it creates two metadata tables aka DataflowSpec for bronze and silver layer from onboarding json
-![DataflowSpec Data Model](/images/dataflowSpec_model.png)
-- This way we know all the details about source and target from dataflowSpec
-- Launch Dataflow DLT pipeline 
+- [Metadata Preparation](https://databrickslabs.github.io/dlt-meta/getting_started/metadatapreperation/)
+- Onboarding Job
+    - Option#1: [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/#onboardjob)
+    - Option#2: [Manual Job](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_manual/#onboardjob)
+    - option#3: [Databricks Notebook](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_manual/#option2-databricks-notebook)
+
+- Dataflow DLT Pipeline
+    - Option#1: [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/#dataflow-dlt-pipeline)
+    - Option#2: [DLT-META MANUAL](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_manual/#dataflow-dlt-pipeline)
 
 
 ## How much does it cost ?
