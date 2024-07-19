@@ -121,18 +121,18 @@ class DataflowPipeline:
             dlt.view(
                 self.read_bronze,
                 name=self.view_name,
-                comment=f"input dataset view for{self.view_name}",
+                comment=f"input dataset view for {self.view_name}",
             )
-            if self.appendFlows:
-                self.read_append_flows()
         elif isinstance(self.dataflowSpec, SilverDataflowSpec):
             dlt.view(
                 self.read_silver,
                 name=self.view_name,
-                comment=f"input dataset view for{self.view_name}",
+                comment=f"input dataset view for {self.view_name}",
             )
         else:
-            raise Exception("Dataflow read not supported for{}".format(type(self.dataflowSpec)))
+            raise Exception("Dataflow read not supported for {}".format(type(self.dataflowSpec)))
+        if self.appendFlows:
+            self.read_append_flows()
 
     def read_append_flows(self):
         if self.dataflowSpec.appendFlows:
@@ -151,17 +151,17 @@ class DataflowPipeline:
                 if append_flow.source_format == "cloudFiles":
                     dlt.view(pipeline_reader.read_dlt_cloud_files,
                              name=f"{append_flow.name}_view",
-                             comment=f"append flow input dataset view for{append_flow.name}_view"
+                             comment=f"append flow input dataset view for {append_flow.name}_view"
                              )
                 elif append_flow.source_format == "delta":
                     dlt.view(pipeline_reader.read_dlt_delta,
                              name=f"{append_flow.name}_view",
-                             comment=f"append flow input dataset view for{append_flow.name}_view"
+                             comment=f"append flow input dataset view for {append_flow.name}_view"
                              )
                 elif append_flow.source_format == "eventhub" or append_flow.source_format == "kafka":
                     dlt.view(pipeline_reader.read_kafka,
                              name=f"{append_flow.name}_view",
-                             comment=f"append flow input dataset view for{append_flow.name}_view"
+                             comment=f"append flow input dataset view for {append_flow.name}_view"
                              )
         else:
             raise Exception(f"Append Flows not found for dataflowSpec={self.dataflowSpec}")
@@ -198,9 +198,7 @@ class DataflowPipeline:
     def write_silver(self):
         """Write silver tables."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
-        if silver_dataflow_spec.appendFlows:
-            self.write_append_flows()
-        elif silver_dataflow_spec.cdcApplyChanges:
+        if silver_dataflow_spec.cdcApplyChanges:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else silver_dataflow_spec.targetDetails["path"]
@@ -212,6 +210,8 @@ class DataflowPipeline:
                 path=target_path,
                 comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}",
             )
+        if silver_dataflow_spec.appendFlows:
+            self.write_append_flows()
 
     def read_bronze(self) -> DataFrame:
         """Read Bronze Table."""
