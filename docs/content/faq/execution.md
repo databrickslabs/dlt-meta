@@ -12,7 +12,7 @@ Please refer to the [Getting Started]({{%relref "getting_started/_index.md" %}})
 **Q. How do I create metadata DLT-META ?**
 
 DLT-META needs following metadata files:
-- [Onboarding File](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding.json) captures input/output metadata 
+- [Onboarding File](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding.template) captures input/output metadata 
 - [Data Quality Rules File](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe) captures data quality rules
 - [Silver transformation File](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json) captures  processing logic as sql 
 
@@ -28,7 +28,7 @@ DLT-META uses data_flow_group to launch DLT pipelines, so all the tables belongs
 **Q. Can we run onboarding for bronze layer only?**
 
 Yes! Please follow below steps:
-1. Bronze Metadata preparation ([example](https://github.com/databrickslabs/dlt-meta/blob/main/integration_tests/conf/cloudfiles-onboarding_A2.template))
+1. Bronze Metadata preparation ([example](https://github.com/databrickslabs/dlt-meta/blob/main/examples/bronze_onboarding.template))
 2. Onboarding Job
     - Option#1: [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/#onboardjob)
     - Option#2: [Manual Job](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_manual/#onboardjob)
@@ -37,7 +37,7 @@ Yes! Please follow below steps:
     {                   
             "onboard_layer": "bronze",
             "database": "dlt_demo",
-            "onboarding_file_path": "dbfs:/onboarding_files/users_onboarding.json",
+            "onboarding_file_path": "dbfs:/dlt-meta/conf/onboarding.json",
             "bronze_dataflowspec_table": "bronze_dataflowspec_table",
             "import_author": "Ravi",
             "version": "v1",
@@ -50,7 +50,7 @@ Yes! Please follow below steps:
 ```
         onboarding_params_map = {
                 "database": "uc_name.dlt_demo",
-                "onboarding_file_path": "dbfs:/onboarding_files/users_onboarding.json",
+                "onboarding_file_path": "dbfs:/dlt-meta/conf/onboarding.json",
                 "bronze_dataflowspec_table": "bronze_dataflowspec_table", 
                 "overwrite": "True",
                 "env": "dev",
