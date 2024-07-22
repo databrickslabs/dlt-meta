@@ -1,0 +1,8 @@
+{
+  "expect_or_drop": {
+    "parsed_records": "parsed_records IS NOT NULL"
+  },
+  "expect_or_quarantine": {
+    "quarantine_rule": "parsed_records IS NULL OR parsed_records.device_id IS NULL OR parsed_records.temp=0"
+  }
+}

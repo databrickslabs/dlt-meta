@@ -130,10 +130,10 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             f"{database}.{bronze_dataflow_table}",
         )
 
-        def custom_tranform_func_test(input_df) -> DataFrame:
+        def custom_transform_func(input_df) -> DataFrame:
             return input_df.withColumn('custom_col', lit('test_value'))
 
-        DataflowPipeline.invoke_dlt_pipeline(self.spark, "bronze", custom_tranform_func_test)
+        DataflowPipeline.invoke_dlt_pipeline(self.spark, "bronze", custom_transform_func)
         assert run_dlt.called
 
     @patch.object(DataflowPipeline, "run_dlt", return_value={"called"})
@@ -158,9 +158,9 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             .mode("overwrite").saveAsTable("bronze.transactions_cdc")
          )
 
-        def custom_tranform_func_test(input_df) -> DataFrame:
+        def custom_transform_func(input_df) -> DataFrame:
             return input_df.withColumn('custom_col', lit('test_value'))
-        DataflowPipeline.invoke_dlt_pipeline(self.spark, "silver", custom_tranform_func_test)
+        DataflowPipeline.invoke_dlt_pipeline(self.spark, "silver", custom_transform_func)
         assert run_dlt.called
 
     @patch.object(DataflowPipeline, "read", return_value={"called"})
@@ -657,7 +657,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             partition_cols=DataflowSpecUtils.get_partition_cols(bronze_dataflow_spec.partitionColumns),
             path=target_path,
             schema=struct_schema,
-            omment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}",
+            comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}",
         )
         assert mock_dlt_expect_all_or_drop.called_once_with(expect_or_drop_dict)
         assert mock_dlt_expect_all_or_fail.called_once_with(expect_or_fail_dict)

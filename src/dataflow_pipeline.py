@@ -63,7 +63,7 @@ class DataflowPipeline:
         [type]: [description]
     """
 
-    def __init__(self, spark, dataflow_spec, view_name, view_name_quarantine=None, custom_tranform_func=None):
+    def __init__(self, spark, dataflow_spec, view_name, view_name_quarantine=None, custom_transform_func=None):
         """Initialize Constructor."""
         logger.info(
             f"""dataflowSpec={dataflow_spec} ,
@@ -72,13 +72,13 @@ class DataflowPipeline:
         )
         if isinstance(dataflow_spec, BronzeDataflowSpec) or isinstance(dataflow_spec, SilverDataflowSpec):
             self.__initialize_dataflow_pipeline(
-                spark, dataflow_spec, view_name, view_name_quarantine, custom_tranform_func
+                spark, dataflow_spec, view_name, view_name_quarantine, custom_transform_func
             )
         else:
             raise Exception("Dataflow not supported!")
 
     def __initialize_dataflow_pipeline(
-        self, spark, dataflow_spec, view_name, view_name_quarantine, custom_tranform_func
+        self, spark, dataflow_spec, view_name, view_name_quarantine, custom_transform_func
     ):
         """Initialize dataflow pipeline state."""
         self.spark = spark
@@ -89,7 +89,7 @@ class DataflowPipeline:
         self.view_name = view_name
         if view_name_quarantine:
             self.view_name_quarantine = view_name_quarantine
-        self.custom_tranform_func = custom_tranform_func
+        self.custom_transform_func = custom_transform_func
         if dataflow_spec.cdcApplyChanges:
             self.cdcApplyChanges = DataflowSpecUtils.get_cdc_apply_changes(self.dataflowSpec.cdcApplyChanges)
         else:
@@ -236,8 +236,8 @@ class DataflowPipeline:
         return self.apply_custom_transform_fun(input_df)
 
     def apply_custom_transform_fun(self, input_df):
-        if self.custom_tranform_func:
-            input_df = self.custom_tranform_func(input_df)
+        if self.custom_transform_func:
+            input_df = self.custom_transform_func(input_df)
         return input_df
 
     def get_silver_schema(self):
@@ -513,7 +513,7 @@ class DataflowPipeline:
         self.write()
 
     @staticmethod
-    def invoke_dlt_pipeline(spark, layer, custom_tranform_func=None):
+    def invoke_dlt_pipeline(spark, layer, custom_transform_func=None):
         """Invoke dlt pipeline will launch dlt with given dataflowspec.
 
         Args:
@@ -535,7 +535,7 @@ class DataflowPipeline:
                 quarantine_input_view_name = (
                     f"{dataflowSpec.quarantineTargetDetails['table']}"
                     f"_{layer}_quarantine_inputView",
-                    custom_tranform_func
+                    custom_transform_func
                 )
             else:
                 logger.info("quarantine_input_view_name set to None")
@@ -544,7 +544,7 @@ class DataflowPipeline:
                 dataflowSpec,
                 f"{dataflowSpec.targetDetails['table']}_{layer}_inputView",
                 quarantine_input_view_name,
-                custom_tranform_func
+                custom_transform_func
             )
 
             dlt_data_flow.run_dlt()
