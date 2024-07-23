@@ -441,6 +441,8 @@ class PipelineReadersTests(DLTFrameworkTestCase):
                 "input_file_path": "_metadata.file_path"
             }
         }
+        expected_cols = ['address', 'email', 'firstname', 'id', 'lastname', 'operation', 'operation_date', '_metadata',
+                         'source_metadata', 'input_file_name', 'input_file_path']
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
         bronze_dataflow_spec.sourceDetails["source_metadata"] = json.dumps(source_metdata_json)
         df = (self.spark.read.json("tests/resources/data/customers")
@@ -448,3 +450,27 @@ class PipelineReadersTests(DLTFrameworkTestCase):
                                                 lit("file_path").alias('file_path')])))
         df = PipelineReaders.add_cloudfiles_metadata(bronze_dataflow_spec.sourceDetails, df)
         self.assertIsNotNone(df)
+        self.assertEqual(df.columns, expected_cols)
+
+    def test_add_cloudfiles_metadata_cols_only(self):
+        """Test add_cloudfiles_metadata."""
+        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
+        source_format_map = {"sourceFormat": "json"}
+        bronze_map.update(source_format_map)
+        source_metdata_json = {
+            "include_autoloader_metadata_column": "True",
+            "select_metadata_cols": {
+                "input_file_name": "_metadata.file_name",
+                "input_file_path": "_metadata.file_path"
+            }
+        }
+        expected_cols = ['address', 'email', 'firstname', 'id', 'lastname', 'operation', 'operation_date', '_metadata',
+                         'input_file_name', 'input_file_path']
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        bronze_dataflow_spec.sourceDetails["source_metadata"] = json.dumps(source_metdata_json)
+        df = (self.spark.read.json("tests/resources/data/customers")
+              .withColumn('_metadata', struct(*[lit("filename").alias("file_name"),
+                                                lit("file_path").alias('file_path')])))
+        df = PipelineReaders.add_cloudfiles_metadata(bronze_dataflow_spec.sourceDetails, df)
+        self.assertIsNotNone(df)
+        self.assertEqual(df.columns, expected_cols)

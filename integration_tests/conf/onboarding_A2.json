@@ -1,0 +1,42 @@
+[
+    {
+        "data_flow_id": "103",
+        "data_flow_group": "A2",
+        "source_system": "MYSQL",
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_database": "APP",
+            "source_table": "CUSTOMERS",
+            "source_path_it": "dbfs:/tmp/DLT-META//717195af1c0448f1a04b8d25d318d167/integration_tests/resources/data/customers_delta",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True",
+                "autoloader_metadata_col_name": "source_metadata",
+                "select_metadata_cols": {
+                    "input_file_name": "_metadata.file_name",
+                    "input_file_path": "_metadata.file_path"
+                }
+            },
+            "source_schema_path": "dbfs:/tmp/DLT-META//717195af1c0448f1a04b8d25d318d167/integration_tests/resources/customers.ddl"
+        },
+        "bronze_database_it": "ravi_dlt_meta_uc.dlt_meta_bronze_it_717195af1c0448f1a04b8d25d318d167",
+        "bronze_table": "customers_delta",
+        "bronze_reader_options": {
+            "cloudFiles.format": "json",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "bronze_table_path_it": "dbfs:/tmp/DLT-META//717195af1c0448f1a04b8d25d318d167/data/bronze/customers_delta",
+        "bronze_table_properties": {
+            "pipelines.autoOptimize.managed": "true",
+            "pipelines.autoOptimize.zOrderCols": "id, email"
+        },
+        "bronze_data_quality_expectations_json_it": "dbfs:/tmp/DLT-META//717195af1c0448f1a04b8d25d318d167/integration_tests/conf/dqe/customers/bronze_data_quality_expectations.json",
+        "bronze_database_quarantine_it": "ravi_dlt_meta_uc.dlt_meta_bronze_it_717195af1c0448f1a04b8d25d318d167",
+        "bronze_quarantine_table": "customers_delta_quarantine",
+        "bronze_quarantine_table_path_it": "dbfs:/tmp/DLT-META//717195af1c0448f1a04b8d25d318d167/data/bronze/customers_quarantine_delta",
+        "bronze_quarantine_table_properties": {
+            "pipelines.reset.allowed": "false",
+            "pipelines.autoOptimize.zOrderCols": "id, email"
+        }
+    }
+]

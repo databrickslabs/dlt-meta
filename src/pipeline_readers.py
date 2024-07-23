@@ -64,6 +64,8 @@ class PipelineReaders:
                 select_metadata_cols = source_metadata_json["select_metadata_cols"]
                 for select_metadata_col in select_metadata_cols:
                     input_df = input_df.withColumn(select_metadata_col, col(select_metadata_cols[select_metadata_col]))
+            if "autoloader_metadata_col_name" not in source_metadata_json:
+                input_df = input_df.drop("source_metadata")
         return input_df
 
     def read_dlt_delta(self) -> DataFrame:
