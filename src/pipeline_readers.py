@@ -54,18 +54,25 @@ class PipelineReaders:
     def add_cloudfiles_metadata(sourceDetails, input_df):
         source_metadata_json = json.loads(sourceDetails.get("source_metadata"))
         keys = source_metadata_json.keys()
+        autoloader_metadata_column_flag = False
+        source_metadata_col_name = "_metadata"
+        input_df = input_df.selectExpr("*", f"{source_metadata_col_name}")
+        if "select_metadata_cols" in source_metadata_json:
+            select_metadata_cols = source_metadata_json["select_metadata_cols"]
+            for select_metadata_col in select_metadata_cols:
+                input_df = input_df.withColumn(select_metadata_col, col(select_metadata_cols[select_metadata_col]))
         if "include_autoloader_metadata_column" in keys:
-            if "autoloader_metadata_col_name" in source_metadata_json:
-                source_metadata_col_name = source_metadata_json["autoloader_metadata_col_name"]
-                input_df = input_df.selectExpr("*", f"_metadata as {source_metadata_col_name}")
-            else:
-                input_df = input_df.selectExpr("*", "_metadata as source_metadata")
-            if "select_metadata_cols" in source_metadata_json:
-                select_metadata_cols = source_metadata_json["select_metadata_cols"]
-                for select_metadata_col in select_metadata_cols:
-                    input_df = input_df.withColumn(select_metadata_col, col(select_metadata_cols[select_metadata_col]))
-            if "autoloader_metadata_col_name" not in source_metadata_json:
-                input_df = input_df.drop("source_metadata")
+            autoloader_metadata_column = source_metadata_json["include_autoloader_metadata_column"]
+            autoloader_metadata_column_flag = True if autoloader_metadata_column.lower() == "true" else False
+            if autoloader_metadata_column_flag and "autoloader_metadata_col_name" in source_metadata_json:
+                custom_source_metadata_col_name = source_metadata_json["autoloader_metadata_col_name"]
+                if custom_source_metadata_col_name != source_metadata_col_name:
+                    input_df = input_df.withColumnRenamed(f"{source_metadata_col_name}",
+                                                          f"{custom_source_metadata_col_name}")
+            elif autoloader_metadata_column_flag and "autoloader_metadata_col_name" not in source_metadata_json:
+                input_df = input_df.withColumnRenamed("_metadata", "source_metadata")
+        else:
+            input_df = input_df.drop(f"{source_metadata_col_name}")
         return input_df
 
     def read_dlt_delta(self) -> DataFrame:
