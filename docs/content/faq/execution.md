@@ -98,16 +98,17 @@ Yes! Please follow below steps:
 ```
 
 **Q. How to chain multiple silver tables after bronze table?**
-Example, after customers_cdc, can I have customers silver table reading from customers_cdc and another customers_clean silver table reading from customers? If so, how do I define these in onboarding.json?
+- Example: After customers_cdc bronze table, can I have customers silver table reading from customers_cdc and another customers_clean silver table reading from customers_cdc? If so, how do I define these in onboarding.json?
 
-You can run onboarding for additional silver customer_clean table by having [onboarding file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding_silverfanout.template) and [silver transformation](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations_fanout.template) with filter condition for fan out.
+- You can run onboarding for additional silver customer_clean table by having [onboarding file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding_silverfanout.template) and [silver transformation](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations_fanout.template) with filter condition for fan out.
 
-Run onboarding for slilver layer in append mode("overwrite": "False") so it will append to existing silver tables.
+- Run onboarding for slilver layer in append mode("overwrite": "False") so it will append to existing silver tables.
 When you launch DLT pipeline it will read silver onboarding and run DLT for bronze source and silver as target
 
 **Q. How can I do type1 or type2 merge to target table?**
 
-Using DLT's [dlt.apply_changes](https://docs.databricks.com/en/delta-live-tables/cdc.html) we can do type1 or type2 merge. DLT-META have tag in onboarding file as bronze_cdc_apply_changes or silver_apply_changes which maps to DLT's apply_changes API.
+- Using DLT's [dlt.apply_changes](https://docs.databricks.com/en/delta-live-tables/cdc.html) we can do type1 or type2 merge.
+- DLT-META have tag in onboarding file as `bronze_cdc_apply_changes` or `silver_cdc_apply_changes` which maps to DLT's apply_changes API.
 ```
 "silver_cdc_apply_changes": {
    "keys":[
@@ -126,7 +127,8 @@ Using DLT's [dlt.apply_changes](https://docs.databricks.com/en/delta-live-tables
 
 **Q. How can I write to same target table using different sources?**
 
-Using DLT's [dlt.append_flow API](https://docs.databricks.com/en/delta-live-tables/flows.html) we can write to same target from different sources. DLT-META have tag in onboarding file as [bronze_append_flows](https://github.com/databrickslabs/dlt-meta/blob/main/integration_tests/conf/cloudfiles-onboarding.template#L41) and [silver_append_flows](https://github.com/databrickslabs/dlt-meta/blob/main/integration_tests/conf/cloudfiles-onboarding.template#L67) 
+- Using DLT's [dlt.append_flow API](https://docs.databricks.com/en/delta-live-tables/flows.html) we can write to same target from different sources. 
+- DLT-META have tag in onboarding file as [bronze_append_flows](https://github.com/databrickslabs/dlt-meta/blob/main/integration_tests/conf/cloudfiles-onboarding.template#L41) and [silver_append_flows](https://github.com/databrickslabs/dlt-meta/blob/main/integration_tests/conf/cloudfiles-onboarding.template#L67) 
 dlt.append_flow API is mapped to 
 ```json 
 [
@@ -174,7 +176,7 @@ DLT-META have tag [source_metadata](https://github.com/databrickslabs/dlt-meta/b
    }
 }
 ```
-`include_autoloader_metadata_column` flag will add _metadata column to target bronze dataframe
-`autoloader_metadata_col_name` if this provided then will be used to rename _metadata to this value otherwise default is `source_metadata`
-`select_metadata_cols:{key:value}` will be used to extract columns from _metadata. key is target dataframe column name and value is expression used to add column from _metadata column
+- `include_autoloader_metadata_column` flag will add _metadata column to target bronze dataframe.
+- `autoloader_metadata_col_name` if this provided then will be used to rename _metadata to this value otherwise default is `source_metadata`
+- `select_metadata_cols:{key:value}` will be used to extract columns from _metadata. key is target dataframe column name and value is expression used to add column from _metadata column
 
