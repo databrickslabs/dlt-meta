@@ -7,7 +7,7 @@
    "source_details": {
       "source_database": "APP",
       "source_table": "CUSTOMERS",
-      "source_path_it": "{dbfs_path}/integration_tests/resources/data/customers",
+      "source_path_it": "{dbfs_path}/dlt-meta/resources/data/customers",
       "source_metadata": {
             "include_autoloader_metadata_column": "True",
             "autoloader_metadata_col_name": "source_metadata",
@@ -16,7 +16,7 @@
                "input_file_path": "_metadata.file_path"
             }
       },
-      "source_schema_path": "{dbfs_path}/integration_tests/resources/customers.ddl"
+      "source_schema_path": "{dbfs_path}/dlt-meta/resources/customers.ddl"
    },
    "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",
    "bronze_table": "customers",
@@ -30,7 +30,7 @@
          "pipelines.autoOptimize.managed": "true",
          "pipelines.autoOptimize.zOrderCols": "id, email"
    },    
-   "bronze_data_quality_expectations_json_it": "{dbfs_path}/integration_tests/conf/dqe/customers/bronze_data_quality_expectations.json",
+   "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/customers/bronze_data_quality_expectations.json",
    "bronze_database_quarantine_it": "{uc_catalog_name}.{bronze_schema}",
    "bronze_quarantine_table": "customers_quarantine",
    "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/customers_quarantine",  
@@ -44,8 +44,8 @@
             "create_streaming_table": false,
             "source_format": "cloudFiles",
             "source_details": {
-               "source_path_it": "{dbfs_path}/integration_tests/resources/data/customers_af",
-               "source_schema_path": "{dbfs_path}/integration_tests/resources/customers.ddl"
+               "source_path_it": "{dbfs_path}/dlt-meta/resources/data/customers_af",
+               "source_schema_path": "{dbfs_path}/dlt-meta/resources/customers.ddl"
             },
             "reader_options": {
                "cloudFiles.format": "json",
@@ -72,12 +72,12 @@
       "flow_name":"silver_customers_cdc_applychanges_flow"
    },
    "silver_table_path_it": "{dbfs_path}/data/silver/customers",
-   "silver_transformation_json_it": "{dbfs_path}/integration_tests/conf/silver_transformations.json",
+   "silver_transformation_json_it": "{dbfs_path}/dlt-meta/conf/silver_transformations.json",
    "silver_table_properties": {
          "pipelines.reset.allowed": "false",
          "pipelines.autoOptimize.zOrderCols": "id, email"         
    },
-   "silver_data_quality_expectations_json_it": "{dbfs_path}/integration_tests/conf/dqe/customers/silver_data_quality_expectations.json"
+   "silver_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/customers/silver_data_quality_expectations.json"
 },
 {
    "data_flow_id": "102",
@@ -87,11 +87,11 @@
    "source_details": {
       "source_database": "APP",
       "source_table": "TRANSACTIONS",
-      "source_path_it": "{dbfs_path}/integration_tests/resources/data/transactions",
+      "source_path_it": "{dbfs_path}/dlt-meta/resources/data/transactions",
       "source_metadata": {
             "include_autoloader_metadata_column": "True"
       },      
-      "source_schema_path": "{dbfs_path}/integration_tests/resources/transactions.ddl"
+      "source_schema_path": "{dbfs_path}/dlt-meta/resources/transactions.ddl"
    },   
    "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",
    "bronze_table": "transactions",
@@ -105,7 +105,7 @@
          "pipelines.reset.allowed": "true",
          "pipelines.autoOptimize.zOrderCols": "id, customer_id"    
    },
-   "bronze_data_quality_expectations_json_it": "{dbfs_path}/integration_tests/conf/dqe/transactions/bronze_data_quality_expectations.json",
+   "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/transactions/bronze_data_quality_expectations.json",
    "bronze_database_quarantine_it": "{uc_catalog_name}.{bronze_schema}",
    "bronze_quarantine_table": "transactions_quarantine",
    "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/transactions_quarantine",
@@ -120,8 +120,8 @@
             "create_streaming_table": false,
             "source_format": "cloudFiles",
             "source_details": {
-               "source_path_it": "{dbfs_path}/integration_tests/resources/data/transactions_af",
-               "source_schema_path": "{dbfs_path}/integration_tests/resources/transactions.ddl"
+               "source_path_it": "{dbfs_path}/dlt-meta/resources/data/transactions_af",
+               "source_schema_path": "{dbfs_path}/dlt-meta/resources/transactions.ddl"
             },
             "reader_options": {
                "cloudFiles.format": "json",
@@ -148,8 +148,8 @@
       "flow_name":"silver_transactions_cdc_applychanges_flow"
    },
    "silver_table_path_it": "{dbfs_path}/data/silver/transactions",
-   "silver_transformation_json_it": "{dbfs_path}/integration_tests/conf/silver_transformations.json",
-   "silver_data_quality_expectations_json_it": "{dbfs_path}/integration_tests/conf/dqe/transactions/silver_data_quality_expectations.json",
+   "silver_transformation_json_it": "{dbfs_path}/dlt-meta/conf/silver_transformations.json",
+   "silver_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/transactions/silver_data_quality_expectations.json",
    "silver_table_properties": {
          "pipelines.reset.allowed": "false",
          "pipelines.autoOptimize.zOrderCols": "id, customer_id"         

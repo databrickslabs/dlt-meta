@@ -1,0 +1,36 @@
+[
+    {
+        "data_flow_id": "104",
+        "data_flow_group": "A1",
+        "bronze_database_dev": "bronze",
+        "bronze_database_staging": "bronze",
+        "bronze_database_prd": "bronze",
+        "bronze_table": "customers",
+        "bronze_table_path_dev": "{dbfs_path}/data/bronze/customers",        
+        "silver_database_dev": "silver",
+        "silver_database_staging": "silver",
+        "silver_database_prd": "silver",
+        "silver_table": "customers_clean",
+        "silver_cdc_apply_changes": {
+            "keys": [
+                "id"
+            ],
+            "sequence_by": "operation_date",
+            "scd_type": "1",
+            "apply_as_deletes": "operation = 'DELETE'",
+            "except_column_list": [
+                "operation",
+                "operation_date",
+                "_rescued_data"
+            ]
+        },
+        "silver_table_path_dev": "{dbfs_path}/data/silver/customers_clean",
+        "silver_table_properties": {
+            "pipelines.autoOptimize.managed": "false",
+            "pipelines.reset.allowed": "false",
+            "pipelines.autoOptimize.zOrderCols": "id,email"
+        },
+        "silver_transformation_json_dev": "{dbfs_path}/dlt-meta/conf/silver_transformations_fanout.json",
+        "silver_data_quality_expectations_json_dev": "{dbfs_path}/dlt-meta/conf/dqe/customers/silver_data_quality_expectations.json"
+    }
+]

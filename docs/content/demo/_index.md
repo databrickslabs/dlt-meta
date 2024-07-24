@@ -1,5 +1,5 @@
 ---
-title: "Demo's"
+title: "Demo"
 date: 2021-08-04T14:50:11-04:00
 weight: 20
 draft: false
