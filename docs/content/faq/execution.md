@@ -61,6 +61,50 @@ Yes! Please follow below steps:
         from src.onboard_dataflowspec import OnboardDataflowspec
         OnboardDataflowspec(spark, onboarding_params_map, uc_enabled=True).onboard_bronze_dataflow_spec()
 ```
+**Q. Can we run onboarding for silver layer only?**
+Yes! Please follow below steps:
+1. Bronze Metadata preparation ([example](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding_silverfanout.template))
+2. Onboarding Job
+    - Option#1: [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/#onboardjob)
+    - Option#2: [Manual Job](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_manual/#onboardjob)
+    Use below parameters
+    ```
+    {                   
+            "onboard_layer": "silver",
+            "database": "dlt_demo",
+            "onboarding_file_path": "dbfs:/dlt-meta/conf/onboarding.json",
+            "silver_dataflowspec_table": "silver_dataflowspec_table",
+            "import_author": "Ravi",
+            "version": "v1",
+            "uc_enabled": "True",
+            "overwrite": "True",
+            "env": "dev"
+    } 
+    ```
+    - option#3: [Databircks Notebook](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_manual/#option2-databricks-notebook)
+```
+        onboarding_params_map = {
+                "database": "uc_name.dlt_demo",
+                "onboarding_file_path": "dbfs:/dlt-meta/conf/onboarding.json",
+                "silver_dataflowspec_table": "silver_dataflowspec_table", 
+                "overwrite": "True",
+                "env": "dev",
+                "version": "v1",
+                "import_author": "Ravi"
+                }
+
+        from src.onboard_dataflowspec import OnboardDataflowspec
+        OnboardDataflowspec(spark, onboarding_params_map, uc_enabled=True).onboard_silver_dataflow_spec()
+```
+
+**Q. How to chain multiple silver tables after bronze table?**
+Example, after customers_cdc, can I have customers silver table reading from customers_cdc and another customers_clean silver table reading from customers? If so, how do I define these in onboarding.json?
+
+You can run onboarding for additional silver customer_clean table by having [onboarding file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding_silverfanout.template) and [silver transformation](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations_fanout.template) with filter condition for fan out.
+
+Run onboarding for slilver layer in append mode("overwrite": "False") so it will append to existing silver tables.
+When you launch DLT pipeline it will read silver onboarding and run DLT for bronze source and silver as target
+
 **Q. How can I do type1 or type2 merge to target table?**
 
 Using DLT's [dlt.apply_changes](https://docs.databricks.com/en/delta-live-tables/cdc.html) we can do type1 or type2 merge. DLT-META have tag in onboarding file as bronze_cdc_apply_changes or silver_apply_changes which maps to DLT's apply_changes API.
@@ -117,24 +161,6 @@ dlt.append_flow API is mapped to
 ]
 ```
 
-**Q. How to add custom python transformation to bronze layer?**
-
-You can add the [example dlt pipeline](https://github.com/databrickslabs/dlt-meta/blob/main/examples/dlt_meta_pipeline.ipynb) code or import iPython notebook as is and add customer transformation function as given in below code. Your function should take Dataframe as argument and return it as Dataframe
-```
-        %pip install dlt-meta
-```
-```
-        from pyspark.sql import DataFrame
-        from pyspark.sql.functions import lit
-        def custom_transform_func_test(input_df) -> DataFrame:
-        return input_df.withColumn('custom_col', lit('test'))
-```
-```
-        layer = spark.conf.get("layer", None)
-        from src.dataflow_pipeline import DataflowPipeline
-        DataflowPipeline.invoke_dlt_pipeline(spark, layer, custom_transform_func_test=custom_transform_func_test)
-```
-
 **Q. How to add autloaders file metadata to bronze table?**
 
 DLT-META have tag [source_metadata](https://github.com/databrickslabs/dlt-meta/blob/ebd53114e5e8a79bf12f946e8dd425ac3f329289/integration_tests/conf/cloudfiles-onboarding.template#L11) in onboarding json under `source_details`
@@ -148,4 +174,7 @@ DLT-META have tag [source_metadata](https://github.com/databrickslabs/dlt-meta/b
    }
 }
 ```
+`include_autoloader_metadata_column` flag will add _metadata column to target bronze dataframe
+`autoloader_metadata_col_name` if this provided then will be used to rename _metadata to this value otherwise default is `source_metadata`
+`select_metadata_cols:{key:value}` will be used to extract columns from _metadata. key is target dataframe column name and value is expression used to add column from _metadata column
 
