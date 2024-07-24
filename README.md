@@ -139,6 +139,9 @@ If you want to run existing demo files please follow these steps before running 
 ```
 ![onboardingDLTMeta.gif](docs/static/images/onboardingDLTMeta.gif)
 
+```commandline
+    databricks labs dlt-meta onboard
+```
 Above commands will prompt you to provide onboarding details. If you have cloned dlt-meta git repo then accept defaults which will launch config from demo folder.
 ![onboardingDLTMeta_2.gif](docs/static/images/onboardingDLTMeta_2.gif)
 
