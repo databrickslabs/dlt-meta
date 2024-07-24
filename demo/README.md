@@ -15,16 +15,24 @@ This Demo launches Bronze and Silver DLT pipelines with following activities:
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
-3. ```git clone https://github.com/databrickslabs/dlt-meta.git ```
+3. ```commandline
+    git clone https://github.com/databrickslabs/dlt-meta.git 
+    ```
 
-4. ```cd dlt-meta```
+4. ```commandline
+    cd dlt-meta
+    ```
 
 5. Set python environment variable into terminal
-    ```
-        export PYTHONPATH=<<local dlt-meta path>>
+    ```commandline
+    dlt_meta_home=$(pwd)
     ```
 
-6. Run the command ```python demo/launch_dais_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --cloud_provider_name=aws --dbr_version=13.3.x-scala2.12 --dbfs_path=dbfs:/dais-dlt-meta-demo-automated_new```
+    ```commandline
+    export PYTHONPATH=$dlt_meta_home
+    ```
+
+6. Run the command ```python demo/launch_dais_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/dais-dlt-meta-demo-automated_new```
     - cloud_provider_name : aws or azure or gcp
     - db_version : Databricks Runtime Version
     - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
@@ -53,16 +61,24 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
-3. ```git clone https://github.com/databrickslabs/dlt-meta.git ```
+3. ```commandline
+    git clone https://github.com/databrickslabs/dlt-meta.git 
+    ```
 
-4. ```cd dlt-meta```
+4. ```commandline 
+    cd dlt-meta
+    ```
 
 5. Set python environment variable into terminal
-    ```
-        export PYTHONPATH=<<local dlt-meta path>>
+    ```commandline
+    dlt_meta_home=$(pwd)
     ```
 
-6. Run the command ```python demo/launch_techsummit_demo.py --source=cloudfiles --cloud_provider_name=aws --dbr_version=13.3.x-scala2.12 --dbfs_path=dbfs:/techsummit-dlt-meta-demo-automated ```
+    ```commandline
+    export PYTHONPATH=$dlt_meta_home
+    ```
+
+6. Run the command ```python demo/launch_techsummit_demo.py --source=cloudfiles --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/techsummit-dlt-meta-demo-automated ```
     - cloud_provider_name : aws or azure or gcp
     - db_version : Databricks Runtime Version
     - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
