@@ -733,7 +733,7 @@ class OnboardDataflowspec:
         data = []
 
         onboarding_rows = onboarding_df.collect()
-        mandatory_fields = ["data_flow_id", "data_flow_group", "source_details", f"silver_database_{env}",
+        mandatory_fields = ["data_flow_id", "data_flow_group", f"silver_database_{env}",
                             "silver_table", f"silver_transformation_json_{env}"]  # f"silver_table_path_{env}",
 
         for onboarding_row in onboarding_rows:
