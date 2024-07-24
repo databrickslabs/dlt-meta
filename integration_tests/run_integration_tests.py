@@ -831,19 +831,6 @@ class DLTMETARunner:
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
         self.generate_onboarding_file(runner_conf)
         print("int_tests_dir: ", runner_conf.int_tests_dir)
-        # print(f"uploading to {runner_conf.dbfs_tmp_path}/{self.base_dir}/")
-        # if runner_conf.uc_catalog_name:
-        #     self.ws.dbfs.create(path=runner_conf.dbfs_tmp_path + f"/{self.base_dir}/", overwrite=True)
-        # else:
-        #     try:
-        #         self.ws.dbfs.mkdirs(runner_conf.dbfs_tmp_path + f"/{self.base_dir}/")
-        #     except Exception as e:
-        #         print(f"Error in creating directory {runner_conf.dbfs_tmp_path + f'/{self.base_dir}/'}")
-        #         print(e)
-        #         print(runner_conf.dbfs_tmp_path + f"/{self.base_dir}/ must be already present")
-        # self.ws.dbfs.copy(runner_conf.int_tests_dir,
-        #                   runner_conf.dbfs_tmp_path + f"/{self.base_dir}/",
-        #                   overwrite=True, recursive=True)
         self.copy(runner_conf.int_tests_dir, runner_conf.dbfs_tmp_path)
         print(f"uploading to {runner_conf.dbfs_tmp_path}/{self.base_dir}/ complete!!!")
         fp = open(runner_conf.runners_full_local_path, "rb")
