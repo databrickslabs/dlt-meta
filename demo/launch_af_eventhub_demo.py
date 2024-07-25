@@ -90,7 +90,7 @@ afam_args_map = {
     "--eventhub_accesskey_secret_name": "Provide eventhub_accesskey_secret_name e.g \
                 -eventhub_accesskey_secret_name=RootManageSharedAccessKey",
     "--eventhub_namespace": "Provide eventhub_namespace e.g --eventhub_namespace=topic-standard",
-    "--eventhub_port": "Provide eventhub_port e.g --eventhub_port=9093",                        
+    "--eventhub_port": "Provide eventhub_port e.g --eventhub_port=9093",
 }
 
 afeh_mandatory_args = ["uc_catalog_name", "cloud_provider_name", "dbr_version", "dbfs_path", "eventhub_name",
