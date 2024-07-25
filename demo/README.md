@@ -86,7 +86,7 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
     ```commandline 
     python demo/launch_techsummit_demo.py --source=cloudfiles --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/techsummit-dlt-meta-demo-automated 
     ```
-    - cloud_provider_name : aws or azure or gcp
+    - cloud_provider_name : aws or azure
     - db_version : Databricks Runtime Version
     - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
@@ -125,28 +125,35 @@ python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version
 
 # Append Flow Eventhub demo:
 - Read from different eventhub topics and write to same target tables using append_flow API
-- Prerequisite:
+- Prerequisites:
 - - Needs eventhub instance running
+- - Need two eventhub topics first for main feed (eventhub_name) and second for append flow feed (eventhub_name_append_flow)
 - - Create databricks secrets scope for eventhub keys
-    - - ```
+    - ```
             commandline databricks secrets create-scope eventhubs_creds
         ```
-    - - ```commandline 
+    - ```commandline 
             databricks secrets put-secret --json '{
-                "scope": "eventhubs_creds",
+                "scope": "eventhubs_dltmeta_creds",
                 "key": "RootManageSharedAccessKey",
                 "string_value": "<<value>>"
-    }' ```
+                }' 
+        ```
 - - Create databricks secrets to store producer and consumer keys using the scope created in step 2 
 
-    - - Following are the mandatory arguments for running EventHubs demo
-        1. Provide your eventhub topic : --eventhub_name
-        2. Provide eventhub namespace : --eventhub_namespace
-        3. Provide eventhub port : --eventhub_port
-        4. Provide databricks secret scope name : --eventhub_secrets_scope_name
-        5. Provide eventhub producer access key name : --eventhub_producer_accesskey_name
-        6. Provide eventhub access key name : --eventhub_consumer_accesskey_name
+- - Following are the mandatory arguments for running EventHubs demo
+    - cloud_provider_name: Cloud provider name e.g. aws or azure 
+    - dbr_version:  Databricks Runtime Version e.g. 15.3.x-scala2.12
+    - uc_catalog_name : unity catalog name e.g. ravi_dlt_meta_uc
+    - dbfs_path: Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines e.g. dbfs:/tmp/DLT-META/demo/ 
+    - eventhub_namespace: Eventhub namespace e.g. dltmeta
+    - eventhub_name : Primary Eventhubname e.g. dltmeta_demo
+    - eventhub_name_append_flow: Secondary eventhub name for appendflow feed e.g. dltmeta_demo_af
+    - eventhub_producer_accesskey_name: Producer databricks access keyname e.g. RootManageSharedAccessKey
+    - eventhub_consumer_accesskey_name: Consumer databricks access keyname e.g. RootManageSharedAccessKey
+    - eventhub_secrets_scope_name: Databricks secret scope name e.g. eventhubs_dltmeta_creds
+    - eventhub_port: Eventhub port
 
 ```commandline 
-    python3 demo/launch_af_eventhub_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=ravi_dlt_meta_uc --eventhub_name=dltmeta_int_test --eventhub_name_append_flow=dltmeta_int_test_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey --uc_catalog_name=ravi_dlt_meta_uc
+    python3 demo/launch_af_eventhub_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=ravi_dlt_meta_uc --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey --uc_catalog_name=ravi_dlt_meta_uc
 ```
