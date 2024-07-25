@@ -108,27 +108,71 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
         - Paste to command prompt
 
 # Append Flow Autoloader file metadata demo:
-This demo will 
+This demo will perform following tasks:
 - Read from different source paths using autoloader and write to same target using append_flow API
 - Read from different delta tables and write to same silver table using append_flow API
 - Add file_name and file_path to target bronze table for autoloader source
 ## Append flow with autoloader
 
-```commandline
-python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=ravi_dlt_meta_uc
-```
+1. Launch Terminal/Command prompt 
+
+2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
+
+3. ```commandline
+    git clone https://github.com/databrickslabs/dlt-meta.git 
+    ```
+
+4. ```commandline
+    cd dlt-meta
+    ```
+
+5. Set python environment variable into terminal
+    ```commandline
+    dlt_meta_home=$(pwd)
+    ```
+
+    ```commandline
+    export PYTHONPATH=$dlt_meta_home
+    ```
+
+6. ```commandline
+    python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=ravi_dlt_meta_uc
+    ```
+
 - cloud_provider_name : aws or azure or gcp
 - db_version : Databricks Runtime Version
 - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
 - uc_catalog_name: Unity catalog name
 - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
+![af_am_demo.png](docs/static/images/af_am_demo.png)
+
 # Append Flow Eventhub demo:
 - Read from different eventhub topics and write to same target tables using append_flow API
-- Prerequisites:
-- - Needs eventhub instance running
-- - Need two eventhub topics first for main feed (eventhub_name) and second for append flow feed (eventhub_name_append_flow)
-- - Create databricks secrets scope for eventhub keys
+
+### Steps:
+1. Launch Terminal/Command prompt 
+
+2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
+
+3. ```commandline
+    git clone https://github.com/databrickslabs/dlt-meta.git 
+    ```
+
+4. ```commandline
+    cd dlt-meta
+    ```
+5. Set python environment variable into terminal
+    ```commandline
+    dlt_meta_home=$(pwd)
+    ```
+    ```commandline
+    export PYTHONPATH=$dlt_meta_home
+    ```
+6. Eventhub
+- Needs eventhub instance running
+- Need two eventhub topics first for main feed (eventhub_name) and second for append flow feed (eventhub_name_append_flow)
+- Create databricks secrets scope for eventhub keys
     - ```
             commandline databricks secrets create-scope eventhubs_dltmeta_creds
         ```
@@ -139,9 +183,9 @@ python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version
                 "string_value": "<<value>>"
                 }' 
         ```
-- - Create databricks secrets to store producer and consumer keys using the scope created in step 2 
+- Create databricks secrets to store producer and consumer keys using the scope created in step 2 
 
-- - Following are the mandatory arguments for running EventHubs demo
+- Following are the mandatory arguments for running EventHubs demo
     - cloud_provider_name: Cloud provider name e.g. aws or azure 
     - dbr_version:  Databricks Runtime Version e.g. 15.3.x-scala2.12
     - uc_catalog_name : unity catalog name e.g. ravi_dlt_meta_uc
@@ -154,6 +198,8 @@ python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version
     - eventhub_secrets_scope_name: Databricks secret scope name e.g. eventhubs_dltmeta_creds
     - eventhub_port: Eventhub port
 
-```commandline 
+7. ```commandline 
     python3 demo/launch_af_eventhub_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=ravi_dlt_meta_uc --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey --uc_catalog_name=ravi_dlt_meta_uc
-```
+    ```
+
+![af_eh_demo.png](docs/static/images/af_eh_demo.png)
