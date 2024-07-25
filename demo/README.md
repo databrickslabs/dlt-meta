@@ -107,7 +107,7 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
 
         - Paste to command prompt
 
-# Append Flow Autoloader demo:
+# Append Flow Autoloader file metadata demo:
 This demo will 
 - Read from different source paths using autoloader and write to same target using append_flow API
 - Read from different delta tables and write to same silver table using append_flow API
