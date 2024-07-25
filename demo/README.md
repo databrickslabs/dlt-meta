@@ -130,7 +130,7 @@ python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version
 - - Need two eventhub topics first for main feed (eventhub_name) and second for append flow feed (eventhub_name_append_flow)
 - - Create databricks secrets scope for eventhub keys
     - ```
-            commandline databricks secrets create-scope eventhubs_creds
+            commandline databricks secrets create-scope eventhubs_dltmeta_creds
         ```
     - ```commandline 
             databricks secrets put-secret --json '{
