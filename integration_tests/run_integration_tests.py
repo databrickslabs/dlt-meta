@@ -110,6 +110,8 @@ class DLTMetaRunnerConf:
     cloudfiles_template: str = None
     cloudfiles_A2_template: str = None
     eventhub_template: str = None
+    eventhub_input_data: str = None
+    eventhub_append_flow_input_data: str = None
     kafka_template: str = None
     env: str = None
     whl_path: str = None
@@ -318,7 +320,7 @@ class DLTMETARunner:
         """
         database, dlt_lib = self.init_db_dltlib(runner_conf)
         return self.ws.jobs.create(
-            name=f"dlt-meta-integration-test-{runner_conf.run_id}",
+            name=f"dlt-meta-{runner_conf.run_id}",
             tasks=[
                 jobs.Task(
                     task_key="setup_dlt_meta_pipeline_spec",
@@ -429,7 +431,7 @@ class DLTMETARunner:
         database, dlt_lib = self.init_db_dltlib(runner_conf)
         dbfs_path = runner_conf.dbfs_tmp_path.replace("dbfs:/", "/dbfs/")
         return self.ws.jobs.create(
-            name=f"dlt-meta-integration-test-{runner_conf.run_id}",
+            name=f"dlt-meta-{runner_conf.run_id}",
             tasks=[
                 jobs.Task(
                     task_key="setup_dlt_meta_pipeline_spec",
@@ -508,7 +510,7 @@ class DLTMETARunner:
         database, dlt_lib = self.init_db_dltlib(runner_conf)
         dbfs_path = runner_conf.dbfs_tmp_path.replace("dbfs:/", "/dbfs/")
         return self.ws.jobs.create(
-            name=f"dlt-meta-integration-test-{runner_conf.run_id}",
+            name=f"dlt-meta-{runner_conf.run_id}",
             tasks=[
                 jobs.Task(
                     task_key="setup_dlt_meta_pipeline_spec",
@@ -846,10 +848,11 @@ class DLTMETARunner:
             SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
                                                   name=runner_conf.bronze_schema,
                                                   comment="bronze_schema")
-            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                  name=runner_conf.silver_schema,
-                                                  comment="silver_schema")
-        self.build_and_upload_package(runner_conf)
+            if runner_conf.source and runner_conf.source.lower() == "cloudfiles":
+                SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                                      name=runner_conf.silver_schema,
+                                                      comment="silver_schema")
+            self.build_and_upload_package(runner_conf)
 
     def create_cluster(self, runner_conf: DLTMetaRunnerConf):
         print("Cluster creation started...")
@@ -860,7 +863,7 @@ class DLTMETARunner:
             mode = compute.DataSecurityMode.NONE
             spark_confs = {}
         clstr = self.ws.clusters.create(
-            cluster_name=f"dlt-meta-integration-test-{runner_conf.run_id}",
+            cluster_name=f"dlt-meta-onboarding-cluster-{runner_conf.run_id}",
             spark_version=runner_conf.dbr_version,
             node_type_id=runner_conf.node_type_id,
             driver_node_type_id=runner_conf.node_type_id,
@@ -900,7 +903,7 @@ class DLTMETARunner:
 
     def create_bronze_silver_dlt(self, runner_conf: DLTMetaRunnerConf):
         runner_conf.bronze_pipeline_id = self.create_dlt_meta_pipeline(
-            f"dlt-meta-integration-test-bronze-{runner_conf.run_id}",
+            f"dlt-meta-bronze-{runner_conf.run_id}",
             "bronze",
             "A1",
             runner_conf.bronze_schema,
@@ -908,14 +911,14 @@ class DLTMETARunner:
 
         if runner_conf.source and runner_conf.source.lower() == "cloudfiles":
             runner_conf.bronze_pipeline_A2_id = self.create_dlt_meta_pipeline(
-                f"dlt-meta-integration-test-bronze-A2-{runner_conf.run_id}",
+                f"dlt-meta-bronze-A2-{runner_conf.run_id}",
                 "bronze",
                 "A2",
                 runner_conf.bronze_schema,
                 runner_conf)
 
             runner_conf.silver_pipeline_id = self.create_dlt_meta_pipeline(
-                f"dlt-meta-integration-test-silver-{runner_conf.run_id}",
+                f"dlt-meta-silver-{runner_conf.run_id}",
                 "silver",
                 "A1",
                 runner_conf.silver_schema,

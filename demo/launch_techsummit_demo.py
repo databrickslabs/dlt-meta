@@ -259,7 +259,6 @@ techsummit_mandatory_args = ["source", "cloud_provider_name", "dbr_version", "db
 
 
 def main():
-    """Entry method to run the integration tests."""
     args = process_arguments(techsummit_args_map, techsummit_mandatory_args)
     workspace_client = get_workspace_api_client(args.profile)
     dltmeta_techsummit_demo_runner = DLTMETATechSummitDemo(args, workspace_client, "demo")

@@ -1,0 +1,1 @@
+address STRING, email STRING, firstname STRING, id STRING, lastname STRING, operation STRING, operation_date STRING
