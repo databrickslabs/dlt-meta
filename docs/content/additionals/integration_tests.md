@@ -42,8 +42,8 @@ draft: false
 
     - - For eventhub integration tests, the following are the prerequisites:
         1. Needs eventhub instance running
-        2. Using Databricks CLI, Create databricks secrets scope for eventhub keys
-        3. Using Databricks CLI, Create databricks secrets to store producer and consumer keys using the scope created in step 2 
+        2. Use Databricks CLI, Create databricks secrets scope for eventhub keys (```databricks secrets create-scope eventhubs_creds```)
+        3. Use Databricks CLI, Create databricks secrets to store producer and consumer keys using the scope created in step 
 
     - - Following are the mandatory arguments for running EventHubs integration test
         1. Provide your eventhub topic : --eventhub_name
