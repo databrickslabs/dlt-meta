@@ -523,11 +523,11 @@ def main(raw):
     if command not in MAPPING:
         msg = f"cannot find command: {command}"
         raise KeyError(msg)
-    # flags = payload["flags"]
-    # log_level = flags.pop("log_level")
-    # if log_level != "disabled":
-    #     databricks_logger = logging.getLogger("databricks")
-    #     databricks_logger.setLevel(log_level.upper())
+    flags = payload["flags"]
+    log_level = flags.pop("log_level")
+    if log_level != "disabled":
+        databricks_logger = logging.getLogger("databricks")
+        databricks_logger.setLevel(log_level.upper())
     version = __about__.__version__
     ws = WorkspaceClient(product='dlt-meta', product_version=version)
     dltmeta = DLTMeta(ws)
