@@ -30,6 +30,7 @@ class DLTFrameworkTestCase(unittest.TestCase):
         self.onboarding_spec_paths = tempfile.mkdtemp()
         self.temp_delta_tables_path = tempfile.mkdtemp()
         self.onboarding_json_file = "tests/resources/onboarding.json"
+        self.onboarding_json_v7_file = "tests/resources/onboarding_v0.0.7.json"
         self.onboarding_unsupported_file = "tests/resources/schema.ddl"
         self.onboarding_v2_json_file = "tests/resources/onboarding_v2.json"
         self.onboarding_without_ids_json_file = "tests/resources/onboarding_without_ids.json"

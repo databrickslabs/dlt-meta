@@ -327,3 +327,19 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
             self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
         silver_dataflowSpec_df.show(truncate=False)
         self.assertEqual(silver_dataflowSpec_df.count(), 4)
+
+    def test_onboard_bronze_silver_with_v7(self):
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = self.onboarding_json_v7_file
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        onboardDataFlowSpecs.onboard_dataflow_specs()
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
+        bronze_dataflowSpec_df.show(truncate=False)
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
+        silver_dataflowSpec_df.show(truncate=False)
+        self.assertEqual(bronze_dataflowSpec_df.count(), 3)
+        self.assertEqual(silver_dataflowSpec_df.count(), 3)

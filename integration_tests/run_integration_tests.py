@@ -826,8 +826,8 @@ class DLTMETARunner:
                 target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
                 dbfs_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
                 contents = open(os.path.join(root, filename), "rb")
-                print(f"local_path={os.path.join(root, filename)}",
-                      f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
+                # print(f"local_path={os.path.join(root, filename)}",
+                #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
                 self.ws.dbfs.upload(dbfs_path, contents, overwrite=True)
 
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):

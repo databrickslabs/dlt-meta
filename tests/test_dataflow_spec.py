@@ -390,3 +390,31 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
         }]"""
         with self.assertRaises(Exception):
             DataflowSpecUtils.get_append_flows(missing_sd_append_flow_spec)
+
+    def test_populate_additional_df_cols(self):
+        """Test the populate_additional_df_cols method."""
+        row_dict = {
+            "name": "Test",
+            "source_format": "csv",
+            "create_streaming_table": True,
+            "source_details": {
+                "database": "test_db",
+                "table": "test_table"
+            }
+        }
+        additional_columns = ["comment", "reader_options", "spark_conf", "once"]
+        expected_result = {
+            "name": "Test",
+            "source_format": "csv",
+            "create_streaming_table": True,
+            "source_details": {
+                "database": "test_db",
+                "table": "test_table"
+            },
+            "comment": None,
+            "reader_options": None,
+            "spark_conf": None,
+            "once": None
+        }
+        result = DataflowSpecUtils.populate_additional_df_cols(row_dict, additional_columns)
+        self.assertEqual(result, expected_result)
