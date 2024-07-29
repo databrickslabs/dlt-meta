@@ -1,12 +1,13 @@
 import unittest
 from unittest.mock import MagicMock, patch
+from src.__about__ import __version__
 from src.cli import DLTMeta, OnboardCommand, DeployCommand, DLT_META_RUNNER_NOTEBOOK
 
 
 class CliTests(unittest.TestCase):
     onboarding_file_path = "tests/resources/onboarding.json"
     onboard_cmd = OnboardCommand(
-        dbr_version="7.3",
+        dbr_version="15.3",
         dbfs_path="/dbfs",
         onboarding_file_path=onboarding_file_path,
         onboarding_files_dir_path="tests/resources/",
@@ -106,9 +107,8 @@ class CliTests(unittest.TestCase):
         dltmeta._wsi = mock_workspace_client.return_value
         dltmeta._wsi._upload_wheel.return_value = None
         dltmeta._my_username = MagicMock(return_value="name")
-        with patch.object(dltmeta._wsi, "_upload_wheel", return_value="/path/to/wheel"):
-            dltmeta._create_dlt_meta_pipeline(self.deploy_cmd)
-        runner_notebook_py = DLT_META_RUNNER_NOTEBOOK.format(remote_wheel='/path/to/wheel').encode("utf8")
+        dltmeta._create_dlt_meta_pipeline(self.deploy_cmd)
+        runner_notebook_py = DLT_META_RUNNER_NOTEBOOK.format(version=__version__).encode("utf8")
         runner_notebook_path = f"{dltmeta._install_folder()}/init_dlt_meta_pipeline.py"
         mock_workspace_client.workspace.mkdirs.assert_called_once_with("/Users/name/dlt-meta")
         mock_workspace_client.workspace.upload.assert_called_once_with(runner_notebook_path,
