@@ -20,8 +20,7 @@ logger = logging.getLogger('databricks.labs.dltmeta')
 
 DLT_META_RUNNER_NOTEBOOK = """
 # Databricks notebook source
-# MAGIC %pip install /Workspace{remote_wheel}
-# dbutils.library.restartPython()
+# MAGIC %pip install dlt-meta=={version}
 # COMMAND ----------
 layer = spark.conf.get("layer", None)
 from src.dataflow_pipeline import DataflowPipeline
@@ -82,8 +81,6 @@ class OnboardCommand:
             if not self.uc_enabled:
                 if not self.silver_dataflowspec_path:
                     raise ValueError("silver_dataflowspec_path is required")
-        # if not self.uc_enabled and not self.uc_catalog_name:
-        #     raise ValueError("uc_catalog_name is required")
         if not self.dlt_meta_schema:
             raise ValueError("dlt_meta_schema is required")
         if not self.cloud:
@@ -143,6 +140,7 @@ class DLTMeta:
     def __init__(self, ws: WorkspaceClient):
         self._ws = ws
         self._wsi = WorkspaceInstaller(ws)
+        self.version = __about__.__version__
 
     def _my_username(self):
         if not hasattr(self._ws, "_me"):
@@ -220,11 +218,6 @@ class DLTMeta:
             }
         )
         onboarding_filename = os.path.basename(cmd.onboarding_file_path)
-        remote_wheel = (
-            f"/Workspace{self._wsi._upload_wheel()}"
-            if cmd.uc_enabled
-            else f"dbfs:{self._wsi._upload_wheel()}"
-        )
         named_parameters = self._get_onboarding_named_parameters(cmd, onboarding_filename)
         return self._ws.jobs.create(
             name="dlt_meta_onboarding_job",
@@ -239,7 +232,11 @@ class DLTMeta:
                         entry_point="run",
                         named_parameters=named_parameters,
                     ),
-                    libraries=[jobs.compute.Library(whl=remote_wheel)]
+                    libraries=[
+                        jobs.compute.Library(
+                            pypi=compute.PythonPyPiLibrary(package=f"dlt-meta=={self.version}")
+                        )
+                    ],
                 ),
             ]
         )
@@ -279,8 +276,7 @@ class DLTMeta:
 
     def _create_dlt_meta_pipeline(self, cmd: DeployCommand):
         """Create the DLT-META pipeline."""
-        whl_file_path = f"/Workspace{self._wsi._upload_wheel()}"
-        runner_notebook_py = DLT_META_RUNNER_NOTEBOOK.format(remote_wheel=self._wsi._upload_wheel()).encode("utf8")
+        runner_notebook_py = DLT_META_RUNNER_NOTEBOOK.format(version=self.version).encode("utf8")
         runner_notebook_path = f"{self._install_folder()}/init_dlt_meta_pipeline.py"
         try:
             self._ws.workspace.mkdirs(self._install_folder())
@@ -292,8 +288,8 @@ class DLTMeta:
             f"{cmd.layer}.group": cmd.onboard_group,
         }
         created = None
+        configuration["version"] = self.version
         if cmd.uc_catalog_name:
-            configuration["dlt_meta_whl"] = whl_file_path
             configuration[f"{cmd.layer}.dataflowspecTable"] = (
                 f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}.{cmd.dataflowspec_table}"
             )
@@ -315,7 +311,6 @@ class DLTMeta:
                                                 channel="PREVIEW" if cmd.serverless else None
                                                 )
         else:
-            configuration["dlt_meta_whl"] = whl_file_path
             configuration[f"{cmd.layer}.dataflowspecTable"] = (
                 f"{cmd.dlt_meta_schema}.{cmd.dataflowspec_table}"
             )
