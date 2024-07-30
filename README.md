@@ -127,21 +127,18 @@ If you want to run existing demo files please follow these steps before running 
 ```
 
 ```commandline
-    databricks labs dlt-meta onboard
-```
-
-```commandline
     dlt_meta_home=$(pwd)
 ```
 
 ```commandline
     export PYTHONPATH=$dlt_meta_home
 ```
-![onboardingDLTMeta.gif](docs/static/images/onboardingDLTMeta.gif)
-
 ```commandline
     databricks labs dlt-meta onboard
 ```
+![onboardingDLTMeta.gif](docs/static/images/onboardingDLTMeta.gif)
+
+
 Above commands will prompt you to provide onboarding details. If you have cloned dlt-meta git repo then accept defaults which will launch config from demo folder.
 ![onboardingDLTMeta_2.gif](docs/static/images/onboardingDLTMeta_2.gif)
 
