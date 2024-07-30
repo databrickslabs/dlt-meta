@@ -33,6 +33,7 @@ class BronzeDataflowSpec:
     quarantineTargetDetails: map
     quarantineTableProperties: map
     appendFlows: str
+    appendFlowsSchemas: map
     version: str
     createDate: datetime
     createdBy: str
@@ -58,6 +59,7 @@ class SilverDataflowSpec:
     cdcApplyChanges: str
     dataQualityExpectations: str
     appendFlows: str
+    appendFlowsSchemas: map
     version: str
     createDate: datetime
     createdBy: str
@@ -146,6 +148,10 @@ class DataflowSpecUtils:
         "once": False
     }
 
+    additional_bronze_df_columns = ["appendFlows", "appendFlowsSchemas"]
+    additional_silver_df_columns = ["dataQualityExpectations", "appendFlows", "appendFlowsSchemas"]
+    additional_cdc_apply_changes_columns = ["flow_name", "once"]
+
     @staticmethod
     def _get_dataflow_spec(
         spark: SparkSession,
@@ -190,9 +196,20 @@ class DataflowSpecUtils:
         dataflow_spec_rows = DataflowSpecUtils._get_dataflow_spec(spark, "bronze").collect()
         bronze_dataflow_spec_list: list[BronzeDataflowSpec] = []
         for row in dataflow_spec_rows:
-            bronze_dataflow_spec_list.append(BronzeDataflowSpec(**row.asDict()))
+            target_row = DataflowSpecUtils.populate_additional_df_cols(
+                row.asDict(),
+                DataflowSpecUtils.additional_bronze_df_columns
+            )
+            bronze_dataflow_spec_list.append(BronzeDataflowSpec(**target_row))
         logger.info(f"bronze_dataflow_spec_list={bronze_dataflow_spec_list}")
         return bronze_dataflow_spec_list
+
+    @staticmethod
+    def populate_additional_df_cols(onboarding_row_dict, additional_columns):
+        for column in additional_columns:
+            if column not in onboarding_row_dict.keys():
+                onboarding_row_dict[column] = None
+        return onboarding_row_dict
 
     @staticmethod
     def get_silver_dataflow_spec(spark) -> List[SilverDataflowSpec]:
@@ -202,7 +219,11 @@ class DataflowSpecUtils:
         dataflow_spec_rows = DataflowSpecUtils._get_dataflow_spec(spark, "silver").collect()
         silver_dataflow_spec_list: list[SilverDataflowSpec] = []
         for row in dataflow_spec_rows:
-            silver_dataflow_spec_list.append(SilverDataflowSpec(**row.asDict()))
+            target_row = DataflowSpecUtils.populate_additional_df_cols(
+                row.asDict(),
+                DataflowSpecUtils.additional_silver_df_columns
+            )
+            silver_dataflow_spec_list.append(SilverDataflowSpec(**target_row))
         return silver_dataflow_spec_list
 
     @staticmethod
@@ -274,6 +295,10 @@ class DataflowSpecUtils:
             ] = DataflowSpecUtils.cdc_applychanges_api_attributes_defaults[missing_cdc_payload_key]
 
         logger.info(f"final mergeInfo={json_cdc_apply_changes}")
+        json_cdc_apply_changes = DataflowSpecUtils.populate_additional_df_cols(
+            json_cdc_apply_changes,
+            DataflowSpecUtils.additional_cdc_apply_changes_columns
+        )
         return CDCApplyChanges(**json_cdc_apply_changes)
 
     @staticmethod

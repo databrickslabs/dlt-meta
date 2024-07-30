@@ -1,11 +1,9 @@
  # [DLT-META](https://github.com/databrickslabs/dlt-meta) DEMO's 
  1. [DAIS 2023 DEMO](#dais-2023-demo): Showcases DLT-META's capabilities of creating Bronze and Silver DLT pipelines with initial and incremental mode automatically.
  2. [Databricks Techsummit Demo](#databricks-tech-summit-fy2024-demo): 100s of data sources ingestion in bronze and silver DLT pipelines automatically.
-<<<<<<< Updated upstream
-=======
  3. [Append FLOW Autoloader Demo](#append-flow-autoloader-file-metadata-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  4. [Append FLOW Eventhub Demo](#append-flow-eventhub-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
->>>>>>> Stashed changes
+
 
 
 # DAIS 2023 DEMO 
@@ -83,8 +81,11 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
     export PYTHONPATH=$dlt_meta_home
     ```
 
-6. Run the command ```python demo/launch_techsummit_demo.py --source=cloudfiles --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/techsummit-dlt-meta-demo-automated ```
-    - cloud_provider_name : aws or azure or gcp
+6. Run the command 
+    ```commandline 
+    python demo/launch_techsummit_demo.py --source=cloudfiles --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/techsummit-dlt-meta-demo-automated 
+    ```
+    - cloud_provider_name : aws or azure
     - db_version : Databricks Runtime Version
     - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
@@ -103,17 +104,14 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
 
         - Copy the displayed token
 
-<<<<<<< Updated upstream
         - Paste to command prompt
-=======
-        - Paste to command prompt
+
 
 # Append Flow Autoloader file metadata demo:
 This demo will perform following tasks:
 - Read from different source paths using autoloader and write to same target using append_flow API
 - Read from different delta tables and write to same silver table using append_flow API
 - Add file_name and file_path to target bronze table for autoloader source using [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
-## Append flow with autoloader
 
 1. Launch Terminal/Command prompt 
 
@@ -203,5 +201,4 @@ This demo will perform following tasks:
     python3 demo/launch_af_eventhub_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=ravi_dlt_meta_uc --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey --uc_catalog_name=ravi_dlt_meta_uc
     ```
 
-![af_eh_demo.png](docs/static/images/af_eh_demo.png)
->>>>>>> Stashed changes
+  ![af_eh_demo.png](docs/static/images/af_eh_demo.png)

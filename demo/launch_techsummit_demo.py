@@ -78,7 +78,6 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         - runner_conf: The initialized TechsummitRunnerConf object.
         """
         run_id = uuid.uuid4().hex
-        print(f"run_id={run_id}")
         runner_conf = TechsummitRunnerConf(
             run_id=run_id,
             username=self._my_username(self.ws),
@@ -162,12 +161,10 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         created_job = self.create_techsummit_demo_workflow(runner_conf)
         print(created_job)
         runner_conf.job_id = created_job.job_id
-        print(f"Job created successfully. job_id={created_job.job_id}, started run...")
-        print(f"Waiting for job to complete. run_id={created_job.job_id}")
-        run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id)
-        url = f"{self.ws.config.host}/jobs/{runner_conf.job_id}/runs/{run_by_id}?o={self.ws.get_workspace_id()}/"
+        self.ws.jobs.run_now(job_id=created_job.job_id)
+        url = f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
         webbrowser.open(url)
-        print(f"Job launched with url={url}")
+        print(f"Job created successfully. job_id={created_job.job_id}, url={url}")
 
     def create_techsummit_demo_workflow(self, runner_conf: TechsummitRunnerConf):
         """
@@ -222,7 +219,7 @@ class DLTMETATechSummitDemo(DLTMETARunner):
                             "bronze_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/data/dlt_spec/bronze",
                             "overwrite": "True",
                             "env": runner_conf.env,
-                            "uc_enabled": "False"  # if runner_conf.uc_catalog_name else "False"
+                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
                         },
                     ),
                     libraries=dlt_lib
@@ -262,7 +259,6 @@ techsummit_mandatory_args = ["source", "cloud_provider_name", "dbr_version", "db
 
 
 def main():
-    """Entry method to run the integration tests."""
     args = process_arguments(techsummit_args_map, techsummit_mandatory_args)
     workspace_client = get_workspace_api_client(args.profile)
     dltmeta_techsummit_demo_runner = DLTMETATechSummitDemo(args, workspace_client, "demo")

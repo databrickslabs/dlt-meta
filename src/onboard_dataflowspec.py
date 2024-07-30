@@ -413,7 +413,8 @@ class OnboardDataflowspec:
             "dataQualityExpectations",
             "quarantineTargetDetails",
             "quarantineTableProperties",
-            "appendFlows"
+            "appendFlows",
+            "appendFlowsSchemas",
         ]
         data_flow_spec_schema = StructType(
             [
@@ -435,7 +436,8 @@ class OnboardDataflowspec:
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField("quarantineTargetDetails", MapType(StringType(), StringType(), True), True),
                 StructField("quarantineTableProperties", MapType(StringType(), StringType(), True), True),
-                StructField("appendFlows", StringType(), True)
+                StructField("appendFlows", StringType(), True),
+                StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True)
             ]
         )
         data = []
@@ -506,7 +508,7 @@ class OnboardDataflowspec:
                         ):
                             quarantine_table_properties = self.__delete_none(
                                 onboarding_row["bronze_quarantine_table_properties"].asDict())
-            append_flows = self.get_append_flows_json(onboarding_row, "bronze", env)
+            append_flows, append_flows_schemas = self.get_append_flows_json(onboarding_row, "bronze", env)
             bronze_row = (
                 bronze_data_flow_spec_id,
                 bronze_data_flow_spec_group,
@@ -522,7 +524,8 @@ class OnboardDataflowspec:
                 data_quality_expectations,
                 quarantine_target_details,
                 quarantine_table_properties,
-                append_flows
+                append_flows,
+                append_flows_schemas
             )
             data.append(bronze_row)
             # logger.info(bronze_parition_columns)
@@ -533,6 +536,7 @@ class OnboardDataflowspec:
 
     def get_append_flows_json(self, onboarding_row, layer, env):
         append_flows = None
+        append_flows_schema = {}
         if f"{layer}_append_flows" in onboarding_row and onboarding_row[f"{layer}_append_flows"]:
             self.__validate_append_flow(onboarding_row, layer)
             json_append_flows = onboarding_row[f"{layer}_append_flows"]
@@ -548,6 +552,11 @@ class OnboardDataflowspec:
                         for ff in fs:
                             if f"source_path_{env}" == ff:
                                 mp['path'] = json_append_flow[key][f'{ff}']
+                            elif "source_schema_path" == ff:
+                                source_schema_path = json_append_flow[key][f'{ff}']
+                                if source_schema_path:
+                                    schema = self.__get_bronze_schema(source_schema_path)
+                                    append_flows_schema[json_append_flow['name']] = schema
                             else:
                                 mp[f'{ff}'] = json_append_flow[key][f'{ff}']
                         append_flow_map[key] = self.__delete_none(mp)
@@ -555,7 +564,7 @@ class OnboardDataflowspec:
                         append_flow_map[key] = json_append_flow[key]
                 af_list.append(self.__delete_none(append_flow_map))
             append_flows = json.dumps(af_list)
-        return append_flows
+        return append_flows, append_flows_schema
 
     def __validate_apply_changes(self, onboarding_row, layer):
         cdc_apply_changes = onboarding_row[f"{layer}_cdc_apply_changes"]
@@ -697,7 +706,8 @@ class OnboardDataflowspec:
             "partitionColumns",
             "cdcApplyChanges",
             "dataQualityExpectations",
-            "appendFlows"
+            "appendFlows",
+            "appendFlowsSchemas"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -716,13 +726,14 @@ class OnboardDataflowspec:
                 StructField("partitionColumns", ArrayType(StringType(), True), True),
                 StructField("cdcApplyChanges", StringType(), True),
                 StructField("dataQualityExpectations", StringType(), True),
-                StructField("appendFlows", StringType(), True)
+                StructField("appendFlows", StringType(), True),
+                StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True)
             ]
         )
         data = []
 
         onboarding_rows = onboarding_df.collect()
-        mandatory_fields = ["data_flow_id", "data_flow_group", "source_details", f"silver_database_{env}",
+        mandatory_fields = ["data_flow_id", "data_flow_group", f"silver_database_{env}",
                             "silver_table", f"silver_transformation_json_{env}"]  # f"silver_table_path_{env}",
 
         for onboarding_row in onboarding_rows:
@@ -770,7 +781,7 @@ class OnboardDataflowspec:
                 if silver_data_quality_expectations_json:
                     data_quality_expectations = (
                         self.__get_data_quality_expecations(silver_data_quality_expectations_json))
-            append_flows = self.get_append_flows_json(onboarding_row, layer="silver", env=env)
+            append_flows, append_flow_schemas = self.get_append_flows_json(onboarding_row, layer="silver", env=env)
             silver_row = (
                 silver_data_flow_spec_id,
                 silver_data_flow_spec_group,
@@ -783,7 +794,8 @@ class OnboardDataflowspec:
                 silver_parition_columns,
                 silver_cdc_apply_changes,
                 data_quality_expectations,
-                append_flows
+                append_flows,
+                append_flow_schemas
             )
             data.append(silver_row)
             logger.info(f"silver_data ==== {data}")

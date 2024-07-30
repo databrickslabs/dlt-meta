@@ -16,12 +16,14 @@ logger.setLevel(logging.INFO)
 class AppendFlowWriter:
     """Append Flow Writer class."""
 
-    def __init__(self, spark, append_flow, target, struct_schema):
+    def __init__(self, spark, append_flow, target, struct_schema, table_properties=None, partition_cols=None):
         """Init."""
         self.spark = spark
         self.target = target
         self.append_flow = append_flow
         self.struct_schema = struct_schema
+        self.table_properties = table_properties
+        self.partition_cols = partition_cols
 
     def write_af_to_delta(self):
         """Write to Delta."""
@@ -30,12 +32,19 @@ class AppendFlowWriter:
     def write_flow(self):
         """Write Append Flow."""
         if self.append_flow.create_streaming_table:
-            self.create_streaming_table(self.struct_schema)
+            dlt.create_streaming_table(
+                name=self.target,
+                table_properties=self.table_properties,
+                partition_cols=self.partition_cols,
+                schema=self.struct_schema,
+                expect_all=None,
+                expect_all_or_drop=None,
+                expect_all_or_fail=None,
+            )
         if self.append_flow.comment:
             comment = self.append_flow.comment
         else:
             comment = f"append_flow={self.append_flow.name} for target={self.target}"
-
         dlt.append_flow(name=self.append_flow.name,
                         target=self.target,
                         comment=comment,
@@ -112,42 +121,47 @@ class DataflowPipeline:
             dlt.view(
                 self.read_bronze,
                 name=self.view_name,
-                comment=f"input dataset view for{self.view_name}",
+                comment=f"input dataset view for {self.view_name}",
             )
-            if self.appendFlows:
-                self.read_append_flows()
         elif isinstance(self.dataflowSpec, SilverDataflowSpec):
             dlt.view(
                 self.read_silver,
                 name=self.view_name,
-                comment=f"input dataset view for{self.view_name}",
+                comment=f"input dataset view for {self.view_name}",
             )
         else:
-            raise Exception("Dataflow read not supported for{}".format(type(self.dataflowSpec)))
+            raise Exception("Dataflow read not supported for {}".format(type(self.dataflowSpec)))
+        if self.appendFlows:
+            self.read_append_flows()
 
     def read_append_flows(self):
         if self.dataflowSpec.appendFlows:
+            append_flows_schema_map = self.dataflowSpec.appendFlowsSchemas
             for append_flow in self.appendFlows:
+                flow_schema = None
+                if append_flows_schema_map:
+                    flow_schema = append_flows_schema_map.get(append_flow.name)
                 pipeline_reader = PipelineReaders(
                     self.spark,
                     append_flow.source_format,
                     append_flow.source_details,
-                    append_flow.reader_options
+                    append_flow.reader_options,
+                    json.loads(flow_schema) if flow_schema else None
                 )
                 if append_flow.source_format == "cloudFiles":
                     dlt.view(pipeline_reader.read_dlt_cloud_files,
                              name=f"{append_flow.name}_view",
-                             comment=f"append flow input dataset view for{append_flow.name}_view"
+                             comment=f"append flow input dataset view for {append_flow.name}_view"
                              )
                 elif append_flow.source_format == "delta":
                     dlt.view(pipeline_reader.read_dlt_delta,
                              name=f"{append_flow.name}_view",
-                             comment=f"append flow input dataset view for{append_flow.name}_view"
+                             comment=f"append flow input dataset view for {append_flow.name}_view"
                              )
                 elif append_flow.source_format == "eventhub" or append_flow.source_format == "kafka":
                     dlt.view(pipeline_reader.read_kafka,
                              name=f"{append_flow.name}_view",
-                             comment=f"append flow input dataset view for{append_flow.name}_view"
+                             comment=f"append flow input dataset view for {append_flow.name}_view"
                              )
         else:
             raise Exception(f"Append Flows not found for dataflowSpec={self.dataflowSpec}")
@@ -184,9 +198,7 @@ class DataflowPipeline:
     def write_silver(self):
         """Write silver tables."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
-        if silver_dataflow_spec.appendFlows:
-            self.write_append_flows()
-        elif silver_dataflow_spec.cdcApplyChanges:
+        if silver_dataflow_spec.cdcApplyChanges:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else silver_dataflow_spec.targetDetails["path"]
@@ -198,6 +210,8 @@ class DataflowPipeline:
                 path=target_path,
                 comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}",
             )
+        if silver_dataflow_spec.appendFlows:
+            self.write_append_flows()
 
     def read_bronze(self) -> DataFrame:
         """Read Bronze Table."""
@@ -214,9 +228,9 @@ class DataflowPipeline:
         if bronze_dataflow_spec.sourceFormat == "cloudFiles":
             input_df = pipeline_reader.read_dlt_cloud_files()
         elif bronze_dataflow_spec.sourceFormat == "delta":
-            input_df = PipelineReaders.read_dlt_delta()
+            return pipeline_reader.read_dlt_delta()
         elif bronze_dataflow_spec.sourceFormat == "eventhub" or bronze_dataflow_spec.sourceFormat == "kafka":
-            input_df = PipelineReaders.read_kafka()
+            return pipeline_reader.read_kafka()
         else:
             raise Exception(f"{bronze_dataflow_spec.sourceFormat} source format not supported")
         return self.apply_custom_transform_fun(input_df)
@@ -380,7 +394,11 @@ class DataflowPipeline:
                     else self.silver_schema
                 )
             append_flow_writer = AppendFlowWriter(
-                self.spark, append_flow, self.dataflowSpec.targetDetails['table'], struct_schema
+                self.spark, append_flow,
+                self.dataflowSpec.targetDetails['table'],
+                struct_schema,
+                self.dataflowSpec.tableProperties,
+                self.dataflowSpec.partitionColumns
             )
             append_flow_writer.write_flow()
 

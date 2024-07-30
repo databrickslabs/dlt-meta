@@ -20,8 +20,7 @@ logger = logging.getLogger('databricks.labs.dltmeta')
 
 DLT_META_RUNNER_NOTEBOOK = """
 # Databricks notebook source
-# MAGIC %pip install /Workspace{remote_wheel}
-# dbutils.library.restartPython()
+# MAGIC %pip install dlt-meta=={version}
 # COMMAND ----------
 layer = spark.conf.get("layer", None)
 from src.dataflow_pipeline import DataflowPipeline
@@ -82,8 +81,6 @@ class OnboardCommand:
             if not self.uc_enabled:
                 if not self.silver_dataflowspec_path:
                     raise ValueError("silver_dataflowspec_path is required")
-        # if not self.uc_enabled and not self.uc_catalog_name:
-        #     raise ValueError("uc_catalog_name is required")
         if not self.dlt_meta_schema:
             raise ValueError("dlt_meta_schema is required")
         if not self.cloud:
@@ -143,11 +140,34 @@ class DLTMeta:
     def __init__(self, ws: WorkspaceClient):
         self._ws = ws
         self._wsi = WorkspaceInstaller(ws)
+        self.version = __about__.__version__
 
     def _my_username(self):
         if not hasattr(self._ws, "_me"):
             _me = self._ws.current_user.me()
         return _me.user_name
+
+    def copy(self, src, dst):
+        dst = dst.replace('//', '/')
+        main_dir = src.replace('file:', '')
+        main_dir = main_dir.replace('//', '/')
+        base_dir_name = None
+        if main_dir.endswith('/'):
+            base_dir_name = main_dir[:-1]
+        if base_dir_name is None:
+            base_dir_name = main_dir[main_dir.rfind('/') + 1:]
+        else:
+            base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:]
+        for root, dirs, files in os.walk(main_dir):
+            for filename in files:
+                target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
+                dbfs_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
+                contents = open(os.path.join(root, filename), "rb")
+                logger.info(
+                    f"local_path={os.path.join(root, filename)} "
+                    f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}"
+                )
+                self._ws.dbfs.upload(dbfs_path, contents, overwrite=True)
 
     def onboard(self, cmd: OnboardCommand):
         """Perform the onboarding process."""
@@ -156,10 +176,8 @@ class DLTMeta:
             self._ws.dbfs.mkdirs(f"{cmd.dbfs_path}/dltmeta_conf/")
         ob_file = open(cmd.onboarding_file_path, "rb")
         onboarding_filename = os.path.basename(cmd.onboarding_file_path)
-        self._ws.dbfs.upload(cmd.dbfs_path + f"/dltmeta_conf/{onboarding_filename}", ob_file, overwrite=True)
-        self._ws.dbfs.copy(cmd.onboarding_files_dir_path,
-                           cmd.dbfs_path + "/dltmeta_conf/",
-                           overwrite=True, recursive=True)
+        self._ws.dbfs.upload(f"{cmd.dbfs_path}/dltmeta_conf/{onboarding_filename}", ob_file, overwrite=True)
+        self.copy(cmd.onboarding_files_dir_path, cmd.dbfs_path + "/dltmeta_conf/")
         logger.info(f"uploading to  {cmd.dbfs_path}/dltmeta_conf complete!!!")
         if cmd.uc_enabled:
             try:
@@ -200,12 +218,7 @@ class DLTMeta:
             }
         )
         onboarding_filename = os.path.basename(cmd.onboarding_file_path)
-        remote_wheel = (
-            f"/Workspace{self._wsi._upload_wheel()}"
-            if cmd.uc_enabled
-            else f"dbfs:{self._wsi._upload_wheel()}"
-        )
-
+        named_parameters = self._get_onboarding_named_parameters(cmd, onboarding_filename)
         return self._ws.jobs.create(
             name="dlt_meta_onboarding_job",
             tasks=[
@@ -217,36 +230,53 @@ class DLTMeta:
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
                         entry_point="run",
-                        named_parameters={
-                                    "onboard_layer": cmd.onboard_layer,
-                                    "database":
-                                        f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}"
-                                        if cmd.uc_enabled else cmd.dlt_meta_schema,
-                                    "onboarding_file_path":
-                                    f"{cmd.dbfs_path}/dltmeta_conf/{onboarding_filename}",
-                                    "bronze_dataflowspec_table": cmd.bronze_dataflowspec_table,
-                                    "bronze_dataflowspec_path": cmd.bronze_dataflowspec_path,
-                                    "silver_dataflowspec_table": cmd.silver_dataflowspec_table,
-                                    "silver_dataflowspec_path": cmd.silver_dataflowspec_path,
-                                    "import_author": cmd.import_author,
-                                    "version": cmd.version,
-                                    "overwrite": "True" if cmd.overwrite else "False",
-                                    "env": cmd.env,
-                                    "uc_enabled": "True" if cmd.uc_enabled else "False"
-                        },
+                        named_parameters=named_parameters,
                     ),
-                    libraries=[jobs.compute.Library(whl=remote_wheel)]
+                    libraries=[
+                        jobs.compute.Library(
+                            pypi=compute.PythonPyPiLibrary(package=f"dlt-meta=={self.version}")
+                        )
+                    ],
                 ),
             ]
         )
+
+    def _get_onboarding_named_parameters(self, cmd: OnboardCommand, onboarding_filename: str):
+        named_parameters = {
+            "onboard_layer": cmd.onboard_layer,
+            "database":
+                f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}"
+                if cmd.uc_enabled else cmd.dlt_meta_schema,
+            "onboarding_file_path":
+            f"{cmd.dbfs_path}/dltmeta_conf/{onboarding_filename}",
+            "import_author": cmd.import_author,
+            "version": cmd.version,
+            "overwrite": "True" if cmd.overwrite else "False",
+            "env": cmd.env,
+            "uc_enabled": "True" if cmd.uc_enabled else "False"
+        }
+        if cmd.onboard_layer == "bronze_silver":
+            named_parameters["bronze_dataflowspec_table"] = cmd.bronze_dataflowspec_table
+            named_parameters["silver_dataflowspec_table"] = cmd.silver_dataflowspec_table
+            if not cmd.uc_enabled:
+                named_parameters["bronze_dataflowspec_path"] = cmd.bronze_dataflowspec_path
+                named_parameters["silver_dataflowspec_path"] = cmd.silver_dataflowspec_path
+        elif cmd.onboard_layer == "bronze":
+            named_parameters["bronze_dataflowspec_table"] = cmd.bronze_dataflowspec_table
+            if not cmd.uc_enabled:
+                named_parameters["bronze_dataflowspec_path"] = cmd.bronze_dataflowspec_path
+        elif cmd.onboard_layer == "silver":
+            named_parameters["silver_dataflowspec_table"] = cmd.silver_dataflowspec_table
+            if not cmd.uc_enabled:
+                named_parameters["silver_dataflowspec_path"] = cmd.silver_dataflowspec_path
+        return named_parameters
 
     def _install_folder(self):
         return f"/Users/{self._my_username()}/dlt-meta"
 
     def _create_dlt_meta_pipeline(self, cmd: DeployCommand):
         """Create the DLT-META pipeline."""
-        whl_file_path = f"/Workspace{self._wsi._upload_wheel()}"
-        runner_notebook_py = DLT_META_RUNNER_NOTEBOOK.format(remote_wheel=self._wsi._upload_wheel()).encode("utf8")
+        runner_notebook_py = DLT_META_RUNNER_NOTEBOOK.format(version=self.version).encode("utf8")
         runner_notebook_path = f"{self._install_folder()}/init_dlt_meta_pipeline.py"
         try:
             self._ws.workspace.mkdirs(self._install_folder())
@@ -258,8 +288,8 @@ class DLTMeta:
             f"{cmd.layer}.group": cmd.onboard_group,
         }
         created = None
+        configuration["version"] = self.version
         if cmd.uc_catalog_name:
-            configuration["dlt_meta_whl"] = whl_file_path
             configuration[f"{cmd.layer}.dataflowspecTable"] = (
                 f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}.{cmd.dataflowspec_table}"
             )
@@ -281,7 +311,6 @@ class DLTMeta:
                                                 channel="PREVIEW" if cmd.serverless else None
                                                 )
         else:
-            configuration["dlt_meta_whl"] = whl_file_path
             configuration[f"{cmd.layer}.dataflowspecTable"] = (
                 f"{cmd.dlt_meta_schema}.{cmd.dataflowspec_table}"
             )
@@ -319,9 +348,9 @@ class DLTMeta:
         cwd = os.getcwd()
         onboarding_files_dir_path = self._wsi._question(
             "Provide onboarding files local directory", default=f'{cwd}/demo/')
-        onboard_cmd_dict["onboarding_files_dir_path"] = f"file:///{onboarding_files_dir_path}"
+        onboard_cmd_dict["onboarding_files_dir_path"] = f"file:/{onboarding_files_dir_path}"
         onboard_cmd_dict["dbfs_path"] = self._wsi._question(
-            "Provide dbfs path", default="dbfs:/dlt-meta_cli_demo")
+            "Provide dbfs path", default=f"dbfs:/dlt-meta_cli_demo_{uuid.uuid4().hex}")
         onboard_cmd_dict["dbr_version"] = self._wsi._question(
             "Provide databricks runtime version", default=self._ws.clusters.select_spark_version(latest=True))
         onboard_cmd_dict["uc_enabled"] = self._wsi._choice(

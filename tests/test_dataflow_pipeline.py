@@ -49,6 +49,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         },
         "quarantineTableProperties": {},
         "appendFlows": [],
+        "appendFlowsSchemas": {},
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -103,6 +104,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             }
         }""",
         "appendFlows": [],
+        "appendFlowsSchemas": {},
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -765,6 +767,70 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         )
         bronze_df_row = bronze_dataflowSpec_df.filter(bronze_dataflowSpec_df.dataFlowId == "201").collect()[0]
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_df_row.asDict())
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(bronze_dataflow_spec.cdcApplyChanges)
+        apply_as_deletes = None
+        if cdc_apply_changes.apply_as_deletes:
+            apply_as_deletes = expr(cdc_apply_changes.apply_as_deletes)
+
+        apply_as_truncates = None
+        if cdc_apply_changes.apply_as_truncates:
+            apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
+        struct_schema = json.loads(bronze_dataflow_spec.schema)
+        pipeline.write_bronze()
+        assert mock_create_streaming_table.called_once_with(
+            schema=struct_schema,
+            name=f"{bronze_dataflowSpec_df.targetDetails['table']}"
+        )
+        assert mock_create_streaming_live_table.called_once_with(
+            name=f"{bronze_dataflowSpec_df.targetDetails['table']}",
+            table_properties=bronze_dataflowSpec_df.tableProperties,
+            path=bronze_dataflowSpec_df.targetDetails["path"],
+            schema=struct_schema,
+            expect_all=None,
+            expect_all_or_drop=None,
+            expect_all_or_fail=None
+        )
+        assert mock_apply_changes.called_once_with(
+            name=f"{bronze_dataflowSpec_df.targetDetails['table']}",
+            source=view_name,
+            keys=cdc_apply_changes.keys,
+            sequence_by=cdc_apply_changes.sequence_by,
+            where=cdc_apply_changes.where,
+            ignore_null_updates=cdc_apply_changes.ignore_null_updates,
+            apply_as_deletes=apply_as_deletes,
+            apply_as_truncates=apply_as_truncates,
+            column_list=cdc_apply_changes.column_list,
+            except_column_list=cdc_apply_changes.except_column_list,
+            stored_as_scd_type=cdc_apply_changes.scd_type,
+            track_history_column_list=cdc_apply_changes.track_history_column_list,
+            track_history_except_column_list=cdc_apply_changes.track_history_except_column_list
+        )
+
+    @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
+    @patch('dlt.create_streaming_live_table', new_callable=MagicMock)
+    @patch('dlt.apply_changes', new_callable=MagicMock)
+    def test_bronze_cdc_apply_changes_v7(self,
+                                         mock_create_streaming_table,
+                                         mock_create_streaming_live_table,
+                                         mock_apply_changes):
+        mock_create_streaming_table.return_value = None
+        mock_apply_changes.apply_changes.return_value = None
+        mock_create_streaming_live_table.return_value = None
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        onboarding_params_map['onboarding_file_path'] = self.onboarding_json_v7_file
+        o_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        o_dfs.onboard_bronze_dataflow_spec()
+        bronze_dataflowSpec_df = self.spark.read.format("delta").load(
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_path']
+        )
+        bronze_df_row = bronze_dataflowSpec_df.filter(bronze_dataflowSpec_df.dataFlowId == "100").collect()[0]
+        bronze_row_dict = DataflowSpecUtils.populate_additional_df_cols(
+            bronze_df_row.asDict(),
+            DataflowSpecUtils.additional_bronze_df_columns
+        )
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_row_dict)
         view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
         cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(bronze_dataflow_spec.cdcApplyChanges)

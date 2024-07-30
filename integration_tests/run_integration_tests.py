@@ -3,6 +3,7 @@
 # Import necessary modules
 import uuid
 import argparse
+import os
 from dataclasses import dataclass
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
@@ -96,6 +97,7 @@ class DLTMetaRunnerConf:
     run_name: str = None
     uc_catalog_name: str = None
     onboarding_file_path: str = None
+    onboarding_A2_file_path: str = None
     dbfs_tmp_path: str = None
     uc_volume_name: str = None
     int_tests_dir: str = None
@@ -106,7 +108,10 @@ class DLTMetaRunnerConf:
     runners_full_local_path: str = None
     source: str = None
     cloudfiles_template: str = None
+    cloudfiles_A2_template: str = None
     eventhub_template: str = None
+    eventhub_input_data: str = None
+    eventhub_append_flow_input_data: str = None
     kafka_template: str = None
     env: str = None
     whl_path: str = None
@@ -118,6 +123,7 @@ class DLTMetaRunnerConf:
     node_type_id: str = None
     dbr_version: str = None
     bronze_pipeline_id: str = None
+    bronze_pipeline_A2_id: str = None
     silver_pipeline_id: str = None
     cluster_id: str = None
     job_id: str = None
@@ -162,9 +168,11 @@ class DLTMETARunner:
             node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             dbr_version=self.args.__dict__['dbr_version'],
             cloudfiles_template="integration_tests/conf/cloudfiles-onboarding.template",
+            cloudfiles_A2_template="integration_tests/conf/cloudfiles-onboarding_A2.template",
             eventhub_template="integration_tests/conf/eventhub-onboarding.template",
             kafka_template="integration_tests/conf/kafka-onboarding.template",
             onboarding_file_path="integration_tests/conf/onboarding.json",
+            onboarding_A2_file_path="integration_tests/conf/onboarding_A2.json",
             env="it",
             test_output_file_path=(
                 f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/"
@@ -189,7 +197,7 @@ class DLTMETARunner:
         return runner_conf
 
     def _install_folder(self):
-        return f"/Users/{self._my_username()}/dlt-meta"
+        return f"/Users/{self.wsi._my_username}/dlt-meta"
 
     def _my_username(self, ws):
         if not hasattr(ws, "_me"):
@@ -312,7 +320,7 @@ class DLTMETARunner:
         """
         database, dlt_lib = self.init_db_dltlib(runner_conf)
         return self.ws.jobs.create(
-            name=f"dlt-meta-integration-test-{runner_conf.run_id}",
+            name=f"dlt-meta-{runner_conf.run_id}",
             tasks=[
                 jobs.Task(
                     task_key="setup_dlt_meta_pipeline_spec",
@@ -348,8 +356,40 @@ class DLTMETARunner:
                     ),
                 ),
                 jobs.Task(
-                    task_key="silver_dlt_pipeline",
+                    task_key="onboard_spec_A2",
                     depends_on=[jobs.TaskDependency(task_key="bronze_dlt_pipeline")],
+                    description="test",
+                    existing_cluster_id=runner_conf.cluster_id,
+                    timeout_seconds=0,
+                    python_wheel_task=jobs.PythonWheelTask(
+                        package_name="dlt_meta",
+                        entry_point="run",
+                        named_parameters={
+                            "onboard_layer": "bronze",
+                            "database": database,
+                            "onboarding_file_path":
+                            f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/conf/onboarding_A2.json",
+                            "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
+                            "import_author": "Ravi",
+                            "version": "v1",
+                            "bronze_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/data/dlt_spec/bronze",
+                            "overwrite": "False",
+                            "env": runner_conf.env,
+                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
+                        },
+                    ),
+                    libraries=dlt_lib
+                ),
+                jobs.Task(
+                    task_key="bronze_A2_dlt_pipeline",
+                    depends_on=[jobs.TaskDependency(task_key="onboard_spec_A2")],
+                    pipeline_task=jobs.PipelineTask(
+                        pipeline_id=runner_conf.bronze_pipeline_A2_id
+                    ),
+                ),
+                jobs.Task(
+                    task_key="silver_dlt_pipeline",
+                    depends_on=[jobs.TaskDependency(task_key="bronze_A2_dlt_pipeline")],
                     pipeline_task=jobs.PipelineTask(
                         pipeline_id=runner_conf.silver_pipeline_id
                     )
@@ -388,9 +428,10 @@ class DLTMETARunner:
 
     def create_eventhub_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """Create Job specification."""
-        database, dlt_lib = self.init_db_dltlib()
+        database, dlt_lib = self.init_db_dltlib(runner_conf)
+        dbfs_path = runner_conf.dbfs_tmp_path.replace("dbfs:/", "/dbfs/")
         return self.ws.jobs.create(
-            name=f"dlt-meta-integration-test-{runner_conf['run_id']}",
+            name=f"dlt-meta-{runner_conf.run_id}",
             tasks=[
                 jobs.Task(
                     task_key="setup_dlt_meta_pipeline_spec",
@@ -401,10 +442,10 @@ class DLTMETARunner:
                         package_name="dlt_meta",
                         entry_point="run",
                         named_parameters={
-                            "onboard_layer": "bronze_silver",
+                            "onboard_layer": "bronze",
                             "database": database,
                             "onboarding_file_path":
-                            f"{runner_conf['dbfs_tmp_path']}/{self.base_dir}/conf/onboarding.json",
+                            f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/conf/onboarding.json",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
                             "silver_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/dltmeta/data/dlt_spec/silver",
                             "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
@@ -412,7 +453,8 @@ class DLTMETARunner:
                             "version": "v1",
                             "bronze_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/dltmeta/data/dlt_spec/bronze",
                             "overwrite": "True",
-                            "env": runner_conf['env']
+                            "env": runner_conf.env,
+                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
                         },
                     ),
                     libraries=dlt_lib
@@ -421,16 +463,19 @@ class DLTMETARunner:
                     task_key="publish_events",
                     description="test",
                     depends_on=[jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")],
-                    existing_cluster_id=runner_conf['cluster_id'],
+                    existing_cluster_id=runner_conf.cluster_id,
                     notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.unners_nb_path}/runners/publish_events",
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events",
                         base_parameters={
                             "eventhub_name": self.args.__getattribute__("eventhub_name"),
+                            "eventhub_name_append_flow": self.args.__getattribute__("eventhub_name_append_flow"),
                             "eventhub_namespace": self.args.__getattribute__("eventhub_namespace"),
                             "eventhub_secrets_scope_name": self.args.__getattribute__("eventhub_secrets_scope_name"),
                             "eventhub_accesskey_name": self.args.__getattribute__("eventhub_producer_accesskey_name"),
                             "eventhub_input_data":
-                            f"/{runner_conf.dbfs_file_path}/{self.base_dir}/resources/data/iot/iot.json"
+                            f"/{dbfs_path}/{self.base_dir}/resources/data/iot/iot.json",
+                            "eventhub_append_flow_input_data":
+                            f"/{dbfs_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",
                         }
                     )
                 ),
@@ -447,7 +492,7 @@ class DLTMETARunner:
                     depends_on=[jobs.TaskDependency(task_key="bronze_dlt_pipeline")],
                     existing_cluster_id=runner_conf.cluster_id,
                     notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf['runners_nb_path']}/runners/validate",
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
                         base_parameters={
                             "run_id": runner_conf.run_id,
                             "uc_enabled": "True" if runner_conf.uc_catalog_name else "False",
@@ -462,9 +507,10 @@ class DLTMETARunner:
 
     def create_kafka_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """Create Job specification."""
-        database, dlt_lib = self.init_db_dltlib()
+        database, dlt_lib = self.init_db_dltlib(runner_conf)
+        dbfs_path = runner_conf.dbfs_tmp_path.replace("dbfs:/", "/dbfs/")
         return self.ws.jobs.create(
-            name=f"dlt-meta-integration-test-{runner_conf.run_id}",
+            name=f"dlt-meta-{runner_conf.run_id}",
             tasks=[
                 jobs.Task(
                     task_key="setup_dlt_meta_pipeline_spec",
@@ -475,7 +521,7 @@ class DLTMETARunner:
                         package_name="dlt_meta",
                         entry_point="run",
                         named_parameters={
-                            "onboard_layer": "bronze_silver",
+                            "onboard_layer": "bronze",
                             "database": database,
                             "onboarding_file_path":
                             f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/conf/onboarding.json",
@@ -486,7 +532,8 @@ class DLTMETARunner:
                             "version": "v1",
                             "bronze_dataflowspec_path": f"{self._install_folder()}/dltmeta/data/dlt_spec/bronze",
                             "overwrite": "True",
-                            "env": runner_conf.env
+                            "env": runner_conf.env,
+                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
                         },
                     ),
                     libraries=dlt_lib
@@ -501,8 +548,7 @@ class DLTMETARunner:
                         base_parameters={
                             "kafka_topic": self.args.__getattribute__("kafka_topic_name"),
                             "kafka_broker": self.args.__getattribute__("kafka_broker"),
-                            "kafka_input_data": f"/{runner_conf.dbfs_file_path}"
-                                                "/{self.base_dir}/resources/data/iot/iot.json"
+                            "kafka_input_data": f"/{dbfs_path}/{self.base_dir}/resources/data/iot/iot.json"
                         }
                     )
                 ),
@@ -582,7 +628,9 @@ class DLTMETARunner:
         with open(f"{runner_conf.eventhub_template}") as f:
             onboard_obj = json.load(f)
         eventhub_name = self.args.__getattribute__("eventhub_name").lower()
+        eventhub_name_append_flow = self.args.__getattribute__("eventhub_name_append_flow").lower()
         eventhub_accesskey_name = self.args.__getattribute__("eventhub_consumer_accesskey_name").lower()
+        eventhub_accesskey_secret_name = self.args.__getattribute__("eventhub_accesskey_secret_name").lower()
         eventhub_secrets_scope_name = self.args.__getattribute__("eventhub_secrets_scope_name").lower()
         eventhub_namespace = self.args.__getattribute__("eventhub_namespace").lower()
         eventhub_port = self.args.__getattribute__("eventhub_port").lower()
@@ -600,10 +648,41 @@ class DLTMETARunner:
                         if 'eventhub_secrets_scope_name' in source_value:
                             data_flow[key][source_key] = source_value.format(
                                 eventhub_secrets_scope_name=eventhub_secrets_scope_name)
+                        if 'eventhub_accesskey_secret_name' in source_value:
+                            data_flow[key][source_key] = source_value.format(
+                                eventhub_accesskey_secret_name=eventhub_accesskey_secret_name)
                         if 'eventhub_nmspace' in source_value:
                             data_flow[key][source_key] = source_value.format(eventhub_nmspace=eventhub_namespace)
                         if 'eventhub_port' in source_value:
                             data_flow[key][source_key] = source_value.format(eventhub_port=eventhub_port)
+                if key == 'bronze_append_flows':
+                    counter = 0
+                    for flows in value:
+                        for flow_key, flow_value in flows.items():
+                            if flow_key == "source_details":
+                                for source_key, source_value in flows[flow_key].items():
+                                    if 'dbfs_path' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            dbfs_path=runner_conf.dbfs_tmp_path)
+                                    if 'eventhub_name_append_flow' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            eventhub_name_append_flow=eventhub_name_append_flow)
+                                    if 'eventhub_accesskey_name' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            eventhub_accesskey_name=eventhub_accesskey_name)
+                                    if 'eventhub_secrets_scope_name' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            eventhub_secrets_scope_name=eventhub_secrets_scope_name)
+                                    if 'eventhub_accesskey_secret_name' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            eventhub_accesskey_secret_name=eventhub_accesskey_secret_name)
+                                    if 'eventhub_nmspace' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            eventhub_nmspace=eventhub_namespace)
+                                    if 'eventhub_port' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            eventhub_port=eventhub_port)
+                        counter += 1
                 if 'dbfs_path' in value:
                     data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
                 elif 'run_id' in value:
@@ -623,6 +702,39 @@ class DLTMETARunner:
         with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
             json.dump(onboard_obj, onboarding_file)
 
+    def replace_eventhub_source_details_values(self,
+                                               runner_conf,
+                                               eventhub_name,
+                                               eventhub_name_append_flow,
+                                               eventhub_accesskey_name,
+                                               eventhub_accesskey_secret_name,
+                                               eventhub_secrets_scope_name,
+                                               eventhub_namespace,
+                                               eventhub_port,
+                                               data_flow,
+                                               key,
+                                               source_key,
+                                               source_value):
+        if 'dbfs_path' in source_value:
+            data_flow[key][source_key] = source_value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+        if 'eventhub_name' in source_value:
+            data_flow[key][source_key] = source_value.format(eventhub_name=eventhub_name)
+        if 'eventhub_name_append_flow' in source_value:
+            data_flow[key][source_key] = source_value.format(eventhub_name_append_flow=eventhub_name_append_flow)
+        if 'eventhub_accesskey_name' in source_value:
+            data_flow[key][source_key] = source_value.format(
+                eventhub_accesskey_name=eventhub_accesskey_name)
+        if 'eventhub_secrets_scope_name' in source_value:
+            data_flow[key][source_key] = source_value.format(
+                eventhub_secrets_scope_name=eventhub_secrets_scope_name)
+        if 'eventhub_accesskey_secret_name' in source_value:
+            data_flow[key][source_key] = source_value.format(
+                eventhub_accesskey_secret_name=eventhub_accesskey_secret_name)
+        if 'eventhub_nmspace' in source_value:
+            data_flow[key][source_key] = source_value.format(eventhub_nmspace=eventhub_namespace)
+        if 'eventhub_port' in source_value:
+            data_flow[key][source_key] = source_value.format(eventhub_port=eventhub_port)
+
     def create_cloudfiles_onboarding(self, runner_conf: DLTMetaRunnerConf):
         """Create onboarding file for cloudfiles as source."""
         with open(f"{runner_conf.cloudfiles_template}") as f:
@@ -637,6 +749,16 @@ class DLTMETARunner:
                             self.__populate_source_details(runner_conf, val, k, v)
                 if 'dbfs_path' in value:
                     data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                if key == 'silver_append_flows':
+                    counter = 0
+                    for flows in value:
+                        for flow_key, flow_value in flows.items():
+                            if flow_key == "source_details":
+                                for source_key, source_value in flows[flow_key].items():
+                                    if '{uc_catalog_name}.{bronze_schema}' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            uc_catalog_name=runner_conf.uc_catalog_name,
+                                            bronze_schema=runner_conf.bronze_schema)
                 elif 'run_id' in value:
                     data_flow[key] = value.format(run_id=runner_conf.run_id)
                 elif 'uc_catalog_name' in value and 'bronze_schema' in value:
@@ -666,28 +788,52 @@ class DLTMETARunner:
         with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
             json.dump(onboard_obj, onboarding_file)
 
+        with open(f"{runner_conf.cloudfiles_A2_template}") as f:
+            onboard_obj = json.load(f)
+
+        for data_flow in onboard_obj:
+            for key, value in data_flow.items():
+                self.__populate_source_details(runner_conf, data_flow, key, value)
+                if 'dbfs_path' in value:
+                    data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                if 'uc_catalog_name' in value and 'bronze_schema' in value:
+                    if runner_conf.uc_catalog_name:
+                        data_flow[key] = value.format(
+                            uc_catalog_name=runner_conf.uc_catalog_name,
+                            bronze_schema=runner_conf.bronze_schema
+                        )
+
+        with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file:
+            json.dump(onboard_obj, onboarding_file)
+
     def __populate_source_details(self, runner_conf, data_flow, key, value):
         if key == "source_details":
             for source_key, source_value in value.items():
                 if 'dbfs_path' in source_value:
                     data_flow[key][source_key] = source_value.format(dbfs_path=runner_conf.dbfs_tmp_path)
 
+    def copy(self, src, dst):
+        main_dir = src.replace('file:', '')
+        base_dir_name = None
+        if main_dir.endswith('/'):
+            base_dir_name = main_dir[:-1]
+        if base_dir_name is None:
+            base_dir_name = main_dir[main_dir.rfind('/') + 1:]
+        else:
+            base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:-1]
+        for root, dirs, files in os.walk(main_dir):
+            for filename in files:
+                target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
+                dbfs_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
+                contents = open(os.path.join(root, filename), "rb")
+                # print(f"local_path={os.path.join(root, filename)}",
+                #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
+                self.ws.dbfs.upload(dbfs_path, contents, overwrite=True)
+
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
         self.generate_onboarding_file(runner_conf)
         print("int_tests_dir: ", runner_conf.int_tests_dir)
-        print(f"uploading to {runner_conf.dbfs_tmp_path}/{self.base_dir}/")
-        if runner_conf.uc_catalog_name:
-            self.ws.dbfs.create(path=runner_conf.dbfs_tmp_path + f"/{self.base_dir}/", overwrite=True)
-        else:
-            try:
-                self.ws.dbfs.mkdirs(runner_conf.dbfs_tmp_path + f"/{self.base_dir}/")
-            except Exception as e:
-                print(f"Error in creating directory {runner_conf.dbfs_tmp_path + f'/{self.base_dir}/'}")
-                print(e)
-                print(runner_conf.dbfs_tmp_path + f"/{self.base_dir}/ must be already present")
-        self.ws.dbfs.copy(runner_conf.int_tests_dir,
-                          runner_conf.dbfs_tmp_path + f"/{self.base_dir}/",
-                          overwrite=True, recursive=True)
+        self.copy(runner_conf.int_tests_dir, runner_conf.dbfs_tmp_path)
         print(f"uploading to {runner_conf.dbfs_tmp_path}/{self.base_dir}/ complete!!!")
         fp = open(runner_conf.runners_full_local_path, "rb")
         print(f"uploading to {runner_conf.runners_nb_path} started")
@@ -702,21 +848,22 @@ class DLTMETARunner:
             SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
                                                   name=runner_conf.bronze_schema,
                                                   comment="bronze_schema")
-            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                  name=runner_conf.silver_schema,
-                                                  comment="silver_schema")
-        self.build_and_upload_package(runner_conf)
+            if runner_conf.source and runner_conf.source.lower() == "cloudfiles":
+                SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                                      name=runner_conf.silver_schema,
+                                                      comment="silver_schema")
+            self.build_and_upload_package(runner_conf)
 
     def create_cluster(self, runner_conf: DLTMetaRunnerConf):
         print("Cluster creation started...")
         if runner_conf.uc_catalog_name:
-            mode = compute.DataSecurityMode.USER_ISOLATION
+            mode = compute.DataSecurityMode.SINGLE_USER
             spark_confs = {}
         else:
             mode = compute.DataSecurityMode.NONE
             spark_confs = {}
         clstr = self.ws.clusters.create(
-            cluster_name=f"dlt-meta-integration-test-{runner_conf.run_id}",
+            cluster_name=f"dlt-meta-onboarding-cluster-{runner_conf.run_id}",
             spark_version=runner_conf.dbr_version,
             node_type_id=runner_conf.node_type_id,
             driver_node_type_id=runner_conf.node_type_id,
@@ -729,8 +876,12 @@ class DLTMETARunner:
             },
             data_security_mode=mode
         ).result()
+        print(f"Cluster creation finished. clusters={clstr}")
         print(f"Cluster creation finished. cluster_id={clstr.cluster_id}")
+        print(f"host: {self.ws.config.host}, workspace_id: {self.ws.get_workspace_id()}")
         runner_conf.cluster_id = clstr.cluster_id
+        import webbrowser
+        webbrowser.open(f"{self.ws.config.host}/compute/clusters/{clstr.cluster_id}?o={self.ws.get_workspace_id()}")
 
     def run(self, runner_conf: DLTMetaRunnerConf):
         try:
@@ -741,9 +892,9 @@ class DLTMETARunner:
             self.download_test_results(runner_conf)
         except Exception as e:
             print(e)
-        finally:
-            print("Cleaning up...")
-            self.clean_up(runner_conf)
+        # finally:
+        #     print("Cleaning up...")
+        #     self.clean_up(runner_conf)
 
     def download_test_results(self, runner_conf: DLTMetaRunnerConf):
         ws_output_file = self.ws.workspace.download(runner_conf.test_output_file_path)
@@ -752,15 +903,22 @@ class DLTMETARunner:
 
     def create_bronze_silver_dlt(self, runner_conf: DLTMetaRunnerConf):
         runner_conf.bronze_pipeline_id = self.create_dlt_meta_pipeline(
-            f"dlt-meta-integration-test-bronze-{runner_conf.run_id}",
+            f"dlt-meta-bronze-{runner_conf.run_id}",
             "bronze",
             "A1",
             runner_conf.bronze_schema,
             runner_conf)
 
         if runner_conf.source and runner_conf.source.lower() == "cloudfiles":
+            runner_conf.bronze_pipeline_A2_id = self.create_dlt_meta_pipeline(
+                f"dlt-meta-bronze-A2-{runner_conf.run_id}",
+                "bronze",
+                "A2",
+                runner_conf.bronze_schema,
+                runner_conf)
+
             runner_conf.silver_pipeline_id = self.create_dlt_meta_pipeline(
-                f"dlt-meta-integration-test-silver-{runner_conf.run_id}",
+                f"dlt-meta-silver-{runner_conf.run_id}",
                 "silver",
                 "A1",
                 runner_conf.silver_schema,
@@ -775,6 +933,8 @@ class DLTMETARunner:
             created_job = self.create_kafka_workflow_spec(runner_conf)
         runner_conf.job_id = created_job.job_id
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
+        import webbrowser
+        webbrowser.open(f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}")
         print(f"Waiting for job to complete. job_id={created_job.job_id}")
         run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result()
         print(f"Job run finished. run_id={run_by_id}")
@@ -822,7 +982,6 @@ def get_workspace_api_client(profile=None) -> WorkspaceClient:
         workspace_client = WorkspaceClient(profile=profile)
     else:
         workspace_client = WorkspaceClient(host=input('Databricks Workspace URL: '), token=input('Token: '))
-        workspace_client.files.upload
     return workspace_client
 
 
@@ -834,10 +993,13 @@ args_map = {"--profile": "provide databricks cli profile name, if not provide da
                         e.g --dbfs_path=dbfs:/tmp/DLT-META/",
             "--source": "Provide source type e.g --source=cloudfiles",
             "--eventhub_name": "Provide eventhub_name e.g --eventhub_name=iot",
+            "--eventhub_name_append_flow": "Provide eventhub_name_append_flow e.g --eventhub_name_append_flow=iot_af",
             "--eventhub_producer_accesskey_name": "Provide access key that has write permission on the eventhub",
             "--eventhub_consumer_accesskey_name": "Provide access key that has read permission on the eventhub",
             "--eventhub_secrets_scope_name": "Provide eventhub_secrets_scope_name e.g \
                         --eventhub_secrets_scope_name=eventhubs_creds",
+            "--eventhub_accesskey_secret_name": "Provide eventhub_accesskey_secret_name e.g \
+                        -eventhub_accesskey_secret_name=RootManageSharedAccessKey",
             "--eventhub_namespace": "Provide eventhub_namespace e.g --eventhub_namespace=topic-standard",
             "--eventhub_port": "Provide eventhub_port e.g --eventhub_port=9093",
             "--kafka_topic_name": "Provide kafka topic name e.g --kafka_topic_name=iot",
@@ -883,7 +1045,7 @@ def post_arg_processing(args):
     if source.lower() not in supported_sources:
         raise Exception("Invalid value for --source! Supported values: --source=cloudfiles")
     if source.lower() == "eventhub":
-        eventhub_madatory_args = ["eventhub_name", "eventhub_producer_accesskey_name",
+        eventhub_madatory_args = ["eventhub_name", "eventhub_name_append_flow", "eventhub_producer_accesskey_name",
                                   "eventhub_consumer_accesskey_name", "eventhub_secrets_scope_name",
                                   "eventhub_namespace", "eventhub_port"]
         check_mandatory_arg(args, eventhub_madatory_args)
