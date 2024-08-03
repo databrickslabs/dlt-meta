@@ -3,7 +3,7 @@
  2. [Databricks Techsummit Demo](#databricks-tech-summit-fy2024-demo): 100s of data sources ingestion in bronze and silver DLT pipelines automatically.
  3. [Append FLOW Autoloader Demo](#append-flow-autoloader-file-metadata-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  4. [Append FLOW Eventhub Demo](#append-flow-eventhub-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
- 5. [Silver fanout Demo](#silver-fanout-demo): This demo will showcase fanout architecture can be implemented in silver layer
+ 5. [Silver Fanout Demo](#silver-fanout-demo): This demo showcases the implementation of fanout architecture in the silver layer.
 
 
 
@@ -206,12 +206,11 @@ This demo will perform following tasks:
 
 
 # Silver Fanout Demo
-  - This demo will perform following steps
-    - Showcase onboarding process for silver fanout pattern
-    - Run onboarding for the bronze cars table, which contains data from various countries.
-    - Run onboarding for the silver tables, which have a `where_clause` based on the country condition in [silver_transformations_cars.json](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/silver_transformations_cars.json).
-    - Run Bronze for cars tables
-    - Run onboarding for the silver tables, fanning out from the bronze cars tables to country-specific tables such as cars_usa, cars_uk, cars_germany, and cars_japan.    
+- This demo will showcase the onboarding process for the silver fanout pattern.
+    - Run the onboarding process for the bronze cars table, which contains data from various countries.
+    - Run the onboarding process for the silver tables, which have a `where_clause` based on the country condition specified in [silver_transformations_cars.json](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/silver_transformations_cars.json).
+    - Run the Bronze DLT pipeline which will produce cars table.
+    - Run Silver DLT pipeline, fanning out from the bronze cars table to country-specific tables such as cars_usa, cars_uk, cars_germany, and cars_japan.    
 
 ### Steps:
 1. Launch Terminal/Command prompt 
