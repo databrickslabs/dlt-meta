@@ -1,0 +1,21 @@
+[
+   {
+      "data_flow_id": "100",
+      "data_flow_group": "A1",
+      "source_system": "mysql",
+      "source_format": "cloudFiles",
+      "source_details": {
+         "source_path_demo": "{dbfs_path}/demo/resources/data/cars"
+      },
+      "bronze_database_demo": "{uc_catalog_name}.{bronze_schema}",
+      "bronze_table": "cars",
+      "bronze_reader_options": {
+         "cloudFiles.format": "csv",
+         "cloudFiles.rescuedDataColumn": "_rescued_data",
+         "header": "true"
+      },
+      "silver_database_demo": "{uc_catalog_name}.{silver_schema}",
+      "silver_table": "cars_usa",
+      "silver_transformation_json_demo": "{dbfs_path}/demo/conf/silver_transformations_cars.json"
+   }
+]

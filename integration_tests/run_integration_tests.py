@@ -98,6 +98,7 @@ class DLTMetaRunnerConf:
     uc_catalog_name: str = None
     onboarding_file_path: str = None
     onboarding_A2_file_path: str = None
+    onboarding_fanout_file_path: str = None
     dbfs_tmp_path: str = None
     uc_volume_name: str = None
     int_tests_dir: str = None
@@ -109,6 +110,7 @@ class DLTMetaRunnerConf:
     source: str = None
     cloudfiles_template: str = None
     cloudfiles_A2_template: str = None
+    onboarding_fanout_templates: str = None
     eventhub_template: str = None
     eventhub_input_data: str = None
     eventhub_append_flow_input_data: str = None
@@ -788,22 +790,48 @@ class DLTMETARunner:
         with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
             json.dump(onboard_obj, onboarding_file)
 
-        with open(f"{runner_conf.cloudfiles_A2_template}") as f:
-            onboard_obj = json.load(f)
+        if runner_conf.cloudfiles_A2_template:
+            with open(f"{runner_conf.cloudfiles_A2_template}") as f:
+                onboard_obj = json.load(f)
 
-        for data_flow in onboard_obj:
-            for key, value in data_flow.items():
-                self.__populate_source_details(runner_conf, data_flow, key, value)
-                if 'dbfs_path' in value:
-                    data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
-                if 'uc_catalog_name' in value and 'bronze_schema' in value:
-                    if runner_conf.uc_catalog_name:
-                        data_flow[key] = value.format(
-                            uc_catalog_name=runner_conf.uc_catalog_name,
-                            bronze_schema=runner_conf.bronze_schema
-                        )
+            for data_flow in onboard_obj:
+                for key, value in data_flow.items():
+                    self.__populate_source_details(runner_conf, data_flow, key, value)
+                    if 'dbfs_path' in value:
+                        data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                    if 'uc_catalog_name' in value and 'bronze_schema' in value:
+                        if runner_conf.uc_catalog_name:
+                            data_flow[key] = value.format(
+                                uc_catalog_name=runner_conf.uc_catalog_name,
+                                bronze_schema=runner_conf.bronze_schema
+                            )
 
-        with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file:
+            with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file:
+                json.dump(onboard_obj, onboarding_file)
+
+        if runner_conf.onboarding_fanout_templates:
+            with open(f"{runner_conf.onboarding_fanout_templates}") as f:
+                onboard_obj = json.load(f)
+
+            for data_flow in onboard_obj:
+                for key, value in data_flow.items():
+                    self.__populate_source_details(runner_conf, data_flow, key, value)
+                    if 'dbfs_path' in value:
+                        data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                    if 'uc_catalog_name' in value and 'bronze_schema' in value:
+                        if runner_conf.uc_catalog_name:
+                            data_flow[key] = value.format(
+                                uc_catalog_name=runner_conf.uc_catalog_name,
+                                bronze_schema=runner_conf.bronze_schema
+                            )
+                    if 'uc_catalog_name' in value and 'silver_schema' in value:
+                        if runner_conf.uc_catalog_name:
+                            data_flow[key] = value.format(
+                                uc_catalog_name=runner_conf.uc_catalog_name,
+                                silver_schema=runner_conf.silver_schema
+                            )
+
+        with open(runner_conf.onboarding_fanout_file_path, "w") as onboarding_file:
             json.dump(onboard_obj, onboarding_file)
 
     def __populate_source_details(self, runner_conf, data_flow, key, value):

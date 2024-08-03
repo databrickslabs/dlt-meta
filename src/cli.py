@@ -21,6 +21,8 @@ logger = logging.getLogger('databricks.labs.dltmeta')
 DLT_META_RUNNER_NOTEBOOK = """
 # Databricks notebook source
 # MAGIC %pip install dlt-meta=={version}
+# dbutils.library.restartPython()
+
 # COMMAND ----------
 layer = spark.conf.get("layer", None)
 from src.dataflow_pipeline import DataflowPipeline
