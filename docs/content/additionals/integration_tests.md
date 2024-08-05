@@ -38,7 +38,7 @@ draft: false
 2. Run integration test against cloudfile or eventhub or kafka using below options: If databricks profile configured using CLI then pass ```--profile <profile-name>``` to below command otherwise provide workspace url and token in command line
     - 2a. Run the command for cloudfiles ```python integration-tests/run_integration_tests.py  --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --source=cloudfiles --dbfs_path=dbfs:/tmp/DLT-META/```
 
-    - 2b. Run the command for eventhub ```python integration-tests/run_integration_tests.py --cloud_provider_name=azure --dbr_version=11.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer```
+    - 2b. Run the command for eventhub ```python integration-tests/run_integration_tests.py --cloud_provider_name=azure --dbr_version=15.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer```
 
     - - For eventhub integration tests, the following are the prerequisites:
         1. Needs eventhub instance running
@@ -54,7 +54,7 @@ draft: false
         6. Provide eventhub access key name : --eventhub_consumer_accesskey_name
 
 
-    - 2c. Run the command for kafka ```python3 integration-tests/run_integration_tests.py --cloud_provider_name=aws --dbr_version=11.3.x-scala2.12 --source=kafka --dbfs_path=dbfs:/tmp/DLT-META/ --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092```
+    - 2c. Run the command for kafka ```python3 integration-tests/run_integration_tests.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --source=kafka --dbfs_path=dbfs:/tmp/DLT-META/ --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092```
 
     - - For kafka integration tests, the following are the prerequisites:
         1. Needs kafka instance running

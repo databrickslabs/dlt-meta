@@ -179,7 +179,7 @@ sfo_args_map = {
     "--profile": "provide databricks cli profile name, if not provide databricks_host and token",
     "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
     "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
-    "--dbr_version": "Provide databricks runtime spark version e.g 11.3.x-scala2.12",
+    "--dbr_version": "Provide databricks runtime spark version e.g 15.3.x-scala2.12",
     "--dbfs_path": "Provide databricks workspace dbfs path where you want run integration tests \
                         e.g --dbfs_path=dbfs:/tmp/DLT-META/"
 }
