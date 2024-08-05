@@ -1,0 +1,50 @@
+[
+  {
+    "target_table": "cars_usa",
+    "select_exp": [
+      "concat(first_name,' ',last_name) as full_name",
+      "country",
+      "brand",
+      "model",
+      "color",
+      "cc_type"
+    ],
+    "where_clause": ["country = 'United States'"]
+  },
+  {
+    "target_table": "cars_germany",
+    "select_exp": [
+      "concat(first_name,' ',last_name) as full_name",
+      "country",
+      "brand",
+      "model",
+      "color",
+      "cc_type"
+    ],
+    "where_clause": ["country = 'Germany'"]
+  },
+  {
+    "target_table": "cars_uk",
+    "select_exp": [
+      "concat(first_name,' ',last_name) as full_name",
+      "country",
+      "brand",
+      "model",
+      "color",
+      "cc_type"
+    ],
+    "where_clause": ["country = 'United Kingdom'"]
+  },  
+  {
+    "target_table": "cars_japan",
+    "select_exp": [
+      "concat(first_name,' ',last_name) as full_name",
+      "country",
+      "brand",
+      "model",
+      "color",
+      "cc_type"
+    ],
+    "where_clause": ["country = 'Japan'"]
+  }  
+]

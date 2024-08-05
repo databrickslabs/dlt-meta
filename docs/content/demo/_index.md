@@ -9,3 +9,4 @@ draft: false
  2. **Databricks Techsummit Demo**: 100s of data sources ingestion in bronze and silver DLT pipelines automatically.
  3. **Append FLOW Autoloader Demo**: Write to same target from multiple sources using append_flow and adding file metadata using [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  4. **Append FLOW Eventhub Demo**: Write to same target from multiple sources using append_flow and adding using [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
+ 5. **Silver Fanout Demo**:  This demo will showcase fanout architecture can be implemented in silver layer
