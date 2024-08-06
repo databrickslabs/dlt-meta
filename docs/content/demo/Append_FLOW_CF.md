@@ -43,4 +43,4 @@ This demo will perform following tasks:
 - uc_catalog_name: Unity catalog name
 - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
-![af_am_demo.png](docs/static/images/af_am_demo.png)
+![af_am_demo.png](/images/af_am_demo.png)
