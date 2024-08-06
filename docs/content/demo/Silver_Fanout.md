@@ -54,6 +54,6 @@ draft: false
 
         - Paste to command prompt
 
-    ![silver_fanout_workflow.png](docs/static/images/silver_fanout_workflow.png)
+    ![silver_fanout_workflow.png](/images/silver_fanout_workflow.png)
     
-    ![silver_fanout_dlt.png](docs/static/images/silver_fanout_dlt.png)
+    ![silver_fanout_dlt.png](/images/silver_fanout_dlt.png)

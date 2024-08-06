@@ -16,7 +16,7 @@
         <img src="https://img.shields.io/badge/DOCS-PASSING-green?style=for-the-badge" alt="Documentation Status"/>
     </a>
     <a href="https://pypi.org/project/dlt-meta/">
-        <img src="https://img.shields.io/badge/PYPI-v%200.0.7-green?style=for-the-badge" alt="Latest Python Release"/>
+        <img src="https://img.shields.io/badge/PYPI-v%200.0.8-green?style=for-the-badge" alt="Latest Python Release"/>
     </a>
     <a href="https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml">
         <img src="https://img.shields.io/github/workflow/status/databrickslabs/dlt-meta/build/main?style=for-the-badge"
