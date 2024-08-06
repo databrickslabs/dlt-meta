@@ -6,7 +6,7 @@
 <meta name=description content="DLT-META Documentation">
 <meta name=author content="Ravi Gawai (Databricks)">
 <link rel=icon href=https://databrickslabs.github.io/dlt-meta/images/favicon.png type=image/png>
-<title>General :: DLT-META</title>
+<title>Releases :: DLT-META</title>
 <link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1722985647 rel=stylesheet>
 <link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1722985647 rel=stylesheet>
 <link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1722985647 rel=stylesheet>
@@ -21,7 +21,7 @@
 <style>:root #header+#content>#left>#rlblock_left{display:none!important}</style>
 <script async defer src=https://buttons.github.io/buttons.js></script>
 </head>
-<body data-url=https://databrickslabs.github.io/dlt-meta/faq/general/>
+<body data-url=https://databrickslabs.github.io/dlt-meta/releases/>
 <nav id=sidebar>
 <div id=header-wrapper>
 <div id=header>
@@ -113,8 +113,7 @@ Integration Tests
 </li>
 </ul>
 </li>
-<li data-nav-id=/faq/ title="Frequently Asked Questions (FAQs)" class="dd-item
-parent">
+<li data-nav-id=/faq/ title="Frequently Asked Questions (FAQs)" class=dd-item>
 <a href=https://databrickslabs.github.io/dlt-meta/faq/>
 Frequently Asked Questions (FAQs)
 </a>
@@ -124,7 +123,7 @@ Frequently Asked Questions (FAQs)
 Execution
 </a>
 </li>
-<li data-nav-id=/faq/general/ title=General class="dd-item active">
+<li data-nav-id=/faq/general/ title=General class=dd-item>
 <a href=https://databrickslabs.github.io/dlt-meta/faq/general/>
 General
 </a>
@@ -136,7 +135,9 @@ General
 Contributing
 </a>
 </li>
-<li data-nav-id=/releases/ title=Releases class=dd-item>
+<li data-nav-id=/releases/ title=Releases class="dd-item
+parent
+active">
 <a href=https://databrickslabs.github.io/dlt-meta/releases/>
 Releases
 </a>
@@ -166,12 +167,67 @@ Releases
 </span>
 <span id=toc-menu><i class="fas fa-list-alt"></i></span>
 <span class=links>
-<a href=https://databrickslabs.github.io/dlt-meta/>DLT-META</a> > <a href=https://databrickslabs.github.io/dlt-meta/faq/>Frequently Asked Questions (FAQs)</a> > General
+<a href=https://databrickslabs.github.io/dlt-meta/>DLT-META</a> > Releases
 </span>
 </div>
 <div class=progress>
 <div class=wrapper>
-<nav id=TableOfContents></nav>
+<nav id=TableOfContents>
+<ul>
+<li><a href=#enhancement>Enhancement</a>
+<ul>
+<li><a href=#1-mismatched-keys-update-read_dlt_delta-with-key-source_database-instead-of-database-33httpsgithubcomdatabrickslabsdlt-metapull33>1. Mismatched Keys: Update read_dlt_delta() with key &ldquo;source_database&rdquo; instead of &ldquo;database&rdquo; <a href=https://github.com/databrickslabs/dlt-meta/pull/33>#33</a></a></li>
+<li><a href=#2-create-dlt-meta-cli-documentation-45>2. Create dlt-meta cli documentation #45</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li><a href=#enhancement-1>Enhancement</a>
+<ul>
+<li><a href=#1-migrate-to-create_streaming_table-api-from-create_streaming_live_table-37httpsgithubcomdatabrickslabsdlt-metapull39>1. Migrate to create_streaming_table api from create_streaming_live_table <a href=https://github.com/databrickslabs/dlt-meta/pull/39>#37</a></a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li><a href=#new-features>New Features</a>
+<ul>
+<li><a href=#1-unity-catalog-support-28httpsgithubcomdatabrickslabsdlt-metapull28>1. Unity Catalog Support (<a href=https://github.com/databrickslabs/dlt-meta/pull/28>#28</a>)</a></li>
+<li><a href=#2-databricks-labs-cli-support-28httpsgithubcomdatabrickslabsdlt-metapull28>2. Databricks Labs CLI Support (<a href=https://github.com/databrickslabs/dlt-meta/pull/28>#28</a>)</a></li>
+<li><a href=#updates-1>Updates</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li>
+<ul>
+<li><a href=#bug-fixes>Bug Fixes</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li>
+<ul>
+<li><a href=#bug-fixes-1>Bug Fixes</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li>
+<ul>
+<li><a href=#new-features-1>New Features</a></li>
+<li><a href=#bug-fixes-2>Bug Fixes</a></li>
+<li><a href=#updates-2>Updates</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li>
+<ul>
+<li></li>
+</ul>
+</li>
+</ul>
+</nav>
 </div>
 </div>
 </div>
@@ -180,29 +236,76 @@ Releases
 </div>
 <div id=body-inner>
 <h1>
-General
+Releases
 </h1>
-<p><strong>Q. What is DLT-META ?</strong></p>
-<p>DLT-META is a solution/framework using Databricks Delta Live Tables aka DLT which helps you automate bronze and silver layer pipelines using CI/CD.</p>
-<p><strong>Q. What are the benefits of using DLT-META ?</strong></p>
+<h1 id=v007>v0.0.7</h1>
+<h2 id=enhancement>Enhancement</h2>
+<h3 id=1-mismatched-keys-update-read_dlt_delta-with-key-source_database-instead-of-database-33httpsgithubcomdatabrickslabsdlt-metapull33>1. Mismatched Keys: Update read_dlt_delta() with key &ldquo;source_database&rdquo; instead of &ldquo;database&rdquo; <a href=https://github.com/databrickslabs/dlt-meta/pull/33>#33</a></h3>
+<h3 id=2-create-dlt-meta-cli-documentation-45>2. Create dlt-meta cli documentation #45</h3>
 <ul>
-<li>With DLT-META customers needs to only maintain metadata like onboarding.json, data quality rules and silver transformations and framework will take care of execution.</li>
-<li>In case of any input/output or data quality rules or silver transformation logic changes there will be only metadata changes using onboarding interface and no need to re-deploy pipelines.</li>
-<li>If you have 100s or 1000s of tables then DLT-META speeds up overall turn around time to production as customers needs to just produce metadata</li>
+<li>Readme and docs to include above features</li>
 </ul>
-<p><strong>Q. What different types of reader are supported using DLT-META ?</strong></p>
-<p>DLT-META uses Databricks <a href=https://docs.databricks.com/ingestion/auto-loader/index.html>Auto Loader</a>, DELTA, KAFKA, EVENTHUB to read from s3/adls/blog storage.</p>
-<p><strong>Q. Can DLT-META support any other readers?</strong></p>
-<p>DLT-META can support any spark streaming reader. You can override <code>read_bronze()</code> api inside <code>DataflowPipeline.py</code> to support any reader</p>
-<p><strong>Q. Who should use this framework ?</strong></p>
-<p>Data Engineering teams, who wants to automate data migrations at scale using CI/CD.</p>
+<h1 id=v006>v0.0.6</h1>
+<h2 id=enhancement-1>Enhancement</h2>
+<h3 id=1-migrate-to-create_streaming_table-api-from-create_streaming_live_table-37httpsgithubcomdatabrickslabsdlt-metapull39>1. Migrate to create_streaming_table api from create_streaming_live_table <a href=https://github.com/databrickslabs/dlt-meta/pull/39>#37</a></h3>
+<h4 id=updates>Updates</h4>
+<ul>
+<li>Readme and docs to include above features</li>
+<li>Added Data Quality support for silver layer</li>
+<li>Updated existing demos to incorporate unity catalog and integration test framework</li>
+<li>integration tests framework which can be used to launch demos</li>
+</ul>
+<h1 id=v005>v0.0.5</h1>
+<h2 id=new-features>New Features</h2>
+<h3 id=1-unity-catalog-support-28httpsgithubcomdatabrickslabsdlt-metapull28>1. Unity Catalog Support (<a href=https://github.com/databrickslabs/dlt-meta/pull/28>#28</a>)</h3>
+<h3 id=2-databricks-labs-cli-support-28httpsgithubcomdatabrickslabsdlt-metapull28>2. Databricks Labs CLI Support (<a href=https://github.com/databrickslabs/dlt-meta/pull/28>#28</a>)</h3>
+<ul>
+<li>Added two commands for DLT-META</li>
+<li>onboard: Captures all onboarding details from command line and launch onboarding job to your databricks workspace</li>
+<li>deploy: Captures all DLT pipeline details from command line and launch DLT pipeline to your databricks workspace</li>
+</ul>
+<h3 id=updates-1>Updates</h3>
+<ul>
+<li>Readme and docs to include above features</li>
+<li>Updated existing demos to incorporate unity catalog and integration test framework</li>
+<li>integration tests framework which can be used to launch demos</li>
+</ul>
+<h1 id=v004>v0.0.4</h1>
+<h3 id=bug-fixes>Bug Fixes</h3>
+<ul>
+<li><a href=https://github.com/databrickslabs/dlt-meta/issues/13> Introduced new source detail option for eventhub: eventhub.accessKeySecretName</a></li>
+</ul>
+<h1 id=v003>v0.0.3</h1>
+<h3 id=bug-fixes-1>Bug Fixes</h3>
+<ul>
+<li><a href=https://github.com/databrickslabs/dlt-meta/issues/4> Infer datatypes from sequence_by to __START_AT, __END_AT for apply changes API</a></li>
+<li>Removed Git release tag from github actions</li>
+</ul>
+<h1 id=v002>v0.0.2</h1>
+<h3 id=new-features-1>New Features</h3>
+<ul>
+<li>Table properties support for bronze, quarantine and silver tables using create_streaming_live_table api call</li>
+<li>Support for track history column using apply_changes api</li>
+<li>Support for delta as source</li>
+<li>Validation for bronze/silver onboarding</li>
+</ul>
+<h3 id=bug-fixes-2>Bug Fixes</h3>
+<ul>
+<li>Input schema parsing issue in onboarding</li>
+</ul>
+<h3 id=updates-2>Updates</h3>
+<ul>
+<li>Readme and docs to include above features</li>
+</ul>
+<h1 id=v001>v.0.0.1</h1>
+<h4 id=release-v001>Release v.0.0.1</h4>
 <footer class=footline>
 </footer>
 </div>
 </div>
 <div id=navigation>
-<a class="nav nav-prev" href=https://databrickslabs.github.io/dlt-meta/faq/execution/ title=Execution> <i class="fa fa-chevron-left"></i></a>
-<a class="nav nav-next" href=https://databrickslabs.github.io/dlt-meta/contributing/ title=Contributing style=margin-right:0><i class="fa fa-chevron-right"></i></a>
+<a class="nav nav-prev" href=https://databrickslabs.github.io/dlt-meta/contributing/ title=Contributing> <i class="fa fa-chevron-left"></i></a>
+<a class="nav nav-next" href=https://databrickslabs.github.io/dlt-meta/getting_started/ title="Getting Started" style=margin-right:0><i class="fa fa-chevron-right"></i></a>
 </div>
 </section>
 <div style=left:-1000px;overflow:scroll;position:absolute;top:-1000px;border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px>

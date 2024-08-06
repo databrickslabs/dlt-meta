@@ -6,7 +6,7 @@
 <meta name=description content="DLT-META Documentation">
 <meta name=author content="Ravi Gawai (Databricks)">
 <link rel=icon href=https://databrickslabs.github.io/dlt-meta/images/favicon.png type=image/png>
-<title>General :: DLT-META</title>
+<title>Additional :: DLT-META</title>
 <link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1722985647 rel=stylesheet>
 <link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1722985647 rel=stylesheet>
 <link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1722985647 rel=stylesheet>
@@ -21,7 +21,7 @@
 <style>:root #header+#content>#left>#rlblock_left{display:none!important}</style>
 <script async defer src=https://buttons.github.io/buttons.js></script>
 </head>
-<body data-url=https://databrickslabs.github.io/dlt-meta/faq/general/>
+<body data-url=https://databrickslabs.github.io/dlt-meta/additionals/>
 <nav id=sidebar>
 <div id=header-wrapper>
 <div id=header>
@@ -101,7 +101,9 @@ Silver Fanout Demo
 </li>
 </ul>
 </li>
-<li data-nav-id=/additionals/ title=Additional class=dd-item>
+<li data-nav-id=/additionals/ title=Additional class="dd-item
+parent
+active">
 <a href=https://databrickslabs.github.io/dlt-meta/additionals/>
 Additional
 </a>
@@ -113,8 +115,7 @@ Integration Tests
 </li>
 </ul>
 </li>
-<li data-nav-id=/faq/ title="Frequently Asked Questions (FAQs)" class="dd-item
-parent">
+<li data-nav-id=/faq/ title="Frequently Asked Questions (FAQs)" class=dd-item>
 <a href=https://databrickslabs.github.io/dlt-meta/faq/>
 Frequently Asked Questions (FAQs)
 </a>
@@ -124,7 +125,7 @@ Frequently Asked Questions (FAQs)
 Execution
 </a>
 </li>
-<li data-nav-id=/faq/general/ title=General class="dd-item active">
+<li data-nav-id=/faq/general/ title=General class=dd-item>
 <a href=https://databrickslabs.github.io/dlt-meta/faq/general/>
 General
 </a>
@@ -166,12 +167,20 @@ Releases
 </span>
 <span id=toc-menu><i class="fas fa-list-alt"></i></span>
 <span class=links>
-<a href=https://databrickslabs.github.io/dlt-meta/>DLT-META</a> > <a href=https://databrickslabs.github.io/dlt-meta/faq/>Frequently Asked Questions (FAQs)</a> > General
+<a href=https://databrickslabs.github.io/dlt-meta/>DLT-META</a> > Additional
 </span>
 </div>
 <div class=progress>
 <div class=wrapper>
-<nav id=TableOfContents></nav>
+<nav id=TableOfContents>
+<ul>
+<li>
+<ul>
+<li><a href=#integration-tests><strong>Integration Tests</strong>:</a></li>
+</ul>
+</li>
+</ul>
+</nav>
 </div>
 </div>
 </div>
@@ -180,29 +189,17 @@ Releases
 </div>
 <div id=body-inner>
 <h1>
-General
+Additional
 </h1>
-<p><strong>Q. What is DLT-META ?</strong></p>
-<p>DLT-META is a solution/framework using Databricks Delta Live Tables aka DLT which helps you automate bronze and silver layer pipelines using CI/CD.</p>
-<p><strong>Q. What are the benefits of using DLT-META ?</strong></p>
-<ul>
-<li>With DLT-META customers needs to only maintain metadata like onboarding.json, data quality rules and silver transformations and framework will take care of execution.</li>
-<li>In case of any input/output or data quality rules or silver transformation logic changes there will be only metadata changes using onboarding interface and no need to re-deploy pipelines.</li>
-<li>If you have 100s or 1000s of tables then DLT-META speeds up overall turn around time to production as customers needs to just produce metadata</li>
-</ul>
-<p><strong>Q. What different types of reader are supported using DLT-META ?</strong></p>
-<p>DLT-META uses Databricks <a href=https://docs.databricks.com/ingestion/auto-loader/index.html>Auto Loader</a>, DELTA, KAFKA, EVENTHUB to read from s3/adls/blog storage.</p>
-<p><strong>Q. Can DLT-META support any other readers?</strong></p>
-<p>DLT-META can support any spark streaming reader. You can override <code>read_bronze()</code> api inside <code>DataflowPipeline.py</code> to support any reader</p>
-<p><strong>Q. Who should use this framework ?</strong></p>
-<p>Data Engineering teams, who wants to automate data migrations at scale using CI/CD.</p>
+<h3 id=integration-tests><strong>Integration Tests</strong>:</h3>
+<p>To demonstrate DLT-META&rsquo;s integration tests and CI/CD capabilities using the Databricks SDK, you can follow these steps. These steps involve setting up a testing environment, writing integration tests, and configuring a CI/CD pipeline to run these tests</p>
 <footer class=footline>
 </footer>
 </div>
 </div>
 <div id=navigation>
-<a class="nav nav-prev" href=https://databrickslabs.github.io/dlt-meta/faq/execution/ title=Execution> <i class="fa fa-chevron-left"></i></a>
-<a class="nav nav-next" href=https://databrickslabs.github.io/dlt-meta/contributing/ title=Contributing style=margin-right:0><i class="fa fa-chevron-right"></i></a>
+<a class="nav nav-prev" href=https://databrickslabs.github.io/dlt-meta/demo/silver_fanout/ title="Silver Fanout Demo"> <i class="fa fa-chevron-left"></i></a>
+<a class="nav nav-next" href=https://databrickslabs.github.io/dlt-meta/additionals/integration_tests/ title="Integration Tests" style=margin-right:0><i class="fa fa-chevron-right"></i></a>
 </div>
 </section>
 <div style=left:-1000px;overflow:scroll;position:absolute;top:-1000px;border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px>

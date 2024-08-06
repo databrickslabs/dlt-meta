@@ -6,7 +6,7 @@
 <meta name=description content="DLT-META Documentation">
 <meta name=author content="Ravi Gawai (Databricks)">
 <link rel=icon href=https://databrickslabs.github.io/dlt-meta/images/favicon.png type=image/png>
-<title>General :: DLT-META</title>
+<title>Append FLOW Autoloader Demo :: DLT-META</title>
 <link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1722985647 rel=stylesheet>
 <link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1722985647 rel=stylesheet>
 <link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1722985647 rel=stylesheet>
@@ -21,7 +21,7 @@
 <style>:root #header+#content>#left>#rlblock_left{display:none!important}</style>
 <script async defer src=https://buttons.github.io/buttons.js></script>
 </head>
-<body data-url=https://databrickslabs.github.io/dlt-meta/faq/general/>
+<body data-url=https://databrickslabs.github.io/dlt-meta/demo/append_flow_cf/>
 <nav id=sidebar>
 <div id=header-wrapper>
 <div id=header>
@@ -69,7 +69,8 @@ DLT-META Manual
 </li>
 </ul>
 </li>
-<li data-nav-id=/demo/ title=Demo class=dd-item>
+<li data-nav-id=/demo/ title=Demo class="dd-item
+parent">
 <a href=https://databrickslabs.github.io/dlt-meta/demo/>
 Demo
 </a>
@@ -84,7 +85,7 @@ DAIS DEMO
 Tech Summit DEMO
 </a>
 </li>
-<li data-nav-id=/demo/append_flow_cf/ title="Append FLOW Autoloader Demo" class=dd-item>
+<li data-nav-id=/demo/append_flow_cf/ title="Append FLOW Autoloader Demo" class="dd-item active">
 <a href=https://databrickslabs.github.io/dlt-meta/demo/append_flow_cf/>
 Append FLOW Autoloader Demo
 </a>
@@ -113,8 +114,7 @@ Integration Tests
 </li>
 </ul>
 </li>
-<li data-nav-id=/faq/ title="Frequently Asked Questions (FAQs)" class="dd-item
-parent">
+<li data-nav-id=/faq/ title="Frequently Asked Questions (FAQs)" class=dd-item>
 <a href=https://databrickslabs.github.io/dlt-meta/faq/>
 Frequently Asked Questions (FAQs)
 </a>
@@ -124,7 +124,7 @@ Frequently Asked Questions (FAQs)
 Execution
 </a>
 </li>
-<li data-nav-id=/faq/general/ title=General class="dd-item active">
+<li data-nav-id=/faq/general/ title=General class=dd-item>
 <a href=https://databrickslabs.github.io/dlt-meta/faq/general/>
 General
 </a>
@@ -166,12 +166,21 @@ Releases
 </span>
 <span id=toc-menu><i class="fas fa-list-alt"></i></span>
 <span class=links>
-<a href=https://databrickslabs.github.io/dlt-meta/>DLT-META</a> > <a href=https://databrickslabs.github.io/dlt-meta/faq/>Frequently Asked Questions (FAQs)</a> > General
+<a href=https://databrickslabs.github.io/dlt-meta/>DLT-META</a> > <a href=https://databrickslabs.github.io/dlt-meta/demo/>Demo</a> > Append FLOW Autoloader Demo
 </span>
 </div>
 <div class=progress>
 <div class=wrapper>
-<nav id=TableOfContents></nav>
+<nav id=TableOfContents>
+<ul>
+<li>
+<ul>
+<li><a href=#append-flow-autoloader-demo>Append FLOW Autoloader Demo:</a></li>
+</ul>
+</li>
+<li><a href=#append-flow-with-autoloader>Append flow with autoloader</a></li>
+</ul>
+</nav>
 </div>
 </div>
 </div>
@@ -180,29 +189,53 @@ Releases
 </div>
 <div id=body-inner>
 <h1>
-General
+Append FLOW Autoloader Demo
 </h1>
-<p><strong>Q. What is DLT-META ?</strong></p>
-<p>DLT-META is a solution/framework using Databricks Delta Live Tables aka DLT which helps you automate bronze and silver layer pipelines using CI/CD.</p>
-<p><strong>Q. What are the benefits of using DLT-META ?</strong></p>
+<h3 id=append-flow-autoloader-demo>Append FLOW Autoloader Demo:</h3>
+<p>This demo will perform following tasks:</p>
 <ul>
-<li>With DLT-META customers needs to only maintain metadata like onboarding.json, data quality rules and silver transformations and framework will take care of execution.</li>
-<li>In case of any input/output or data quality rules or silver transformation logic changes there will be only metadata changes using onboarding interface and no need to re-deploy pipelines.</li>
-<li>If you have 100s or 1000s of tables then DLT-META speeds up overall turn around time to production as customers needs to just produce metadata</li>
+<li>Read from different source paths using autoloader and write to same target using <a href=https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows>dlt.append_flow</a> API</li>
+<li>Read from different delta tables and write to same silver table using append_flow API</li>
+<li>Add file_name and file_path to target bronze table for autoloader source using <a href=https://docs.databricks.com/en/ingestion/file-metadata-column.html>File metadata column</a></li>
 </ul>
-<p><strong>Q. What different types of reader are supported using DLT-META ?</strong></p>
-<p>DLT-META uses Databricks <a href=https://docs.databricks.com/ingestion/auto-loader/index.html>Auto Loader</a>, DELTA, KAFKA, EVENTHUB to read from s3/adls/blog storage.</p>
-<p><strong>Q. Can DLT-META support any other readers?</strong></p>
-<p>DLT-META can support any spark streaming reader. You can override <code>read_bronze()</code> api inside <code>DataflowPipeline.py</code> to support any reader</p>
-<p><strong>Q. Who should use this framework ?</strong></p>
-<p>Data Engineering teams, who wants to automate data migrations at scale using CI/CD.</p>
+<h2 id=append-flow-with-autoloader>Append flow with autoloader</h2>
+<ol>
+<li>
+<p>Launch Terminal/Command prompt</p>
+</li>
+<li>
+<p>Install <a href=https://docs.databricks.com/dev-tools/cli/index.html>Databricks CLI</a></p>
+</li>
+<li>
+<pre><code class=language-commandline data-lang=commandline> git clone https://github.com/databrickslabs/dlt-meta.git 
+</code></pre></li>
+<li>
+<pre><code class=language-commandline data-lang=commandline> cd dlt-meta
+</code></pre></li>
+<li>
+<p>Set python environment variable into terminal</p>
+<pre><code class=language-commandline data-lang=commandline>dlt_meta_home=$(pwd)
+</code></pre><pre><code class=language-commandline data-lang=commandline>export PYTHONPATH=$dlt_meta_home
+</code></pre></li>
+<li>
+<pre><code class=language-commandline data-lang=commandline> python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=ravi_dlt_meta_uc
+</code></pre></li>
+</ol>
+<ul>
+<li>cloud_provider_name : aws or azure or gcp</li>
+<li>db_version : Databricks Runtime Version</li>
+<li>dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines</li>
+<li>uc_catalog_name: Unity catalog name</li>
+<li>you can provide <code>--profile=databricks_profile name</code> in case you already have databricks cli otherwise command prompt will ask host and token</li>
+</ul>
+<p><img src=docs/static/images/af_am_demo.png alt=af_am_demo.png></p>
 <footer class=footline>
 </footer>
 </div>
 </div>
 <div id=navigation>
-<a class="nav nav-prev" href=https://databrickslabs.github.io/dlt-meta/faq/execution/ title=Execution> <i class="fa fa-chevron-left"></i></a>
-<a class="nav nav-next" href=https://databrickslabs.github.io/dlt-meta/contributing/ title=Contributing style=margin-right:0><i class="fa fa-chevron-right"></i></a>
+<a class="nav nav-prev" href=https://databrickslabs.github.io/dlt-meta/demo/techsummit/ title="Tech Summit DEMO"> <i class="fa fa-chevron-left"></i></a>
+<a class="nav nav-next" href=https://databrickslabs.github.io/dlt-meta/demo/append_flow_eh/ title="Append FLOW Eventhub Demo" style=margin-right:0><i class="fa fa-chevron-right"></i></a>
 </div>
 </section>
 <div style=left:-1000px;overflow:scroll;position:absolute;top:-1000px;border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px>
