@@ -1,0 +1,132 @@
+[
+   {
+      "data_flow_id": "100",
+      "data_flow_group": "A1",
+      "source_system": "MYSQL",
+      "source_format": "cloudFiles",
+      "source_details": {
+         "source_database": "APP",
+         "source_table": "CUSTOMERS",
+         "source_path_it": "{dbfs_path}/cdc_raw/customers",
+         "source_metadata": {
+            "include_autoloader_metadata_column": "True",
+            "autoloader_metadata_col_name": "source_metadata",
+            "select_metadata_cols": {
+                "input_file_name": "_metadata.file_name",
+                "input_file_path": "_metadata.file_path"
+            }
+        }         
+      },
+      "bronze_database_it": "bronze_it_{run_id}",
+      "bronze_table": "customers_cdc",
+      "bronze_reader_options": {
+         "cloudFiles.format": "json",
+         "cloudFiles.inferColumnTypes": "true",
+         "cloudFiles.rescuedDataColumn": "_rescued_data"
+      },
+      "bronze_table_path_it": "{dbfs_path}/data/bronze/customers",
+      "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/customers/bronze_data_quality_expectations.json",
+      "silver_database_it": "silver",
+      "silver_table": "customers",
+      "silver_cdc_apply_changes": {
+         "keys": [
+            "id"
+         ],
+         "sequence_by": "operation_date",
+         "scd_type": "1",
+         "apply_as_deletes": "operation = 'DELETE'",
+         "except_column_list": [
+            "operation",
+            "operation_date",
+            "_rescued_data"
+         ]
+      },
+      "silver_table_path_it": "{dbfs_path}/data/silver/customers",
+      "silver_transformation_json_it": "{dbfs_path}/dlt-meta/conf/silver_transformations.json"
+   },
+   {
+      "data_flow_id": "101",
+      "data_flow_group": "A1",
+      "source_system": "MYSQL",
+      "source_format": "cloudFiles",
+      "source_details": {
+         "source_database": "APP",
+         "source_table": "TRANSACTIONS",
+         "source_path_it": "{dbfs_path}/cdc_raw/transactions"
+      },
+      "bronze_database_it": "bronze_it_{run_id}",
+      "bronze_table": "transactions_cdc",
+      "bronze_reader_options": {
+         "cloudFiles.format": "json",
+         "cloudFiles.inferColumnTypes": "true",
+         "cloudFiles.rescuedDataColumn": "_rescued_data"
+      },
+      "bronze_partition_columns": "",
+      "bronze_table_path_it": "{dbfs_path}/data/bronze/transactions",
+      "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/transactions/bronze_data_quality_expectations.json",
+      "bronze_database_quarantine_it": "bronze_it_{run_id}",
+      "bronze_quarantine_table": "transactions_cdc_quarantine",
+      "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/transactions_quarantine",
+      "bronze_quarantine_table_partitions": "",
+      "silver_database_it": "silver_it_{run_id}",
+      "silver_table": "transactions",
+      "silver_cdc_apply_changes": {
+         "keys": [
+            "id"
+         ],
+         "sequence_by": "operation_date",
+         "scd_type": "1",
+         "apply_as_deletes": "operation = 'DELETE'",
+         "except_column_list": [
+            "operation",
+            "operation_date",
+            "_rescued_data"
+         ]
+      },
+      "silver_partition_columns": "",
+      "silver_table_path_it": "{dbfs_path}/data/silver/transactions",
+      "silver_transformation_json_it": "{dbfs_path}/dlt-meta/conf/silver_transformations.json"
+   },
+   {
+      "data_flow_id": "103",
+      "data_flow_group": "A2",
+      "source_system": "Sensor Device",
+      "source_format": "eventhub",
+      "source_details": {
+         "source_schema_path": "{dbfs_path}/resources/eventhub_iot_schema.ddl",
+         "eventhub.accessKeyName": "{eventhub_accesskey_name}",
+         "eventhub.name": "{eventhub_name}",
+         "eventhub.accessKeySecretName": "{eventhub_accesskey_secret_name}",
+         "eventhub.secretsScopeName": "{eventhub_secrets_scope_name}",
+         "kafka.sasl.mechanism": "PLAIN",
+         "kafka.security.protocol": "SASL_SSL",
+         "eventhub.namespace": "{eventhub_nmspace}",
+         "eventhub.port": "{eventhub_port}"
+      },
+      "bronze_reader_options": {
+         "maxOffsetsPerTrigger": "50000",
+         "startingOffsets": "latest",
+         "failOnDataLoss": "false",
+         "kafka.request.timeout.ms": "60000",
+         "kafka.session.timeout.ms": "60000"
+      },
+      "bronze_database_it": "bronze_it_{run_id}",
+      "bronze_table": "bronze_{run_id}_iot",
+      "bronze_partition_columns": "date",
+      "bronze_table_path_it": "{dbfs_path}/data/bronze/iot",
+      "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dlt-meta/dqe/iot/bronze_data_quality_expectations.json",
+      "bronze_database_quarantine_it": "bronze_it_{run_id}",
+      "bronze_quarantine_table": "bronze_{run_id}_iot_quarantine",
+      "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/iot_quarantine",
+      "silver_database_it": "",
+      "silver_database_staging": "",
+      "silver_database_prd": "",
+      "silver_table": "",
+      "silver_cdc_apply_changes": "",
+      "silver_partition_columns": "",
+      "silver_table_path_it": "",
+      "silver_table_path_staging": "",
+      "silver_table_path_prd": "",
+      "silver_transformation_json_it": ""
+   }
+]

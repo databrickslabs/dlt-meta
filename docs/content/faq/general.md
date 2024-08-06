@@ -1,7 +1,7 @@
 ---
 title: "General"
 date: 2021-08-04T14:50:11-04:00
-weight: 5
+weight: 62
 draft: false
 ---
 
@@ -17,7 +17,7 @@ DLT-META is a solution/framework using Databricks Delta Live Tables aka DLT whic
 
 **Q. What different types of reader are supported using DLT-META ?**
 
-DLT-META uses Databricks [Auto Loader](https://docs.databricks.com/ingestion/auto-loader/index.html), DELTA, KAFKA, EVENTHUB to read from s3/adls/blog stroage.
+DLT-META uses Databricks [Auto Loader](https://docs.databricks.com/ingestion/auto-loader/index.html), DELTA, KAFKA, EVENTHUB to read from s3/adls/blog storage.
 
 **Q. Can DLT-META support any other readers?**
 

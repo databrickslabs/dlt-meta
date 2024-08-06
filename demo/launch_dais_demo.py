@@ -83,12 +83,10 @@ class DLTMETADAISDemo(DLTMETARunner):
         """
         created_job = self.create_daisdemo_workflow(runner_conf)
         runner_conf.job_id = created_job.job_id
-        print(f"Job created successfully. job_id={created_job.job_id}, started run...")
-        print(f"Waiting for job to complete. run_id={created_job.job_id}")
-        run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id)
-        url = f"{self.ws.config.host}/jobs/{runner_conf.job_id}/runs/{run_by_id}?o={self.ws.get_workspace_id()}/"
+        url = f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
+        self.ws.jobs.run_now(job_id=created_job.job_id)
         webbrowser.open(url)
-        print(f"Job launched with url={url}")
+        print(f"Job created successfully. job_id={created_job.job_id}, url={url}")
 
     def create_daisdemo_workflow(self, runner_conf: DLTMetaRunnerConf):
         """
@@ -183,7 +181,7 @@ dais_args_map = {"--profile": "provide databricks cli profile name, if not provi
                  "--uc_catalog_name": "provide databricks uc_catalog name, \
                      this is required to create volume, schema, table",
                  "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
-                 "--dbr_version": "Provide databricks runtime spark version e.g 11.3.x-scala2.12",
+                 "--dbr_version": "Provide databricks runtime spark version e.g 15.3.x-scala2.12",
                  "--dbfs_path": "Provide databricks workspace dbfs path where you want run integration tests \
                         e.g --dbfs_path=dbfs:/tmp/DLT-META/"}
 

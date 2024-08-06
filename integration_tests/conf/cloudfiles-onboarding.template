@@ -1,4 +1,5 @@
-[{
+[
+{
    "data_flow_id": "100",
    "data_flow_group": "A1",
    "source_system": "MYSQL",
@@ -6,7 +7,16 @@
    "source_details": {
       "source_database": "APP",
       "source_table": "CUSTOMERS",
-      "source_path_it": "{dbfs_path}/integration_tests/resources/data/customers"
+      "source_path_it": "{dbfs_path}/integration_tests/resources/data/customers",
+      "source_metadata": {
+            "include_autoloader_metadata_column": "True",
+            "autoloader_metadata_col_name": "source_metadata",
+            "select_metadata_cols": {
+               "input_file_name": "_metadata.file_name",
+               "input_file_path": "_metadata.file_path"
+            }
+      },
+      "source_schema_path": "{dbfs_path}/integration_tests/resources/customers.ddl"
    },
    "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",
    "bronze_table": "customers",
@@ -27,39 +37,63 @@
    "bronze_quarantine_table_properties": {
          "pipelines.reset.allowed": "false",
          "pipelines.autoOptimize.zOrderCols": "id, email"
-   },       
+   },
+   "bronze_append_flows": [
+      {
+            "name": "customer_bronze_flow",
+            "create_streaming_table": false,
+            "source_format": "cloudFiles",
+            "source_details": {
+               "source_path_it": "{dbfs_path}/integration_tests/resources/data/customers_af",
+               "source_schema_path": "{dbfs_path}/integration_tests/resources/customers.ddl"
+            },
+            "reader_options": {
+               "cloudFiles.format": "json",
+               "cloudFiles.inferColumnTypes": "true",
+               "cloudFiles.rescuedDataColumn": "_rescued_data"
+            },
+            "once": false
+      }
+   ],
    "silver_database_it": "{uc_catalog_name}.{silver_schema}",
    "silver_table": "customers",
-   "silver_cdc_apply_changes": {
-      "keys": [
-         "id"
-      ],
-      "sequence_by": "operation_date",
-      "scd_type": "1",
-      "apply_as_deletes": "operation = 'DELETE'",
-      "except_column_list": [
-         "operation",
-         "operation_date",
-         "_rescued_data"
-      ]
-   },
    "silver_table_path_it": "{dbfs_path}/data/silver/customers",
    "silver_transformation_json_it": "{dbfs_path}/integration_tests/conf/silver_transformations.json",
    "silver_table_properties": {
          "pipelines.reset.allowed": "false",
          "pipelines.autoOptimize.zOrderCols": "id, email"         
    },
-   "silver_data_quality_expectations_json_it": "{dbfs_path}/integration_tests/conf/dqe/customers/silver_data_quality_expectations.json"
+   "silver_data_quality_expectations_json_it": "{dbfs_path}/integration_tests/conf/dqe/customers/silver_data_quality_expectations.json",
+   "silver_append_flows": [
+      {
+            "name": "customers_silver_flow",
+            "create_streaming_table": false,
+            "source_format": "delta",
+            "source_details": {
+               "source_database": "{uc_catalog_name}.{bronze_schema}", "source_table": "customers_delta"
+            },
+            "reader_options": {},
+            "once": false
+      }
+   ]
 },
 {
-   "data_flow_id": "101",
+   "data_flow_id": "102",
    "data_flow_group": "A1",
    "source_system": "MYSQL",
    "source_format": "cloudFiles",
    "source_details": {
       "source_database": "APP",
       "source_table": "TRANSACTIONS",
-      "source_path_it": "{dbfs_path}/integration_tests/resources/data/transactions"
+      "source_path_it": "{dbfs_path}/integration_tests/resources/data/transactions",
+      "source_metadata": {
+            "include_autoloader_metadata_column": "True",
+            "select_metadata_cols": {
+               "input_file_name": "_metadata.file_name",
+               "input_file_path": "_metadata.file_path"
+            }            
+      },            
+      "source_schema_path": "{dbfs_path}/integration_tests/resources/transactions.ddl"
    },   
    "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",
    "bronze_table": "transactions",
@@ -82,6 +116,23 @@
          "pipelines.autoOptimize.managed": "false",
          "pipelines.autoOptimize.zOrderCols": "id, customer_id"   
    },     
+   "bronze_append_flows": [
+      {
+            "name": "transactions_bronze_flow",
+            "create_streaming_table": false,
+            "source_format": "cloudFiles",
+            "source_details": {
+               "source_path_it": "{dbfs_path}/integration_tests/resources/data/transactions_af",
+               "source_schema_path": "{dbfs_path}/integration_tests/resources/transactions.ddl"
+            },
+            "reader_options": {
+               "cloudFiles.format": "json",
+               "cloudFiles.inferColumnTypes": "true",
+               "cloudFiles.rescuedDataColumn": "_rescued_data"
+            },
+            "once": false
+      }
+   ],
    "silver_database_it": "{uc_catalog_name}.{silver_schema}",
    "silver_table": "transactions",
    "silver_cdc_apply_changes": {
@@ -95,7 +146,8 @@
          "operation",
          "operation_date",
          "_rescued_data"
-      ]
+      ],
+      "flow_name":"silver_transactions_cdc_applychanges_flow"
    },
    "silver_table_path_it": "{dbfs_path}/data/silver/transactions",
    "silver_transformation_json_it": "{dbfs_path}/integration_tests/conf/silver_transformations.json",
@@ -103,6 +155,6 @@
    "silver_table_properties": {
          "pipelines.reset.allowed": "false",
          "pipelines.autoOptimize.zOrderCols": "id, customer_id"         
-   }  
+   }
 }
 ]

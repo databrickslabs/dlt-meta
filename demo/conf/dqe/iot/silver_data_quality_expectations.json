@@ -1,0 +1,5 @@
+{
+  "expect_all_or_drop": {
+    "valid_device_id": "device_id IS NOT NULL"
+  }
+}

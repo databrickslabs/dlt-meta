@@ -151,9 +151,6 @@ deployment-merged.yaml
 .idea/
 .vscode/
 
-# ignore integration test onboarding file.
-integration-tests/conf/dlt-meta/onboarding.json
-
 .databricks
 .databricks-login.json
 demo/conf/onboarding.json

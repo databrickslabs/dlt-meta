@@ -2,10 +2,14 @@
 from datetime import datetime
 import sys
 import os
+import json
+from pyspark.sql.functions import lit, struct
+from pyspark.sql.types import StructType
 from src.dataflow_spec import BronzeDataflowSpec
 from src.pipeline_readers import PipelineReaders
 from tests.utils import DLTFrameworkTestCase
 from unittest.mock import MagicMock, patch
+from pyspark.sql import SparkSession
 sys.modules["dlt"] = MagicMock()
 sys.modules["pyspark.dbutils"] = MagicMock()
 
@@ -26,7 +30,9 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "dataFlowId": "1",
         "dataFlowGroup": "A1",
         "sourceFormat": "json",
-        "sourceDetails": {"path": "tests/resources/data/customers"},
+        "sourceDetails": {
+            "path": "tests/resources/data/customers",
+        },
         "readerConfigOptions": {
         },
         "targetFormat": "delta",
@@ -38,6 +44,8 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
         "quarantineTableProperties": None,
+        "appendFlows": None,
+        "appendFlowsSchemas": None,
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -57,7 +65,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
             "eventhub.secretsScopeName": "eventhubs_creds",
             "kafka.sasl.mechanism": "PLAIN",
             "kafka.security.protocol": "SASL_SSL",
-            "eventhub.namespace": "ganesh-standard",
+            "eventhub.namespace": "standard",
             "eventhub.port": "9093"
         },
         "readerConfigOptions": {
@@ -76,6 +84,8 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
         "quarantineTableProperties": None,
+        "appendFlows": None,
+        "appendFlowsSchemas": None,
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -94,7 +104,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
             "eventhub.secretsScopeName": "eventhubs_creds",
             "kafka.sasl.mechanism": "PLAIN",
             "kafka.security.protocol": "SASL_SSL",
-            "eventhub.namespace": "ganesh-standard",
+            "eventhub.namespace": "standard",
             "eventhub.port": "9093"
         },
         "readerConfigOptions": {
@@ -113,6 +123,8 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
         "quarantineTableProperties": None,
+        "appendFlows": None,
+        "appendFlowsSchemas": None,
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -142,6 +154,8 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
         "quarantineTableProperties": None,
+        "appendFlows": None,
+        "appendFlowsSchemas": None,
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -166,8 +180,18 @@ class PipelineReadersTests(DLTFrameworkTestCase):
             self.onboarding_bronze_silver_params_map["silver_dataflowspec_path"],
         )
 
-    def test_read_cloud_files_positive(self):
+    @patch.object(PipelineReaders, "add_cloudfiles_metadata", return_value={"called"})
+    @patch.object(SparkSession, "readStream")
+    def test_read_cloud_files_withmetadata_cols_positive(self, SparkSession, add_cloudfiles_metadata):
         """Test read_cloud_files positive."""
+        mock_format = MagicMock()
+        mock_options = MagicMock()
+        mock_load = MagicMock()
+        mock_schema = MagicMock()
+        SparkSession.readStream.format.return_value = mock_format
+        mock_format.options.return_value = mock_options
+        mock_options.schema.return_value = mock_schema
+        mock_schema.load.return_value = mock_load
         bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
         schema_ddl = "tests/resources/schema/customer_schema.ddl"
         ddlSchemaStr = self.spark.read.text(paths=schema_ddl, wholetext=True).collect()[0]["value"]
@@ -175,32 +199,62 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         schema = spark_schema.jsonValue()
         schema_map = {"schema": schema}
         bronze_map.update(schema_map)
-        source_format_map = {"sourceFormat": "json"}
-        bronze_map.update(source_format_map)
+        source_metdata_json = {
+            "include_autoloader_metadata_column": "True",
+            "autoloader_metadata_col_name": "source_metadata",
+            "select_metadata_cols": {
+                "input_file_name": "_metadata.file_name",
+                "input_file_path": "_metadata.file_path"
+            }
+        }
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        customer_df = PipelineReaders.read_dlt_cloud_files(self.spark, bronze_dataflow_spec, schema)
-        self.assertIsNotNone(customer_df)
+        bronze_dataflow_spec.sourceDetails["source_metadata"] = json.dumps(source_metdata_json)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        pipeline_readers = PipelineReaders(
+            SparkSession,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            schema
+        )
+        pipeline_readers.read_dlt_cloud_files()
+        SparkSession.readStream.format.assert_called_once_with("json")
+        SparkSession.readStream.format.return_value.options.assert_called_once_with(
+            **bronze_dataflow_spec.readerConfigOptions
+        )
+        struct_schema = StructType.fromJson(schema)
+        SparkSession.readStream.format.return_value.options.return_value.schema.assert_called_once_with(struct_schema)
+        (SparkSession.readStream.format.return_value.options.return_value.schema
+         .return_value.load.assert_called_once_with(bronze_dataflow_spec.sourceDetails["path"]))
+        assert add_cloudfiles_metadata.called
 
-    def test_read_cloud_files_no_schema(self):
+    @patch.object(SparkSession, "readStream")
+    def test_read_cloud_files_no_schema(self, SparkSession):
         """Test read_cloud_files positive."""
         mock_format = MagicMock()
         mock_options = MagicMock()
         mock_load = MagicMock()
-        spark.readStream.format.return_value = mock_format
+        SparkSession.readStream.format.return_value = mock_format
         mock_format.options.return_value = mock_options
         mock_options.load.return_value = mock_load
 
         bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
         source_format_map = {"sourceFormat": "json"}
         bronze_map.update(source_format_map)
-        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
-        source_format_map = {"sourceFormat": "json"}
-        bronze_map.update(source_format_map)
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        PipelineReaders.read_dlt_cloud_files(spark, bronze_dataflow_spec, None)
-        spark.readStream.format.assert_called_once_with("json")
-        spark.readStream.format.return_value.options.assert_called_once_with(**bronze_dataflow_spec.readerConfigOptions)
-        spark.readStream.format.return_value.options.return_value.load.assert_called_once_with(
+        pipeline_readers = PipelineReaders(
+            SparkSession,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        pipeline_readers.read_dlt_cloud_files()
+        SparkSession.readStream.format.assert_called_once_with("json")
+        SparkSession.readStream.format.return_value.options.assert_called_once_with(
+            **bronze_dataflow_spec.readerConfigOptions
+        )
+        SparkSession.readStream.format.return_value.options.return_value.load.assert_called_once_with(
             bronze_dataflow_spec.sourceDetails["path"])
 
     def test_read_delta_positive(self):
@@ -212,11 +266,18 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         full_path = os.path.abspath("tests/resources/delta/customers")
         self.spark.sql(f"CREATE TABLE if not exists source_bronze.customer USING DELTA LOCATION '{full_path}' ")
 
-        source_details_map = {"sourceDetails": {"source_database": "source_bronze", "table": "customer"}}
+        source_details_map = {"sourceDetails": {"source_database": "source_bronze", "source_table": "customer"}}
 
         bronze_map.update(source_details_map)
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        customer_df = PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        customer_df = pipeline_readers.read_dlt_delta()
         self.assertIsNotNone(customer_df)
 
     def test_read_delta_with_read_config_positive(self):
@@ -227,12 +288,19 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         self.spark.sql("CREATE DATABASE IF NOT EXISTS source_bronze")
         full_path = os.path.abspath("tests/resources/delta/customers")
         self.spark.sql(f"CREATE TABLE if not exists source_bronze.customer USING DELTA LOCATION '{full_path}' ")
-        source_details_map = {"sourceDetails": {"source_database": "source_bronze", "table": "customer"}}
+        source_details_map = {"sourceDetails": {"source_database": "source_bronze", "source_table": "customer"}}
         bronze_map.update(source_details_map)
         reader_config = {"readerConfigOptions": {"maxFilesPerTrigger": "1"}}
         bronze_map.update(reader_config)
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        customer_df = PipelineReaders.read_dlt_delta(self.spark, bronze_dataflow_spec)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        customer_df = pipeline_readers.read_dlt_delta()
         self.assertIsNotNone(customer_df)
 
     @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
@@ -241,7 +309,14 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         """Test Get kafka options."""
         bronze_map = PipelineReadersTests.bronze_eventhub_dataflow_spec_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        kafka_options = PipelineReaders.get_eventhub_kafka_options(self.spark, bronze_dataflow_spec)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        kafka_options = pipeline_readers.get_eventhub_kafka_options()
         self.assertIsNotNone(kafka_options)
 
     @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
@@ -250,7 +325,14 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         """Test Get kafka options."""
         bronze_map = PipelineReadersTests.bronze_eventhub_dataflow_spec_omit_secret_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        kafka_options = PipelineReaders.get_eventhub_kafka_options(self.spark, bronze_dataflow_spec)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        kafka_options = pipeline_readers.get_eventhub_kafka_options()
         self.assertIsNotNone(kafka_options)
 
     @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
@@ -266,24 +348,47 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         }
         bronze_map['sourceDetails'] = source_details_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
         with self.assertRaises(Exception):
-            PipelineReaders.get_kafka_options(self.spark, bronze_dataflow_spec)
+            pipeline_readers.get_kafka_options()
 
     def test_get_kafka_options_positive(self):
         """Test Get kafka options."""
         bronze_map = PipelineReadersTests.bronze_kafka_dataflow_spec_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        kafka_options = PipelineReaders.get_kafka_options(self.spark, bronze_dataflow_spec)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        kafka_options = pipeline_readers.get_kafka_options()
         self.assertIsNotNone(kafka_options)
 
     def test_get_db_utils(self):
         """Test Get kafka options."""
-        dbutils = PipelineReaders.get_db_utils(self.spark)
+        bronze_map = PipelineReadersTests.bronze_kafka_dataflow_spec_map
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        dbutils = pipeline_readers.get_db_utils()
         self.assertIsNotNone(dbutils)
 
-    @patch.object(spark, "readStream", return_value={"called"})
+    @patch.object(SparkSession, "readStream", return_value={"called"})
     @patch.object(dbutils, "secrets.get", return_value={"called"})
-    def test_kafka_positive(self, spark, dbutils):
+    def test_kafka_positive(self, SparkSession, dbutils):
         """Test kafka read positive."""
         bronze_map = PipelineReadersTests.bronze_kafka_dataflow_spec_map
         source_details = bronze_map['sourceDetails']
@@ -298,13 +403,115 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         }
         bronze_map['sourceDetails'] = source_details_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        customer_df = PipelineReaders.read_kafka(spark, bronze_dataflow_spec, None)
+        pipeline_readers = PipelineReaders(
+            SparkSession,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        customer_df = pipeline_readers.read_kafka()
         self.assertIsNotNone(customer_df)
 
-    @patch.object(spark, "readStream", return_value={"called"})
-    def test_eventhub_positive(self, spark):
+    @patch.object(SparkSession, "readStream", return_value={"called"})
+    def test_eventhub_positive(self, SparkSession):
         """Test eventhub read positive."""
         bronze_map = PipelineReadersTests.bronze_eventhub_dataflow_spec_map
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        customer_df = PipelineReaders.read_kafka(spark, bronze_dataflow_spec, None)
+        pipeline_readers = PipelineReaders(
+            SparkSession,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        customer_df = pipeline_readers.read_kafka()
         self.assertIsNotNone(customer_df)
+
+    def test_add_cloudfiles_metadata(self):
+        """Test add_cloudfiles_metadata."""
+        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
+        source_format_map = {"sourceFormat": "json"}
+        bronze_map.update(source_format_map)
+        source_metdata_json = {
+            "include_autoloader_metadata_column": "True",
+            "autoloader_metadata_col_name": "source_metadata",
+            "select_metadata_cols": {
+                "input_file_name": "_metadata.file_name",
+                "input_file_path": "_metadata.file_path"
+            }
+        }
+        expected_cols = ['address', 'email', 'firstname', 'id', 'lastname', 'operation', 'operation_date',
+                         'source_metadata', 'source_metadata', 'input_file_name', 'input_file_path']
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        bronze_dataflow_spec.sourceDetails["source_metadata"] = json.dumps(source_metdata_json)
+        df = (self.spark.read.json("tests/resources/data/customers")
+              .withColumn('_metadata', struct(*[lit("filename").alias("file_name"),
+                                                lit("file_path").alias('file_path')])))
+        df = PipelineReaders.add_cloudfiles_metadata(bronze_dataflow_spec.sourceDetails, df)
+        self.assertIsNotNone(df)
+        self.assertEqual(df.columns, expected_cols)
+
+    def test_add_cloudfiles_metadata_cols_with_include_autoloader_metadata_column(self):
+        """Test add_cloudfiles_metadata."""
+        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
+        source_format_map = {"sourceFormat": "json"}
+        bronze_map.update(source_format_map)
+        source_metdata_json = {
+            "include_autoloader_metadata_column": "True",
+            "select_metadata_cols": {
+                "input_file_name": "_metadata.file_name",
+                "input_file_path": "_metadata.file_path"
+            }
+        }
+        expected_cols = ['address', 'email', 'firstname', 'id', 'lastname', 'operation', 'operation_date',
+                         'source_metadata', 'source_metadata', 'input_file_name', 'input_file_path']
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        bronze_dataflow_spec.sourceDetails["source_metadata"] = json.dumps(source_metdata_json)
+        df = (self.spark.read.json("tests/resources/data/customers")
+              .withColumn('_metadata', struct(*[lit("filename").alias("file_name"),
+                                                lit("file_path").alias('file_path')])))
+        df = PipelineReaders.add_cloudfiles_metadata(bronze_dataflow_spec.sourceDetails, df)
+        self.assertIsNotNone(df)
+        self.assertEqual(df.columns, expected_cols)
+
+    def test_add_cloudfiles_metadata_cols_only(self):
+        """Test add_cloudfiles_metadata."""
+        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
+        source_format_map = {"sourceFormat": "json"}
+        bronze_map.update(source_format_map)
+        source_metdata_json = {
+            "select_metadata_cols": {
+                "input_file_name": "_metadata.file_name",
+                "input_file_path": "_metadata.file_path"
+            }
+        }
+        expected_cols = ['address', 'email', 'firstname', 'id', 'lastname', 'operation', 'operation_date',
+                         'input_file_name', 'input_file_path']
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        bronze_dataflow_spec.sourceDetails["source_metadata"] = json.dumps(source_metdata_json)
+        df = (self.spark.read.json("tests/resources/data/customers")
+              .withColumn('_metadata', struct(*[lit("filename").alias("file_name"),
+                                                lit("file_path").alias('file_path')])))
+        df = PipelineReaders.add_cloudfiles_metadata(bronze_dataflow_spec.sourceDetails, df)
+        self.assertIsNotNone(df)
+        self.assertEqual(df.columns, expected_cols)
+
+    def test_add_cloudfiles_with_include_autoloader_metadata_column_only(self):
+        """Test add_cloudfiles_metadata."""
+        bronze_map = PipelineReadersTests.bronze_dataflow_spec_map
+        source_format_map = {"sourceFormat": "json"}
+        bronze_map.update(source_format_map)
+        source_metdata_json = {
+            "include_autoloader_metadata_column": "True"
+        }
+        expected_cols = ['address', 'email', 'firstname', 'id', 'lastname', 'operation', 'operation_date',
+                         'source_metadata', 'source_metadata']
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        bronze_dataflow_spec.sourceDetails["source_metadata"] = json.dumps(source_metdata_json)
+        df = (self.spark.read.json("tests/resources/data/customers")
+              .withColumn('_metadata', struct(*[lit("filename").alias("file_name"),
+                                                lit("file_path").alias('file_path')])))
+        df = PipelineReaders.add_cloudfiles_metadata(bronze_dataflow_spec.sourceDetails, df)
+        self.assertIsNotNone(df)
+        self.assertEqual(df.columns, expected_cols)

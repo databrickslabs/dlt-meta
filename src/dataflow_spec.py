@@ -32,6 +32,8 @@ class BronzeDataflowSpec:
     dataQualityExpectations: str
     quarantineTargetDetails: map
     quarantineTableProperties: map
+    appendFlows: str
+    appendFlowsSchemas: map
     version: str
     createDate: datetime
     createdBy: str
@@ -56,6 +58,8 @@ class SilverDataflowSpec:
     partitionColumns: list
     cdcApplyChanges: str
     dataQualityExpectations: str
+    appendFlows: str
+    appendFlowsSchemas: map
     version: str
     createDate: datetime
     createdBy: str
@@ -78,6 +82,23 @@ class CDCApplyChanges:
     scd_type: str
     track_history_column_list: list
     track_history_except_column_list: list
+    flow_name: str
+    once: bool
+    ignore_null_updates_column_list: list
+    ignore_null_updates_except_column_list: list
+
+
+@dataclass
+class AppendFlow:
+    """Append Flow structure."""
+    name: str
+    comment: str
+    create_streaming_table: bool
+    source_format: str
+    source_details: map
+    reader_options: map
+    spark_conf: map
+    once: bool
 
 
 class DataflowSpecUtils:
@@ -95,9 +116,13 @@ class DataflowSpecUtils:
         "except_column_list",
         "scd_type",
         "track_history_column_list",
-        "track_history_except_column_list"
-
+        "track_history_except_column_list",
+        "flow_name",
+        "once",
+        "ignore_null_updates_column_list",
+        "ignore_null_updates_except_column_list"
     ]
+
     cdc_applychanges_api_attributes_defaults = {
         "where": None,
         "ignore_null_updates": False,
@@ -106,9 +131,26 @@ class DataflowSpecUtils:
         "column_list": None,
         "except_column_list": None,
         "track_history_column_list": None,
-        "track_history_except_column_list": None
-
+        "track_history_except_column_list": None,
+        "flow_name": None,
+        "once": False,
+        "ignore_null_updates_column_list": None,
+        "ignore_null_updates_except_column_list": None
     }
+
+    append_flow_mandatory_attributes = ["name", "source_format", "create_streaming_table", "source_details"]
+
+    append_flow_api_attributes_defaults = {
+        "comment": None,
+        "create_streaming_table": False,
+        "reader_options": None,
+        "spark_conf": None,
+        "once": False
+    }
+
+    additional_bronze_df_columns = ["appendFlows", "appendFlowsSchemas"]
+    additional_silver_df_columns = ["dataQualityExpectations", "appendFlows", "appendFlowsSchemas"]
+    additional_cdc_apply_changes_columns = ["flow_name", "once"]
 
     @staticmethod
     def _get_dataflow_spec(
@@ -135,7 +177,7 @@ class DataflowSpecUtils:
 
         if group or dataflow_ids:
             dataflow_spec_df = dataflow_spec_df.where(
-                col("dataFlowGroup") == lit(group) if group else f"dataFlowId in ('{dataflow_ids}')"
+                col("dataFlowGroup") == lit(group) if group else f"dataFlowId in ({dataflow_ids})"
             )
 
         version_history = Window.partitionBy(col("dataFlowGroup"), col("dataFlowId")).orderBy(col("version").desc())
@@ -154,9 +196,20 @@ class DataflowSpecUtils:
         dataflow_spec_rows = DataflowSpecUtils._get_dataflow_spec(spark, "bronze").collect()
         bronze_dataflow_spec_list: list[BronzeDataflowSpec] = []
         for row in dataflow_spec_rows:
-            bronze_dataflow_spec_list.append(BronzeDataflowSpec(**row.asDict()))
+            target_row = DataflowSpecUtils.populate_additional_df_cols(
+                row.asDict(),
+                DataflowSpecUtils.additional_bronze_df_columns
+            )
+            bronze_dataflow_spec_list.append(BronzeDataflowSpec(**target_row))
         logger.info(f"bronze_dataflow_spec_list={bronze_dataflow_spec_list}")
         return bronze_dataflow_spec_list
+
+    @staticmethod
+    def populate_additional_df_cols(onboarding_row_dict, additional_columns):
+        for column in additional_columns:
+            if column not in onboarding_row_dict.keys():
+                onboarding_row_dict[column] = None
+        return onboarding_row_dict
 
     @staticmethod
     def get_silver_dataflow_spec(spark) -> List[SilverDataflowSpec]:
@@ -166,7 +219,11 @@ class DataflowSpecUtils:
         dataflow_spec_rows = DataflowSpecUtils._get_dataflow_spec(spark, "silver").collect()
         silver_dataflow_spec_list: list[SilverDataflowSpec] = []
         for row in dataflow_spec_rows:
-            silver_dataflow_spec_list.append(SilverDataflowSpec(**row.asDict()))
+            target_row = DataflowSpecUtils.populate_additional_df_cols(
+                row.asDict(),
+                DataflowSpecUtils.additional_silver_df_columns
+            )
+            silver_dataflow_spec_list.append(SilverDataflowSpec(**target_row))
         return silver_dataflow_spec_list
 
     @staticmethod
@@ -238,31 +295,44 @@ class DataflowSpecUtils:
             ] = DataflowSpecUtils.cdc_applychanges_api_attributes_defaults[missing_cdc_payload_key]
 
         logger.info(f"final mergeInfo={json_cdc_apply_changes}")
+        json_cdc_apply_changes = DataflowSpecUtils.populate_additional_df_cols(
+            json_cdc_apply_changes,
+            DataflowSpecUtils.additional_cdc_apply_changes_columns
+        )
         return CDCApplyChanges(**json_cdc_apply_changes)
 
     @staticmethod
-    def get_schema_json(spark, dataflow_spec):
-        """Get schema json from dataflow spec."""
-        source_path = dataflow_spec.sourceDetails["path"]
-        reader_config_options = dataflow_spec.readerConfigOptions
-        schema_json = None
-        if reader_config_options["cloudFiles.format"].lower() == "parquet":
-            schema = spark.read.options(**reader_config_options).parquet(source_path).limit(100).schema
-            schema_json = schema.jsonValue()
-        elif reader_config_options["cloudFiles.format"].lower() == "json":
-            schema = (
-                spark.read.options(**reader_config_options)
-                .json(source_path)
-                .limit(100)
-                .schema
+    def get_append_flows(append_flows) -> list[AppendFlow]:
+        """Get append flow metadata."""
+        logger.info(append_flows)
+        json_append_flows = json.loads(append_flows)
+        logger.info(f"actual appendFlow={json_append_flows}")
+        list_append_flows = []
+        for json_append_flow in json_append_flows:
+            payload_keys = json_append_flow.keys()
+            missing_append_flow_payload_keys = (
+                set(DataflowSpecUtils.append_flow_api_attributes_defaults)
+                .difference(payload_keys)
             )
-            schema_json = schema.jsonValue()
-        elif reader_config_options["cloudFiles.format"].lower() == "csv":
-            json_schema_string_value = dataflow_spec.schema
-            schema_json = json.loads(json_schema_string_value)
-        else:
-            raise Exception(
-                f"""Dataflow schema not supported for type = {type(dataflow_spec.dataFlowId)}!
-                    Please correct dataflowSpec or implement schema reader options"""
-            )
-        return schema_json
+            logger.info(f"missing append flow payload keys:{missing_append_flow_payload_keys}")
+            if set(DataflowSpecUtils.append_flow_mandatory_attributes) - set(payload_keys):
+                missing_mandatory_attr = (
+                    set(DataflowSpecUtils.append_flow_mandatory_attributes)
+                    - set(payload_keys)
+                )
+                logger.info(f"mandatory missing keys= {missing_mandatory_attr}")
+                raise Exception(f"mandatory missing keys= {missing_mandatory_attr} for append flow")
+            else:
+                logger.info(
+                    f"""all mandatory keys
+                    {DataflowSpecUtils.append_flow_mandatory_attributes} exists"""
+                )
+
+            for missing_append_flow_payload_key in missing_append_flow_payload_keys:
+                json_append_flow[
+                    missing_append_flow_payload_key
+                ] = DataflowSpecUtils.append_flow_api_attributes_defaults[missing_append_flow_payload_key]
+
+            logger.info(f"final appendFlow={json_append_flow}")
+            list_append_flows.append(AppendFlow(**json_append_flow))
+        return list_append_flows
