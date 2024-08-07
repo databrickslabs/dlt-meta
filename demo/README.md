@@ -145,7 +145,7 @@ This demo will perform following tasks:
 - uc_catalog_name: Unity catalog name
 - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
-![af_am_demo.png](docs/static/images/af_am_demo.png)
+![af_am_demo.png](../docs/static/images/af_am_demo.png)
 
 # Append Flow Eventhub demo:
 - Read from different eventhub topics and write to same target tables using append_flow API
@@ -202,7 +202,7 @@ This demo will perform following tasks:
     python3 demo/launch_af_eventhub_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=ravi_dlt_meta_uc --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey --uc_catalog_name=ravi_dlt_meta_uc
     ```
 
-  ![af_eh_demo.png](docs/static/images/af_eh_demo.png)
+  ![af_eh_demo.png](../docs/static/images/af_eh_demo.png)
 
 
 # Silver Fanout Demo
@@ -253,6 +253,6 @@ This demo will perform following tasks:
 
         - Paste to command prompt
 
-    ![silver_fanout_workflow.png](docs/static/images/silver_fanout_workflow.png)
+    ![silver_fanout_workflow.png](../docs/static/images/silver_fanout_workflow.png)
     
-    ![silver_fanout_dlt.png](docs/static/images/silver_fanout_dlt.png)
+    ![silver_fanout_dlt.png](../docs/static/images/silver_fanout_dlt.png)
