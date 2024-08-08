@@ -7,17 +7,17 @@
 <meta name=author content="Ravi Gawai (Databricks)">
 <link rel=icon href=https://databrickslabs.github.io/dlt-meta/images/favicon.png type=image/png>
 <title>DAIS DEMO :: DLT-META</title>
-<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1722988832 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1722988832 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1722988832 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1722988832 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1722988832 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1722988832 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1722988832 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1722988832 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1722988832 rel=stylesheet>
-<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1722988832 rel=stylesheet>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1722988832></script>
+<link href=https://databrickslabs.github.io/dlt-meta/css/nucleus.css?1723147216 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/fontawesome-all.min.css?1723147216 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hybrid.css?1723147216 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/featherlight.min.css?1723147216 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/perfect-scrollbar.min.css?1723147216 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/auto-complete.css?1723147216 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/atom-one-dark-reasonable.css?1723147216 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/theme.css?1723147216 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/tabs.css?1723147216 rel=stylesheet>
+<link href=https://databrickslabs.github.io/dlt-meta/css/hugo-theme.css?1723147216 rel=stylesheet>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery-3.3.1.min.js?1723147216></script>
 <style>:root #header+#content>#left>#rlblock_left{display:none!important}</style>
 <script async defer src=https://buttons.github.io/buttons.js></script>
 </head>
@@ -33,10 +33,10 @@
 <input data-search-input id=search-by type=search placeholder=Search...>
 <span data-search-clear><i class="fas fa-times"></i></span>
 </div>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1722988832></script>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1722988832></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/lunr.min.js?1723147216></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/auto-complete.js?1723147216></script>
 <script type=text/javascript>var baseurl="https://databrickslabs.github.io/dlt-meta/"</script>
-<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1722988832></script>
+<script type=text/javascript src=https://databrickslabs.github.io/dlt-meta/js/search.js?1723147216></script>
 </div>
 <section id=homelinks>
 <ul>
@@ -205,16 +205,21 @@ DAIS DEMO
 </li>
 <li>
 <p>Install <a href=https://docs.databricks.com/dev-tools/cli/index.html>Databricks CLI</a></p>
-</li>
+<ul>
+<li>Once you install Databricks CLI, authenticate your current machine to a Databricks Workspace:</li>
+</ul>
+<pre><code class=language-commandline data-lang=commandline>databricks auth login --host WORKSPACE_HOST
+</code></pre></li>
 <li>
-<p><code>git clone https://github.com/databrickslabs/dlt-meta.git </code></p>
-</li>
+<pre><code class=language-commandline data-lang=commandline> git clone https://github.com/databrickslabs/dlt-meta.git 
+</code></pre></li>
 <li>
-<p><code>cd dlt-meta</code></p>
-</li>
+<pre><code class=language-commandline data-lang=commandline> cd dlt-meta
+</code></pre></li>
 <li>
 <p>Set python environment variable into terminal</p>
-<pre><code>    export PYTHONPATH=&lt;&lt;local dlt-meta path&gt;&gt;
+<pre><code class=language-commandline data-lang=commandline>dlt_meta_home=$(pwd)
+</code></pre><pre><code class=language-commandline data-lang=commandline>export PYTHONPATH=$dlt_meta_home
 </code></pre></li>
 <li>
 <p>Run the command <code>python demo/launch_dais_demo.py --username=&lt;&lt;your databricks username>> --source=cloudfiles --uc_catalog_name=&lt;&lt;uc catalog name>> --cloud_provider_name=aws --dbr_version=13.3.x-scala2.12 --dbfs_path=dbfs:/dais-dlt-meta-demo-automated_new</code></p>
@@ -282,17 +287,17 @@ DAIS DEMO
 <div style=left:-1000px;overflow:scroll;position:absolute;top:-1000px;border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px>
 <div style=border:none;box-sizing:content-box;height:200px;margin:0;padding:0;width:200px></div>
 </div>
-<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1722988832></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1722988832></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1722988832></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1722988832></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1722988832></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1722988832></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/clipboard.min.js?1723147216></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.min.js?1723147216></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/perfect-scrollbar.jquery.min.js?1723147216></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/jquery.sticky.js?1723147216></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/featherlight.min.js?1723147216></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/highlight.pack.js?1723147216></script>
 <script>hljs.initHighlightingOnLoad()</script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1722988832></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1722988832></script>
-<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1722988832></script>
-<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1722988832></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/modernizr.custom-3.6.0.js?1723147216></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/learn.js?1723147216></script>
+<script src=https://databrickslabs.github.io/dlt-meta/js/hugo-learn.js?1723147216></script>
+<script src=https://databrickslabs.github.io/dlt-meta/mermaid/mermaid.js?1723147216></script>
 <script>mermaid.initialize({startOnLoad:!0})</script>
 </body>
 </html>
