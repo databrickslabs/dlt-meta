@@ -11,14 +11,26 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
 1. Launch Terminal/Command prompt 
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
+    - Once you install Databricks CLI, authenticate your current machine to a Databricks Workspace:
+    
+    ```commandline
+    databricks auth login --host WORKSPACE_HOST
+    ```
 
-3. ```git clone https://github.com/databrickslabs/dlt-meta.git ```
+3. ```commandline
+    git clone https://github.com/databrickslabs/dlt-meta.git 
+    ```
 
-4. ```cd dlt-meta```
+4. ```commandline
+    cd dlt-meta
+    ```
 
 5. Set python environment variable into terminal
+    ```commandline
+    dlt_meta_home=$(pwd)
     ```
-        export PYTHONPATH=<<local dlt-meta path>>
+    ```commandline
+    export PYTHONPATH=$dlt_meta_home
     ```
 
 6. Run the command ```python demo/launch_techsummit_demo.py --username=ravi.gawai@databricks.com --source=cloudfiles --cloud_provider_name=aws --dbr_version=13.3.x-scala2.12 --dbfs_path=dbfs:/techsummit-dlt-meta-demo-automated ```

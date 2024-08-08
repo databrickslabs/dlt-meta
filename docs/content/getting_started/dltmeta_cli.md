@@ -7,6 +7,11 @@ draft: false
 
 ### pre-requisites:
 - [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/tutorial.html)
+- Once you install Databricks CLI, authenticate your current machine to a Databricks Workspace:
+   
+   ```commandline
+   databricks auth login --host WORKSPACE_HOST
+   ```
 - Python 3.8.0 +
 ##### Steps:
 1. ``` git clone https://github.com/databrickslabs/dlt-meta.git ```
