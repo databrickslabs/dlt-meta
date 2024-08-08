@@ -15,6 +15,11 @@ This demo will perform following tasks:
 1. Launch Terminal/Command prompt 
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
+    - Once you install Databricks CLI, authenticate your current machine to a Databricks Workspace:
+    
+    ```commandline
+    databricks auth login --host WORKSPACE_HOST
+    ```
 
 3. ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git 
