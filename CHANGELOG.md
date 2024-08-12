@@ -1,5 +1,5 @@
 # Changelog
-## [v.0.0.8] 
+## [v.0.0.9] 
 - Added dlt append_flow api support: [PR](https://github.com/databrickslabs/dlt-meta/pull/58)
 - Added dlt append_flow api support for silver layer: [PR](https://github.com/databrickslabs/dlt-meta/pull/63)
 - Added support for file metadata columns for autoloader: [PR](https://github.com/databrickslabs/dlt-meta/pull/56)
