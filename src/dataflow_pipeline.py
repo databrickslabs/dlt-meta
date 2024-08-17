@@ -408,29 +408,9 @@ class DataflowPipeline:
         if cdc_apply_changes is None:
             raise Exception("cdcApplychanges is None! ")
 
-        struct_schema = (
-            StructType.fromJson(self.schema_json)
-            if isinstance(self.dataflowSpec, BronzeDataflowSpec)
-            else self.silver_schema
-        )
-
-        sequenced_by_data_type = None
-
-        if cdc_apply_changes.except_column_list:
-            modified_schema = StructType([])
-            if struct_schema:
-                for field in struct_schema.fields:
-                    if field.name not in cdc_apply_changes.except_column_list:
-                        modified_schema.add(field)
-                    if field.name == cdc_apply_changes.sequence_by:
-                        sequenced_by_data_type = field.dataType
-                struct_schema = modified_schema
-            else:
-                raise Exception(f"Schema is None for {self.dataflowSpec} for cdc_apply_changes! ")
-
-        if struct_schema and cdc_apply_changes.scd_type == "2":
-            struct_schema.add(StructField("__START_AT", sequenced_by_data_type))
-            struct_schema.add(StructField("__END_AT", sequenced_by_data_type))
+        struct_schema = None
+        if self.schema_json:
+            struct_schema = self.modify_schema_for_cdc_changes(cdc_apply_changes)
 
         target_path = None if self.uc_enabled else self.dataflowSpec.targetDetails["path"]
 
@@ -463,6 +443,32 @@ class DataflowPipeline:
             ignore_null_updates_column_list=cdc_apply_changes.ignore_null_updates_column_list,
             ignore_null_updates_except_column_list=cdc_apply_changes.ignore_null_updates_except_column_list
         )
+
+    def modify_schema_for_cdc_changes(self, cdc_apply_changes):
+        struct_schema = (
+            StructType.fromJson(self.schema_json)
+            if isinstance(self.dataflowSpec, BronzeDataflowSpec)
+            else self.silver_schema
+        )
+
+        sequenced_by_data_type = None
+
+        if cdc_apply_changes.except_column_list:
+            modified_schema = StructType([])
+            if struct_schema:
+                for field in struct_schema.fields:
+                    if field.name not in cdc_apply_changes.except_column_list:
+                        modified_schema.add(field)
+                    if field.name == cdc_apply_changes.sequence_by:
+                        sequenced_by_data_type = field.dataType
+                struct_schema = modified_schema
+            else:
+                raise Exception(f"Schema is None for {self.dataflowSpec} for cdc_apply_changes! ")
+
+        if struct_schema and cdc_apply_changes.scd_type == "2":
+            struct_schema.add(StructField("__START_AT", sequenced_by_data_type))
+            struct_schema.add(StructField("__END_AT", sequenced_by_data_type))
+        return struct_schema
 
     def create_streaming_table(self, struct_schema, target_path=None):
         expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = self.get_dq_expectations()
