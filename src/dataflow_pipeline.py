@@ -445,6 +445,10 @@ class DataflowPipeline:
         )
 
     def modify_schema_for_cdc_changes(self, cdc_apply_changes):
+        if isinstance(self.dataflowSpec, BronzeDataflowSpec) and self.schema_json is None:
+            return None
+        if isinstance(self.dataflowSpec, SilverDataflowSpec) and self.silver_schema is None:
+            return None
         struct_schema = (
             StructType.fromJson(self.schema_json)
             if isinstance(self.dataflowSpec, BronzeDataflowSpec)
