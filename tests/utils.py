@@ -41,6 +41,7 @@ class DLTFrameworkTestCase(unittest.TestCase):
         self.onboarding_bronze_type2_json_file = "tests/resources/onboarding_ac_bronze_type2.json"
         self.onboarding_append_flow_json_file = "tests/resources/onboarding_append_flow.json"
         self.onboarding_silver_fanout_json_file = "tests/resources/onboarding_silverfanout.json"
+        self.onboarding_sink_json_file = "tests/resources/onboarding_sink.json"
         self.deltaPipelinesMetaStoreOps.drop_database("ravi_dlt_demo")
         self.deltaPipelinesMetaStoreOps.create_database("ravi_dlt_demo", "Unittest")
         self.onboarding_bronze_silver_params_map = {

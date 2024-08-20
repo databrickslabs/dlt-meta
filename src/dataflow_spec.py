@@ -34,6 +34,7 @@ class BronzeDataflowSpec:
     quarantineTableProperties: map
     appendFlows: str
     appendFlowsSchemas: map
+    sink: str
     version: str
     createDate: datetime
     createdBy: str
@@ -60,6 +61,7 @@ class SilverDataflowSpec:
     dataQualityExpectations: str
     appendFlows: str
     appendFlowsSchemas: map
+    sink: str
     version: str
     createDate: datetime
     createdBy: str
@@ -101,6 +103,13 @@ class AppendFlow:
     once: bool
 
 
+@dataclass
+class DLTSink:
+    name: str
+    format: str
+    options: map
+
+
 class DataflowSpecUtils:
     """A collection of methods for working with DataflowSpec."""
 
@@ -139,6 +148,8 @@ class DataflowSpecUtils:
     }
 
     append_flow_mandatory_attributes = ["name", "source_format", "create_streaming_table", "source_details"]
+    sink_mandatory_attributes = ["name", "format", "options"]
+    supported_sink_formats = ["delta", "kafka"]
 
     append_flow_api_attributes_defaults = {
         "comment": None,
@@ -336,3 +347,24 @@ class DataflowSpecUtils:
             logger.info(f"final appendFlow={json_append_flow}")
             list_append_flows.append(AppendFlow(**json_append_flow))
         return list_append_flows
+
+    def get_sink(sink) -> DLTSink:
+        """Get sink metadata."""
+        logger.info(sink)
+        json_sink = json.loads(sink)
+        logger.info(f"actual sink={json_sink}")
+        payload_keys = json_sink.keys()
+        missing_sink_payload_keys = set(DataflowSpecUtils.sink_mandatory_attributes).difference(payload_keys)
+        logger.info(f"missing sink payload keys:{missing_sink_payload_keys}")
+        if set(DataflowSpecUtils.sink_mandatory_attributes) - set(payload_keys):
+            missing_mandatory_attr = set(DataflowSpecUtils.sink_mandatory_attributes) - set(payload_keys)
+            logger.info(f"mandatory missing keys= {missing_mandatory_attr}")
+            raise Exception(f"mandatory missing keys= {missing_mandatory_attr} for sink")
+        else:
+            logger.info(
+                f"""all mandatory keys
+                {DataflowSpecUtils.sink_mandatory_attributes} exists"""
+            )
+
+        logger.info(f"final sink={json_sink}")
+        return DLTSink(**json_sink)

@@ -6,7 +6,7 @@ from pyspark.sql import DataFrame
 from pyspark.sql.functions import expr
 from pyspark.sql.types import StructType, StructField
 
-from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
+from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils, DLTSink
 from src.pipeline_readers import PipelineReaders
 
 logger = logging.getLogger('databricks.labs.dltmeta')
@@ -51,6 +51,12 @@ class AppendFlowWriter:
                         spark_conf=self.append_flow.spark_conf,
                         once=self.append_flow.once,
                         )(self.write_af_to_delta)
+
+    @staticmethod
+    def write_to_sink(sink: DLTSink):
+        """Write to Sink."""
+        dlt.create_sink(sink.name, sink.format, sink.sink_options)
+        dlt.append_flow(name=f"{sink.name}_flow", target=sink.name)
 
 
 class DataflowPipeline:
@@ -168,6 +174,9 @@ class DataflowPipeline:
 
     def write(self):
         """Write DLT."""
+        if self.dataflowSpec.sink:
+            dlt_sink = DataflowSpecUtils.get_sink(self.dataflowSpec.sink)
+            AppendFlowWriter.write_to_sink(dlt_sink)
         if isinstance(self.dataflowSpec, BronzeDataflowSpec):
             self.write_bronze()
         elif isinstance(self.dataflowSpec, SilverDataflowSpec):
