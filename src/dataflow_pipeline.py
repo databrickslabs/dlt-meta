@@ -53,10 +53,10 @@ class AppendFlowWriter:
                         )(self.write_af_to_delta)
 
     @staticmethod
-    def write_to_sink(sink: DLTSink):
+    def write_to_sink(sink: DLTSink, write_to_sink):
         """Write to Sink."""
-        dlt.create_sink(sink.name, sink.format, sink.sink_options)
-        dlt.append_flow(name=f"{sink.name}_flow", target=sink.name)
+        dlt.create_sink(sink.name, sink.format, sink.options)
+        dlt.append_flow(name=f"{sink.name}_flow", target=sink.name)(write_to_sink)
 
 
 class DataflowPipeline:
@@ -176,7 +176,7 @@ class DataflowPipeline:
         """Write DLT."""
         if self.dataflowSpec.sink:
             dlt_sink = DataflowSpecUtils.get_sink(self.dataflowSpec.sink)
-            AppendFlowWriter.write_to_sink(dlt_sink)
+            AppendFlowWriter.write_to_sink(dlt_sink, self.write_to_delta)
         if isinstance(self.dataflowSpec, BronzeDataflowSpec):
             self.write_bronze()
         elif isinstance(self.dataflowSpec, SilverDataflowSpec):

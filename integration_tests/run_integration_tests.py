@@ -751,6 +751,18 @@ class DLTMETARunner:
                             self.__populate_source_details(runner_conf, val, k, v)
                 if 'dbfs_path' in value:
                     data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                if key == 'bronze_sink' or key == 'silver_sink':
+                    if data_flow[key]['format'] == 'delta':
+                        options_value = data_flow[key]['options']
+                        for options_key, options_val in options_value.items():
+                            if '{uc_catalog_name}.{bronze_schema}' in options_val:
+                                data_flow[key]['options'][options_key] = options_val.format(
+                                    uc_catalog_name=runner_conf.uc_catalog_name,
+                                    bronze_schema=runner_conf.bronze_schema)
+                            if '{uc_catalog_name}.{silver_schema}' in options_val:
+                                data_flow[key]['options'][options_key] = options_val.format(
+                                    uc_catalog_name=runner_conf.uc_catalog_name,
+                                    silver_schema=runner_conf.silver_schema)
                 if key == 'silver_append_flows':
                     counter = 0
                     for flows in value:
@@ -831,8 +843,8 @@ class DLTMETARunner:
                                 silver_schema=runner_conf.silver_schema
                             )
 
-        with open(runner_conf.onboarding_fanout_file_path, "w") as onboarding_file:
-            json.dump(onboard_obj, onboarding_file)
+            with open(runner_conf.onboarding_fanout_file_path, "w") as onboarding_file:
+                json.dump(onboard_obj, onboarding_file)
 
     def __populate_source_details(self, runner_conf, data_flow, key, value):
         if key == "source_details":

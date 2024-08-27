@@ -365,6 +365,6 @@ class DataflowSpecUtils:
                 f"""all mandatory keys
                 {DataflowSpecUtils.sink_mandatory_attributes} exists"""
             )
-
+        json_sink['options'] = json.loads(json_sink['options'])
         logger.info(f"final sink={json_sink}")
         return DLTSink(**json_sink)

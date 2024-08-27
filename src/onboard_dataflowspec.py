@@ -602,7 +602,8 @@ class OnboardDataflowspec:
                     logger.info("Validated delta sink options")
                 else:
                     raise Exception(f"Missing delta sink options: {delta_format_options}")
-        return sink
+        sink_json = json.dumps(sink)
+        return sink_json
 
     def __validate_apply_changes(self, onboarding_row, layer):
         cdc_apply_changes = onboarding_row[f"{layer}_cdc_apply_changes"]
