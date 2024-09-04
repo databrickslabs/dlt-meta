@@ -50,7 +50,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "quarantineTableProperties": {},
         "appendFlows": [],
         "appendFlowsSchemas": {},
-        "sink": {},
+        "sinks": {},
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -106,7 +106,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         }""",
         "appendFlows": [],
         "appendFlowsSchemas": {},
-        "sink": {},
+        "sinks": {},
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -1005,3 +1005,45 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         bronze_dataflowSpec_df.appendFlows = None
         with self.assertRaises(Exception):
             pipeline = DataflowPipeline(self.spark, bronze_dataflowSpec_df, view_name, None)
+
+    @patch('dlt.create_sink', new_callable=MagicMock)
+    @patch('dlt.append_flow', new_callable=MagicMock)
+    @patch('dlt.table', new_callable=MagicMock)
+    def test_dataflowpipeline_bronze_sink_write(self, mock_dlt_table, mock_append_flow, mock_create_sink):
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = self.onboarding_sink_json_file
+        local_params["bronze_dataflowspec_table"] = "bronze_dataflowspec_sink"
+        del local_params["silver_dataflowspec_table"]
+        del local_params["silver_dataflowspec_path"]
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
+        bronze_dataflowSpec_df = self.spark.read.table(
+            f"{self.onboarding_bronze_silver_params_map['database']}.bronze_dataflowspec_sink")
+        bronze_dataflowSpec_df.show(truncate=False)
+        self.assertEqual(bronze_dataflowSpec_df.count(), 1)
+        bronze_dataflow_spec = DataflowSpecUtils._get_dataflow_spec(
+            spark=self.spark,
+            dataflow_spec_df=bronze_dataflowSpec_df,
+            layer="bronze"
+        ).collect()[0]
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, BronzeDataflowSpec(**bronze_dataflow_spec.asDict()), view_name, None)
+        pipeline.write()
+        assert mock_create_sink.called_with(
+            name="sink",
+            target="sink",
+            comment="sink dlt table sink"
+        )
+        assert mock_append_flow.called_with(
+            name="sink",
+            target="sink"
+        )
+        assert mock_dlt_table.called_with(
+            pipeline.write_to_delta,
+            name="sink",
+            partition_cols=[],
+            table_properties={},
+            path=None,
+            comment="sink dlt table sink"
+        )

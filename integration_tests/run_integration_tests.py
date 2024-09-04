@@ -261,7 +261,8 @@ class DLTMETARunner:
         created = None
         if runner_conf.uc_catalog_name:
             configuration[f"{layer}.dataflowspecTable"] = (
-                f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}.{layer}_dataflowspec_cdc"
+                f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}."
+                f"{layer}_dataflowspec_cdc"
             )
             created = self.ws.pipelines.create(
                 catalog=runner_conf.uc_catalog_name,
@@ -595,7 +596,7 @@ class DLTMETARunner:
         with open(f"{runner_conf.kafka_template}") as f:
             onboard_obj = json.load(f)
         kafka_topic = self.args.__getattribute__("kafka_topic_name").lower()
-        kafka_bootstrap_servers = self.args.__getattribute__("kafka_broker").lower()
+        kafka_broker_secret_scope = self.args.__getattribute__("kafka_broker_secret_scope").lower()
         for data_flow in onboard_obj:
             for key, value in data_flow.items():
                 if key == "source_details":
@@ -604,9 +605,13 @@ class DLTMETARunner:
                             data_flow[key][source_key] = source_value.format(dbfs_path=runner_conf.dbfs_tmp_path)
                         if 'kafka_topic' in source_value:
                             data_flow[key][source_key] = source_value.format(kafka_topic=kafka_topic)
-                        if 'kafka_bootstrap_servers' in source_value:
+                        if 'kafka_broker_secret_scope' in source_value:
                             data_flow[key][source_key] = source_value.format(
-                                kafka_bootstrap_servers=kafka_bootstrap_servers)
+                                kafka_broker_secret_scope=kafka_broker_secret_scope)
+                        if 'kafka_broker_secret_key' in source_value:
+                            data_flow[key][source_key] = source_value.format(
+                                kafka_broker_secret_key=self.args.__getattribute__("kafka_broker_secret_key").lower())
+
                 if 'dbfs_path' in value:
                     data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
                 elif 'run_id' in value:
@@ -751,18 +756,40 @@ class DLTMETARunner:
                             self.__populate_source_details(runner_conf, val, k, v)
                 if 'dbfs_path' in value:
                     data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
-                if key == 'bronze_sink' or key == 'silver_sink':
-                    if data_flow[key]['format'] == 'delta':
-                        options_value = data_flow[key]['options']
-                        for options_key, options_val in options_value.items():
-                            if '{uc_catalog_name}.{bronze_schema}' in options_val:
-                                data_flow[key]['options'][options_key] = options_val.format(
-                                    uc_catalog_name=runner_conf.uc_catalog_name,
-                                    bronze_schema=runner_conf.bronze_schema)
-                            if '{uc_catalog_name}.{silver_schema}' in options_val:
-                                data_flow[key]['options'][options_key] = options_val.format(
-                                    uc_catalog_name=runner_conf.uc_catalog_name,
-                                    silver_schema=runner_conf.silver_schema)
+                if key == 'bronze_sinks' or key == 'silver_sinks':
+                    sink_counter = 0
+                    for dlt_sink in data_flow[key]:
+                        if dlt_sink['format'] == 'delta':
+                            options_value = dlt_sink['options']
+                            for options_key, options_val in options_value.items():
+                                if '{uc_catalog_name}.{bronze_schema}' in options_val:
+                                    data_flow[key][sink_counter]['options'][options_key] = options_val.format(
+                                        uc_catalog_name=runner_conf.uc_catalog_name,
+                                        bronze_schema=runner_conf.bronze_schema)
+                                if '{uc_catalog_name}.{silver_schema}' in options_val:
+                                    data_flow[key][sink_counter]['options'][options_key] = options_val.format(
+                                        uc_catalog_name=runner_conf.uc_catalog_name,
+                                        silver_schema=runner_conf.silver_schema)
+                        elif dlt_sink['format'] == 'kafka':
+                            options_value = dlt_sink['options']
+                            for options_key, options_val in options_value.items():
+                                if 'kafka.bootstrap.servers' in options_key:
+                                    data_flow[key][sink_counter]['options'][options_key] = options_val.format(
+                                        kafka_sink_broker=self.args.__getattribute__("kafka_sink_broker"))
+                                if 'topic' in options_key:
+                                    data_flow[key][sink_counter]['options'][options_key] = options_val.format(
+                                        kafka_sink_topic_name=self.args.__getattribute__(
+                                            "kafka_sink_topic_name").lower()
+                                    )
+                                if 'kafka_bootstrap_servers_secrets_scope' in options_key:
+                                    data_flow[key][sink_counter]['options'][options_key] = options_val.format(
+                                        kafka_sink_secret_scope=self.args.__getattribute__(
+                                            "kafka_broker_sink_secret_scope").lower())
+                                if 'kafka_bootstrap_servers_secrets_key' in options_key:
+                                    data_flow[key][sink_counter]['options'][options_key] = options_val.format(
+                                        kafka_sink_secret_key=self.args.__getattribute__(
+                                            "kafka_sink_broker_secret_key").lower())
+                        sink_counter += 1
                 if key == 'silver_append_flows':
                     counter = 0
                     for flows in value:
@@ -773,6 +800,7 @@ class DLTMETARunner:
                                         data_flow[key][counter][flow_key][source_key] = source_value.format(
                                             uc_catalog_name=runner_conf.uc_catalog_name,
                                             bronze_schema=runner_conf.bronze_schema)
+                        counter += 1
                 elif 'run_id' in value:
                     data_flow[key] = value.format(run_id=runner_conf.run_id)
                 elif 'uc_catalog_name' in value and 'bronze_schema' in value:
@@ -1043,7 +1071,12 @@ args_map = {"--profile": "provide databricks cli profile name, if not provide da
             "--eventhub_namespace": "Provide eventhub_namespace e.g --eventhub_namespace=topic-standard",
             "--eventhub_port": "Provide eventhub_port e.g --eventhub_port=9093",
             "--kafka_topic_name": "Provide kafka topic name e.g --kafka_topic_name=iot",
-            "--kafka_broker": "Provide kafka broker e.g --127.0.0.1:9092"
+            "--kafka_sink_topic_name": "Provide kafka topic name e.g --kafka__sink_topic_name=iot",
+            "--kafka_sink_broker": "Provide kafka sink broker e.g --kafka_broker=broker:9092",
+            "--kafka_broker_secret_scope": "Provide kafka broker kafka_broker_secret_scope",
+            "--kafka_broker_sink_secret_scope": "Provide kafka broker kafka_broker_sink_secret_scope",
+            "--kafka_broker_secret_key": "Provide kafka broker kafka_broker_secret_key",
+            "--kafka_sink_broker_secret_key": "Provide kafka sink broker kafka_sink_broker_secret_key",
             }
 
 mandatory_args = [

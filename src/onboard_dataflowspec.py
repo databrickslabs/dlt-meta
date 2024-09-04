@@ -415,7 +415,7 @@ class OnboardDataflowspec:
             "quarantineTableProperties",
             "appendFlows",
             "appendFlowsSchemas",
-            "sink"
+            "sinks"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -439,7 +439,7 @@ class OnboardDataflowspec:
                 StructField("quarantineTableProperties", MapType(StringType(), StringType(), True), True),
                 StructField("appendFlows", StringType(), True),
                 StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True),
-                StructField("sink", StringType(), True)
+                StructField("sinks", StringType(), True)
             ]
         )
         data = []
@@ -477,9 +477,9 @@ class OnboardDataflowspec:
             if "bronze_partition_columns" in onboarding_row and onboarding_row["bronze_partition_columns"]:
                 partition_columns = [onboarding_row["bronze_partition_columns"]]
 
-            dlt_sink = None
-            if "bronze_sink" in onboarding_row and onboarding_row["bronze_sink"]:
-                dlt_sink = self.get_sink_details(onboarding_row, "bronze")
+            dlt_sinks = None
+            if "bronze_sinks" in onboarding_row and onboarding_row["bronze_sinks"]:
+                dlt_sinks = self.get_sink_details(onboarding_row, "bronze")
             cdc_apply_changes = None
             if "bronze_cdc_apply_changes" in onboarding_row and onboarding_row["bronze_cdc_apply_changes"]:
                 self.__validate_apply_changes(onboarding_row, "bronze")
@@ -531,7 +531,7 @@ class OnboardDataflowspec:
                 quarantine_table_properties,
                 append_flows,
                 append_flows_schemas,
-                dlt_sink
+                dlt_sinks
             )
             data.append(bronze_row)
             # logger.info(bronze_parition_columns)
@@ -573,37 +573,40 @@ class OnboardDataflowspec:
         return append_flows, append_flows_schema
 
     def get_sink_details(self, onboarding_row, layer):
-        sink_details_json = onboarding_row[f"{layer}_sink"]
-        sink_json = self.get_validated_sink_details(sink_details_json)
-        return sink_json
+        sink_details_json = onboarding_row[f"{layer}_sinks"]
+        sinks_json = self.get_validated_sinks_details(sink_details_json)
+        return sinks_json
 
-    def get_validated_sink_details(self, sink_details_json):
-        sink = {}
-        sink_details = sink_details_json.asDict()
-        sink_details_keys = set(sink_details.keys())
-        missing_sink_details_keys = set(DataflowSpecUtils.sink_mandatory_attributes).difference(sink_details_keys)
-        if missing_sink_details_keys:
-            raise Exception(f"Missing sink details keys: {missing_sink_details_keys}")
-        if sink_details.get("name", None):
-            sink["name"] = sink_details["name"].lower()
-        if sink_details.get("format", None):
-            sink_format_options = ["delta", "kafka"]
-            if sink_details["format"].lower() not in sink_format_options:
-                raise Exception(f"Sink format {sink_details['format']} not supported in DLT-META!")
-            sink["format"] = sink_details["format"].lower()
-        if sink_details.get("options", None):
-            options_dict = self.__delete_none(sink_details["options"].asDict())
-            options_json = json.dumps(self.__delete_none(options_dict))
-            sink["options"] = options_json
-            delta_format_options = ["path", "tablename"]
-            dlt_sink_options_keys = set(options_dict.keys())
-            if sink["format"] == "delta":
-                if "path" in dlt_sink_options_keys or "tablename":
-                    logger.info("Validated delta sink options")
-                else:
-                    raise Exception(f"Missing delta sink options: {delta_format_options}")
-        sink_json = json.dumps(sink)
-        return sink_json
+    def get_validated_sinks_details(self, sinks_details_json):
+        sink_list = []
+        for sink_details_json in sinks_details_json:
+            sink = {}
+            sink_details = sink_details_json.asDict()
+            sink_details_keys = set(sink_details.keys())
+            missing_sink_details_keys = set(DataflowSpecUtils.sink_mandatory_attributes).difference(sink_details_keys)
+            if missing_sink_details_keys:
+                raise Exception(f"Missing sink details keys: {missing_sink_details_keys}")
+            if sink_details.get("name", None):
+                sink["name"] = sink_details["name"].lower()
+            if sink_details.get("format", None):
+                sink_format_options = ["delta", "kafka"]
+                if sink_details["format"].lower() not in sink_format_options:
+                    raise Exception(f"Sink format {sink_details['format']} not supported in DLT-META!")
+                sink["format"] = sink_details["format"].lower()
+            if sink_details.get("options", None):
+                options_dict = self.__delete_none(sink_details["options"].asDict())
+                options_json = json.dumps(self.__delete_none(options_dict))
+                sink["options"] = options_json
+                delta_format_options = ["path", "tablename"]
+                dlt_sink_options_keys = set(options_dict.keys())
+                if sink["format"] == "delta":
+                    if "path" in dlt_sink_options_keys or "tablename":
+                        logger.info("Validated delta sink options")
+                    else:
+                        raise Exception(f"Missing delta sink options: {delta_format_options}")
+            sink_list.append(sink)
+        sinks_json = json.dumps(sink_list)
+        return sinks_json
 
     def __validate_apply_changes(self, onboarding_row, layer):
         cdc_apply_changes = onboarding_row[f"{layer}_cdc_apply_changes"]
@@ -747,7 +750,7 @@ class OnboardDataflowspec:
             "dataQualityExpectations",
             "appendFlows",
             "appendFlowsSchemas",
-            "sink"
+            "sinks"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -768,7 +771,7 @@ class OnboardDataflowspec:
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField("appendFlows", StringType(), True),
                 StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True),
-                StructField("sink", StringType(), True)
+                StructField("sinks", StringType(), True)
             ]
         )
         data = []
@@ -810,9 +813,9 @@ class OnboardDataflowspec:
             if "silver_partition_columns" in onboarding_row and onboarding_row["silver_partition_columns"]:
                 silver_parition_columns = [onboarding_row["silver_partition_columns"]]
 
-            dlt_sink = None
-            if "silver_sink" in onboarding_row and onboarding_row["silver_sink"]:
-                dlt_sink = self.get_sink_details(onboarding_row, "silver")
+            dlt_sinks = None
+            if "silver_sinks" in onboarding_row and onboarding_row["silver_sinks"]:
+                dlt_sinks = self.get_sink_details(onboarding_row, "silver")
             silver_cdc_apply_changes = None
             if "silver_cdc_apply_changes" in onboarding_row and onboarding_row["silver_cdc_apply_changes"]:
                 self.__validate_apply_changes(onboarding_row, "silver")
@@ -840,7 +843,7 @@ class OnboardDataflowspec:
                 data_quality_expectations,
                 append_flows,
                 append_flow_schemas,
-                dlt_sink
+                dlt_sinks
             )
             data.append(silver_row)
             logger.info(f"silver_data ==== {data}")

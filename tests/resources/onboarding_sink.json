@@ -32,13 +32,20 @@
             "pipelines.autoOptimize.managed": "false",
             "pipelines.reset.allowed": "false"
         },
-        "bronze_sink":{
-            "name": "bronze_sink",
+        "bronze_sinks":[{
+            "name": "bronze_sink1",
             "format": "delta",
             "options": {
                 "tableName": "bronze.customers_cdc"
             }
         },
+        {"name": "bronze_sink2",
+        "format": "delta",
+        "options": {
+            "tableName": "bronze.customers_cdc"
+        }
+        }
+        ],
         "silver_database_dev": "silver",
         "silver_database_staging": "silver",
         "silver_database_prd": "silver",
@@ -64,13 +71,26 @@
         },
         "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
         "silver_data_quality_expectations_json_dev": "tests/resources/dqe/customers/silver_data_quality_expectations.json",
-        "silver_sink":{
+        "silver_sinks":[{
             "name": "silver_sink",
             "format": "delta",
             "options": {
                 "tableName": "silver.customers_cdc"
             }
-        }     
+        } ,
+        {
+            "name": "bronze_customer_sink",
+            "format": "kafka",
+            "options": {
+                "kafka_bootstrap_servers_secrets_scope":"oetrta",
+                "kafka_bootstrap_servers_secrets_key":"kafka-bootstrap-servers-plaintext",
+                "kafka.security.protocol":"PLAINTEXT",
+                "startingOffsets":"earliest",
+                "checkpointLocation":"{dbfs_path}/integration_tests/kafka_test_checkpoint/",
+                "topic":"{kafka_sink_topic}"
+            }
+        }           
+    ]
 
     }
 ]

@@ -29,6 +29,13 @@
         "bronze_database_quarantine_it": "{uc_catalog_name}.{bronze_schema}",
         "bronze_quarantine_table": "bronze_{run_id}_iot_quarantine",
         "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/iot_quarantine",
+        "bronze_sinks": [{
+            "name": "bronze_eventhub_sink",
+            "format": "kafka",
+            "options": {
+                "tableName": "ravi_dlt_meta_uc.dlt_meta_bronze_it_e33f69c0b2824f62b651a3d047e30c31.customer_sink_cdc"
+            }
+        }],
         "bronze_append_flows": [
             {
                     "name": "io_bronze_eventhub_append_flow",

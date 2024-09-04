@@ -55,6 +55,26 @@
             "once": false
       }
    ],
+   "bronze_sinks": [{
+            "name": "bronze_customer_sink",
+            "format": "delta",
+            "options": {
+                "tableName": "ravi_dlt_meta_uc.dlt_meta_bronze_it_e33f69c0b2824f62b651a3d047e30c31.customer_sink_cdc"
+            }
+            },
+            {
+            "name": "bronze_customer_kafka_sink1",
+            "format": "kafka",
+            "options": {
+                "kafka.bootstrap.servers":"{kafka_sink_broker}",
+                "kafka_bootstrap_servers_secrets_scope":"{kafka_sink_secret_scope}",
+                "kafka_bootstrap_servers_secrets_key":"{kafka_sink_secret_key}",
+                "kafka.security.protocol":"PLAINTEXT",
+                "startingOffsets":"earliest",
+                "checkpointLocation":"{dbfs_path}/integration_tests/kafka_test_checkpoint/",
+                "topic":"{kafka_sink_topic_name}"               
+            }
+   }],
    "silver_database_it": "{uc_catalog_name}.{silver_schema}",
    "silver_table": "customers",
    "silver_table_path_it": "{dbfs_path}/data/silver/customers",

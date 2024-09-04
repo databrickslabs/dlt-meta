@@ -34,7 +34,7 @@ class BronzeDataflowSpec:
     quarantineTableProperties: map
     appendFlows: str
     appendFlowsSchemas: map
-    sink: str
+    sinks: str
     version: str
     createDate: datetime
     createdBy: str
@@ -61,7 +61,7 @@ class SilverDataflowSpec:
     dataQualityExpectations: str
     appendFlows: str
     appendFlowsSchemas: map
-    sink: str
+    sinks: str
     version: str
     createDate: datetime
     createdBy: str
@@ -348,23 +348,46 @@ class DataflowSpecUtils:
             list_append_flows.append(AppendFlow(**json_append_flow))
         return list_append_flows
 
-    def get_sink(sink) -> DLTSink:
+    def get_db_utils(spark):
+        """Get databricks utils using DBUtils package."""
+        from pyspark.dbutils import DBUtils
+        return DBUtils(spark)
+
+    def get_sinks(sinks, spark) -> list[DLTSink]:
         """Get sink metadata."""
-        logger.info(sink)
-        json_sink = json.loads(sink)
-        logger.info(f"actual sink={json_sink}")
-        payload_keys = json_sink.keys()
-        missing_sink_payload_keys = set(DataflowSpecUtils.sink_mandatory_attributes).difference(payload_keys)
-        logger.info(f"missing sink payload keys:{missing_sink_payload_keys}")
-        if set(DataflowSpecUtils.sink_mandatory_attributes) - set(payload_keys):
-            missing_mandatory_attr = set(DataflowSpecUtils.sink_mandatory_attributes) - set(payload_keys)
-            logger.info(f"mandatory missing keys= {missing_mandatory_attr}")
-            raise Exception(f"mandatory missing keys= {missing_mandatory_attr} for sink")
-        else:
-            logger.info(
-                f"""all mandatory keys
-                {DataflowSpecUtils.sink_mandatory_attributes} exists"""
-            )
-        json_sink['options'] = json.loads(json_sink['options'])
-        logger.info(f"final sink={json_sink}")
-        return DLTSink(**json_sink)
+        logger.info(sinks)
+        json_sinks = json.loads(sinks)
+        dlt_sinks = []
+        for json_sink in json_sinks:
+            logger.info(f"actual sink={json_sink}")
+            payload_keys = json_sink.keys()
+            missing_sink_payload_keys = set(DataflowSpecUtils.sink_mandatory_attributes).difference(payload_keys)
+            logger.info(f"missing sink payload keys:{missing_sink_payload_keys}")
+            if set(DataflowSpecUtils.sink_mandatory_attributes) - set(payload_keys):
+                missing_mandatory_attr = set(DataflowSpecUtils.sink_mandatory_attributes) - set(payload_keys)
+                logger.info(f"mandatory missing keys= {missing_mandatory_attr}")
+                raise Exception(f"mandatory missing keys= {missing_mandatory_attr} for sink")
+            else:
+                logger.info(
+                    f"""all mandatory keys
+                    {DataflowSpecUtils.sink_mandatory_attributes} exists"""
+                )
+            format = json_sink['format']
+            if format not in DataflowSpecUtils.supported_sink_formats:
+                raise Exception(f"Unsupported sink format: {format}")
+            if 'options' in json_sink.keys():
+                json_sink['options'] = json.loads(json_sink['options'])
+            if format == "kafka" and 'options' in json_sink.keys():
+                kafka_options_json = json_sink['options']
+                dbutils = DataflowSpecUtils.get_db_utils(spark)
+                if "kafka_bootstrap_servers_secrets_scope" in kafka_options_json.keys() and \
+                   "kafka_bootstrap_servers_secrets_key" in kafka_options_json.keys():
+                    kbs_secrets_scope = kafka_options_json["kafka_bootstrap_servers_secrets_scope"]
+                    kbs_secrets_key = kafka_options_json["kafka_bootstrap_servers_secrets_key"]
+                    json_sink['options']["kafka.bootstrap.servers"] = \
+                        dbutils.secrets.get(kbs_secrets_scope, kbs_secrets_key)
+                    del json_sink['options']['kafka_bootstrap_servers_secrets_scope']
+                    del json_sink['options']['kafka_bootstrap_servers_secrets_key']
+            logger.info(f"final sink={json_sink}")
+            dlt_sinks.append(DLTSink(**json_sink))
+        return dlt_sinks
