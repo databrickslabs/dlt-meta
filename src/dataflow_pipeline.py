@@ -3,7 +3,7 @@ import json
 import logging
 import dlt
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import expr
+from pyspark.sql.functions import expr, to_json, struct
 from pyspark.sql.types import StructType, StructField
 
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils, DLTSink
@@ -16,7 +16,10 @@ logger.setLevel(logging.INFO)
 class AppendFlowWriter:
     """Append Flow Writer class."""
 
-    def __init__(self, spark, append_flow, target, struct_schema, table_properties=None, partition_cols=None):
+    def __init__(
+        self, spark, append_flow, target, struct_schema, table_properties=None,
+        partition_cols=None
+    ):
         """Init."""
         self.spark = spark
         self.target = target
@@ -25,7 +28,7 @@ class AppendFlowWriter:
         self.table_properties = table_properties
         self.partition_cols = partition_cols
 
-    def write_af_to_delta(self):
+    def read_af_view(self):
         """Write to Delta."""
         return dlt.read_stream(f"{self.append_flow.name}_view")
 
@@ -50,14 +53,28 @@ class AppendFlowWriter:
                         comment=comment,
                         spark_conf=self.append_flow.spark_conf,
                         once=self.append_flow.once,
-                        )(self.write_af_to_delta)
+                        )(self.read_af_view)
 
-    @staticmethod
-    def write_to_sinks(sinks: list[DLTSink], write_to_sink):
+
+class DLTSinkWriter:
+    """DLT Sink Writer class."""
+
+    def __init__(self, dlt_sink: DLTSink, source_view_name):
+        """Init."""
+        self.dlt_sink = dlt_sink
+        self.source_view_name = source_view_name
+
+    def read_input_view(self):
         """Write to Sink."""
-        for sink in sinks:
-            dlt.create_sink(sink.name, sink.format, sink.options)
-            dlt.append_flow(name=f"{sink.name}_flow", target=sink.name)(write_to_sink)
+        input_df = dlt.read_stream(self.source_view_name)
+        if self.dlt_sink.format == "kafka":
+            input_df = input_df.select(to_json(struct("*")).alias("value"))
+        return input_df
+
+    def write_to_sink(self):
+        """Write to Sink."""
+        dlt.create_sink(self.dlt_sink.name, self.dlt_sink.format, self.dlt_sink.options)
+        dlt.append_flow(name=f"{self.dlt_sink.name}_flow", target=self.dlt_sink.name)(self.read_input_view)
 
 
 class DataflowPipeline:
@@ -177,7 +194,8 @@ class DataflowPipeline:
         """Write DLT."""
         if self.dataflowSpec.sinks:
             dlt_sinks = DataflowSpecUtils.get_sinks(self.dataflowSpec.sinks, self.spark)
-            AppendFlowWriter.write_to_sinks(dlt_sinks, self.write_to_delta)
+            for dlt_sink in dlt_sinks:
+                DLTSinkWriter(dlt_sink, self.view_name).write_to_sink()
         if isinstance(self.dataflowSpec, BronzeDataflowSpec):
             self.write_bronze()
         elif isinstance(self.dataflowSpec, SilverDataflowSpec):

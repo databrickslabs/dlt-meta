@@ -66,12 +66,8 @@
             "name": "bronze_customer_kafka_sink1",
             "format": "kafka",
             "options": {
-                "kafka.bootstrap.servers":"{kafka_sink_broker}",
-                "kafka_bootstrap_servers_secrets_scope":"{kafka_sink_secret_scope}",
-                "kafka_bootstrap_servers_secrets_key":"{kafka_sink_secret_key}",
-                "kafka.security.protocol":"PLAINTEXT",
-                "startingOffsets":"earliest",
-                "checkpointLocation":"{dbfs_path}/integration_tests/kafka_test_checkpoint/",
+                "kafka_bootstrap_servers_secrets_scope":"oetrta",
+                "kafka_bootstrap_servers_secrets_key":"kafka-bootstrap-servers-plaintext",
                 "topic":"{kafka_sink_topic_name}"               
             }
    }],

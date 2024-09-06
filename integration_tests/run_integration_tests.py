@@ -257,6 +257,7 @@ class DLTMETARunner:
             "layer": layer,
             f"{layer}.group": group,
             "dlt_meta_whl": runner_conf.remote_whl_path,
+            "pipelines.externalSink.enabled": "true",
         }
         created = None
         if runner_conf.uc_catalog_name:
@@ -268,6 +269,8 @@ class DLTMETARunner:
                 catalog=runner_conf.uc_catalog_name,
                 name=pipeline_name,
                 configuration=configuration,
+                serverless=True,
+                channel="PREVIEW",
                 libraries=[
                     PipelineLibrary(
                         notebook=NotebookLibrary(
@@ -275,8 +278,7 @@ class DLTMETARunner:
                         )
                     )
                 ],
-                target=target_schema,
-                clusters=[pipelines.PipelineCluster(label="default", num_workers=2)]
+                target=target_schema
             )
         else:
             configuration[f"{layer}.dataflowspecTable"] = (
@@ -549,8 +551,10 @@ class DLTMETARunner:
                     notebook_task=jobs.NotebookTask(
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events",
                         base_parameters={
+                            "kafka_broker_secret_scope": self.args.__getattribute__("kafka_broker_secret_scope"),
+                            "kafka_broker_secret_key": self.args.__getattribute__("kafka_broker_secret_key"),
                             "kafka_topic": self.args.__getattribute__("kafka_topic_name"),
-                            "kafka_broker": self.args.__getattribute__("kafka_broker"),
+                            # "kafka_broker": self.args.__getattribute__("kafka_broker"),
                             "kafka_input_data": f"/{dbfs_path}/{self.base_dir}/resources/data/iot/iot.json"
                         }
                     )
