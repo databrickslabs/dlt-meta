@@ -513,19 +513,31 @@ class DataflowPipeline:
         self.write()
 
     @staticmethod
-    def invoke_dlt_pipeline(spark, layer, custom_transform_func=None):
+    def invoke_dlt_pipeline(spark, layer, bronze_custom_transform_func=None, silver_custom_transform_func=None):
         """Invoke dlt pipeline will launch dlt with given dataflowspec.
 
         Args:
             spark (_type_): _description_
             layer (_type_): _description_
         """
-        dataflowspec_list = None
         if "bronze" == layer.lower():
             dataflowspec_list = DataflowSpecUtils.get_bronze_dataflow_spec(spark)
+            DataflowPipeline._launch_dlt_flow(spark, "bronze", dataflowspec_list, bronze_custom_transform_func)
         elif "silver" == layer.lower():
             dataflowspec_list = DataflowSpecUtils.get_silver_dataflow_spec(spark)
-        logger.info(f"Length of Dataflow Spec {len(dataflowspec_list)}")
+            DataflowPipeline._launch_dlt_flow(spark, "silver", dataflowspec_list, silver_custom_transform_func)
+        elif "bronze_silver" == layer.lower():
+            bronze_dataflowspec_list = DataflowSpecUtils.get_bronze_dataflow_spec(spark)
+            DataflowPipeline._launch_dlt_flow(
+                spark, "bronze", bronze_dataflowspec_list, bronze_custom_transform_func
+            )
+            silver_dataflowspec_list = DataflowSpecUtils.get_silver_dataflow_spec(spark)
+            DataflowPipeline._launch_dlt_flow(
+                spark, "silver", silver_dataflowspec_list, silver_custom_transform_func
+            )
+
+    @staticmethod
+    def _launch_dlt_flow(spark, layer, dataflowspec_list, custom_transform_func=None):
         for dataflowSpec in dataflowspec_list:
             logger.info("Printing Dataflow Spec")
             logger.info(dataflowSpec)
@@ -534,8 +546,7 @@ class DataflowPipeline:
                     and dataflowSpec.quarantineTargetDetails != {}:
                 quarantine_input_view_name = (
                     f"{dataflowSpec.quarantineTargetDetails['table']}"
-                    f"_{layer}_quarantine_inputView",
-                    custom_transform_func
+                    f"_{layer}_quarantine_inputView"
                 )
             else:
                 logger.info("quarantine_input_view_name set to None")
@@ -546,5 +557,4 @@ class DataflowPipeline:
                 quarantine_input_view_name,
                 custom_transform_func
             )
-
             dlt_data_flow.run_dlt()
