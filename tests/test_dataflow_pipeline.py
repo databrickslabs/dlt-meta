@@ -1003,3 +1003,43 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         bronze_dataflowSpec_df.appendFlows = None
         with self.assertRaises(Exception):
             pipeline = DataflowPipeline(self.spark, bronze_dataflowSpec_df, view_name, None)
+
+    @patch('dlt.table', new_callable=MagicMock)
+    def test_modify_schema_for_cdc_changes(self, mock_dlt_table):
+        mock_dlt_table.table.return_value = None
+        cdc_apply_changes_json = """{
+            "keys": ["id"],
+            "sequence_by": "operation_date",
+            "scd_type": "2",
+            "except_column_list": ["operation", "operation_date", "_rescued_data"]
+        }"""
+        cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(cdc_apply_changes_json)
+        bmap = DataflowPipelineTests.bronze_dataflow_spec_map
+        ddlSchemaStr = (
+            self.spark.read.text(paths="tests/resources/schema/customer_schema.ddl")
+            .select("value")
+            .collect()[0]["value"]
+        )
+        schema = T._parse_datatype_string(ddlSchemaStr)
+        bronze_dataflow_spec = BronzeDataflowSpec(
+            **bmap
+        )
+        bronze_dataflow_spec.schema = json.dumps(schema.jsonValue())
+        bronze_dataflow_spec.cdcApplyChanges = json.dumps(self.silver_cdc_apply_changes_scd2)
+        bronze_dataflow_spec.dataQualityExpectations = None
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        expected_schema = T.StructType([
+            T.StructField("address", T.StringType()),
+            T.StructField("email", T.StringType()),
+            T.StructField("firstname", T.StringType()),
+            T.StructField("id", T.StringType()),
+            T.StructField("lastname", T.StringType()),
+            T.StructField("__START_AT", T.StringType()),
+            T.StructField("__END_AT", T.StringType())
+        ])
+        modified_schema = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
+        self.assertEqual(modified_schema, expected_schema)
+        pipeline.schema_json = None
+        modified_schema = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
+        self.assertEqual(modified_schema, None)
