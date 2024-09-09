@@ -325,7 +325,7 @@ class DLTMeta:
                                                         )
                                                     )
                                                 ],
-                                                #target=cmd.dlt_target_schema,
+                                                # target=cmd.dlt_target_schema,
                                                 schema=cmd.dlt_target_schema,
                                                 clusters=[pipelines.PipelineCluster(label="default",
                                                                                     num_workers=cmd.num_workers)]

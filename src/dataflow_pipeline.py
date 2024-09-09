@@ -105,10 +105,10 @@ class DataflowPipeline:
                 self.schema_json = None
         else:
             self.schema_json = None
-        if isinstance(dataflow_spec, SilverDataflowSpec):
-            self.silver_schema = self.get_silver_schema()
-        else:
-            self.silver_schema = None
+        # if isinstance(dataflow_spec, SilverDataflowSpec):
+        #     self.silver_schema = self.get_silver_schema()
+        # else:
+        self.silver_schema = None
 
     def table_has_expectations(self):
         """Table has expectations check."""
@@ -425,7 +425,7 @@ class DataflowPipeline:
             apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
 
         dlt.apply_changes(
-            target=f"{self.dataflowSpec.targetDetails['table']}",
+            target=f"{self.dataflowSpec.targetDetails['database']}.{self.dataflowSpec.targetDetails['table']}",
             source=self.view_name,
             keys=cdc_apply_changes.keys,
             sequence_by=cdc_apply_changes.sequence_by,
@@ -477,7 +477,7 @@ class DataflowPipeline:
     def create_streaming_table(self, struct_schema, target_path=None):
         expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = self.get_dq_expectations()
         dlt.create_streaming_table(
-            name=f"{self.dataflowSpec.targetDetails['table']}",
+            name=f"{self.dataflowSpec.targetDetails['database']}.{self.dataflowSpec.targetDetails['table']}",
             table_properties=self.dataflowSpec.tableProperties,
             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
             path=target_path,
