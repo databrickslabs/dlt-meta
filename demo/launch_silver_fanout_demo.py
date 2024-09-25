@@ -181,21 +181,11 @@ sfo_args_map = {
     "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
     "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
     "--dbr_version": "Provide databricks runtime spark version e.g 15.3.x-scala2.12",
-<<<<<<< Updated upstream
     "--uc_volume_path": "provide databricks uc_volume name, where you want to push integration test \
                         data and configurations"
 }
 
 sfo_mandatory_args = ["uc_catalog_name", "cloud_provider_name", "dbr_version", "uc_volume_path"]
-=======
-    "--dbfs_path": "Provide databricks workspace dbfs path where you want run integration tests \
-                        e.g --dbfs_path=dbfs:/tmp/DLT-META/",
-    "uc_volume_path": "provide databricks uc_volume name, where you want to push integration test \
-                        data and configurations"
-}
-
-sfo_mandatory_args = ["uc_catalog_name", "cloud_provider_name", "dbr_version"]
->>>>>>> Stashed changes
 
 
 def main():

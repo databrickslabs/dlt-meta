@@ -753,6 +753,8 @@ class DLTMETARunner:
                     data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
                 if 'uc_volume_path' in value:
                     data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
+                if 'uc_volume_path' in value:
+                    data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
                 if key == 'silver_append_flows':
                     counter = 0
                     for flows in value:
@@ -803,6 +805,8 @@ class DLTMETARunner:
                         data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
                     if 'uc_volume_path' in value:
                         data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
+                    if 'uc_volume_path' in value:
+                        data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
                     if 'uc_catalog_name' in value and 'bronze_schema' in value:
                         if runner_conf.uc_catalog_name:
                             data_flow[key] = value.format(
@@ -822,6 +826,8 @@ class DLTMETARunner:
                     self.__populate_source_details(runner_conf, data_flow, key, value)
                     if 'dbfs_path' in value:
                         data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                    if 'uc_volume_path' in value:
+                        data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
                     if 'uc_volume_path' in value:
                         data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
                     if 'uc_catalog_name' in value and 'bronze_schema' in value:
@@ -850,15 +856,9 @@ class DLTMETARunner:
 
     def copy(self, runner_conf: DLTMetaRunnerConf):
         if runner_conf.uc_catalog_name:
-<<<<<<< Updated upstream
-            # runner_conf.volume_info = self.ws.api_client.volumes.create(catalog_name=runner_conf.uc_catalog_name,
-            #                                                             schema_name=runner_conf.dlt_meta_schema,
-            #                                                             name=runner_conf.uc_volume_name,
-            #                                                             volume_type=VolumeType.MANAGED)
             print(f"uploading to {runner_conf.uc_volume_path}/{self.base_dir}/ started")
             src = runner_conf.int_tests_dir
             dst = runner_conf.uc_volume_path
-=======
             runner_conf.volume_info = self.ws.api_client.volumes.create(catalog_name=runner_conf.uc_catalog_name,
                                                                         schema_name=runner_conf.dlt_meta_schema,
                                                                         name=runner_conf.uc_volume_name,
@@ -866,7 +866,6 @@ class DLTMETARunner:
             print(f"uploading to {runner_conf.dbfs_tmp_path}/{self.base_dir}/ started")
             src = runner_conf.int_tests_dir
             dst = runner_conf.dbfs_tmp_path
->>>>>>> Stashed changes
             main_dir = src.replace('file:', '')
             base_dir_name = None
             if main_dir.endswith('/'):
@@ -878,20 +877,11 @@ class DLTMETARunner:
             for root, dirs, files in os.walk(main_dir):
                 for filename in files:
                     target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
-<<<<<<< Updated upstream
                     uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}".replace("//", "/")
                     contents = open(os.path.join(root, filename), "rb")
                     # print(f"local_path={os.path.join(root, filename)}",
                     #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
                     self.ws.files.upload(file_path=uc_volume_path, contents=contents, overwrite=True)
-=======
-                    dbfs_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
-                    contents = open(os.path.join(root, filename), "rb")
-                    # print(f"local_path={os.path.join(root, filename)}",
-                    #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
-                    self.ws.api_client.files.upload(file_path=dbfs_path, contents=contents, overwrite=True)
->>>>>>> Stashed changes
-
         else:
             src = runner_conf.int_tests_dir
             dst = runner_conf.dbfs_tmp_path
@@ -906,19 +896,11 @@ class DLTMETARunner:
             for root, dirs, files in os.walk(main_dir):
                 for filename in files:
                     target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
-<<<<<<< Updated upstream
-                    uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
-                    contents = open(os.path.join(root, filename), "rb")
-                    # print(f"local_path={os.path.join(root, filename)}",
-                    #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
-                    self.ws.dbfs.upload(uc_volume_path, contents, overwrite=True)
-=======
                     dbfs_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
                     contents = open(os.path.join(root, filename), "rb")
                     # print(f"local_path={os.path.join(root, filename)}",
                     #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
                     self.ws.dbfs.upload(dbfs_path, contents, overwrite=True)
->>>>>>> Stashed changes
 
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
         self.generate_onboarding_file(runner_conf)
