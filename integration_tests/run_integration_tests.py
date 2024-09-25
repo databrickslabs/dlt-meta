@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
-from databricks.sdk.service import jobs, pipelines, compute
+from databricks.sdk.service import jobs, compute
 from databricks.sdk.service.workspace import ImportFormat
 from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType
 from src.install import WorkspaceInstaller
@@ -897,7 +897,7 @@ class DLTMETARunner:
 
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
         if runner_conf.uc_catalog_name:
-            self.initialize_uc_resources(runner_conf)        
+            self.initialize_uc_resources(runner_conf)
         self.generate_onboarding_file(runner_conf)
         print("int_tests_dir: ", runner_conf.int_tests_dir)
         self.copy(runner_conf)
