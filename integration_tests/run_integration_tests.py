@@ -184,7 +184,9 @@ class DLTMETARunner:
         )
         if self.args.__dict__['uc_catalog_name']:
             runner_conf.uc_catalog_name = self.args.__dict__['uc_catalog_name']
-
+            runner_conf.uc_volume_name = f"{self.args.__dict__['uc_catalog_name']}_volume_{run_id}",
+            runner_conf.uc_volume_path = (f"/Volumes/{runner_conf.uc_catalog_name}/"
+                                          f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/")
         runners_full_local_path = None
 
         if runner_conf.source.lower() == "cloudfiles":
@@ -266,6 +268,7 @@ class DLTMETARunner:
             created = self.ws.pipelines.create(
                 catalog=runner_conf.uc_catalog_name,
                 name=pipeline_name,
+                serverless=True,
                 configuration=configuration,
                 libraries=[
                     PipelineLibrary(
@@ -274,8 +277,7 @@ class DLTMETARunner:
                         )
                     )
                 ],
-                target=target_schema,
-                clusters=[pipelines.PipelineCluster(label="default", num_workers=2)]
+                target=target_schema
             )
         else:
             configuration[f"{layer}.dataflowspecTable"] = (
@@ -283,7 +285,7 @@ class DLTMETARunner:
             )
             created = self.ws.pipelines.create(
                 name=pipeline_name,
-                # serverless=True,
+                serverless=True,
                 channel="PREVIEW",
                 configuration=configuration,
                 libraries=[
@@ -293,9 +295,7 @@ class DLTMETARunner:
                         )
                     )
                 ],
-                target=target_schema,
-                clusters=[pipelines.PipelineCluster(label="default", num_workers=2)]
-
+                target=target_schema
             )
         if created is None:
             raise Exception("Pipeline creation failed")
@@ -859,13 +859,6 @@ class DLTMETARunner:
             print(f"uploading to {runner_conf.uc_volume_path}/{self.base_dir}/ started")
             src = runner_conf.int_tests_dir
             dst = runner_conf.uc_volume_path
-            runner_conf.volume_info = self.ws.api_client.volumes.create(catalog_name=runner_conf.uc_catalog_name,
-                                                                        schema_name=runner_conf.dlt_meta_schema,
-                                                                        name=runner_conf.uc_volume_name,
-                                                                        volume_type=VolumeType.MANAGED)
-            print(f"uploading to {runner_conf.dbfs_tmp_path}/{self.base_dir}/ started")
-            src = runner_conf.int_tests_dir
-            dst = runner_conf.dbfs_tmp_path
             main_dir = src.replace('file:', '')
             base_dir_name = None
             if main_dir.endswith('/'):
@@ -903,6 +896,8 @@ class DLTMETARunner:
                     self.ws.dbfs.upload(dbfs_path, contents, overwrite=True)
 
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
+        if runner_conf.uc_catalog_name:
+            self.initialize_uc_resources(runner_conf)        
         self.generate_onboarding_file(runner_conf)
         print("int_tests_dir: ", runner_conf.int_tests_dir)
         self.copy(runner_conf)
@@ -914,17 +909,27 @@ class DLTMETARunner:
                                  format=ImportFormat.DBC, content=fp.read())
         print(f"uploading to {runner_conf.runners_nb_path} complete!!!")
         if runner_conf.uc_catalog_name:
-            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                  name=runner_conf.dlt_meta_schema,
-                                                  comment="dlt_meta framework schema")
-            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                  name=runner_conf.bronze_schema,
-                                                  comment="bronze_schema")
-            if runner_conf.source and runner_conf.source.lower() == "cloudfiles":
-                SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                      name=runner_conf.silver_schema,
-                                                      comment="silver_schema")
             self.build_and_upload_package(runner_conf)
+
+    def initialize_uc_resources(self, runner_conf):
+        SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                              name=runner_conf.dlt_meta_schema,
+                                              comment="dlt_meta framework schema")
+        SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                              name=runner_conf.bronze_schema,
+                                              comment="bronze_schema")
+        if runner_conf.source and runner_conf.source.lower() == "cloudfiles":
+            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                                  name=runner_conf.silver_schema,
+                                                  comment="silver_schema")
+        volume_info = self.ws.volumes.create(catalog_name=runner_conf.uc_catalog_name,
+                                             schema_name=runner_conf.dlt_meta_schema,
+                                             name=runner_conf.dlt_meta_schema,
+                                             volume_type=VolumeType.MANAGED)
+        runner_conf.volume_info = volume_info
+        runner_conf.uc_volume_path = (f"/Volumes/{runner_conf.volume_info.catalog_name}/"
+                                      f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/"
+                                      )
 
     def create_cluster(self, runner_conf: DLTMetaRunnerConf):
         print("Cluster creation started...")
@@ -959,7 +964,6 @@ class DLTMETARunner:
         try:
             self.init_dltmeta_runner_conf(runner_conf)
             self.create_bronze_silver_dlt(runner_conf)
-            self.create_cluster(runner_conf)
             self.launch_workflow(runner_conf)
             self.download_test_results(runner_conf)
         except Exception as e:

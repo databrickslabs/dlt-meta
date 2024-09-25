@@ -1,7 +1,7 @@
 
 import uuid
 import webbrowser
-from databricks.sdk.service import jobs
+from databricks.sdk.service import jobs, compute
 from src.install import WorkspaceInstaller
 from integration_tests.run_integration_tests import (
     DLTMETARunner,
@@ -48,7 +48,6 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
         try:
             self.init_dltmeta_runner_conf(runner_conf)
             self.create_bronze_silver_dlt(runner_conf)
-            self.create_cluster(runner_conf)
             self.launch_workflow(runner_conf)
         except Exception as e:
             print(e)
@@ -66,8 +65,6 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
             username=self.wsi._my_username,
-            # dbfs_tmp_path=f"{self.args.__dict__['dbfs_path']}/{run_id}",
-            uc_volume_path=f"{self.args.__dict__['uc_volume_path']}/{run_id}",
             int_tests_dir="file:./demo",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_demo_{run_id}",
             bronze_schema=f"dlt_meta_bronze_demo_{run_id}",
@@ -84,17 +81,16 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
             env="demo"
         )
         runner_conf.uc_catalog_name = self.args.__dict__['uc_catalog_name']
+        runner_conf.uc_volume_name = f"{runner_conf.uc_catalog_name}/dlt_meta_fout_demo/{run_id}"
         return runner_conf
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
         created_job = self.create_sfo_workflow_spec(runner_conf)
         runner_conf.job_id = created_job.job_id
-        print(f"Job created successfully. job_id={created_job.job_id}, started run...")
-        webbrowser.open(f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}")
-        print(f"Waiting for job to complete. job_id={created_job.job_id}")
-        run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result()
-        print(f"Job run finished. run_id={run_by_id}")
-        return created_job
+        url = f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
+        self.ws.jobs.run_now(job_id=created_job.job_id)
+        webbrowser.open(url)
+        print(f"Demo launched successfully. job_id={created_job.job_id}, url={url}")
 
     def create_sfo_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """
@@ -107,13 +103,21 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
         - created_job: The created job object.
         """
         database, dlt_lib = self.init_db_dltlib(runner_conf)
+        dltmeta_environments = [
+            jobs.JobEnvironment(
+                environment_key="dlt_meta_env",
+                spec=compute.Environment(client="1", dependencies=["dlt-meta==0.0.8"])
+            )
+        ]
         return self.ws.jobs.create(
             name=f"dlt-silver-fanout-demo-{runner_conf.run_id}",
+            environments=dltmeta_environments,
             tasks=[
                 jobs.Task(
                     task_key="onboarding_job",
                     description="Sets up metadata tables for DLT-META",
-                    existing_cluster_id=runner_conf.cluster_id,
+                    # existing_cluster_id=runner_conf.cluster_id,
+                    environment_key="dlt_meta_env",
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
@@ -132,13 +136,14 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
                             "uc_enabled": "True"
                         },
                     ),
-                    libraries=dlt_lib
+                    # libraries=dlt_lib
                 ),
                 jobs.Task(
                     task_key="onboard_silverfanout_job",
                     description="Sets up metadata tables for DLT-META",
                     depends_on=[jobs.TaskDependency(task_key="onboarding_job")],
-                    existing_cluster_id=runner_conf.cluster_id,
+                    # existing_cluster_id=runner_conf.cluster_id,
+                    environment_key="dlt_meta_env",
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
@@ -156,7 +161,7 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
                             "uc_enabled": "True"
                         },
                     ),
-                    libraries=dlt_lib
+                    # libraries=dlt_lib
                 ),
                 jobs.Task(
                     task_key="bronze_dlt",
@@ -180,12 +185,10 @@ sfo_args_map = {
     "--profile": "provide databricks cli profile name, if not provide databricks_host and token",
     "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
     "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
-    "--dbr_version": "Provide databricks runtime spark version e.g 15.3.x-scala2.12",
-    "--uc_volume_path": "provide databricks uc_volume name, where you want to push integration test \
-                        data and configurations"
+    "--dbr_version": "Provide databricks runtime spark version e.g 15.3.x-scala2.12"
 }
 
-sfo_mandatory_args = ["uc_catalog_name", "cloud_provider_name", "dbr_version", "uc_volume_path"]
+sfo_mandatory_args = ["uc_catalog_name", "cloud_provider_name", "dbr_version"]
 
 
 def main():
