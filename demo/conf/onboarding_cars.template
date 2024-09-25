@@ -5,7 +5,7 @@
       "source_system": "mysql",
       "source_format": "cloudFiles",
       "source_details": {
-         "source_path_demo": "{dbfs_path}/demo/resources/data/cars"
+         "source_path_demo": "{uc_volume_path}/demo/resources/data/cars"
       },
       "bronze_database_demo": "{uc_catalog_name}.{bronze_schema}",
       "bronze_table": "cars",
@@ -16,6 +16,6 @@
       },
       "silver_database_demo": "{uc_catalog_name}.{silver_schema}",
       "silver_table": "cars_usa",
-      "silver_transformation_json_demo": "{dbfs_path}/demo/conf/silver_transformations_cars.json"
+      "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/silver_transformations_cars.json"
    }
 ]

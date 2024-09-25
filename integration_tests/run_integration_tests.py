@@ -9,7 +9,7 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
 from databricks.sdk.service import jobs, pipelines, compute
 from databricks.sdk.service.workspace import ImportFormat
-from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo
+from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType
 from src.install import WorkspaceInstaller
 
 import json
@@ -751,6 +751,8 @@ class DLTMETARunner:
                             self.__populate_source_details(runner_conf, val, k, v)
                 if 'dbfs_path' in value:
                     data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                if 'uc_volume_path' in value:
+                    data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
                 if key == 'silver_append_flows':
                     counter = 0
                     for flows in value:
@@ -799,6 +801,8 @@ class DLTMETARunner:
                     self.__populate_source_details(runner_conf, data_flow, key, value)
                     if 'dbfs_path' in value:
                         data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                    if 'uc_volume_path' in value:
+                        data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
                     if 'uc_catalog_name' in value and 'bronze_schema' in value:
                         if runner_conf.uc_catalog_name:
                             data_flow[key] = value.format(
@@ -818,6 +822,8 @@ class DLTMETARunner:
                     self.__populate_source_details(runner_conf, data_flow, key, value)
                     if 'dbfs_path' in value:
                         data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                    if 'uc_volume_path' in value:
+                        data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
                     if 'uc_catalog_name' in value and 'bronze_schema' in value:
                         if runner_conf.uc_catalog_name:
                             data_flow[key] = value.format(
@@ -839,29 +845,85 @@ class DLTMETARunner:
             for source_key, source_value in value.items():
                 if 'dbfs_path' in source_value:
                     data_flow[key][source_key] = source_value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                elif 'uc_volume_path' in source_value:
+                    data_flow[key][source_key] = source_value.format(uc_volume_path=runner_conf.uc_volume_path)
 
-    def copy(self, src, dst):
-        main_dir = src.replace('file:', '')
-        base_dir_name = None
-        if main_dir.endswith('/'):
-            base_dir_name = main_dir[:-1]
-        if base_dir_name is None:
-            base_dir_name = main_dir[main_dir.rfind('/') + 1:]
+    def copy(self, runner_conf: DLTMetaRunnerConf):
+        if runner_conf.uc_catalog_name:
+<<<<<<< Updated upstream
+            # runner_conf.volume_info = self.ws.api_client.volumes.create(catalog_name=runner_conf.uc_catalog_name,
+            #                                                             schema_name=runner_conf.dlt_meta_schema,
+            #                                                             name=runner_conf.uc_volume_name,
+            #                                                             volume_type=VolumeType.MANAGED)
+            print(f"uploading to {runner_conf.uc_volume_path}/{self.base_dir}/ started")
+            src = runner_conf.int_tests_dir
+            dst = runner_conf.uc_volume_path
+=======
+            runner_conf.volume_info = self.ws.api_client.volumes.create(catalog_name=runner_conf.uc_catalog_name,
+                                                                        schema_name=runner_conf.dlt_meta_schema,
+                                                                        name=runner_conf.uc_volume_name,
+                                                                        volume_type=VolumeType.MANAGED)
+            print(f"uploading to {runner_conf.dbfs_tmp_path}/{self.base_dir}/ started")
+            src = runner_conf.int_tests_dir
+            dst = runner_conf.dbfs_tmp_path
+>>>>>>> Stashed changes
+            main_dir = src.replace('file:', '')
+            base_dir_name = None
+            if main_dir.endswith('/'):
+                base_dir_name = main_dir[:-1]
+            if base_dir_name is None:
+                base_dir_name = main_dir[main_dir.rfind('/') + 1:]
+            else:
+                base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:-1]
+            for root, dirs, files in os.walk(main_dir):
+                for filename in files:
+                    target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
+<<<<<<< Updated upstream
+                    uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}".replace("//", "/")
+                    contents = open(os.path.join(root, filename), "rb")
+                    # print(f"local_path={os.path.join(root, filename)}",
+                    #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
+                    self.ws.files.upload(file_path=uc_volume_path, contents=contents, overwrite=True)
+=======
+                    dbfs_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
+                    contents = open(os.path.join(root, filename), "rb")
+                    # print(f"local_path={os.path.join(root, filename)}",
+                    #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
+                    self.ws.api_client.files.upload(file_path=dbfs_path, contents=contents, overwrite=True)
+>>>>>>> Stashed changes
+
         else:
-            base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:-1]
-        for root, dirs, files in os.walk(main_dir):
-            for filename in files:
-                target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
-                dbfs_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
-                contents = open(os.path.join(root, filename), "rb")
-                # print(f"local_path={os.path.join(root, filename)}",
-                #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
-                self.ws.dbfs.upload(dbfs_path, contents, overwrite=True)
+            src = runner_conf.int_tests_dir
+            dst = runner_conf.dbfs_tmp_path
+            main_dir = src.replace('file:', '')
+            base_dir_name = None
+            if main_dir.endswith('/'):
+                base_dir_name = main_dir[:-1]
+            if base_dir_name is None:
+                base_dir_name = main_dir[main_dir.rfind('/') + 1:]
+            else:
+                base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:-1]
+            for root, dirs, files in os.walk(main_dir):
+                for filename in files:
+                    target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
+<<<<<<< Updated upstream
+                    uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
+                    contents = open(os.path.join(root, filename), "rb")
+                    # print(f"local_path={os.path.join(root, filename)}",
+                    #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
+                    self.ws.dbfs.upload(uc_volume_path, contents, overwrite=True)
+=======
+                    dbfs_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
+                    contents = open(os.path.join(root, filename), "rb")
+                    # print(f"local_path={os.path.join(root, filename)}",
+                    #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
+                    self.ws.dbfs.upload(dbfs_path, contents, overwrite=True)
+>>>>>>> Stashed changes
 
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
         self.generate_onboarding_file(runner_conf)
         print("int_tests_dir: ", runner_conf.int_tests_dir)
-        self.copy(runner_conf.int_tests_dir, runner_conf.dbfs_tmp_path)
+        self.copy(runner_conf)
         print(f"uploading to {runner_conf.dbfs_tmp_path}/{self.base_dir}/ complete!!!")
         fp = open(runner_conf.runners_full_local_path, "rb")
         print(f"uploading to {runner_conf.runners_nb_path} started")

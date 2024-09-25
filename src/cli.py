@@ -45,6 +45,7 @@ class OnboardCommand:
     version: str
     cloud: str
     dlt_meta_schema: str
+    serverless: bool = True
     bronze_schema: str = None
     silver_schema: str = None
     uc_enabled: bool = False
@@ -207,27 +208,30 @@ class DLTMeta:
 
     def create_onnboarding_job(self, cmd: OnboardCommand):
         """Create the onboarding job."""
-        cluster_spec = compute.ClusterSpec(
-            spark_version=cmd.dbr_version,
-            num_workers=1,
-            driver_node_type_id=cloud_node_type_id_dict[cmd.cloud],
-            node_type_id=cloud_node_type_id_dict[cmd.cloud],
-            data_security_mode=compute.DataSecurityMode.SINGLE_USER
-            if cmd.uc_enabled else compute.DataSecurityMode.LEGACY_SINGLE_USER,
-            spark_conf={},
-            spark_env_vars={
-                "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
-            }
-        )
+        if not cmd.serverless:
+            cluster_spec = compute.ClusterSpec(
+                spark_version=cmd.dbr_version,
+                num_workers=1,
+                driver_node_type_id=cloud_node_type_id_dict[cmd.cloud],
+                node_type_id=cloud_node_type_id_dict[cmd.cloud],
+                data_security_mode=compute.DataSecurityMode.SINGLE_USER
+                if cmd.uc_enabled else compute.DataSecurityMode.LEGACY_SINGLE_USER,
+                spark_conf={},
+                spark_env_vars={
+                    "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+                }
+            )
         onboarding_filename = os.path.basename(cmd.onboarding_file_path)
         named_parameters = self._get_onboarding_named_parameters(cmd, onboarding_filename)
         return self._ws.jobs.create(
             name="dlt_meta_onboarding_job",
+            environments=None if not cmd.serverless else [jobs.JobEnvironment(key="dlt_meta_onboarding_env")],
             tasks=[
                 jobs.Task(
                     task_key="dlt_meta_onbarding_task",
                     description="test",
-                    new_cluster=cluster_spec,
+                    new_cluster=cluster_spec if cmd.serverless else None,
+                    environment_key="dlt_meta_onboarding_env" if cmd.serverless else None,
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
@@ -348,6 +352,9 @@ class DLTMeta:
         onboard_cmd_dict["onboarding_file_path"] = self._wsi._question(
             "Provide onboarding file path", default='demo/conf/onboarding.template')
         cwd = os.getcwd()
+        onboard_cmd_dict["serverless"] = self._wsi._choice(
+            "Run onboarding with serverless?", ['True', 'False'])
+        onboard_cmd_dict["serverless"] = True if onboard_cmd_dict["serverless"] == 'True' else False
         onboarding_files_dir_path = self._wsi._question(
             "Provide onboarding files local directory", default=f'{cwd}/demo/')
         onboard_cmd_dict["onboarding_files_dir_path"] = f"file:/{onboarding_files_dir_path}"

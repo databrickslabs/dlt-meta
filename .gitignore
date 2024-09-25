@@ -155,3 +155,9 @@ deployment-merged.yaml
 .databricks-login.json
 demo/conf/onboarding.json
 integration_tests/conf/onboarding.json
+<<<<<<< Updated upstream
+databricks.yaml
+=======
+
+.databricks
+>>>>>>> Stashed changes

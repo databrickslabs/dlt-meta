@@ -66,7 +66,8 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
             username=self.wsi._my_username,
-            dbfs_tmp_path=f"{self.args.__dict__['dbfs_path']}/{run_id}",
+            # dbfs_tmp_path=f"{self.args.__dict__['dbfs_path']}/{run_id}",
+            uc_volume_path=f"{self.args.__dict__['uc_volume_path']}/{run_id}",
             int_tests_dir="file:./demo",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_demo_{run_id}",
             bronze_schema=f"dlt_meta_bronze_demo_{run_id}",
@@ -121,7 +122,7 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
                             "onboard_layer": "bronze_silver",
                             "database": database,
                             "onboarding_file_path":
-                            f"{runner_conf.dbfs_tmp_path}/{runner_conf.onboarding_file_path}",
+                            f"{runner_conf.uc_volume_path}/{runner_conf.onboarding_file_path}",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
                             "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                             "import_author": "Ravi",
@@ -146,7 +147,7 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
                             "onboard_layer": "silver",
                             "database": database,
                             "onboarding_file_path":
-                            f"{runner_conf.dbfs_tmp_path}/{runner_conf.onboarding_fanout_file_path}",
+                            f"{runner_conf.uc_volume_path}/{runner_conf.onboarding_fanout_file_path}",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
                             "import_author": "Ravi",
                             "version": "v1",
@@ -180,11 +181,21 @@ sfo_args_map = {
     "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
     "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
     "--dbr_version": "Provide databricks runtime spark version e.g 15.3.x-scala2.12",
-    "--dbfs_path": "Provide databricks workspace dbfs path where you want run integration tests \
-                        e.g --dbfs_path=dbfs:/tmp/DLT-META/"
+<<<<<<< Updated upstream
+    "--uc_volume_path": "provide databricks uc_volume name, where you want to push integration test \
+                        data and configurations"
 }
 
-sfo_mandatory_args = ["uc_catalog_name", "cloud_provider_name", "dbr_version", "dbfs_path"]
+sfo_mandatory_args = ["uc_catalog_name", "cloud_provider_name", "dbr_version", "uc_volume_path"]
+=======
+    "--dbfs_path": "Provide databricks workspace dbfs path where you want run integration tests \
+                        e.g --dbfs_path=dbfs:/tmp/DLT-META/",
+    "uc_volume_path": "provide databricks uc_volume name, where you want to push integration test \
+                        data and configurations"
+}
+
+sfo_mandatory_args = ["uc_catalog_name", "cloud_provider_name", "dbr_version"]
+>>>>>>> Stashed changes
 
 
 def main():
