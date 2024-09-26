@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
 from databricks.sdk.service import jobs, compute
+from src.__about__ import __version__
 from databricks.sdk.service.workspace import ImportFormat
 from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType
 from src.install import WorkspaceInstaller
@@ -321,13 +322,22 @@ class DLTMETARunner:
             If the job creation fails.
         """
         database, dlt_lib = self.init_db_dltlib(runner_conf)
+        dltmeta_environments = [
+            jobs.JobEnvironment(
+                environment_key="dl_meta_int_env",
+                spec=compute.Environment(client=f"dlt_meta_int_test_{__version__}",
+                                         dependencies=[runner_conf.remote_whl_path]
+                                         )
+            )
+        ]
         return self.ws.jobs.create(
             name=f"dlt-meta-{runner_conf.run_id}",
+            environments=dltmeta_environments,
             tasks=[
                 jobs.Task(
                     task_key="setup_dlt_meta_pipeline_spec",
+                    environment_key="dl_meta_int_env",
                     description="test",
-                    existing_cluster_id=runner_conf.cluster_id,
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
@@ -336,19 +346,18 @@ class DLTMETARunner:
                             "onboard_layer": "bronze_silver",
                             "database": database,
                             "onboarding_file_path":
-                            f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/conf/onboarding.json",
+                            f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding.json",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
-                            "silver_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/data/dlt_spec/silver",
+                            "silver_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/silver",
                             "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                             "import_author": "Ravi",
                             "version": "v1",
-                            "bronze_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/data/dlt_spec/bronze",
+                            "bronze_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/bronze",
                             "overwrite": "True",
                             "env": runner_conf.env,
                             "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
                         },
-                    ),
-                    libraries=dlt_lib
+                    )
                 ),
                 jobs.Task(
                     task_key="bronze_dlt_pipeline",
@@ -361,7 +370,7 @@ class DLTMETARunner:
                     task_key="onboard_spec_A2",
                     depends_on=[jobs.TaskDependency(task_key="bronze_dlt_pipeline")],
                     description="test",
-                    existing_cluster_id=runner_conf.cluster_id,
+                    environment_key="dl_meta_int_env",
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
@@ -370,17 +379,15 @@ class DLTMETARunner:
                             "onboard_layer": "bronze",
                             "database": database,
                             "onboarding_file_path":
-                            f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/conf/onboarding_A2.json",
+                            f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding_A2.json",
                             "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                             "import_author": "Ravi",
                             "version": "v1",
-                            "bronze_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/data/dlt_spec/bronze",
                             "overwrite": "False",
                             "env": runner_conf.env,
                             "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
                         },
-                    ),
-                    libraries=dlt_lib
+                    )
                 ),
                 jobs.Task(
                     task_key="bronze_A2_dlt_pipeline",
@@ -400,7 +407,6 @@ class DLTMETARunner:
                     task_key="validate_results",
                     description="test",
                     depends_on=[jobs.TaskDependency(task_key="silver_dlt_pipeline")],
-                    existing_cluster_id=runner_conf.cluster_id,
                     notebook_task=jobs.NotebookTask(
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
                         base_parameters={
@@ -753,8 +759,6 @@ class DLTMETARunner:
                     data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
                 if 'uc_volume_path' in value:
                     data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
-                if 'uc_volume_path' in value:
-                    data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
                 if key == 'silver_append_flows':
                     counter = 0
                     for flows in value:
@@ -805,8 +809,6 @@ class DLTMETARunner:
                         data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
                     if 'uc_volume_path' in value:
                         data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
-                    if 'uc_volume_path' in value:
-                        data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
                     if 'uc_catalog_name' in value and 'bronze_schema' in value:
                         if runner_conf.uc_catalog_name:
                             data_flow[key] = value.format(
@@ -828,8 +830,6 @@ class DLTMETARunner:
                         data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
                     if 'uc_volume_path' in value:
                         data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
-                    if 'uc_volume_path' in value:
-                        data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
                     if 'uc_catalog_name' in value and 'bronze_schema' in value:
                         if runner_conf.uc_catalog_name:
                             data_flow[key] = value.format(
@@ -843,8 +843,8 @@ class DLTMETARunner:
                                 silver_schema=runner_conf.silver_schema
                             )
 
-        with open(runner_conf.onboarding_fanout_file_path, "w") as onboarding_file:
-            json.dump(onboard_obj, onboarding_file)
+            with open(runner_conf.onboarding_fanout_file_path, "w") as onboarding_file:
+                json.dump(onboard_obj, onboarding_file)
 
     def __populate_source_details(self, runner_conf, data_flow, key, value):
         if key == "source_details":
@@ -869,12 +869,11 @@ class DLTMETARunner:
                 base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:-1]
             for root, dirs, files in os.walk(main_dir):
                 for filename in files:
-                    target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
-                    uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}".replace("//", "/")
-                    contents = open(os.path.join(root, filename), "rb")
-                    # print(f"local_path={os.path.join(root, filename)}",
-                    #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
-                    self.ws.files.upload(file_path=uc_volume_path, contents=contents, overwrite=True)
+                    if not filename.endswith(".py") and not filename.endswith(".md"):
+                        target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
+                        uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}".replace("//", "/")
+                        contents = open(os.path.join(root, filename), "rb")
+                        self.ws.files.upload(file_path=uc_volume_path, contents=contents, overwrite=True)
         else:
             src = runner_conf.int_tests_dir
             dst = runner_conf.dbfs_tmp_path

@@ -3,6 +3,7 @@ import uuid
 import webbrowser
 from databricks.sdk.service import jobs, compute
 from src.install import WorkspaceInstaller
+from src.__about__ import __version__
 from integration_tests.run_integration_tests import (
     DLTMETARunner,
     DLTMetaRunnerConf,
@@ -81,7 +82,7 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
             env="demo"
         )
         runner_conf.uc_catalog_name = self.args.__dict__['uc_catalog_name']
-        runner_conf.uc_volume_name = f"{runner_conf.uc_catalog_name}/dlt_meta_fout_demo/{run_id}"
+        runner_conf.uc_volume_name = f"{runner_conf.uc_catalog_name}_dlt_meta_fout_demo_{run_id}"
         return runner_conf
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
@@ -105,8 +106,11 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
         database, dlt_lib = self.init_db_dltlib(runner_conf)
         dltmeta_environments = [
             jobs.JobEnvironment(
-                environment_key="dlt_meta_env",
-                spec=compute.Environment(client="1", dependencies=["dlt-meta==0.0.8"])
+                environment_key="dl_meta_sfo_demo_env",
+                spec=compute.Environment(client=f"dlt_meta_int_test_{__version__}",
+                                         # dependencies=[f"dlt_meta=={__version__}"],
+                                         dependencies=["dlt_meta==0.0.8"]
+                                         )
             )
         ]
         return self.ws.jobs.create(
@@ -117,7 +121,7 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
                     task_key="onboarding_job",
                     description="Sets up metadata tables for DLT-META",
                     # existing_cluster_id=runner_conf.cluster_id,
-                    environment_key="dlt_meta_env",
+                    environment_key="dl_meta_sfo_demo_env",
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",

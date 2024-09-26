@@ -14,7 +14,7 @@ draft: false
     - Run onboarding for the silver tables, fanning out from the bronze cars tables to country-specific tables such as cars_usa, cars_uk, cars_germany, and cars_japan.    
 
 ### Steps:
-1. Launch Terminal/Command prompt 
+1. Launch Command Prompt
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
     - Once you install Databricks CLI, authenticate your current machine to a Databricks Workspace:
@@ -37,10 +37,11 @@ draft: false
     ```commandline
     export PYTHONPATH=$dlt_meta_home
 
-6. Run the command ```python demo/launch_silver_fanout_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/dais-dlt-meta-silver-fanout```
+6. ```commandline
+    python demo/launch_silver_fanout_demo.py --uc_catalog_name=<<uc catalog name>> --cloud_provider_name=aws
+    ```
+    - uc_catalog_name : aws or azure
     - cloud_provider_name : aws or azure
-    - db_version : Databricks Runtime Version
-    - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
 
     - - 6a. Databricks Workspace URL:
