@@ -4,6 +4,7 @@
 import uuid
 import argparse
 import os
+import webbrowser
 from dataclasses import dataclass
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
@@ -437,14 +438,22 @@ class DLTMETARunner:
     def create_eventhub_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """Create Job specification."""
         database, dlt_lib = self.init_db_dltlib(runner_conf)
-        dbfs_path = runner_conf.dbfs_tmp_path.replace("dbfs:/", "/dbfs/")
+        dltmeta_environments = [
+            jobs.JobEnvironment(
+                environment_key="dl_meta_int_env",
+                spec=compute.Environment(client=f"dlt_meta_int_test_{__version__}",
+                                         dependencies=[runner_conf.remote_whl_path]
+                                         )
+            )
+        ]
         return self.ws.jobs.create(
             name=f"dlt-meta-{runner_conf.run_id}",
+            environments=dltmeta_environments,
             tasks=[
                 jobs.Task(
                     task_key="setup_dlt_meta_pipeline_spec",
-                    description="test",
-                    existing_cluster_id=runner_conf.cluster_id,
+                    description="setup_dlt_meta_pipeline_spec",
+                    environment_key="dl_meta_int_env",
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
@@ -453,19 +462,16 @@ class DLTMETARunner:
                             "onboard_layer": "bronze",
                             "database": database,
                             "onboarding_file_path":
-                            f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/conf/onboarding.json",
+                            f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding.json",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
-                            "silver_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/dltmeta/data/dlt_spec/silver",
                             "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                             "import_author": "Ravi",
                             "version": "v1",
-                            "bronze_dataflowspec_path": f"{runner_conf.dbfs_tmp_path}/dltmeta/data/dlt_spec/bronze",
                             "overwrite": "True",
                             "env": runner_conf.env,
-                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
-                        },
-                    ),
-                    libraries=dlt_lib
+                            "uc_enabled": "True"
+                        }
+                    )
                 ),
                 jobs.Task(
                     task_key="publish_events",
@@ -481,9 +487,9 @@ class DLTMETARunner:
                             "eventhub_secrets_scope_name": self.args.__getattribute__("eventhub_secrets_scope_name"),
                             "eventhub_accesskey_name": self.args.__getattribute__("eventhub_producer_accesskey_name"),
                             "eventhub_input_data":
-                            f"/{dbfs_path}/{self.base_dir}/resources/data/iot/iot.json",
+                            f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",
                             "eventhub_append_flow_input_data":
-                            f"/{dbfs_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",
+                            f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",
                         }
                     )
                 ),
@@ -498,7 +504,6 @@ class DLTMETARunner:
                     task_key="validate_results",
                     description="test",
                     depends_on=[jobs.TaskDependency(task_key="bronze_dlt_pipeline")],
-                    existing_cluster_id=runner_conf.cluster_id,
                     notebook_task=jobs.NotebookTask(
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
                         base_parameters={
@@ -509,7 +514,7 @@ class DLTMETARunner:
                             "output_file_path": f"/Workspace{runner_conf.test_output_file_path}"
                         }
                     )
-                ),
+                )
             ]
         )
 
@@ -956,7 +961,6 @@ class DLTMETARunner:
         print(f"Cluster creation finished. cluster_id={clstr.cluster_id}")
         print(f"host: {self.ws.config.host}, workspace_id: {self.ws.get_workspace_id()}")
         runner_conf.cluster_id = clstr.cluster_id
-        import webbrowser
         webbrowser.open(f"{self.ws.config.host}/compute/clusters/{clstr.cluster_id}?o={self.ws.get_workspace_id()}")
 
     def run(self, runner_conf: DLTMetaRunnerConf):
@@ -1008,12 +1012,18 @@ class DLTMETARunner:
             created_job = self.create_kafka_workflow_spec(runner_conf)
         runner_conf.job_id = created_job.job_id
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
-        import webbrowser
         webbrowser.open(f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}")
         print(f"Waiting for job to complete. job_id={created_job.job_id}")
         run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result()
         print(f"Job run finished. run_id={run_by_id}")
         return created_job
+
+    def launch_wf_browser(self, runner_conf, created_job):
+        runner_conf.job_id = created_job.job_id
+        url = f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
+        self.ws.jobs.run_now(job_id=created_job.job_id)
+        webbrowser.open(url)
+        print(f"Job created successfully. job_id={created_job.job_id}, url={url}")
 
     def clean_up(self, runner_conf: DLTMetaRunnerConf):
         print("Cleaning up...")

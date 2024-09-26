@@ -81,6 +81,9 @@ class DLTMETADAISDemo(DLTMETARunner):
         - runner_conf: DLTMetaRunnerConf object
         """
         created_job = self.create_daisdemo_workflow(runner_conf)
+        self.launch_wf_browser(runner_conf, created_job)
+
+    def launch_wf_browser(self, runner_conf, created_job):
         runner_conf.job_id = created_job.job_id
         url = f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
         self.ws.jobs.run_now(job_id=created_job.job_id)
