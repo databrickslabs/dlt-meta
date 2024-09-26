@@ -187,8 +187,7 @@ class DLTMETARunner:
         if self.args.__dict__['uc_catalog_name']:
             runner_conf.uc_catalog_name = self.args.__dict__['uc_catalog_name']
             runner_conf.uc_volume_name = f"{self.args.__dict__['uc_catalog_name']}_volume_{run_id}",
-            runner_conf.uc_volume_path = (f"/Volumes/{runner_conf.uc_catalog_name}/"
-                                          f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/")
+
         runners_full_local_path = None
 
         if runner_conf.source.lower() == "cloudfiles":
@@ -521,13 +520,23 @@ class DLTMETARunner:
     def create_kafka_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """Create Job specification."""
         database, dlt_lib = self.init_db_dltlib(runner_conf)
+        dltmeta_environments = [
+            jobs.JobEnvironment(
+                environment_key="dl_meta_int_env",
+                spec=compute.Environment(client=f"dlt_meta_int_test_{__version__}",
+                                         dependencies=[runner_conf.remote_whl_path]
+                                         )
+            )
+        ]
         dbfs_path = runner_conf.dbfs_tmp_path.replace("dbfs:/", "/dbfs/")
         return self.ws.jobs.create(
             name=f"dlt-meta-{runner_conf.run_id}",
+            environemnts=dltmeta_environments,
             tasks=[
                 jobs.Task(
                     task_key="setup_dlt_meta_pipeline_spec",
                     description="test",
+                    environment_key="dl_meta_int_env",                    
                     existing_cluster_id=runner_conf.cluster_id,
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
@@ -547,15 +556,13 @@ class DLTMETARunner:
                             "overwrite": "True",
                             "env": runner_conf.env,
                             "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
-                        },
-                    ),
-                    libraries=dlt_lib
+                        }
+                    )
                 ),
                 jobs.Task(
                     task_key="publish_events",
                     description="test",
                     depends_on=[jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")],
-                    existing_cluster_id=runner_conf.cluster_id,
                     notebook_task=jobs.NotebookTask(
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events",
                         base_parameters={
@@ -576,7 +583,6 @@ class DLTMETARunner:
                     task_key="validate_results",
                     description="test",
                     depends_on=[jobs.TaskDependency(task_key="bronze_dlt_pipeline")],
-                    existing_cluster_id=runner_conf.cluster_id,
                     notebook_task=jobs.NotebookTask(
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
                         base_parameters={
@@ -1080,9 +1086,6 @@ def get_workspace_api_client(profile=None) -> WorkspaceClient:
 args_map = {"--profile": "provide databricks cli profile name, if not provide databricks_host and token",
             "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
             "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
-            "--dbr_version": "Provide databricks runtime spark version e.g 15.3.x-scala2.12",
-            "--dbfs_path": "Provide databricks workspace dbfs path where you want run integration tests \
-                        e.g --dbfs_path=dbfs:/tmp/DLT-META/",
             "--source": "Provide source type e.g --source=cloudfiles",
             "--eventhub_name": "Provide eventhub_name e.g --eventhub_name=iot",
             "--eventhub_name_append_flow": "Provide eventhub_name_append_flow e.g --eventhub_name_append_flow=iot_af",
@@ -1099,8 +1102,7 @@ args_map = {"--profile": "provide databricks cli profile name, if not provide da
             }
 
 mandatory_args = [
-    "uc_catalog_name", "cloud_provider_name",
-    "dbr_version", "source", "dbfs_path"
+    "uc_catalog_name", "cloud_provider_name", "source"
 ]
 
 
