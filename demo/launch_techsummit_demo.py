@@ -23,7 +23,6 @@ Note: This script requires certain command line arguments to be provided in orde
 """
 
 import uuid
-import webbrowser
 from databricks.sdk.service import jobs, compute
 from databricks.sdk.service.catalog import VolumeType, SchemasAPI
 from databricks.sdk.service.workspace import ImportFormat
@@ -160,12 +159,7 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         - runner_conf: The DLTMetaRunnerConf object containing the runner configuration parameters.
         """
         created_job = self.create_techsummit_demo_workflow(runner_conf)
-        print(created_job)
-        runner_conf.job_id = created_job.job_id
-        self.ws.jobs.run_now(job_id=created_job.job_id)
-        url = f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
-        webbrowser.open(url)
-        print(f"Job created successfully. job_id={created_job.job_id}, url={url}")
+        self.open_job_url(runner_conf, created_job)
 
     def create_techsummit_demo_workflow(self, runner_conf: TechsummitRunnerConf):
         """

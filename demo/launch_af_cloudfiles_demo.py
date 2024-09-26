@@ -1,6 +1,5 @@
 
 import uuid
-import webbrowser
 from src.install import WorkspaceInstaller
 from integration_tests.run_integration_tests import (
     DLTMETARunner,
@@ -65,12 +64,7 @@ class DLTMETAFCFDemo(DLTMETARunner):
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
         created_job = self.create_cloudfiles_workflow_spec(runner_conf)
-        runner_conf.job_id = created_job.job_id
-        self.ws.jobs.run_now(job_id=created_job.job_id)
-        url = f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
-        webbrowser.open(url)
-        print(f"Job created successfully. job_id={created_job.job_id}, url={url}")
-        return created_job
+        self.open_job_url(runner_conf, created_job)
 
 
 afam_args_map = {

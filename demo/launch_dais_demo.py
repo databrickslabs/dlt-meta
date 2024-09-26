@@ -1,5 +1,4 @@
 import uuid
-import webbrowser
 from databricks.sdk.service import jobs, compute
 from src.install import WorkspaceInstaller
 from src.__about__ import __version__
@@ -81,14 +80,7 @@ class DLTMETADAISDemo(DLTMETARunner):
         - runner_conf: DLTMetaRunnerConf object
         """
         created_job = self.create_daisdemo_workflow(runner_conf)
-        self.launch_wf_browser(runner_conf, created_job)
-
-    def launch_wf_browser(self, runner_conf, created_job):
-        runner_conf.job_id = created_job.job_id
-        url = f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
-        self.ws.jobs.run_now(job_id=created_job.job_id)
-        webbrowser.open(url)
-        print(f"Job created successfully. job_id={created_job.job_id}, url={url}")
+        self.open_job_url(runner_conf, created_job)
 
     def create_daisdemo_workflow(self, runner_conf: DLTMetaRunnerConf):
         """

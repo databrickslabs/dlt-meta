@@ -1,6 +1,5 @@
 
 import uuid
-import webbrowser
 from databricks.sdk.service import jobs, compute
 from src.install import WorkspaceInstaller
 from src.__about__ import __version__
@@ -87,11 +86,7 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
         created_job = self.create_sfo_workflow_spec(runner_conf)
-        runner_conf.job_id = created_job.job_id
-        url = f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
-        self.ws.jobs.run_now(job_id=created_job.job_id)
-        webbrowser.open(url)
-        print(f"Demo launched successfully. job_id={created_job.job_id}, url={url}")
+        self.open_job_url(runner_conf, created_job)
 
     def create_sfo_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """

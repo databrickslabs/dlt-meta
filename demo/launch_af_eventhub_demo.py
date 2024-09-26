@@ -1,11 +1,9 @@
 
 import uuid
-import webbrowser
 from src.install import WorkspaceInstaller
 from integration_tests.run_integration_tests import (
     DLTMETARunner,
     DLTMetaRunnerConf,
-    cloud_node_type_id_dict,
     get_workspace_api_client,
     process_arguments
 )
@@ -61,7 +59,7 @@ class DLTMETAFEHDemo(DLTMETARunner):
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
         created_job = self.create_eventhub_workflow_spec(runner_conf)
-        self.open
+        self.open_job_url(runner_conf, created_job)
         return created_job
 
 

@@ -653,6 +653,8 @@ class DLTMETARunner:
                     for source_key, source_value in value.items():
                         if 'dbfs_path' in source_value:
                             data_flow[key][source_key] = source_value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                        if 'uc_volume_path' in source_value:
+                            data_flow[key][source_key] = source_value.format(uc_volume_path=runner_conf.uc_volume_path)
                         if 'eventhub_name' in source_value:
                             data_flow[key][source_key] = source_value.format(eventhub_name=eventhub_name)
                         if 'eventhub_accesskey_name' in source_value:
@@ -677,6 +679,9 @@ class DLTMETARunner:
                                     if 'dbfs_path' in source_value:
                                         data_flow[key][counter][flow_key][source_key] = source_value.format(
                                             dbfs_path=runner_conf.dbfs_tmp_path)
+                                    if 'uc_volume_path' in source_value:
+                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
+                                            uc_volume_path=runner_conf.uc_volume_path)
                                     if 'eventhub_name_append_flow' in source_value:
                                         data_flow[key][counter][flow_key][source_key] = source_value.format(
                                             eventhub_name_append_flow=eventhub_name_append_flow)
@@ -698,6 +703,8 @@ class DLTMETARunner:
                         counter += 1
                 if 'dbfs_path' in value:
                     data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
+                elif 'uc_volume_path' in value:
+                    data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
                 elif 'run_id' in value:
                     data_flow[key] = value.format(run_id=runner_conf.run_id)
                 elif 'uc_catalog_name' in value and 'bronze_schema' in value:
@@ -905,7 +912,7 @@ class DLTMETARunner:
         self.generate_onboarding_file(runner_conf)
         print("int_tests_dir: ", runner_conf.int_tests_dir)
         self.copy(runner_conf)
-        print(f"uploading to {runner_conf.dbfs_tmp_path}/{self.base_dir}/ complete!!!")
+        print(f"uploading to {runner_conf.runners_nb_path}/{self.base_dir}/ complete!!!")
         fp = open(runner_conf.runners_full_local_path, "rb")
         print(f"uploading to {runner_conf.runners_nb_path} started")
         self.ws.workspace.mkdirs(runner_conf.runners_nb_path)
@@ -1018,7 +1025,7 @@ class DLTMETARunner:
         print(f"Job run finished. run_id={run_by_id}")
         return created_job
 
-    def launch_wf_browser(self, runner_conf, created_job):
+    def open_job_url(self, runner_conf, created_job):
         runner_conf.job_id = created_job.job_id
         url = f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
         self.ws.jobs.run_now(job_id=created_job.job_id)
