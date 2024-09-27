@@ -37,6 +37,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "schema": None,
         "partitionColumns": [""],
         "cdcApplyChanges": None,
+        "applyChangesFromSnapshot": None,
         "dataQualityExpectations": """{
             "expect_or_drop": {
                 "no_rescued_data": "_rescued_data IS NULL",

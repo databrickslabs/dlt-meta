@@ -1,13 +1,15 @@
 """Test DataflowSpec script."""
+import copy
+import json
 from tests.utils import DLTFrameworkTestCase
 from src.dataflow_spec import (
     DataflowSpecUtils,
     CDCApplyChanges,
+    ApplyChangesFromSnapshot,
     BronzeDataflowSpec,
     SilverDataflowSpec,
 )
 from src.onboard_dataflowspec import OnboardDataflowspec
-import copy
 
 
 class DataFlowSpecTests(DLTFrameworkTestCase):
@@ -418,3 +420,53 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
         }
         result = DataflowSpecUtils.populate_additional_df_cols(row_dict, additional_columns)
         self.assertEqual(result, expected_result)
+
+    def test_get_apply_changes_from_snapshot_positive(self):
+        """Test get_apply_changes_from_snapshot with positive values."""
+        apply_changes_from_snapshot = """{
+            "keys": ["id"],
+            "scd_type": "1",
+            "track_history_column_list": ["col1"],
+            "track_history_except_column_list": ["col2"]
+        }"""
+        result = DataflowSpecUtils.get_apply_changes_from_snapshot(apply_changes_from_snapshot)
+        self.assertEqual(type(result), ApplyChangesFromSnapshot)
+        self.assertEqual(result.keys, ["id"])
+        self.assertEqual(result.scd_type, "1")
+        self.assertEqual(result.track_history_column_list, ["col1"])
+        self.assertEqual(result.track_history_except_column_list, ["col2"])
+
+    def test_get_apply_changes_from_snapshot_missing_mandatory_keys(self):
+        """Test get_apply_changes_from_snapshot with missing mandatory keys."""
+        apply_changes_from_snapshot = """{
+            "scd_type": "1",
+            "track_history_column_list": ["col1"],
+            "track_history_except_column_list": ["col2"]
+        }"""
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_apply_changes_from_snapshot(apply_changes_from_snapshot)
+
+    def test_get_apply_changes_from_snapshot_missing_optional_keys(self):
+        """Test get_apply_changes_from_snapshot with missing optional keys."""
+        apply_changes_from_snapshot = """{
+            "keys": ["id"],
+            "scd_type": "1"
+        }"""
+        result = DataflowSpecUtils.get_apply_changes_from_snapshot(apply_changes_from_snapshot)
+        self.assertEqual(type(result), ApplyChangesFromSnapshot)
+        self.assertEqual(result.keys, ["id"])
+        self.assertEqual(result.scd_type, "1")
+        self.assertEqual(result.track_history_column_list, None)
+        self.assertEqual(result.track_history_except_column_list, None)
+
+    def test_get_apply_changes_from_snapshot_invalid_json(self):
+        """Test get_apply_changes_from_snapshot with invalid JSON."""
+        apply_changes_from_snapshot = """{
+            "keys": ["id"],
+            "scd_type": "1",
+            "track_history_column_list": ["col1",
+            "track_history_except_column_list": ["col2"]
+        }"""  # Missing closing bracket for track_history_column_list
+        with self.assertRaises(json.JSONDecodeError):
+            DataflowSpecUtils.get_apply_changes_from_snapshot(apply_changes_from_snapshot)
+

@@ -91,7 +91,6 @@ class DataflowPipeline:
         if view_name_quarantine:
             self.view_name_quarantine = view_name_quarantine
         self.custom_transform_func = custom_transform_func
-        self.snapshot_reader_func = snapshot_reader_func
         if dataflow_spec.cdcApplyChanges:
             self.cdcApplyChanges = DataflowSpecUtils.get_cdc_apply_changes(self.dataflowSpec.cdcApplyChanges)
         else:
@@ -101,12 +100,19 @@ class DataflowPipeline:
         else:
             self.appendFlows = None
         if isinstance(dataflow_spec, BronzeDataflowSpec):
+            self.snapshot_reader_func = snapshot_reader_func
+            if self.snapshot_reader_func:
+                self.appy_changes_from_snapshot = DataflowSpecUtils.get_apply_changes_from_snapshot(
+                    self.dataflowSpec.applyChangesFromSnapshot
+                )
             if dataflow_spec.schema is not None:
                 self.schema_json = json.loads(dataflow_spec.schema)
             else:
                 self.schema_json = None
         else:
             self.schema_json = None
+            self.snapshot_reader_func = None
+            self.appy_changes_from_snapshot = None
         if isinstance(dataflow_spec, SilverDataflowSpec):
             self.silver_schema = self.get_silver_schema()
         else:
@@ -311,9 +317,9 @@ class DataflowPipeline:
         dlt.apply_changes_from_snapshot(
             target=f"{self.dataflowSpec.targetDetails['table']}",
             snapshot_and_version=self.snapshot_reader_func,
-            keys=self.cdcApplyChanges.keys,
-            stored_as_scd_type=self.cdcApplyChanges.scd_type,
-            track_history_column_list=self.cdcApplyChanges.track_history_column_list,
+            keys=self.self.appy_changes_from_snapshot.keys,
+            stored_as_scd_type=self.self.appy_changes_from_snapshot.scd_type,
+            track_history_column_list=self.self.appy_changes_from_snapshot.track_history_column_list,
         )
 
     def write_bronze_with_dqe(self):

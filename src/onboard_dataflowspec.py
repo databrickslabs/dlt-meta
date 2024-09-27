@@ -410,6 +410,7 @@ class OnboardDataflowspec:
             "schema",
             "partitionColumns",
             "cdcApplyChanges",
+            "applyChangesFromSnapshot",
             "dataQualityExpectations",
             "quarantineTargetDetails",
             "quarantineTableProperties",
@@ -433,6 +434,7 @@ class OnboardDataflowspec:
                 StructField("schema", StringType(), True),
                 StructField("partitionColumns", ArrayType(StringType(), True), True),
                 StructField("cdcApplyChanges", StringType(), True),
+                StructField("applyChangesFromSnapshot", StringType(), True),
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField("quarantineTargetDetails", MapType(StringType(), StringType(), True), True),
                 StructField("quarantineTableProperties", MapType(StringType(), StringType(), True), True),
@@ -443,7 +445,7 @@ class OnboardDataflowspec:
         data = []
         onboarding_rows = onboarding_df.collect()
         mandatory_fields = ["data_flow_id", "data_flow_group", "source_details", f"bronze_database_{env}",
-                            "bronze_table", "bronze_reader_options"]  # , f"bronze_table_path_{env}"
+                            "bronze_table"]  # , f"bronze_table_path_{env}"
         for onboarding_row in onboarding_rows:
             try:
                 self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
@@ -479,6 +481,11 @@ class OnboardDataflowspec:
             if "bronze_cdc_apply_changes" in onboarding_row and onboarding_row["bronze_cdc_apply_changes"]:
                 self.__validate_apply_changes(onboarding_row, "bronze")
                 cdc_apply_changes = json.dumps(self.__delete_none(onboarding_row["bronze_cdc_apply_changes"].asDict()))
+            apply_changes_from_snapshot = None
+            if ("bronze_apply_changes_from_snapshot" in onboarding_row
+                    and onboarding_row["bronze_apply_changes_from_snapshot"]):
+                apply_changes_from_snapshot = onboarding_row["bronze_apply_changes_from_snapshot"]
+                apply_changes_from_snapshot = json.dumps(self.__delete_none(apply_changes_from_snapshot.asDict()))
             data_quality_expectations = None
             quarantine_target_details = {}
             quarantine_table_properties = {}
@@ -521,6 +528,7 @@ class OnboardDataflowspec:
                 schema,
                 partition_columns,
                 cdc_apply_changes,
+                apply_changes_from_snapshot,
                 data_quality_expectations,
                 quarantine_target_details,
                 quarantine_table_properties,
@@ -606,9 +614,12 @@ class OnboardDataflowspec:
         bronze_reader_config_options = {}
         schema = None
         source_format = onboarding_row["source_format"]
-        bronze_reader_options_json = onboarding_row["bronze_reader_options"]
-        if bronze_reader_options_json:
-            bronze_reader_config_options = self.__delete_none(bronze_reader_options_json.asDict())
+        if source_format.lower() == "snapshot":
+            bronze_reader_config_options = {}
+        else:
+            bronze_reader_options_json = onboarding_row["bronze_reader_options"]
+            if bronze_reader_options_json:
+                bronze_reader_config_options = self.__delete_none(bronze_reader_options_json.asDict())
         source_details_json = onboarding_row["source_details"]
         if source_details_json:
             source_details_file = self.__delete_none(source_details_json.asDict())

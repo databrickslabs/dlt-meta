@@ -343,3 +343,16 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         silver_dataflowSpec_df.show(truncate=False)
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
+
+    def test_onboard_apply_changes_from_snapshot_positive(self):
+        """Test for onboardDataflowspec."""
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        del onboarding_params_map["silver_dataflowspec_table"]
+        del onboarding_params_map["silver_dataflowspec_path"]
+        onboarding_params_map["onboarding_file_path"] = self.onboarding_apply_changes_from_snapshot_json_file
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
+        self.assertEqual(bronze_dataflowSpec_df.count(), 2)

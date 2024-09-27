@@ -29,6 +29,7 @@ class BronzeDataflowSpec:
     schema: str
     partitionColumns: list
     cdcApplyChanges: str
+    applyChangesFromSnapshot: str
     dataQualityExpectations: str
     quarantineTargetDetails: map
     quarantineTableProperties: map
@@ -89,6 +90,15 @@ class CDCApplyChanges:
 
 
 @dataclass
+class ApplyChangesFromSnapshot:
+    """CDC ApplyChangesFromSnapshot structure."""
+    keys: list
+    scd_type: str
+    track_history_column_list: list
+    track_history_except_column_list: list
+
+
+@dataclass
 class AppendFlow:
     """Append Flow structure."""
     name: str
@@ -138,8 +148,8 @@ class DataflowSpecUtils:
         "ignore_null_updates_except_column_list": None
     }
 
+    apply_changes_from_snapshot_api_mandatory_attributes = ["keys", "scd_type"]
     append_flow_mandatory_attributes = ["name", "source_format", "create_streaming_table", "source_details"]
-
     append_flow_api_attributes_defaults = {
         "comment": None,
         "create_streaming_table": False,
@@ -151,6 +161,7 @@ class DataflowSpecUtils:
     additional_bronze_df_columns = ["appendFlows", "appendFlowsSchemas"]
     additional_silver_df_columns = ["dataQualityExpectations", "appendFlows", "appendFlowsSchemas"]
     additional_cdc_apply_changes_columns = ["flow_name", "once"]
+    additional_apply_changes_from_snapshot_columns = ["track_history_column_list", "track_history_except_column_list"]
 
     @staticmethod
     def _get_dataflow_spec(
@@ -267,6 +278,43 @@ class DataflowSpecUtils:
             else:
                 partition_cols = list(filter(None, partition_columns))
         return partition_cols
+
+    @staticmethod
+    def get_apply_changes_from_snapshot(apply_changes_from_snapshot) -> ApplyChangesFromSnapshot:
+        """Get Apply changes from snapshot metadata."""
+        logger.info(apply_changes_from_snapshot)
+        json_apply_changes_from_snapshot = json.loads(apply_changes_from_snapshot)
+        logger.info(f"actual mergeInfo={json_apply_changes_from_snapshot}")
+        payload_keys = json_apply_changes_from_snapshot.keys()
+        missing_apply_changes_from_snapshot_payload_keys = set(
+            DataflowSpecUtils.apply_changes_from_snapshot_api_mandatory_attributes).difference(payload_keys)
+        logger.info(
+            f"missing apply changes from snapshot payload keys:"
+            f"{missing_apply_changes_from_snapshot_payload_keys}"
+        )
+        if set(DataflowSpecUtils.apply_changes_from_snapshot_api_mandatory_attributes) - set(payload_keys):
+            missing_mandatory_attr = set(DataflowSpecUtils.apply_changes_from_snapshot_api_mandatory_attributes) - set(
+                payload_keys)
+            logger.info(f"mandatory missing keys= {missing_mandatory_attr}")
+            raise Exception(f"mandatory missing keys= {missing_mandatory_attr} for merge info")
+        else:
+            logger.info(
+                f"""all mandatory keys
+                {DataflowSpecUtils.apply_changes_from_snapshot_api_mandatory_attributes} exists"""
+            )
+
+        for missing_apply_changes_from_snapshot_payload_key in missing_apply_changes_from_snapshot_payload_keys:
+            json_apply_changes_from_snapshot[
+                missing_apply_changes_from_snapshot_payload_key
+            ] = DataflowSpecUtils.cdc_applychanges_api_attributes_defaults[
+                missing_apply_changes_from_snapshot_payload_key]
+
+        logger.info(f"final mergeInfo={json_apply_changes_from_snapshot}")
+        json_apply_changes_from_snapshot = DataflowSpecUtils.populate_additional_df_cols(
+            json_apply_changes_from_snapshot,
+            DataflowSpecUtils.additional_apply_changes_from_snapshot_columns
+        )
+        return ApplyChangesFromSnapshot(**json_apply_changes_from_snapshot)
 
     @staticmethod
     def get_cdc_apply_changes(cdc_apply_changes) -> CDCApplyChanges:

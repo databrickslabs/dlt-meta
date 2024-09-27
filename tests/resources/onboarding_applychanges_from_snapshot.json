@@ -1,0 +1,42 @@
+[
+    {
+        "data_flow_id": "201",
+        "data_flow_group": "A1",
+        "source_system": "delta",
+        "source_format": "snapshot",
+        "source_details": {
+           "source_database": "products",
+           "source_table": "products",
+           "source_path_dev": "tests/resources/data/products"
+        },
+        "bronze_database_dev": "uc_catalog_name.bronze",
+        "bronze_table": "products",
+        "bronze_table_path_dev": "tests/resources/delta/bronze/products",
+        "bronze_apply_changes_from_snapshot": {
+         "keys": [
+            "product_id"
+         ],
+         "scd_type": "2"
+      }        
+     },
+     {
+        "data_flow_id": "202",
+        "data_flow_group": "A1",
+        "source_system": "delta",
+        "source_format": "snapshot",
+        "source_details": {
+           "source_database": "stores",
+           "source_table": "stores",
+           "source_path_dev": "tests/resources/data/stores"
+        },
+        "bronze_database_dev": "uc_catalog_name.bronze",
+        "bronze_table": "stores",
+        "bronze_table_path_dev": "tests/resources/delta/bronze/stores",
+        "bronze_apply_changes_from_snapshot": {
+         "keys": [
+            "store_id"
+         ],
+         "scd_type": "2"
+      }
+     }
+  ]
