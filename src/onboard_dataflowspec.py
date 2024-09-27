@@ -456,7 +456,7 @@ class OnboardDataflowspec:
                 raise Exception(f"Source format not provided for row={onboarding_row}")
 
             source_format = onboarding_row["source_format"]
-            if source_format.lower() not in ["cloudfiles", "eventhub", "kafka", "delta"]:
+            if source_format.lower() not in ["cloudfiles", "eventhub", "kafka", "delta", "snapshot"]:
                 raise Exception(f"Source format {source_format} not supported in DLT-META! row={onboarding_row}")
             source_details, bronze_reader_config_options, schema = self.get_bronze_source_details_reader_options_schema(
                 onboarding_row, env)
