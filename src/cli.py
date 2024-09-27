@@ -11,8 +11,8 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import jobs, pipelines, compute
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
 from databricks.sdk.core import DatabricksError
-from databricks.sdk.service.catalog import SchemasAPI
-from src import __about__
+from databricks.sdk.service.catalog import SchemasAPI, VolumeType
+from src import __about__, __version__
 from src.install import WorkspaceInstaller
 
 logger = logging.getLogger('databricks.labs.dltmeta')
@@ -35,21 +35,22 @@ cloud_node_type_id_dict = {"aws": "i3.xlarge", "azure": "Standard_D3_v2", "gcp":
 @dataclass
 class OnboardCommand:
     """Class representing the onboarding command."""
-    dbr_version: str
-    dbfs_path: str
     onboarding_file_path: str
     onboarding_files_dir_path: str
     onboard_layer: str
     env: str
     import_author: str
     version: str
-    cloud: str
     dlt_meta_schema: str
+    dbfs_path: None
+    cloud: None
+    dbr_version: None
     serverless: bool = True
     bronze_schema: str = None
     silver_schema: str = None
     uc_enabled: bool = False
     uc_catalog_name: str = None
+    uc_volume_path: str = None
     overwrite: bool = True
     bronze_dataflowspec_table: str = "bronze_dataflowspec"
     silver_dataflowspec_table: str = "silver_dataflowspec"
@@ -68,6 +69,13 @@ class OnboardCommand:
             raise ValueError("onboard_layer must be one of bronze, silver, bronze_silver")
         if self.uc_enabled == "":
             raise ValueError("uc_enabled is required, please set to True or False")
+        if not self.uc_enabled and not self.dbfs_path:
+            raise ValueError("dbfs_path is required")
+        if not self.serverless:
+            if not self.cloud:
+                raise ValueError("cloud is required")
+            if not self.dbr_version:
+                raise ValueError("dbr_version is required")
         if self.onboard_layer and self.onboard_layer.lower() == "bronze_silver":
             if not self.uc_enabled:
                 if not self.bronze_dataflowspec_path or self.silver_dataflowspec_path == "":
@@ -86,12 +94,6 @@ class OnboardCommand:
                     raise ValueError("silver_dataflowspec_path is required")
         if not self.dlt_meta_schema:
             raise ValueError("dlt_meta_schema is required")
-        if not self.cloud:
-            raise ValueError("cloud is required")
-        if not self.dbfs_path:
-            raise ValueError("dbfs_path is required")
-        if not self.dbr_version:
-            raise ValueError("dbr_version is required")
         if not self.overwrite:
             raise ValueError("overwrite is required")
         if not self.import_author:
@@ -150,7 +152,23 @@ class DLTMeta:
             _me = self._ws.current_user.me()
         return _me.user_name
 
-    def copy(self, src, dst):
+    def copy_to_uc_volume(self, src, dst):
+        main_dir = src.replace('file:', '')
+        base_dir_name = None
+        if main_dir.endswith('/'):
+            base_dir_name = main_dir[:-1]
+        if base_dir_name is None:
+            base_dir_name = main_dir[main_dir.rfind('/') + 1:]
+        else:
+            base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:-1]
+        for root, dirs, files in os.walk(main_dir):
+            for filename in files:
+                target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
+                uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}".replace("//", "/")
+                contents = open(os.path.join(root, filename), "rb")
+                self._ws.files.upload(file_path=uc_volume_path, contents=contents, overwrite=True)
+
+    def copy_to_dbfs(self, src, dst):
         dst = dst.replace('//', '/')
         main_dir = src.replace('file:', '')
         main_dir = main_dir.replace('//', '/')
@@ -172,30 +190,30 @@ class DLTMeta:
                 )
                 self._ws.dbfs.upload(dbfs_path, contents, overwrite=True)
 
+    def create_uc_volume(self, uc_catalog_name, dlt_meta_schema):
+        volume_info = self._ws.volumes.create(catalog_name=uc_catalog_name,
+                                              schema_name=dlt_meta_schema,
+                                              name=dlt_meta_schema,
+                                              volume_type=VolumeType.MANAGED)
+        return (f"/Volumes/{volume_info.catalog_name}/"
+                f"{volume_info.schema_name}/{volume_info.name}/"
+                )
+
     def onboard(self, cmd: OnboardCommand):
         """Perform the onboarding process."""
         self.update_ws_onboarding_paths(cmd)
-        if not self._ws.dbfs.exists(cmd.dbfs_path + "/dltmeta_conf/"):
-            self._ws.dbfs.mkdirs(f"{cmd.dbfs_path}/dltmeta_conf/")
         ob_file = open(cmd.onboarding_file_path, "rb")
         onboarding_filename = os.path.basename(cmd.onboarding_file_path)
-        self._ws.dbfs.upload(f"{cmd.dbfs_path}/dltmeta_conf/{onboarding_filename}", ob_file, overwrite=True)
-        self.copy(cmd.onboarding_files_dir_path, cmd.dbfs_path + "/dltmeta_conf/")
-        logger.info(f"uploading to  {cmd.dbfs_path}/dltmeta_conf complete!!!")
         if cmd.uc_enabled:
-            try:
-                SchemasAPI(self._ws.api_client).get(full_name=f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}")
-            except Exception:
-                msg = (
-                    "Schema {catalog}.{schema} not found. "
-                    "Creating schema={schema}"
-                ).format(catalog=cmd.uc_catalog_name, schema=cmd.dlt_meta_schema)
-                logger.info(msg)
-                SchemasAPI(self._ws.api_client).create(
-                    catalog_name=cmd.uc_catalog_name,
-                    name=cmd.dlt_meta_schema,
-                    comment="dlt_meta framework schema"
-                )
+            self.create_uc_schema(cmd.uc_catalog_name, cmd.dlt_meta_schema)
+            cmd.uc_volume_path = self.create_uc_volume(cmd.uc_catalog_name, cmd.dlt_meta_schema)
+            self.copy_to_uc_volume(cmd.onboarding_files_dir_path, cmd.uc_volume_path + "/dltmeta_conf/")
+            logger.info(f"uploading to  {cmd.uc_volume_path}/dltmeta_conf complete!!!")
+        else:
+            self._ws.dbfs.mkdirs(f"{cmd.dbfs_path}/dltmeta_conf/")
+            self._ws.dbfs.upload(f"{cmd.dbfs_path}/dltmeta_conf/{onboarding_filename}", ob_file, overwrite=True)
+            self.copy_to_dbfs(cmd.onboarding_files_dir_path, cmd.dbfs_path + "/dltmeta_conf/")
+            logger.info(f"uploading to  {cmd.dbfs_path}/dltmeta_conf complete!!!")
         created_job = self.create_onnboarding_job(cmd)
         logger.info(f"Waiting for job to complete. job_id={created_job.job_id}")
         run = self._ws.jobs.run_now(job_id=created_job.job_id)
@@ -206,9 +224,26 @@ class DLTMeta:
         logger.info(msg)
         webbrowser.open(f"{self._ws.config.host}/jobs/{created_job.job_id}?o={self._ws.get_workspace_id()}")
 
+    def create_uc_schema(self, uc_catalog_name, dlt_meta_schema):
+        try:
+            SchemasAPI(self._ws.api_client).get(full_name=f"{uc_catalog_name}.{dlt_meta_schema}")
+        except Exception:
+            msg = (
+                "Schema {catalog}.{schema} not found. "
+                "Creating schema={schema}"
+            ).format(catalog=uc_catalog_name, schema=dlt_meta_schema)
+            logger.info(msg)
+            SchemasAPI(self._ws.api_client).create(
+                catalog_name=uc_catalog_name,
+                name=dlt_meta_schema,
+                comment="dlt_meta framework schema"
+            )
+
     def create_onnboarding_job(self, cmd: OnboardCommand):
         """Create the onboarding job."""
-        if not cmd.serverless:
+        if cmd.serverless:
+            cluster_spec = None
+        else:
             cluster_spec = compute.ClusterSpec(
                 spark_version=cmd.dbr_version,
                 num_workers=1,
@@ -223,26 +258,29 @@ class DLTMeta:
             )
         onboarding_filename = os.path.basename(cmd.onboarding_file_path)
         named_parameters = self._get_onboarding_named_parameters(cmd, onboarding_filename)
+        dltmeta_environments = [
+            jobs.JobEnvironment(
+                environment_key="dl_meta_cli_env",
+                spec=compute.Environment(client=f"dlt_meta_cli_{__version__}",
+                                         dependencies=[f"dlt-meta=={self.version}"]
+                                         )
+            )
+        ]
         return self._ws.jobs.create(
             name="dlt_meta_onboarding_job",
-            environments=None if not cmd.serverless else [jobs.JobEnvironment(key="dlt_meta_onboarding_env")],
+            environments=None if not cmd.serverless else dltmeta_environments,
             tasks=[
                 jobs.Task(
                     task_key="dlt_meta_onbarding_task",
                     description="test",
-                    new_cluster=cluster_spec if cmd.serverless else None,
-                    environment_key="dlt_meta_onboarding_env" if cmd.serverless else None,
+                    new_cluster=cluster_spec if not cmd.serverless else None,
+                    environment_key="dl_meta_cli_env" if cmd.serverless else None,
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
                         entry_point="run",
                         named_parameters=named_parameters,
-                    ),
-                    libraries=[
-                        jobs.compute.Library(
-                            pypi=compute.PythonPyPiLibrary(package=f"dlt-meta=={self.version}")
-                        )
-                    ],
+                    )
                 ),
             ]
         )
@@ -253,14 +291,16 @@ class DLTMeta:
             "database":
                 f"{cmd.uc_catalog_name}.{cmd.dlt_meta_schema}"
                 if cmd.uc_enabled else cmd.dlt_meta_schema,
-            "onboarding_file_path":
-            f"{cmd.dbfs_path}/dltmeta_conf/{onboarding_filename}",
             "import_author": cmd.import_author,
             "version": cmd.version,
             "overwrite": "True" if cmd.overwrite else "False",
             "env": cmd.env,
             "uc_enabled": "True" if cmd.uc_enabled else "False"
         }
+        if cmd.uc_enabled:
+            named_parameters["onboarding_file_path"] = f"{cmd.uc_volume_path}/dltmeta_conf/{onboarding_filename}"
+        else:
+            named_parameters["onboarding_file_path"] = f"{cmd.dbfs_path}/dltmeta_conf/{onboarding_filename}"
         if cmd.onboard_layer == "bronze_silver":
             named_parameters["bronze_dataflowspec_table"] = cmd.bronze_dataflowspec_table
             named_parameters["silver_dataflowspec_table"] = cmd.silver_dataflowspec_table
@@ -349,25 +389,33 @@ class DLTMeta:
 
     def _load_onboard_config(self) -> OnboardCommand:
         onboard_cmd_dict = {}
-        onboard_cmd_dict["onboarding_file_path"] = self._wsi._question(
-            "Provide onboarding file path", default='demo/conf/onboarding.template')
-        cwd = os.getcwd()
+        onboard_cmd_dict["uc_enabled"] = self._wsi._choice(
+            "Run onboarding with unity catalog enabled?", ['True', 'False'])
+        onboard_cmd_dict["uc_enabled"] = True if onboard_cmd_dict["uc_enabled"] == "True" else False
+        if onboard_cmd_dict["uc_enabled"]:
+            onboard_cmd_dict["dbfs_path"] = None
+            onboard_cmd_dict["uc_catalog_name"] = self._wsi._question(
+                "Provide unity catalog name")
+        else:
+            onboard_cmd_dict["dbfs_path"] = self._wsi._question(
+                "Provide dbfs path", default=f"dbfs:/dlt-meta_cli_demo_{uuid.uuid4().hex}")
         onboard_cmd_dict["serverless"] = self._wsi._choice(
             "Run onboarding with serverless?", ['True', 'False'])
         onboard_cmd_dict["serverless"] = True if onboard_cmd_dict["serverless"] == 'True' else False
+        if onboard_cmd_dict["serverless"]:
+            onboard_cmd_dict["cloud"] = None
+            onboard_cmd_dict["dbr_version"] = None
+        else:
+            onboard_cmd_dict["cloud"] = self._wsi._choice(
+                "Provide cloud provider name", ['aws', 'azure', 'gcp'])
+            onboard_cmd_dict["dbr_version"] = self._wsi._question(
+                "Provide databricks runtime version", default=self._ws.clusters.select_spark_version(latest=True))
+        onboard_cmd_dict["onboarding_file_path"] = self._wsi._question(
+            "Provide onboarding file path", default='demo/conf/onboarding.template')
+        cwd = os.getcwd()
         onboarding_files_dir_path = self._wsi._question(
             "Provide onboarding files local directory", default=f'{cwd}/demo/')
         onboard_cmd_dict["onboarding_files_dir_path"] = f"file:/{onboarding_files_dir_path}"
-        onboard_cmd_dict["dbfs_path"] = self._wsi._question(
-            "Provide dbfs path", default=f"dbfs:/dlt-meta_cli_demo_{uuid.uuid4().hex}")
-        onboard_cmd_dict["dbr_version"] = self._wsi._question(
-            "Provide databricks runtime version", default=self._ws.clusters.select_spark_version(latest=True))
-        onboard_cmd_dict["uc_enabled"] = self._wsi._choice(
-            "Run onboarding with unity catalog enabled?", ['True', 'False'])
-        onboard_cmd_dict["uc_enabled"] = True if onboard_cmd_dict["uc_enabled"] == 'True' else False
-        if onboard_cmd_dict["uc_enabled"]:
-            onboard_cmd_dict["uc_catalog_name"] = self._wsi._question(
-                "Provide unity catalog name")
         onboard_cmd_dict["dlt_meta_schema"] = self._wsi._question(
             "Provide dlt meta schema name", default=f'dlt_meta_dataflowspecs_{uuid.uuid4().hex}')
         onboard_cmd_dict["bronze_schema"] = self._wsi._question(
@@ -406,11 +454,10 @@ class DLTMeta:
             "Provide environment name", default='prod')
         onboard_cmd_dict["import_author"] = self._wsi._question(
             "Provide import author name", default=self._wsi._short_name)
-        onboard_cmd_dict["cloud"] = self._wsi._choice(
-            "Provide cloud provider name", ['aws', 'azure', 'gcp'])
         onboard_cmd_dict["update_paths"] = self._wsi._choice(
-            "Update workspace/dbfs paths, unity catalog name, bronze/silver schema names in onboarding file?",
+            "Update workspace/dbfs uc volume paths, unity catalog name, bronze/silver schema names in onboarding file?",
             ['True', 'False'])
+        print(onboard_cmd_dict)
         cmd = OnboardCommand(**onboard_cmd_dict)
 
         return cmd
@@ -469,10 +516,18 @@ class DLTMeta:
             for key, value in data_flow.items():
                 if key == "source_details":
                     for source_key, source_value in value.items():
-                        if 'dbfs_path' in source_value:
-                            data_flow[key][source_key] = source_value.format(dbfs_path=f"{cmd.dbfs_path}/dltmeta_conf/")
-                if 'dbfs_path' in value:
-                    data_flow[key] = value.format(dbfs_path=f"{cmd.dbfs_path}/dltmeta_conf/")
+                        if cmd.uc_enabled:
+                            if 'uc_volume_path' in source_value:
+                                data_flow[key][source_key] = source_value.format(
+                                    uc_volume_path=f"{cmd.uc_volume_path}/dltmeta_conf/")
+                            else:
+                                data_flow[key][source_key] = source_value.format(
+                                    uc_volume_path=f"{cmd.dbfs_path}/dltmeta_conf/")
+                if 'uc_volume_path' in value:
+                    if cmd.uc_enabled:
+                        data_flow[key] = value.format(uc_volume_path=f"{cmd.uc_volume_path}/dltmeta_conf/")
+                    else:
+                        data_flow[key] = value.format(uc_volume_path=f"{cmd.dbfs_path}/dltmeta_conf/")
                 elif 'uc_catalog_name' in value and 'bronze_schema' in value:
                     if cmd.uc_catalog_name:
                         data_flow[key] = value.format(

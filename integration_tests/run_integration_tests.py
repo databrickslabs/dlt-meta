@@ -536,8 +536,7 @@ class DLTMETARunner:
                 jobs.Task(
                     task_key="setup_dlt_meta_pipeline_spec",
                     description="test",
-                    environment_key="dl_meta_int_env",                    
-                    existing_cluster_id=runner_conf.cluster_id,
+                    environment_key="dl_meta_int_env",
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
