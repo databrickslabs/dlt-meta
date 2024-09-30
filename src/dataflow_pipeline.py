@@ -105,6 +105,9 @@ class DataflowPipeline:
                 self.appy_changes_from_snapshot = DataflowSpecUtils.get_apply_changes_from_snapshot(
                     self.dataflowSpec.applyChangesFromSnapshot
                 )
+            else:
+                if dataflow_spec.sourceFormat == "snapshot":
+                    raise Exception(f"Snapshot reader function not provided for dataflowspec={dataflow_spec}!")
             if dataflow_spec.schema is not None:
                 self.schema_json = json.loads(dataflow_spec.schema)
             else:
@@ -186,7 +189,7 @@ class DataflowPipeline:
     def write_bronze(self):
         """Write Bronze tables."""
         bronze_dataflow_spec: BronzeDataflowSpec = self.dataflowSpec
-        if bronze_dataflow_spec.sourceFormat == "snapshot":
+        if bronze_dataflow_spec.sourceFormat and bronze_dataflow_spec.sourceFormat.lower() == "snapshot":
             if self.snapshot_reader_func:
                 self.apply_changes_from_snapshot()
             else:
