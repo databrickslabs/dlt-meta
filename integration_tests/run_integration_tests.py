@@ -162,15 +162,15 @@ class DLTMETARunner:
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
             username=self.wsi._my_username,
-            dbfs_tmp_path=f"{self.args.__dict__['dbfs_path']}/{run_id}",
+            dbfs_tmp_path=f"{self.args.__dict__.get('dbfs_path', None)}/{run_id}",
             int_tests_dir="file:./integration_tests",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_it_{run_id}",
             bronze_schema=f"dlt_meta_bronze_it_{run_id}",
             silver_schema=f"dlt_meta_silver_it_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
             source=self.args.__dict__['source'],
-            node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
-            dbr_version=self.args.__dict__['dbr_version'],
+            node_type_id=cloud_node_type_id_dict[self.args.__dict__.get('cloud_provider_name', None)],
+            dbr_version=self.args.__dict__.get('dbr_version', None),
             cloudfiles_template="integration_tests/conf/cloudfiles-onboarding.template",
             cloudfiles_A2_template="integration_tests/conf/cloudfiles-onboarding_A2.template",
             eventhub_template="integration_tests/conf/eventhub-onboarding.template",
@@ -1125,8 +1125,8 @@ def process_arguments(args_map, mandatory_args):
     check_mandatory_arg(args, mandatory_args)
     supported_cloud_providers = ["aws", "azure", "gcp"]
 
-    cloud_provider_name = args.__getattribute__("cloud_provider_name")
-    if cloud_provider_name.lower() not in supported_cloud_providers:
+    cloud_provider_name = args.__getattribute__("cloud_provider_name") if args.__contains__("cloud_provider_name") else None
+    if cloud_provider_name and cloud_provider_name.lower() not in supported_cloud_providers:
         raise Exception("Invalid value for --cloud_provider_name! Supported values are aws, azure, gcp")
     return args
 

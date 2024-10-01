@@ -66,7 +66,6 @@ class DLTMETAFEHDemo(DLTMETARunner):
 afam_args_map = {
     "--profile": "provide databricks cli profile name, if not provide databricks_host and token",
     "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
-    "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
     "--eventhub_name": "Provide eventhub_name e.g --eventhub_name=iot",
     "--eventhub_name_append_flow": "Provide eventhub_name_append_flow e.g --eventhub_name_append_flow=iot_af",
     "--eventhub_producer_accesskey_name": "Provide access key that has write permission on the eventhub",
@@ -79,7 +78,7 @@ afam_args_map = {
     "--eventhub_port": "Provide eventhub_port e.g --eventhub_port=9093",
 }
 
-afeh_mandatory_args = ["uc_catalog_name", "cloud_provider_name", "eventhub_name",
+afeh_mandatory_args = ["uc_catalog_name", "eventhub_name",
                        "eventhub_name_append_flow", "eventhub_producer_accesskey_name",
                        "eventhub_consumer_accesskey_name", "eventhub_secrets_scope_name",
                        "eventhub_namespace", "eventhub_port"]

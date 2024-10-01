@@ -6,7 +6,6 @@ from src.__about__ import __version__
 from integration_tests.run_integration_tests import (
     DLTMETARunner,
     DLTMetaRunnerConf,
-    cloud_node_type_id_dict,
     get_workspace_api_client,
     process_arguments
 )
@@ -72,8 +71,8 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_fout_demo/{run_id}",
             runners_full_local_path='./demo/dbc/silver_fout_runners.dbc',
             source="cloudFiles",
-            node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
-            dbr_version=self.args.__dict__['dbr_version'],
+            # node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
+            # dbr_version=self.args.__dict__['dbr_version'],
             cloudfiles_template="demo/conf/onboarding_cars.template",
             onboarding_fanout_templates="demo/conf/onboarding_fanout_cars.template",
             onboarding_file_path="demo/conf/onboarding_cars.json",
@@ -142,7 +141,7 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
                     description="Sets up metadata tables for DLT-META",
                     depends_on=[jobs.TaskDependency(task_key="onboarding_job")],
                     # existing_cluster_id=runner_conf.cluster_id,
-                    environment_key="dlt_meta_env",
+                    environment_key="dl_meta_sfo_demo_env",
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
@@ -182,12 +181,10 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
 
 sfo_args_map = {
     "--profile": "provide databricks cli profile name, if not provide databricks_host and token",
-    "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
-    "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
-    "--dbr_version": "Provide databricks runtime spark version e.g 15.3.x-scala2.12"
+    "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table"
 }
 
-sfo_mandatory_args = ["uc_catalog_name", "cloud_provider_name", "dbr_version"]
+sfo_mandatory_args = ["uc_catalog_name"]
 
 
 def main():

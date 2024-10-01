@@ -37,10 +37,9 @@ This Demo launches Bronze and Silver DLT pipelines with following activities:
     ```
 
 6. ```commandline
-    python demo/launch_dais_demo.py --uc_catalog_name=<<uc catalog name>> --cloud_provider_name=aws 
+    python demo/launch_dais_demo.py --uc_catalog_name=<<uc catalog name>>
     ```
     - uc_catalog_name : Unity catalog name
-    - cloud_provider_name : aws or azure or gcp
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
 
     ![dais_demo.png](../docs/static/images/dais_demo.png)
@@ -70,10 +69,9 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
     ```
 
 6. ```commandline 
-    python demo/launch_techsummit_demo.py --uc_catalog_name=<<>> --cloud_provider_name=<<>>
+    python demo/launch_techsummit_demo.py --uc_catalog_name=<<>>
     ```
     - uc_catalog_name : Unity catalog name
-    - cloud_provider_name : aws or azure
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
     ![tech_summit_demo.png](../docs/static/images/tech_summit_demo.png)
@@ -107,10 +105,9 @@ This demo will perform following tasks:
     ```
 
 6. ```commandline
-    python demo/launch_af_cloudfiles_demo.py --uc_catalog_name=<<>> --cloud_provider_name=<<>> 
+    python demo/launch_af_cloudfiles_demo.py --uc_catalog_name=<<>>
     ```
     - uc_catalog_name : Unity Catalog name
-    - cloud_provider_name : aws or azure
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
 ![af_am_demo.png](../docs/static/images/af_am_demo.png)
@@ -154,7 +151,6 @@ This demo will perform following tasks:
 - Create databricks secrets to store producer and consumer keys using the scope created in step 2 
 
 - Following are the mandatory arguments for running EventHubs demo
-    - cloud_provider_name: Cloud provider name e.g. aws or azure 
     - uc_catalog_name : unity catalog name e.g. ravi_dlt_meta_uc
     - eventhub_namespace: Eventhub namespace e.g. dltmeta
     - eventhub_name : Primary Eventhubname e.g. dltmeta_demo
@@ -165,7 +161,7 @@ This demo will perform following tasks:
     - eventhub_port: Eventhub port
 
 7. ```commandline 
-    python3 demo/launch_af_eventhub_demo.py --uc_catalog_name=<<>> --cloud_provider_name=<<>>  --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey
+    python3 demo/launch_af_eventhub_demo.py --uc_catalog_name=<<>> --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey
     ```
 
   ![af_eh_demo.png](../docs/static/images/af_eh_demo.png)
@@ -197,8 +193,7 @@ This demo will perform following tasks:
     ```commandline
     export PYTHONPATH=$dlt_meta_home
 
-6. Run the command ```python demo/launch_silver_fanout_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/dais-dlt-meta-silver-fanout```
-    - cloud_provider_name : aws or azure
+6. Run the command ```python demo/launch_silver_fanout_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/dais-dlt-meta-silver-fanout```
     - db_version : Databricks Runtime Version
     - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.

@@ -5,7 +5,6 @@ from src.__about__ import __version__
 from integration_tests.run_integration_tests import (
     DLTMETARunner,
     DLTMetaRunnerConf,
-    cloud_node_type_id_dict,
     get_workspace_api_client,
     process_arguments
 )
@@ -43,7 +42,7 @@ class DLTMETADAISDemo(DLTMETARunner):
             silver_schema=f"dlt_meta_silver_dais_demo_{run_id}",
             runners_nb_path=f"/Users/{self._my_username(self.ws)}/dlt_meta_dais_demo/{run_id}",
             node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
-            dbr_version=self.args.__dict__['dbr_version'],
+            # dbr_version=self.args.__dict__['dbr_version'],
             cloudfiles_template="demo/conf/onboarding.template",
             env="prod",
             source="cloudFiles",
@@ -181,11 +180,10 @@ class DLTMETADAISDemo(DLTMETARunner):
 dais_args_map = {"--profile": "provide databricks cli profile name, if not provide databricks_host and token",
                  "--uc_catalog_name": "provide databricks uc_catalog name, \
                      this is required to create volume, schema, table",
-                 "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
-                 "--dbr_version": "Provide databricks runtime spark version e.g 15.3.x-scala2.12"
+                 "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp"
                  }
 
-dais_mandatory_args = ["uc_catalog_name", "cloud_provider_name", "dbr_version"]
+dais_mandatory_args = ["uc_catalog_name", "cloud_provider_name"]
 
 
 def main():

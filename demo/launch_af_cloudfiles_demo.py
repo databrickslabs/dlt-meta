@@ -4,7 +4,6 @@ from src.install import WorkspaceInstaller
 from integration_tests.run_integration_tests import (
     DLTMETARunner,
     DLTMetaRunnerConf,
-    cloud_node_type_id_dict,
     get_workspace_api_client,
     process_arguments
 )
@@ -51,7 +50,6 @@ class DLTMETAFCFDemo(DLTMETARunner):
             silver_schema=f"dlt_meta_silver_demo_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_demo/{run_id}",
             source="cloudfiles",
-            node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             cloudfiles_template="demo/conf/cloudfiles-onboarding.template",
             cloudfiles_A2_template="demo/conf/cloudfiles-onboarding_A2.template",
             onboarding_file_path="demo/conf/onboarding.json",
@@ -69,12 +67,11 @@ class DLTMETAFCFDemo(DLTMETARunner):
 
 afam_args_map = {
     "--profile": "provide databricks cli profile name, if not provide databricks_host and token",
-    "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
-    "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp"
+    "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table"
 }
 
 afam_mandatory_args = [
-    "uc_catalog_name", "cloud_provider_name"]
+    "uc_catalog_name"]
 
 
 def main():

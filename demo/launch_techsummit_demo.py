@@ -32,7 +32,6 @@ from src.__about__ import __version__
 from integration_tests.run_integration_tests import (
     DLTMETARunner,
     DLTMetaRunnerConf,
-    cloud_node_type_id_dict,
     get_workspace_api_client,
     process_arguments
 )
@@ -86,7 +85,7 @@ class DLTMETATechSummitDemo(DLTMETARunner):
             silver_schema=f"dlt_meta_silver_demo_{run_id}",
             runners_full_local_path='./demo/dbc/tech_summit_dlt_meta_runners.dbc',
             runners_nb_path=f"/Users/{self._my_username(self.ws)}/dlt_meta_techsummit_demo/{run_id}",
-            node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
+            # node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             env="prod",
             table_count=self.args.__dict__['table_count'] if self.args.__dict__['table_count'] else "100",
             table_column_count=(self.args.__dict__['table_column_count'] if self.args.__dict__['table_column_count']
@@ -251,14 +250,13 @@ class DLTMETATechSummitDemo(DLTMETARunner):
 techsummit_args_map = {"--profile": "provide databricks cli profile name, if not provide databricks_host and token",
                        "--uc_catalog_name": "provide databricks uc_catalog name, \
                                             this is required to create volume, schema, table",
-                       "--cloud_provider_name": "cloud_provider_name",
                        "--worker_nodes": "worker_nodes",
                        "--table_count": "table_count",
                        "--table_column_count": "table_column_count",
                        "--table_data_rows_count": "table_data_rows_count"
                        }
 
-techsummit_mandatory_args = ["uc_catalog_name", "cloud_provider_name"]
+techsummit_mandatory_args = ["uc_catalog_name"]
 
 
 def main():
