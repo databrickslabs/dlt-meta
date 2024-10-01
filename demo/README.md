@@ -69,7 +69,7 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
     ```
 
 6. ```commandline 
-    python demo/launch_techsummit_demo.py --uc_catalog_name=<<>>
+    python demo/launch_techsummit_demo.py --uc_catalog_name=<<uc catalog name>>
     ```
     - uc_catalog_name : Unity catalog name
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
@@ -105,7 +105,7 @@ This demo will perform following tasks:
     ```
 
 6. ```commandline
-    python demo/launch_af_cloudfiles_demo.py --uc_catalog_name=<<>>
+    python demo/launch_af_cloudfiles_demo.py --uc_catalog_name=<<uc catalog name>>
     ```
     - uc_catalog_name : Unity Catalog name
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
@@ -161,7 +161,7 @@ This demo will perform following tasks:
     - eventhub_port: Eventhub port
 
 7. ```commandline 
-    python3 demo/launch_af_eventhub_demo.py --uc_catalog_name=<<>> --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey
+    python3 demo/launch_af_eventhub_demo.py --uc_catalog_name=<<uc catalog name>> --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey
     ```
 
   ![af_eh_demo.png](../docs/static/images/af_eh_demo.png)

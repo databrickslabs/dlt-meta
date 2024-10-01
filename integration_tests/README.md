@@ -34,15 +34,16 @@
     export PYTHONPATH=$dlt_meta_home
     ```
 
-9. Run integration test against cloudfile or eventhub or kafka using below options: If databricks profile configured using CLI then pass ```--profile <profile-name>``` to below command otherwise provide workspace url and token in command line
+9. Run integration test against cloudfile or eventhub or kafka using below options. To use the Databricks profile configured using CLI then pass ```--profile <profile-name>``` to below command otherwise provide workspace url and token in command line. You will also need to provide a Unity Catalog catalog for which the schemas, tables, and files will be created in.
+
     - 9a. Run the command for cloudfiles 
         ```commandline 
-        python integration_tests/run_integration_tests.py  --uc_catalog_name= --source=cloudfiles
+        python integration_tests/run_integration_tests.py  --uc_catalog_name=<<uc catalog name>> --source=cloudfiles
         ```
 
     - 9b. Run the command for eventhub 
         ```commandline 
-        python integration_tests/run_integration_tests.py --uc_catalog_name=<<>> --source=eventhub --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer
+        python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>> --source=eventhub --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer
         ```
 
     - - For eventhub integration tests, the following are the prerequisites:
