@@ -141,7 +141,8 @@ class DataflowPipeline:
                 comment=f"input dataset view for {self.view_name}",
             )
         else:
-            raise Exception("Dataflow read not supported for {}".format(type(self.dataflowSpec)))
+            if not self.snapshot_reader_func:
+                raise Exception("Dataflow read not supported for {}".format(type(self.dataflowSpec)))
         if self.appendFlows:
             self.read_append_flows()
 
@@ -320,9 +321,9 @@ class DataflowPipeline:
         dlt.apply_changes_from_snapshot(
             target=f"{self.dataflowSpec.targetDetails['table']}",
             snapshot_and_version=self.snapshot_reader_func,
-            keys=self.self.appy_changes_from_snapshot.keys,
-            stored_as_scd_type=self.self.appy_changes_from_snapshot.scd_type,
-            track_history_column_list=self.self.appy_changes_from_snapshot.track_history_column_list,
+            keys=self.appy_changes_from_snapshot.keys,
+            stored_as_scd_type=self.appy_changes_from_snapshot.scd_type,
+            track_history_column_list=self.appy_changes_from_snapshot.track_history_column_list,
         )
 
     def write_bronze_with_dqe(self):
