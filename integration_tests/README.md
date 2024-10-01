@@ -1,44 +1,49 @@
----
-title: "Integration Tests"
-date: 2021-08-04T14:25:26-04:00
-weight: 41
-draft: false
----
-
 #### Run Integration Tests
-1. Initial steps
-- **Prerequisite**: Datatbricks CLI installed as given [here](https://docs.databricks.com/en/dev-tools/cli/profiles.html)
+1. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
+    - Once you install Databricks CLI, authenticate your current machine to a Databricks Workspace:
+    
+    ```commandline
+    databricks auth login --host WORKSPACE_HOST
+    ```
 
-```commandline
+2. ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git
-```
+    ```
 
-```commandline
+3. ```commandline
     cd dlt-meta
-```
+    ```
 
-```commandline
+4. ```commandline
     python -m venv .venv
-```
+    ```
 
-```commandline
+5. ```commandline
     source .venv/bin/activate
-```
+    ```
 
-```commandline
+6. ```commandline
     pip install databricks-sdk
-```
-```commandline
+    ```
+
+7. ```commandline
     dlt_meta_home=$(pwd)
-```
- ```commandline
+    ```
+ 
+8. ```commandline
     export PYTHONPATH=$dlt_meta_home
-```
+    ```
 
-2. Run integration test against cloudfile or eventhub or kafka using below options: If databricks profile configured using CLI then pass ```--profile <profile-name>``` to below command otherwise provide workspace url and token in command line
-    - 2a. Run the command for cloudfiles ```python integration_tests/run_integration_tests.py  --source=cloudfiles uc_catalog_name=<<>>```
+9. Run integration test against cloudfile or eventhub or kafka using below options: If databricks profile configured using CLI then pass ```--profile <profile-name>``` to below command otherwise provide workspace url and token in command line
+    - 9a. Run the command for cloudfiles 
+        ```commandline 
+        python integration_tests/run_integration_tests.py  --uc_catalog_name= --source=cloudfiles
+        ```
 
-    - 2b. Run the command for eventhub ```python integration-tests/run_integration_tests.py --cloud_provider_name=azure --dbr_version=15.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer```
+    - 9b. Run the command for eventhub 
+        ```commandline 
+        python integration_tests/run_integration_tests.py --uc_catalog_name=<<>> --source=eventhub --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer
+        ```
 
     - - For eventhub integration tests, the following are the prerequisites:
         1. Needs eventhub instance running
@@ -54,7 +59,10 @@ draft: false
         6. Provide eventhub access key name : --eventhub_consumer_accesskey_name
 
 
-    - 2c. Run the command for kafka ```python3 integration_tests/run_integration_tests.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --source=kafka --dbfs_path=dbfs:/tmp/DLT-META/ --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092```
+    - 9c. Run the command for kafka 
+        ```commandline
+        python3 integration_tests/run_integration_tests.py --uc_catalog_name=<<>> --source=kafka --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092
+        ```
 
     - - For kafka integration tests, the following are the prerequisites:
         1. Needs kafka instance running
@@ -63,10 +71,10 @@ draft: false
         1. Provide your kafka topic name : --kafka_topic_name
         2. Provide kafka_broker : --kafka_broker
 
-3. Once finished integration output file will be copied locally to 
+10. Once finished integration output file will be copied locally to 
 ```integration-test-output_<run_id>.txt```
 
-4. Output of a successful run should have the following in the file 
+11. Output of a successful run should have the following in the file 
 ```
 ,0
 0,Completed Bronze DLT Pipeline.

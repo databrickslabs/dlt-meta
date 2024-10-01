@@ -12,7 +12,7 @@ This demo will perform following tasks:
 - Add file_name and file_path to target bronze table for autoloader source using [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
 ## Append flow with autoloader
 
-1. Launch Terminal/Command prompt 
+1. Launch Command Prompt
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
     - Once you install Databricks CLI, authenticate your current machine to a Databricks Workspace:

@@ -6,7 +6,7 @@
       "bronze_table": "cars",
       "silver_database_demo": "{uc_catalog_name}.{silver_schema}",
       "silver_table": "cars_germany",
-      "silver_transformation_json_demo": "{dbfs_path}/demo/conf/silver_transformations_cars.json"
+      "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/silver_transformations_cars.json"
    },
    {
       "data_flow_id": "102",
@@ -15,7 +15,7 @@
       "bronze_table": "cars",
       "silver_database_demo": "{uc_catalog_name}.{silver_schema}",
       "silver_table": "cars_uk",
-      "silver_transformation_json_demo": "{dbfs_path}/demo/conf/silver_transformations_cars.json"
+      "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/silver_transformations_cars.json"
    },
    {
       "data_flow_id": "103",
@@ -24,6 +24,6 @@
       "bronze_table": "cars",
       "silver_database_demo": "{uc_catalog_name}.{silver_schema}",
       "silver_table": "cars_japan",
-      "silver_transformation_json_demo": "{dbfs_path}/demo/conf/silver_transformations_cars.json"
+      "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/silver_transformations_cars.json"
    }        
 ]

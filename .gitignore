@@ -155,3 +155,5 @@ deployment-merged.yaml
 .databricks-login.json
 demo/conf/onboarding.json
 integration_tests/conf/onboarding.json
+databricks.yaml
+
