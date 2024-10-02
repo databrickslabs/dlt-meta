@@ -143,7 +143,7 @@ class DLTMETARunner:
     - workspace_client: Databricks workspace client
     - runner_conf: test information
     """
-    def __init__(self, args, ws, base_dir):
+    def __init__(self, args: dict[str: str], ws, base_dir):
         self.args = args
         self.ws = ws
         self.wsi = WorkspaceInstaller(ws)
@@ -162,15 +162,15 @@ class DLTMETARunner:
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
             username=self.wsi._my_username,
-            dbfs_tmp_path=f"{self.args.__dict__.get('dbfs_path', None)}/{run_id}",
+            dbfs_tmp_path=f"{self.args.get('dbfs_path')}/{run_id}",
             int_tests_dir="file:./integration_tests",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_it_{run_id}",
             bronze_schema=f"dlt_meta_bronze_it_{run_id}",
             silver_schema=f"dlt_meta_silver_it_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
-            source=self.args.__dict__['source'],
-            node_type_id=cloud_node_type_id_dict[self.args.__dict__.get('cloud_provider_name', None)],
-            dbr_version=self.args.__dict__.get('dbr_version', None),
+            source=self.args['source'],
+            node_type_id=cloud_node_type_id_dict[self.args['cloud_provider_name']],
+            dbr_version=self.args.get('dbr_version'),
             cloudfiles_template="integration_tests/conf/cloudfiles-onboarding.template",
             cloudfiles_A2_template="integration_tests/conf/cloudfiles-onboarding_A2.template",
             eventhub_template="integration_tests/conf/eventhub-onboarding.template",
@@ -184,9 +184,8 @@ class DLTMETARunner:
             )
 
         )
-        if self.args.__dict__['uc_catalog_name']:
-            runner_conf.uc_catalog_name = self.args.__dict__['uc_catalog_name']
-            runner_conf.uc_volume_name = f"{self.args.__dict__['uc_catalog_name']}_volume_{run_id}",
+        runner_conf.uc_catalog_name = self.args['uc_catalog_name']
+        runner_conf.uc_volume_name = f"{self.args['uc_catalog_name']}_volume_{run_id}",
 
 
         # Set the proper directory location for the notebooks that need to be uploaded to run and
@@ -482,11 +481,11 @@ class DLTMETARunner:
                     notebook_task=jobs.NotebookTask(
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events",
                         base_parameters={
-                            "eventhub_name": self.args.__getattribute__("eventhub_name"),
-                            "eventhub_name_append_flow": self.args.__getattribute__("eventhub_name_append_flow"),
-                            "eventhub_namespace": self.args.__getattribute__("eventhub_namespace"),
-                            "eventhub_secrets_scope_name": self.args.__getattribute__("eventhub_secrets_scope_name"),
-                            "eventhub_accesskey_name": self.args.__getattribute__("eventhub_producer_accesskey_name"),
+                            "eventhub_name": self.args["eventhub_name"],
+                            "eventhub_name_append_flow": self.args["eventhub_name_append_flow"],
+                            "eventhub_namespace": self.args["eventhub_namespace"],
+                            "eventhub_secrets_scope_name": self.args["eventhub_secrets_scope_name"],
+                            "eventhub_accesskey_name": self.args["eventhub_producer_accesskey_name"],
                             "eventhub_input_data":
                             f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",
                             "eventhub_append_flow_input_data":
@@ -567,8 +566,8 @@ class DLTMETARunner:
                     notebook_task=jobs.NotebookTask(
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events",
                         base_parameters={
-                            "kafka_topic": self.args.__getattribute__("kafka_topic_name"),
-                            "kafka_broker": self.args.__getattribute__("kafka_broker"),
+                            "kafka_topic": self.args["kafka_topic_name"],
+                            "kafka_broker": self.args["kafka_broker"],
                             "kafka_input_data": f"/{dbfs_path}/{self.base_dir}/resources/data/iot/iot.json"
                         }
                     )
@@ -612,8 +611,8 @@ class DLTMETARunner:
         """Create kafka onboarding file."""
         with open(f"{runner_conf.kafka_template}") as f:
             onboard_obj = json.load(f)
-        kafka_topic = self.args.__getattribute__("kafka_topic_name").lower()
-        kafka_bootstrap_servers = self.args.__getattribute__("kafka_broker").lower()
+        kafka_topic = self.args["kafka_topic_name"].lower()
+        kafka_bootstrap_servers = self.args["kafka_broker"].lower()
         for data_flow in onboard_obj:
             for key, value in data_flow.items():
                 if key == "source_details":
@@ -647,13 +646,13 @@ class DLTMETARunner:
         """Create eventhub onboarding file."""
         with open(f"{runner_conf.eventhub_template}") as f:
             onboard_obj = json.load(f)
-        eventhub_name = self.args.__getattribute__("eventhub_name").lower()
-        eventhub_name_append_flow = self.args.__getattribute__("eventhub_name_append_flow").lower()
-        eventhub_accesskey_name = self.args.__getattribute__("eventhub_consumer_accesskey_name").lower()
-        eventhub_accesskey_secret_name = self.args.__getattribute__("eventhub_accesskey_secret_name").lower()
-        eventhub_secrets_scope_name = self.args.__getattribute__("eventhub_secrets_scope_name").lower()
-        eventhub_namespace = self.args.__getattribute__("eventhub_namespace").lower()
-        eventhub_port = self.args.__getattribute__("eventhub_port").lower()
+        eventhub_name = self.args["eventhub_name"].lower()
+        eventhub_name_append_flow = self.args["eventhub_name_append_flow"].lower()
+        eventhub_accesskey_name = self.args["eventhub_consumer_accesskey_name"].lower()
+        eventhub_accesskey_secret_name = self.args["eventhub_accesskey_secret_name"].lower()
+        eventhub_secrets_scope_name = self.args["eventhub_secrets_scope_name"].lower()
+        eventhub_namespace = self.args["eventhub_namespace"].lower()
+        eventhub_port = self.args["eventhub_port"].lower()
         for data_flow in onboard_obj:
             for key, value in data_flow.items():
                 if key == "source_details":
@@ -1102,29 +1101,10 @@ def get_workspace_api_client(profile=None) -> WorkspaceClient:
 
 def main():
     """Entry method to run integration tests."""
-
-    args_map = {
-        "--profile": "provide databricks cli profile name, if not provide databricks_host and token",
-        "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
-        "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
-        "--source": "Provide source type e.g --source=cloudfiles",
-        "--eventhub_name": "Provide eventhub_name e.g --eventhub_name=iot",
-        "--eventhub_name_append_flow": "Provide eventhub_name_append_flow e.g --eventhub_name_append_flow=iot_af",
-        "--eventhub_producer_accesskey_name": "Provide access key that has write permission on the eventhub",
-        "--eventhub_consumer_accesskey_name": "Provide access key that has read permission on the eventhub",
-        "--eventhub_secrets_scope_name": "Provide eventhub_secrets_scope_name e.g --eventhub_secrets_scope_name=eventhubs_creds",
-        "--eventhub_accesskey_secret_name": "Provide eventhub_accesskey_secret_name e.g -eventhub_accesskey_secret_name=RootManageSharedAccessKey",
-        "--eventhub_namespace": "Provide eventhub_namespace e.g --eventhub_namespace=topic-standard",
-        "--eventhub_port": "Provide eventhub_port e.g --eventhub_port=9093",
-        "--kafka_topic_name": "Provide kafka topic name e.g --kafka_topic_name=iot",
-        "--kafka_broker": "Provide kafka broker e.g --127.0.0.1:9092",
-    }
-    mandatory_args = ["uc_catalog_name", "cloud_provider_name", "source"]
-
     args = process_arguments()
-    exit()
-    workspace_client = get_workspace_api_client(args.profile)
+    workspace_client = get_workspace_api_client(args["profile"])
     integration_test_runner = DLTMETARunner(args, workspace_client, "integration_tests")
+    exit()
     runner_conf = integration_test_runner.init_runner_conf()
     integration_test_runner.run(runner_conf)
 
