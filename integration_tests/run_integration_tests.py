@@ -47,8 +47,6 @@ class DLTMetaRunnerConf:
         The path to the onboarding file to use for the test run.
     dbfs_tmp_path : str, optional
         The temporary DBFS path to use for the test run.
-    uc_volume_name : str, optional
-        The name of the unified volume to use for the test run.
     int_tests_dir : str, optional
         The directory containing the integration tests.
     dlt_meta_schema : str, optional
@@ -98,26 +96,25 @@ class DLTMetaRunnerConf:
     username: str = None
     run_name: str = None
     uc_catalog_name: str = None
+    uc_volume_name: str = "dlt_meta_files"
     onboarding_file_path: str = None
-    onboarding_A2_file_path: str = None
-    onboarding_fanout_file_path: str = None
-    dbfs_tmp_path: str = None
-    uc_volume_name: str = None
-    int_tests_dir: str = None
+    onboarding_A2_file_path: str = "integration_tests/conf/onboarding_A2.json"
+    onboarding_fanout_file_path: str = "integration_tests/conf/onboarding.json"
+    int_tests_dir: str = "file:./integration_tests"
     dlt_meta_schema: str = None
     bronze_schema: str = None
     silver_schema: str = None
     runners_nb_path: str = None
     runners_full_local_path: str = None
     source: str = None
-    cloudfiles_template: str = None
-    cloudfiles_A2_template: str = None
+    cloudfiles_template: str = "integration_tests/conf/cloudfiles-onboarding.template"
+    cloudfiles_A2_template: str = "integration_tests/conf/cloudfiles-onboarding_A2.template"
     onboarding_fanout_templates: str = None
-    eventhub_template: str = None
+    eventhub_template: str = "integration_tests/conf/eventhub-onboarding.template",
     eventhub_input_data: str = None
     eventhub_append_flow_input_data: str = None
-    kafka_template: str = None
-    env: str = None
+    kafka_template: str = "integration_tests/conf/kafka-onboarding.template"
+    env: str = "it"
     whl_path: str = None
     volume_info: VolumeInfo = None
     uc_volume_path: str = None
@@ -163,21 +160,12 @@ class DLTMETARunner:
             run_id=run_id,
             username=self.wsi._my_username,
             uc_catalog_name=self.args["uc_catalog_name"],
-            uc_volume_name=f"{self.args['uc_catalog_name']}_volume_{run_id}",
-            int_tests_dir="file:./integration_tests",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_it_{run_id}",
             bronze_schema=f"dlt_meta_bronze_it_{run_id}",
             silver_schema=f"dlt_meta_silver_it_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
             source=self.args["source"],
             node_type_id=cloud_node_type_id_dict[self.args["cloud_provider_name"]],
-            cloudfiles_template="integration_tests/conf/cloudfiles-onboarding.template",
-            cloudfiles_A2_template="integration_tests/conf/cloudfiles-onboarding_A2.template",
-            eventhub_template="integration_tests/conf/eventhub-onboarding.template",
-            kafka_template="integration_tests/conf/kafka-onboarding.template",
-            onboarding_file_path="integration_tests/conf/onboarding.json",
-            onboarding_A2_file_path="integration_tests/conf/onboarding_A2.json",
-            env="it",
             test_output_file_path=(
                 f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/"
                 f"{run_id}/integration-test-output.csv"
@@ -197,6 +185,9 @@ class DLTMETARunner:
             raise Exception("Given source is not support. Support source are: cloudfiles, eventhub, or kafka")
 
         return runner_conf
+
+
+
 
     def _install_folder(self):
         return f"/Users/{self.wsi._my_username}/dlt-meta"
@@ -895,11 +886,35 @@ class DLTMETARunner:
                     #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
                     self.ws.dbfs.upload(dbfs_path, contents, overwrite=True)
 
+    def initialize_uc_resources(self, runner_conf):
+        '''Create UC schemas and volumes needed to run the integration tests'''
+        SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                              name=runner_conf.dlt_meta_schema,
+                                              comment="dlt_meta framework schema")
+        SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                              name=runner_conf.bronze_schema,
+                                              comment="bronze_schema")
+        if runner_conf.source == "cloudfiles":
+            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
+                                                  name=runner_conf.silver_schema,
+                                                  comment="silver_schema")
+        volume_info = self.ws.volumes.create(catalog_name=runner_conf.uc_catalog_name,
+                                             schema_name=runner_conf.dlt_meta_schema,
+                                             name=runner_conf.uc_volume_name,
+                                             volume_type=VolumeType.MANAGED)
+        runner_conf.volume_info = volume_info
+        runner_conf.uc_volume_path = (f"/Volumes/{runner_conf.volume_info.catalog_name}/"
+                                      f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/"
+                                      )
+
+
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
         """Create testing metadata including schemas, volumes, and uploading necessary notebooks"""
-        if runner_conf.uc_catalog_name:
-            self.initialize_uc_resources(runner_conf)
+
+        # Generate uc schemas, volumes and upload onboarding files
+        self.initialize_uc_resources(runner_conf)
         self.generate_onboarding_file(runner_conf)
+        exit()
 
         print("int_tests_dir: ", runner_conf.int_tests_dir)
         self.copy(runner_conf)
@@ -924,26 +939,7 @@ class DLTMETARunner:
         if runner_conf.uc_catalog_name:
             self.build_and_upload_package(runner_conf)
 
-    def initialize_uc_resources(self, runner_conf):
-        '''Create UC schemas and volumes needed to run the integration tests'''
-        SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                              name=runner_conf.dlt_meta_schema,
-                                              comment="dlt_meta framework schema")
-        SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                              name=runner_conf.bronze_schema,
-                                              comment="bronze_schema")
-        if runner_conf.source and runner_conf.source == "cloudfiles":
-            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                  name=runner_conf.silver_schema,
-                                                  comment="silver_schema")
-        volume_info = self.ws.volumes.create(catalog_name=runner_conf.uc_catalog_name,
-                                             schema_name=runner_conf.dlt_meta_schema,
-                                             name=runner_conf.dlt_meta_schema,
-                                             volume_type=VolumeType.MANAGED)
-        runner_conf.volume_info = volume_info
-        runner_conf.uc_volume_path = (f"/Volumes/{runner_conf.volume_info.catalog_name}/"
-                                      f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/"
-                                      )
+
 
     def create_cluster(self, runner_conf: DLTMetaRunnerConf):
         print("Cluster creation started...")
@@ -972,19 +968,6 @@ class DLTMETARunner:
         print(f"host: {self.ws.config.host}, workspace_id: {self.ws.get_workspace_id()}")
         runner_conf.cluster_id = clstr.cluster_id
         webbrowser.open(f"{self.ws.config.host}/compute/clusters/{clstr.cluster_id}?o={self.ws.get_workspace_id()}")
-
-    def run(self, runner_conf: DLTMetaRunnerConf):
-        try:
-            self.init_dltmeta_runner_conf(runner_conf)
-            exit()
-            self.create_bronze_silver_dlt(runner_conf)
-            self.launch_workflow(runner_conf)
-            self.download_test_results(runner_conf)
-        except Exception as e:
-            print(e)
-        # finally:
-        #     print("Cleaning up...")
-        #     self.clean_up(runner_conf)
 
     def download_test_results(self, runner_conf: DLTMetaRunnerConf):
         ws_output_file = self.ws.workspace.download(runner_conf.test_output_file_path)
@@ -1071,6 +1054,19 @@ class DLTMETARunner:
                     self.ws.schemas.delete(schema.full_name)
         print("Cleaning up complete!!!")
 
+    def run(self, runner_conf: DLTMetaRunnerConf):
+        try:
+            self.init_dltmeta_runner_conf(runner_conf)
+            exit()
+            self.create_bronze_silver_dlt(runner_conf)
+            self.launch_workflow(runner_conf)
+            self.download_test_results(runner_conf)
+        except Exception as e:
+            print(e)
+        # finally:
+        #     print("Cleaning up...")
+        #     self.clean_up(runner_conf)
+
 
 def get_workspace_api_client(profile=None) -> WorkspaceClient:
     """Get api client with config."""
@@ -1079,16 +1075,6 @@ def get_workspace_api_client(profile=None) -> WorkspaceClient:
     else:
         workspace_client = WorkspaceClient(host=input('Databricks Workspace URL: '), token=input('Token: '))
     return workspace_client
-
-
-def main():
-    """Entry method to run integration tests."""
-    args = process_arguments()
-    workspace_client = get_workspace_api_client(args["profile"])
-    integration_test_runner = DLTMETARunner(args, workspace_client, "integration_tests")
-    runner_conf = integration_test_runner.init_runner_conf()
-    exit()
-    integration_test_runner.run(runner_conf)
 
 def process_arguments() -> dict[str: str]:
     """
@@ -1231,6 +1217,15 @@ def process_arguments() -> dict[str: str]:
 
     print(f"Processing comand line arguments Complete: {args}")
     return args
+
+
+def main():
+    """Entry method to run integration tests."""
+    args = process_arguments()
+    workspace_client = get_workspace_api_client(args["profile"])
+    integration_test_runner = DLTMETARunner(args, workspace_client, "integration_tests")
+    runner_conf = integration_test_runner.init_runner_conf()
+    integration_test_runner.run(runner_conf)
 
 if __name__ == "__main__":
     main()
