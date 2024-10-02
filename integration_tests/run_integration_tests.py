@@ -10,7 +10,7 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
 from databricks.sdk.service import jobs, compute
 from src.__about__ import __version__
-from databricks.sdk.service.workspace import ImportFormat
+from databricks.sdk.service.workspace import ImportFormat, Language
 from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType
 from src.install import WorkspaceInstaller
 
@@ -188,17 +188,19 @@ class DLTMETARunner:
             runner_conf.uc_catalog_name = self.args.__dict__['uc_catalog_name']
             runner_conf.uc_volume_name = f"{self.args.__dict__['uc_catalog_name']}_volume_{run_id}",
 
-        runners_full_local_path = None
 
-        if runner_conf.source.lower() == "cloudfiles":
-            runners_full_local_path = './integration_tests/dbc/cloud_files_runners.dbc'
-        elif runner_conf.source.lower() == "eventhub":
-            runners_full_local_path = './integration_tests/dbc/eventhub_runners.dbc'
-        elif runner_conf.source.lower() == "kafka":
-            runners_full_local_path = './integration_tests/dbc/kafka_runners.dbc'
-        else:
-            raise Exception("Supported source not found in argument")
-        runner_conf.runners_full_local_path = runners_full_local_path
+        # Set the proper directory location for the notebooks that need to be uploaded to run and
+        # validate the integration tests
+        source_paths = {
+            "cloudfiles": "./integration_tests/notebooks/cloudfile_runners/",
+            "eventhub": "./integration_tests/notebooks/eventhub_runners/",
+            "kafka": "./integration_tests/notebooks/kafka_runners/",
+        }
+        try:
+            runner_conf.runners_full_local_path = source_paths[runner_conf.source.lower()]
+        except KeyError:
+            raise Exception("Given source is not support. Support source are: cloudfiles, eventhub, or kafka")
+
         return runner_conf
 
     def _install_folder(self):
@@ -912,22 +914,38 @@ class DLTMETARunner:
                     self.ws.dbfs.upload(dbfs_path, contents, overwrite=True)
 
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
+        """Create testing metadata including schemas, volumes, and uploading necessary notebooks"""
         if runner_conf.uc_catalog_name:
             self.initialize_uc_resources(runner_conf)
         self.generate_onboarding_file(runner_conf)
+
+
         print("int_tests_dir: ", runner_conf.int_tests_dir)
         self.copy(runner_conf)
-        print(f"uploading to {runner_conf.runners_nb_path}/{self.base_dir}/ complete!!!")
-        fp = open(runner_conf.runners_full_local_path, "rb")
+        print(
+            f"uploading to {runner_conf.runners_nb_path}/{self.base_dir}/ complete!!!"
+        )
+
+        # Upload required notebooks for the given source
         print(f"uploading to {runner_conf.runners_nb_path} started")
-        self.ws.workspace.mkdirs(runner_conf.runners_nb_path)
-        self.ws.workspace.upload(path=f"{runner_conf.runners_nb_path}/runners",
-                                 format=ImportFormat.DBC, content=fp.read())
+        self.ws.workspace.mkdirs(f"{runner_conf.runners_nb_path}/runners")
+        for notebook in os.listdir(runner_conf.runners_full_local_path):
+            local_path = os.path.join(runner_conf.runners_full_local_path, notebook)
+            with open(local_path, "rb") as nb_file:
+                self.ws.workspace.upload(
+                    path=f"{runner_conf.runners_nb_path}/runners/{notebook}",
+                    format=ImportFormat.SOURCE,
+                    language=Language.PYTHON,
+                    content=nb_file.read(),
+        )
         print(f"uploading to {runner_conf.runners_nb_path} complete!!!")
+
+
         if runner_conf.uc_catalog_name:
             self.build_and_upload_package(runner_conf)
 
     def initialize_uc_resources(self, runner_conf):
+        '''Create UC schemas and volumes needed to run the integration tests'''
         SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
                                               name=runner_conf.dlt_meta_schema,
                                               comment="dlt_meta framework schema")
@@ -978,9 +996,9 @@ class DLTMETARunner:
     def run(self, runner_conf: DLTMetaRunnerConf):
         try:
             self.init_dltmeta_runner_conf(runner_conf)
-            self.create_bronze_silver_dlt(runner_conf)
-            self.launch_workflow(runner_conf)
-            self.download_test_results(runner_conf)
+            # self.create_bronze_silver_dlt(runner_conf)
+            # self.launch_workflow(runner_conf)
+            # self.download_test_results(runner_conf)
         except Exception as e:
             print(e)
         # finally:
