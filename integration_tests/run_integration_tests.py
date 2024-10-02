@@ -162,15 +162,15 @@ class DLTMETARunner:
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
             username=self.wsi._my_username,
-            dbfs_tmp_path=f"{self.args.get('dbfs_path')}/{run_id}",
+            uc_catalog_name=self.args["uc_catalog_name"],
+            uc_volume_name=f"{self.args['uc_catalog_name']}_volume_{run_id}",
             int_tests_dir="file:./integration_tests",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_it_{run_id}",
             bronze_schema=f"dlt_meta_bronze_it_{run_id}",
             silver_schema=f"dlt_meta_silver_it_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
-            source=self.args['source'],
-            node_type_id=cloud_node_type_id_dict[self.args['cloud_provider_name']],
-            dbr_version=self.args.get('dbr_version'),
+            source=self.args["source"],
+            node_type_id=cloud_node_type_id_dict[self.args["cloud_provider_name"]],
             cloudfiles_template="integration_tests/conf/cloudfiles-onboarding.template",
             cloudfiles_A2_template="integration_tests/conf/cloudfiles-onboarding_A2.template",
             eventhub_template="integration_tests/conf/eventhub-onboarding.template",
@@ -181,12 +181,8 @@ class DLTMETARunner:
             test_output_file_path=(
                 f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/"
                 f"{run_id}/integration-test-output.csv"
-            )
-
+            ),
         )
-        runner_conf.uc_catalog_name = self.args['uc_catalog_name']
-        runner_conf.uc_volume_name = f"{self.args['uc_catalog_name']}_volume_{run_id}",
-
 
         # Set the proper directory location for the notebooks that need to be uploaded to run and
         # validate the integration tests
@@ -303,6 +299,7 @@ class DLTMETARunner:
             raise Exception("Pipeline creation failed")
         return created.pipeline_id
 
+
     def create_cloudfiles_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """
         Create the CloudFiles workflow specification.
@@ -322,7 +319,6 @@ class DLTMETARunner:
         Exception
             If the job creation fails.
         """
-        database, dlt_lib = self.init_db_dltlib(runner_conf)
         dltmeta_environments = [
             jobs.JobEnvironment(
                 environment_key="dl_meta_int_env",
@@ -345,7 +341,7 @@ class DLTMETARunner:
                         entry_point="run",
                         named_parameters={
                             "onboard_layer": "bronze_silver",
-                            "database": database,
+                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
                             "onboarding_file_path":
                             f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding.json",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
@@ -356,7 +352,7 @@ class DLTMETARunner:
                             "bronze_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/bronze",
                             "overwrite": "True",
                             "env": runner_conf.env,
-                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
+                            "uc_enabled": "True"
                         },
                     )
                 ),
@@ -378,7 +374,7 @@ class DLTMETARunner:
                         entry_point="run",
                         named_parameters={
                             "onboard_layer": "bronze",
-                            "database": database,
+                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
                             "onboarding_file_path":
                             f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding_A2.json",
                             "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
@@ -386,7 +382,7 @@ class DLTMETARunner:
                             "version": "v1",
                             "overwrite": "False",
                             "env": runner_conf.env,
-                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
+                            "uc_enabled": "True"
                         },
                     )
                 ),
@@ -411,7 +407,7 @@ class DLTMETARunner:
                     notebook_task=jobs.NotebookTask(
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
                         base_parameters={
-                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False",
+                            "uc_enabled": "True",
                             "uc_catalog_name": f"{runner_conf.uc_catalog_name}",
                             "bronze_schema": f"{runner_conf.bronze_schema}",
                             "silver_schema": f"{runner_conf.silver_schema}",
@@ -424,20 +420,8 @@ class DLTMETARunner:
             ]
         )
 
-    def init_db_dltlib(self, runner_conf: DLTMetaRunnerConf):
-        database = None
-        dlt_lib = []
-        if runner_conf.uc_catalog_name:
-            database = f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}"
-            dlt_lib.append(jobs.compute.Library(whl=runner_conf.remote_whl_path))
-        else:
-            database = runner_conf.dlt_meta_schema
-            dlt_lib.append(jobs.compute.Library(whl=runner_conf.remote_whl_path.replace("/Workspace", "dbfs:")))
-        return database, dlt_lib
-
     def create_eventhub_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """Create Job specification."""
-        database, dlt_lib = self.init_db_dltlib(runner_conf)
         dltmeta_environments = [
             jobs.JobEnvironment(
                 environment_key="dl_meta_int_env",
@@ -460,7 +444,7 @@ class DLTMETARunner:
                         entry_point="run",
                         named_parameters={
                             "onboard_layer": "bronze",
-                            "database": database,
+                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
                             "onboarding_file_path":
                             f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding.json",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
@@ -508,7 +492,7 @@ class DLTMETARunner:
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
                         base_parameters={
                             "run_id": runner_conf.run_id,
-                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False",
+                            "uc_enabled": "True",
                             "uc_catalog_name": runner_conf.uc_catalog_name,
                             "bronze_schema": runner_conf.bronze_schema,
                             "output_file_path": f"/Workspace{runner_conf.test_output_file_path}"
@@ -520,7 +504,6 @@ class DLTMETARunner:
 
     def create_kafka_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """Create Job specification."""
-        database, dlt_lib = self.init_db_dltlib(runner_conf)
         dltmeta_environments = [
             jobs.JobEnvironment(
                 environment_key="dl_meta_int_env",
@@ -544,7 +527,7 @@ class DLTMETARunner:
                         entry_point="run",
                         named_parameters={
                             "onboard_layer": "bronze",
-                            "database": database,
+                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
                             "onboarding_file_path":
                             f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/conf/onboarding.json",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
@@ -555,7 +538,7 @@ class DLTMETARunner:
                             "bronze_dataflowspec_path": f"{self._install_folder()}/dltmeta/data/dlt_spec/bronze",
                             "overwrite": "True",
                             "env": runner_conf.env,
-                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
+                            "uc_enabled": "True"
                         }
                     )
                 ),
@@ -587,7 +570,7 @@ class DLTMETARunner:
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
                         base_parameters={
                             "run_id": runner_conf.run_id,
-                            "uc_enabled": "True" if runner_conf.uc_catalog_name else "False",
+                            "uc_enabled": "True" ,
                             "uc_catalog_name": runner_conf.uc_catalog_name,
                             "bronze_schema": runner_conf.bronze_schema,
                             "output_file_path": f"/Workspace{runner_conf.test_output_file_path}"
@@ -918,7 +901,6 @@ class DLTMETARunner:
             self.initialize_uc_resources(runner_conf)
         self.generate_onboarding_file(runner_conf)
 
-
         print("int_tests_dir: ", runner_conf.int_tests_dir)
         self.copy(runner_conf)
         print(
@@ -938,7 +920,6 @@ class DLTMETARunner:
                     content=nb_file.read(),
         )
         print(f"uploading to {runner_conf.runners_nb_path} complete!!!")
-
 
         if runner_conf.uc_catalog_name:
             self.build_and_upload_package(runner_conf)
@@ -995,9 +976,10 @@ class DLTMETARunner:
     def run(self, runner_conf: DLTMetaRunnerConf):
         try:
             self.init_dltmeta_runner_conf(runner_conf)
-            # self.create_bronze_silver_dlt(runner_conf)
-            # self.launch_workflow(runner_conf)
-            # self.download_test_results(runner_conf)
+            exit()
+            self.create_bronze_silver_dlt(runner_conf)
+            self.launch_workflow(runner_conf)
+            self.download_test_results(runner_conf)
         except Exception as e:
             print(e)
         # finally:
@@ -1104,8 +1086,8 @@ def main():
     args = process_arguments()
     workspace_client = get_workspace_api_client(args["profile"])
     integration_test_runner = DLTMETARunner(args, workspace_client, "integration_tests")
-    exit()
     runner_conf = integration_test_runner.init_runner_conf()
+    exit()
     integration_test_runner.run(runner_conf)
 
 def process_arguments() -> dict[str: str]:
