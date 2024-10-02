@@ -168,7 +168,7 @@ class DLTMETARunner:
             bronze_schema=f"dlt_meta_bronze_it_{run_id}",
             silver_schema=f"dlt_meta_silver_it_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
-            source=self.args.__dict__['source'],
+            source=self.args.__dict__['source'].lower(),
             node_type_id=cloud_node_type_id_dict[self.args.__dict__.get('cloud_provider_name', None)],
             dbr_version=self.args.__dict__.get('dbr_version', None),
             cloudfiles_template="integration_tests/conf/cloudfiles-onboarding.template",
@@ -197,7 +197,7 @@ class DLTMETARunner:
             "kafka": "./integration_tests/notebooks/kafka_runners/",
         }
         try:
-            runner_conf.runners_full_local_path = source_paths[runner_conf.source.lower()]
+            runner_conf.runners_full_local_path = source_paths[runner_conf.source]
         except KeyError:
             raise Exception("Given source is not support. Support source are: cloudfiles, eventhub, or kafka")
 
@@ -600,7 +600,7 @@ class DLTMETARunner:
 
     def generate_onboarding_file(self, runner_conf: DLTMetaRunnerConf):
         """Generate onboarding file from template."""
-        source = runner_conf.source.lower()
+        source = runner_conf.source
         if source == "cloudfiles":
             self.create_cloudfiles_onboarding(runner_conf)
         elif source == "eventhub":
@@ -952,7 +952,7 @@ class DLTMETARunner:
         SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
                                               name=runner_conf.bronze_schema,
                                               comment="bronze_schema")
-        if runner_conf.source and runner_conf.source.lower() == "cloudfiles":
+        if runner_conf.source and runner_conf.source == "cloudfiles":
             SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
                                                   name=runner_conf.silver_schema,
                                                   comment="silver_schema")
@@ -1018,7 +1018,7 @@ class DLTMETARunner:
             runner_conf.bronze_schema,
             runner_conf)
 
-        if runner_conf.source and runner_conf.source.lower() == "cloudfiles":
+        if runner_conf.source and runner_conf.source == "cloudfiles":
             runner_conf.bronze_pipeline_A2_id = self.create_dlt_meta_pipeline(
                 f"dlt-meta-bronze-A2-{runner_conf.run_id}",
                 "bronze",
@@ -1034,11 +1034,11 @@ class DLTMETARunner:
                 runner_conf)
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
-        if runner_conf.source.lower() == "cloudfiles":
+        if runner_conf.source == "cloudfiles":
             created_job = self.create_cloudfiles_workflow_spec(runner_conf)
-        elif runner_conf.source.lower() == "eventhub":
+        elif runner_conf.source == "eventhub":
             created_job = self.create_eventhub_workflow_spec(runner_conf)
-        elif runner_conf.source.lower() == "kafka":
+        elif runner_conf.source == "kafka":
             created_job = self.create_kafka_workflow_spec(runner_conf)
         runner_conf.job_id = created_job.job_id
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
@@ -1137,7 +1137,10 @@ def process_arguments(args_map, mandatory_args):
     """Process command line arguments."""
     parser = argparse.ArgumentParser()
     for key, value in args_map.items():
-        parser.add_argument(key, help=value)
+        if key == '--source': # Only expecting lowercase source options
+            parser.add_argument(key, help=value, type=str.lower)
+        else:
+            parser.add_argument(key, help=value)
 
     args = parser.parse_args()
     check_mandatory_arg(args, mandatory_args)
@@ -1153,14 +1156,14 @@ def post_arg_processing(args):
     """Post processing of arguments."""
     supported_sources = ["cloudfiles", "eventhub", "kafka"]
     source = args.__getattribute__("source")
-    if source.lower() not in supported_sources:
-        raise Exception("Invalid value for --source! Supported values: --source=cloudfiles")
-    if source.lower() == "eventhub":
+    if source not in supported_sources:
+        raise Exception(f"Invalid value for --source! Supported values: {supported_sources}")
+    if source == "eventhub":
         eventhub_madatory_args = ["eventhub_name", "eventhub_name_append_flow", "eventhub_producer_accesskey_name",
                                   "eventhub_consumer_accesskey_name", "eventhub_secrets_scope_name",
                                   "eventhub_namespace", "eventhub_port"]
         check_mandatory_arg(args, eventhub_madatory_args)
-    if source.lower() == "kafka":
+    if source == "kafka":
         kafka_madatory_args = ["kafka_topic_name", "kafka_broker"]
         check_mandatory_arg(args, kafka_madatory_args)
     print(f"Parsing argument complete. args={args}")
