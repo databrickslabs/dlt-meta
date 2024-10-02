@@ -168,7 +168,7 @@ class DLTMETARunner:
             bronze_schema=f"dlt_meta_bronze_it_{run_id}",
             silver_schema=f"dlt_meta_silver_it_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
-            source=self.args.__dict__['source'].lower(),
+            source=self.args.__dict__['source'],
             node_type_id=cloud_node_type_id_dict[self.args.__dict__.get('cloud_provider_name', None)],
             dbr_version=self.args.__dict__.get('dbr_version', None),
             cloudfiles_template="integration_tests/conf/cloudfiles-onboarding.template",
@@ -1100,81 +1100,175 @@ def get_workspace_api_client(profile=None) -> WorkspaceClient:
     return workspace_client
 
 
-args_map = {"--profile": "provide databricks cli profile name, if not provide databricks_host and token",
-            "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
-            "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
-            "--source": "Provide source type e.g --source=cloudfiles",
-            "--eventhub_name": "Provide eventhub_name e.g --eventhub_name=iot",
-            "--eventhub_name_append_flow": "Provide eventhub_name_append_flow e.g --eventhub_name_append_flow=iot_af",
-            "--eventhub_producer_accesskey_name": "Provide access key that has write permission on the eventhub",
-            "--eventhub_consumer_accesskey_name": "Provide access key that has read permission on the eventhub",
-            "--eventhub_secrets_scope_name": "Provide eventhub_secrets_scope_name e.g \
-                        --eventhub_secrets_scope_name=eventhubs_creds",
-            "--eventhub_accesskey_secret_name": "Provide eventhub_accesskey_secret_name e.g \
-                        -eventhub_accesskey_secret_name=RootManageSharedAccessKey",
-            "--eventhub_namespace": "Provide eventhub_namespace e.g --eventhub_namespace=topic-standard",
-            "--eventhub_port": "Provide eventhub_port e.g --eventhub_port=9093",
-            "--kafka_topic_name": "Provide kafka topic name e.g --kafka_topic_name=iot",
-            "--kafka_broker": "Provide kafka broker e.g --127.0.0.1:9092"
-            }
-
-mandatory_args = [
-    "uc_catalog_name", "cloud_provider_name", "source"
-]
-
-
 def main():
     """Entry method to run integration tests."""
-    args = process_arguments(args_map, mandatory_args)
-    post_arg_processing(args)
+
+    args_map = {
+        "--profile": "provide databricks cli profile name, if not provide databricks_host and token",
+        "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
+        "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
+        "--source": "Provide source type e.g --source=cloudfiles",
+        "--eventhub_name": "Provide eventhub_name e.g --eventhub_name=iot",
+        "--eventhub_name_append_flow": "Provide eventhub_name_append_flow e.g --eventhub_name_append_flow=iot_af",
+        "--eventhub_producer_accesskey_name": "Provide access key that has write permission on the eventhub",
+        "--eventhub_consumer_accesskey_name": "Provide access key that has read permission on the eventhub",
+        "--eventhub_secrets_scope_name": "Provide eventhub_secrets_scope_name e.g --eventhub_secrets_scope_name=eventhubs_creds",
+        "--eventhub_accesskey_secret_name": "Provide eventhub_accesskey_secret_name e.g -eventhub_accesskey_secret_name=RootManageSharedAccessKey",
+        "--eventhub_namespace": "Provide eventhub_namespace e.g --eventhub_namespace=topic-standard",
+        "--eventhub_port": "Provide eventhub_port e.g --eventhub_port=9093",
+        "--kafka_topic_name": "Provide kafka topic name e.g --kafka_topic_name=iot",
+        "--kafka_broker": "Provide kafka broker e.g --127.0.0.1:9092",
+    }
+    mandatory_args = ["uc_catalog_name", "cloud_provider_name", "source"]
+
+    args = process_arguments()
+    exit()
     workspace_client = get_workspace_api_client(args.profile)
     integration_test_runner = DLTMETARunner(args, workspace_client, "integration_tests")
     runner_conf = integration_test_runner.init_runner_conf()
     integration_test_runner.run(runner_conf)
 
+def process_arguments() -> dict[str: str]:
+    """
+    Get, process, and validate the command line arguements
 
-def process_arguments(args_map, mandatory_args):
-    """Process command line arguments."""
+    Returns:
+        A dictionary where the argument names are the keys and the values aredictionary values
+    """
+
+    print("Processing comand line arguments...")
+
+    # Possible input arguments, organized as elements in a list like:
+    # [argument, help message, type, required, choices (if applicable)]
+    input_args = [
+        # Generic arguments
+        [
+            "profile",
+            "Provide databricks cli profile name, if not provide databricks_host and token",
+            str,
+            False,
+            [],
+        ],
+        [
+            "uc_catalog_name",
+            "Provide databricks uc_catalog name, this is required to create volume, schema, table",
+            str,
+            True,
+            [],
+        ],
+        [
+            "cloud_provider_name",
+            "Provide cloud provider name. Supported values are aws , azure , gcp",
+            str.lower,
+            True,
+            ["aws", "azure", "gcp"],
+        ],
+        [
+            "source",
+            "Provide source type: cloudfiles, eventhub, kafka",
+            str.lower,
+            True,
+            ["cloudfiles", "eventhub", "kafka"],
+        ],
+        # Eventhub arguments
+        ["eventhub_name", "Provide eventhub_name e.g: iot", str, False, []],
+        [
+            "eventhub_name_append_flow",
+            "Provide eventhub_name_append_flow e.g: iot_af",
+            str,
+            False,
+            [],
+        ],
+        [
+            "eventhub_producer_accesskey_name",
+            "Provide access key that has write permission on the eventhub",
+            str,
+            False,
+            [],
+        ],
+        [
+            "eventhub_consumer_accesskey_name",
+            "Provide access key that has read permission on the eventhub",
+            str,
+            False,
+            [],
+        ],
+        [
+            "eventhub_secrets_scope_name",
+            "Provide eventhub_secrets_scope_name e.g: eventhubs_creds",
+            str,
+            False,
+            [],
+        ],
+        [
+            "eventhub_accesskey_secret_name",
+            "Provide eventhub_accesskey_secret_name e.g: RootManageSharedAccessKey",
+            str,
+            False,
+            [],
+        ],
+        [
+            "eventhub_namespace",
+            "Provide eventhub_namespace e.g: topic-standar",
+            str,
+            False,
+            [],
+        ],
+        [
+            "eventhub_port",
+            "Provide eventhub_port e.g: 9093",
+            str,
+            False,
+            [],
+        ],
+        # Kafka arguments
+        [
+            "kafka_topic_name",
+            "Provide kafka topic name e.g: iot",
+            str,
+            False,
+            [],
+        ],
+        ["kafka_broker", "Provide kafka broker e.g 127.0.0.1:9092", str, False, []],
+    ]
+
+    # Build cli parser
     parser = argparse.ArgumentParser()
-    for key, value in args_map.items():
-        if key == '--source': # Only expecting lowercase source options
-            parser.add_argument(key, help=value, type=str.lower)
+    for arg in input_args:
+        if arg[4]:
+            parser.add_argument(f"--{arg[0]}", help=arg[1], type=arg[2], required=arg[3], choices=arg[4])
         else:
-            parser.add_argument(key, help=value)
+            parser.add_argument(f"--{arg[0]}", help=arg[1], type=arg[2], required=arg[3])
+    args = vars(parser.parse_args())
 
-    args = parser.parse_args()
-    check_mandatory_arg(args, mandatory_args)
-    supported_cloud_providers = ["aws", "azure", "gcp"]
+    def check_mandatory_arg(args, mandatory_args):
+        """Post argument parsing check for conditionally required arguments"""
+        for mand_arg in mandatory_args:
+            if args[mand_arg] is None:
+                raise Exception(f"Please provide '--{mand_arg}'")
 
-    cloud_provider_name = args.__getattribute__("cloud_provider_name") if args.__contains__("cloud_provider_name") else None
-    if cloud_provider_name and cloud_provider_name.lower() not in supported_cloud_providers:
-        raise Exception("Invalid value for --cloud_provider_name! Supported values are aws, azure, gcp")
+    # Check for arguments that are required depending on the selected source
+    if args["source"] == "eventhub":
+        check_mandatory_arg(
+            args,
+            [
+                "eventhub_name",
+                "eventhub_name_append_flow",
+                "eventhub_producer_accesskey_name",
+                "eventhub_consumer_accesskey_name",
+                "eventhub_secrets_scope_name",
+                "eventhub_namespace",
+                "eventhub_port",
+            ],
+        )
+    elif args["source"] == "kafka":
+        check_mandatory_arg(
+            args,
+            ["kafka_topic_name", "kafka_broker"],
+        )
+
+    print(f"Processing comand line arguments Complete: {args}")
     return args
-
-
-def post_arg_processing(args):
-    """Post processing of arguments."""
-    supported_sources = ["cloudfiles", "eventhub", "kafka"]
-    source = args.__getattribute__("source")
-    if source not in supported_sources:
-        raise Exception(f"Invalid value for --source! Supported values: {supported_sources}")
-    if source == "eventhub":
-        eventhub_madatory_args = ["eventhub_name", "eventhub_name_append_flow", "eventhub_producer_accesskey_name",
-                                  "eventhub_consumer_accesskey_name", "eventhub_secrets_scope_name",
-                                  "eventhub_namespace", "eventhub_port"]
-        check_mandatory_arg(args, eventhub_madatory_args)
-    if source == "kafka":
-        kafka_madatory_args = ["kafka_topic_name", "kafka_broker"]
-        check_mandatory_arg(args, kafka_madatory_args)
-    print(f"Parsing argument complete. args={args}")
-
-
-def check_mandatory_arg(args, mandatory_args):
-    """Check mandatory argument present."""
-    for mand_arg in mandatory_args:
-        if args.__dict__[f'{mand_arg}'] is None:
-            raise Exception(f"Please provide '--{mand_arg}'")
-
 
 if __name__ == "__main__":
     main()
