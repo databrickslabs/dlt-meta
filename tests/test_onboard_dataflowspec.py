@@ -347,10 +347,11 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
     def test_onboard_apply_changes_from_snapshot_positive(self):
         """Test for onboardDataflowspec."""
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        onboarding_params_map['env'] = 'it'
         del onboarding_params_map["silver_dataflowspec_table"]
         del onboarding_params_map["silver_dataflowspec_path"]
         onboarding_params_map["onboarding_file_path"] = self.onboarding_apply_changes_from_snapshot_json_file
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map, uc_enabled=True)
         onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
         bronze_dataflowSpec_df = self.read_dataflowspec(
             self.onboarding_bronze_silver_params_map['database'],

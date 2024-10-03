@@ -468,7 +468,10 @@ class OnboardDataflowspec:
                 "table": onboarding_row["bronze_table"]
             }
             if not self.uc_enabled:
-                bronze_target_details["path"] = onboarding_row[f"bronze_table_path_{env}"]
+                if f"bronze_table_path_{env}" in onboarding_row:
+                    bronze_target_details["path"] = onboarding_row[f"bronze_table_path_{env}"]
+                else:
+                    raise Exception(f"bronze_table_path_{env} not provided in onboarding_row={onboarding_row}")
             bronze_table_properties = {}
             if "bronze_table_properties" in onboarding_row and onboarding_row["bronze_table_properties"]:
                 bronze_table_properties = self.__delete_none(onboarding_row["bronze_table_properties"].asDict())
@@ -614,16 +617,19 @@ class OnboardDataflowspec:
         bronze_reader_config_options = {}
         schema = None
         source_format = onboarding_row["source_format"]
-        if source_format.lower() == "snapshot":
-            bronze_reader_config_options = {}
-        else:
-            bronze_reader_options_json = onboarding_row["bronze_reader_options"]
-            if bronze_reader_options_json:
-                bronze_reader_config_options = self.__delete_none(bronze_reader_options_json.asDict())
+        bronze_reader_options_json = (
+            onboarding_row["bronze_reader_options"]
+            if "bronze_reader_options" in onboarding_row
+            else {}
+        )
+        if bronze_reader_options_json:
+            bronze_reader_config_options = self.__delete_none(bronze_reader_options_json.asDict())
         source_details_json = onboarding_row["source_details"]
         if source_details_json:
             source_details_file = self.__delete_none(source_details_json.asDict())
-            if source_format.lower() == "cloudfiles" or source_format.lower() == "delta":
+            if (source_format.lower() == "cloudfiles"
+                    or source_format.lower() == "delta"
+                    or source_format.lower() == "snapshot"):
                 if f"source_path_{env}" in source_details_file:
                     source_details["path"] = source_details_file[f"source_path_{env}"]
                 if "source_database" in source_details_file:
@@ -638,6 +644,13 @@ class OnboardDataflowspec:
                         )
                         source_metadata_dict["select_metadata_cols"] = select_metadata_cols
                     source_details["source_metadata"] = json.dumps(self.__delete_none(source_metadata_dict))
+                if source_format.lower() == "snapshot":
+                    snapshot_format = source_details_file.get("snapshot_format", None)
+                    if snapshot_format is None:
+                        raise Exception("snapshot_format is missing in the source_details")
+                    source_details["snapshot_format"] = snapshot_format
+                    if f"source_path_{env}" in source_details_file:
+                        source_details["path"] = source_details_file[f"source_path_{env}"]
             elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
                 source_details = source_details_file
             if "source_schema_path" in source_details_file:

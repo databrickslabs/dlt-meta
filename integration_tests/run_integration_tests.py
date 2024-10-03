@@ -117,6 +117,7 @@ class DLTMetaRunnerConf:
     eventhub_input_data: str = None
     eventhub_append_flow_input_data: str = None
     kafka_template: str = None
+    snapshot_template: str = None
     env: str = None
     whl_path: str = None
     volume_info: VolumeInfo = None
@@ -169,12 +170,14 @@ class DLTMETARunner:
             silver_schema=f"dlt_meta_silver_it_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
             source=self.args.__dict__['source'],
-            node_type_id=cloud_node_type_id_dict[self.args.__dict__.get('cloud_provider_name', None)],
+            node_type_id=None if not self.args.__dict__.get('cloud_provider_name', None) else cloud_node_type_id_dict[
+                self.args.__dict__.get('cloud_provider_name')],
             dbr_version=self.args.__dict__.get('dbr_version', None),
             cloudfiles_template="integration_tests/conf/cloudfiles-onboarding.template",
             cloudfiles_A2_template="integration_tests/conf/cloudfiles-onboarding_A2.template",
             eventhub_template="integration_tests/conf/eventhub-onboarding.template",
             kafka_template="integration_tests/conf/kafka-onboarding.template",
+            snapshot_template="integration_tests/conf/snapshot-onboarding.template",
             onboarding_file_path="integration_tests/conf/onboarding.json",
             onboarding_A2_file_path="integration_tests/conf/onboarding_A2.json",
             env="it",
@@ -196,6 +199,8 @@ class DLTMETARunner:
             runners_full_local_path = './integration_tests/dbc/eventhub_runners.dbc'
         elif runner_conf.source.lower() == "kafka":
             runners_full_local_path = './integration_tests/dbc/kafka_runners.dbc'
+        elif runner_conf.source.lower() == 'snapshot':
+            runners_full_local_path = './integration_tests/dbc/snapshot_runners.dbc'
         else:
             raise Exception("Supported source not found in argument")
         runner_conf.runners_full_local_path = runners_full_local_path
@@ -517,6 +522,90 @@ class DLTMETARunner:
             ]
         )
 
+    def create_snapshot_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
+        database, dlt_lib = self.init_db_dltlib(runner_conf)
+        dltmeta_environments = [
+            jobs.JobEnvironment(
+                environment_key="dl_meta_int_env",
+                spec=compute.Environment(client="2",
+                                         dependencies=[runner_conf.remote_whl_path]
+                                         )
+            )
+        ]
+        return self.ws.jobs.create(
+            name=f"dlt-meta-{runner_conf.run_id}",
+            environments=dltmeta_environments,
+            tasks=[
+                jobs.Task(
+                    task_key="setup_dlt_meta_pipeline_spec",
+                    environment_key="dl_meta_int_env",
+                    description="test",
+                    timeout_seconds=0,
+                    python_wheel_task=jobs.PythonWheelTask(
+                        package_name="dlt_meta",
+                        entry_point="run",
+                        named_parameters={
+                            "onboard_layer": "bronze",
+                            "database": database,
+                            "onboarding_file_path":
+                            f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding.json",
+                            "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
+                            "import_author": "Ravi",
+                            "version": "v1",
+                            "overwrite": "True",
+                            "env": runner_conf.env,
+                            "uc_enabled": "True"
+                        },
+                    )
+                ),
+                jobs.Task(
+                    task_key="bronze_snapshot_v1_dlt_pipeline",
+                    depends_on=[jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")],
+                    pipeline_task=jobs.PipelineTask(
+                        pipeline_id=runner_conf.bronze_pipeline_id
+                    )
+                ),
+                jobs.Task(
+                    task_key="upload_v2_snapshots",
+                    description="upload_v2_snapshots",
+                    depends_on=[jobs.TaskDependency(task_key="bronze_snapshot_v1_dlt_pipeline")],
+                    notebook_task=jobs.NotebookTask(
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/upload_snapshots",
+                        base_parameters={
+                            "base_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/snapshots/",
+                            "version": "2"
+                        }
+                    )
+                ),
+                jobs.Task(
+                    task_key="bronze_snapshot_v2_dlt_pipeline",
+                    depends_on=[jobs.TaskDependency(task_key="upload_v2_snapshots")],
+                    pipeline_task=jobs.PipelineTask(
+                        pipeline_id=runner_conf.bronze_pipeline_id
+                    )
+                ),
+                jobs.Task(
+                    task_key="upload_v3_snapshots",
+                    description="upload_v3_snapshots",
+                    depends_on=[jobs.TaskDependency(task_key="bronze_snapshot_v2_dlt_pipeline")],
+                    notebook_task=jobs.NotebookTask(
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/upload_snapshots",
+                        base_parameters={
+                            "base_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/snapshots/",
+                            "version": "3"
+                        }
+                    )
+                ),
+                jobs.Task(
+                    task_key="bronze_snapshot_v3_dlt_pipeline",
+                    depends_on=[jobs.TaskDependency(task_key="upload_v3_snapshots")],
+                    pipeline_task=jobs.PipelineTask(
+                        pipeline_id=runner_conf.bronze_pipeline_id
+                    )
+                ),
+            ]
+        )
+
     def create_kafka_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """Create Job specification."""
         database, dlt_lib = self.init_db_dltlib(runner_conf)
@@ -605,6 +694,27 @@ class DLTMETARunner:
             self.create_eventhub_onboarding(runner_conf)
         elif source == "kafka":
             self.create_kafka_onboarding(runner_conf)
+        elif source == "snapshot":
+            self.create_snapshot_onboarding(runner_conf)
+
+    def create_snapshot_onboarding(self, runner_conf: DLTMetaRunnerConf):
+        with open(f"{runner_conf.snapshot_template}") as f:
+            onboard_obj = json.load(f)
+
+        for data_flow in onboard_obj:
+            for key, value in data_flow.items():
+                if key == "source_details":
+                    for source_key, source_value in value.items():
+                        if 'uc_volume_path' in source_value:
+                            data_flow[key][source_key] = source_value.format(uc_volume_path=runner_conf.uc_volume_path)
+                elif 'uc_catalog_name' in value and 'bronze_schema' in value:
+                    if runner_conf.uc_catalog_name:
+                        data_flow[key] = value.format(
+                            uc_catalog_name=runner_conf.uc_catalog_name,
+                            bronze_schema=runner_conf.bronze_schema
+                        )
+        with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
+            json.dump(onboard_obj, onboarding_file)
 
     def create_kafka_onboarding(self, runner_conf: DLTMetaRunnerConf):
         """Create kafka onboarding file."""
@@ -1022,6 +1132,8 @@ class DLTMETARunner:
             created_job = self.create_eventhub_workflow_spec(runner_conf)
         elif runner_conf.source.lower() == "kafka":
             created_job = self.create_kafka_workflow_spec(runner_conf)
+        elif runner_conf.source.lower() == "snapshot":
+            created_job = self.create_snapshot_workflow_spec(runner_conf)
         runner_conf.job_id = created_job.job_id
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
         webbrowser.open(f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}")
@@ -1084,7 +1196,6 @@ def get_workspace_api_client(profile=None) -> WorkspaceClient:
 
 args_map = {"--profile": "provide databricks cli profile name, if not provide databricks_host and token",
             "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table",
-            "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
             "--source": "Provide source type e.g --source=cloudfiles",
             "--eventhub_name": "Provide eventhub_name e.g --eventhub_name=iot",
             "--eventhub_name_append_flow": "Provide eventhub_name_append_flow e.g --eventhub_name_append_flow=iot_af",
@@ -1101,7 +1212,7 @@ args_map = {"--profile": "provide databricks cli profile name, if not provide da
             }
 
 mandatory_args = [
-    "uc_catalog_name", "cloud_provider_name", "source"
+    "uc_catalog_name", "source"
 ]
 
 
@@ -1125,7 +1236,11 @@ def process_arguments(args_map, mandatory_args):
     check_mandatory_arg(args, mandatory_args)
     supported_cloud_providers = ["aws", "azure", "gcp"]
 
-    cloud_provider_name = args.__getattribute__("cloud_provider_name") if args.__contains__("cloud_provider_name") else None
+    cloud_provider_name = (
+        args.__getattribute__("cloud_provider_name")
+        if args.__contains__("cloud_provider_name")
+        else None
+    )
     if cloud_provider_name and cloud_provider_name.lower() not in supported_cloud_providers:
         raise Exception("Invalid value for --cloud_provider_name! Supported values are aws, azure, gcp")
     return args
@@ -1133,7 +1248,7 @@ def process_arguments(args_map, mandatory_args):
 
 def post_arg_processing(args):
     """Post processing of arguments."""
-    supported_sources = ["cloudfiles", "eventhub", "kafka"]
+    supported_sources = ["cloudfiles", "eventhub", "kafka", "snapshot"]
     source = args.__getattribute__("source")
     if source.lower() not in supported_sources:
         raise Exception("Invalid value for --source! Supported values: --source=cloudfiles")

@@ -41,7 +41,7 @@ class DLTMETADAISDemo(DLTMETARunner):
             bronze_schema=f"dlt_meta_bronze_dais_demo_{run_id}",
             silver_schema=f"dlt_meta_silver_dais_demo_{run_id}",
             runners_nb_path=f"/Users/{self._my_username(self.ws)}/dlt_meta_dais_demo/{run_id}",
-            node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
+            # node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             # dbr_version=self.args.__dict__['dbr_version'],
             cloudfiles_template="demo/conf/onboarding.template",
             env="prod",

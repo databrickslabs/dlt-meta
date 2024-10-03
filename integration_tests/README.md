@@ -35,12 +35,12 @@
     ```
 
 9. Run integration test against cloudfile or eventhub or kafka using below options: If databricks profile configured using CLI then pass ```--profile <profile-name>``` to below command otherwise provide workspace url and token in command line
-    - 9a. Run the command for cloudfiles 
+    - 9a. Run the command for **cloudfiles**
         ```commandline 
         python integration_tests/run_integration_tests.py  --uc_catalog_name= --source=cloudfiles
         ```
 
-    - 9b. Run the command for eventhub 
+    - 9b. Run the command for **eventhub**
         ```commandline 
         python integration_tests/run_integration_tests.py --uc_catalog_name=<<>> --source=eventhub --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer
         ```
@@ -59,9 +59,9 @@
         6. Provide eventhub access key name : --eventhub_consumer_accesskey_name
 
 
-    - 9c. Run the command for kafka 
+    - 9c. Run the command for **kafka**
         ```commandline
-        python3 integration_tests/run_integration_tests.py --uc_catalog_name=<<>> --source=kafka --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092
+        python integration_tests/run_integration_tests.py --uc_catalog_name=<<>> --source=kafka --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092
         ```
 
     - - For kafka integration tests, the following are the prerequisites:
@@ -70,6 +70,12 @@
     - - Following are the mandatory arguments for running EventHubs integration test
         1. Provide your kafka topic name : --kafka_topic_name
         2. Provide kafka_broker : --kafka_broker
+    
+    - 9d. Run the command for **snapshot**
+        ```commandline
+        python integration_tests/run_integration_tests.py --source=snapshot --uc_catalog_name=<<>>
+        ```
+
 
 10. Once finished integration output file will be copied locally to 
 ```integration-test-output_<run_id>.txt```
