@@ -97,10 +97,10 @@ class DLTMetaRunnerConf:
     run_name: str = None
     uc_catalog_name: str = None
     uc_volume_name: str = "dlt_meta_files"
-    onboarding_file_path: str = None
+    onboarding_file_path: str = "integration_tests/conf/onboarding.json"
     onboarding_A2_file_path: str = "integration_tests/conf/onboarding_A2.json"
     onboarding_fanout_file_path: str = "integration_tests/conf/onboarding.json"
-    int_tests_dir: str = "file:./integration_tests"
+    int_tests_dir: str = "./integration_tests"
     dlt_meta_schema: str = None
     bronze_schema: str = None
     silver_schema: str = None
@@ -109,7 +109,7 @@ class DLTMetaRunnerConf:
     source: str = None
     cloudfiles_template: str = "integration_tests/conf/cloudfiles-onboarding.template"
     cloudfiles_A2_template: str = "integration_tests/conf/cloudfiles-onboarding_A2.template"
-    onboarding_fanout_templates: str = None
+    #onboarding_fanout_templates: str = None
     eventhub_template: str = "integration_tests/conf/eventhub-onboarding.template",
     eventhub_input_data: str = None
     eventhub_append_flow_input_data: str = None
@@ -185,9 +185,6 @@ class DLTMETARunner:
             raise Exception("Given source is not support. Support source are: cloudfiles, eventhub, or kafka")
 
         return runner_conf
-
-
-
 
     def _install_folder(self):
         return f"/Users/{self.wsi._my_username}/dlt-meta"
@@ -289,7 +286,6 @@ class DLTMETARunner:
         if created is None:
             raise Exception("Pipeline creation failed")
         return created.pipeline_id
-
 
     def create_cloudfiles_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """
@@ -571,16 +567,6 @@ class DLTMETARunner:
             ]
         )
 
-    def generate_onboarding_file(self, runner_conf: DLTMetaRunnerConf):
-        """Generate onboarding file from template."""
-        source = runner_conf.source
-        if source == "cloudfiles":
-            self.create_cloudfiles_onboarding(runner_conf)
-        elif source == "eventhub":
-            self.create_eventhub_onboarding(runner_conf)
-        elif source == "kafka":
-            self.create_kafka_onboarding(runner_conf)
-
     def create_kafka_onboarding(self, runner_conf: DLTMetaRunnerConf):
         """Create kafka onboarding file."""
         with open(f"{runner_conf.kafka_template}") as f:
@@ -735,157 +721,6 @@ class DLTMETARunner:
         if 'eventhub_port' in source_value:
             data_flow[key][source_key] = source_value.format(eventhub_port=eventhub_port)
 
-    def create_cloudfiles_onboarding(self, runner_conf: DLTMetaRunnerConf):
-        """Create onboarding file for cloudfiles as source."""
-        with open(f"{runner_conf.cloudfiles_template}") as f:
-            onboard_obj = json.load(f)
-
-        for data_flow in onboard_obj:
-            for key, value in data_flow.items():
-                self.__populate_source_details(runner_conf, data_flow, key, value)
-                if isinstance(value, list):
-                    for val in value:
-                        for k, v in val.items():
-                            self.__populate_source_details(runner_conf, val, k, v)
-                if 'dbfs_path' in value:
-                    data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
-                if 'uc_volume_path' in value:
-                    data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
-                if key == 'silver_append_flows':
-                    counter = 0
-                    for flows in value:
-                        for flow_key, flow_value in flows.items():
-                            if flow_key == "source_details":
-                                for source_key, source_value in flows[flow_key].items():
-                                    if '{uc_catalog_name}.{bronze_schema}' in source_value:
-                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
-                                            uc_catalog_name=runner_conf.uc_catalog_name,
-                                            bronze_schema=runner_conf.bronze_schema)
-                elif 'run_id' in value:
-                    data_flow[key] = value.format(run_id=runner_conf.run_id)
-                elif 'uc_catalog_name' in value and 'bronze_schema' in value:
-                    if runner_conf.uc_catalog_name:
-                        data_flow[key] = value.format(
-                            uc_catalog_name=runner_conf.uc_catalog_name,
-                            bronze_schema=runner_conf.bronze_schema
-                        )
-                    else:
-                        data_flow[key] = value.format(
-                            uc_catalog_name=f"bronze_{runner_conf.run_id}",
-                            bronze_schema=""
-                        ).replace(".", "")
-
-                elif 'uc_catalog_name' in value and 'silver_schema' in value:
-                    if runner_conf.uc_catalog_name:
-                        data_flow[key] = value.format(
-                            uc_catalog_name=runner_conf.uc_catalog_name,
-                            silver_schema=runner_conf.silver_schema
-                        )
-                    else:
-                        data_flow[key] = value.format(
-                            uc_catalog_name=f"silver_{runner_conf.run_id}",
-                            silver_schema=""
-                        ).replace(".", "")
-
-        with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
-            json.dump(onboard_obj, onboarding_file)
-
-        if runner_conf.cloudfiles_A2_template:
-            with open(f"{runner_conf.cloudfiles_A2_template}") as f:
-                onboard_obj = json.load(f)
-
-            for data_flow in onboard_obj:
-                for key, value in data_flow.items():
-                    self.__populate_source_details(runner_conf, data_flow, key, value)
-                    if 'dbfs_path' in value:
-                        data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
-                    if 'uc_volume_path' in value:
-                        data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
-                    if 'uc_catalog_name' in value and 'bronze_schema' in value:
-                        if runner_conf.uc_catalog_name:
-                            data_flow[key] = value.format(
-                                uc_catalog_name=runner_conf.uc_catalog_name,
-                                bronze_schema=runner_conf.bronze_schema
-                            )
-
-            with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file:
-                json.dump(onboard_obj, onboarding_file)
-
-        if runner_conf.onboarding_fanout_templates:
-            with open(f"{runner_conf.onboarding_fanout_templates}") as f:
-                onboard_obj = json.load(f)
-
-            for data_flow in onboard_obj:
-                for key, value in data_flow.items():
-                    self.__populate_source_details(runner_conf, data_flow, key, value)
-                    if 'dbfs_path' in value:
-                        data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
-                    if 'uc_volume_path' in value:
-                        data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
-                    if 'uc_catalog_name' in value and 'bronze_schema' in value:
-                        if runner_conf.uc_catalog_name:
-                            data_flow[key] = value.format(
-                                uc_catalog_name=runner_conf.uc_catalog_name,
-                                bronze_schema=runner_conf.bronze_schema
-                            )
-                    if 'uc_catalog_name' in value and 'silver_schema' in value:
-                        if runner_conf.uc_catalog_name:
-                            data_flow[key] = value.format(
-                                uc_catalog_name=runner_conf.uc_catalog_name,
-                                silver_schema=runner_conf.silver_schema
-                            )
-
-            with open(runner_conf.onboarding_fanout_file_path, "w") as onboarding_file:
-                json.dump(onboard_obj, onboarding_file)
-
-    def __populate_source_details(self, runner_conf, data_flow, key, value):
-        if key == "source_details":
-            for source_key, source_value in value.items():
-                if 'dbfs_path' in source_value:
-                    data_flow[key][source_key] = source_value.format(dbfs_path=runner_conf.dbfs_tmp_path)
-                elif 'uc_volume_path' in source_value:
-                    data_flow[key][source_key] = source_value.format(uc_volume_path=runner_conf.uc_volume_path)
-
-    def copy(self, runner_conf: DLTMetaRunnerConf):
-        if runner_conf.uc_catalog_name:
-            print(f"uploading to {runner_conf.uc_volume_path}/{self.base_dir}/ started")
-            src = runner_conf.int_tests_dir
-            dst = runner_conf.uc_volume_path
-            main_dir = src.replace('file:', '')
-            base_dir_name = None
-            if main_dir.endswith('/'):
-                base_dir_name = main_dir[:-1]
-            if base_dir_name is None:
-                base_dir_name = main_dir[main_dir.rfind('/') + 1:]
-            else:
-                base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:-1]
-            for root, dirs, files in os.walk(main_dir):
-                for filename in files:
-                    if not filename.endswith(".py") and not filename.endswith(".md"):
-                        target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
-                        uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}".replace("//", "/")
-                        contents = open(os.path.join(root, filename), "rb")
-                        self.ws.files.upload(file_path=uc_volume_path, contents=contents, overwrite=True)
-        else:
-            src = runner_conf.int_tests_dir
-            dst = runner_conf.dbfs_tmp_path
-            main_dir = src.replace('file:', '')
-            base_dir_name = None
-            if main_dir.endswith('/'):
-                base_dir_name = main_dir[:-1]
-            if base_dir_name is None:
-                base_dir_name = main_dir[main_dir.rfind('/') + 1:]
-            else:
-                base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:-1]
-            for root, dirs, files in os.walk(main_dir):
-                for filename in files:
-                    target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
-                    dbfs_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
-                    contents = open(os.path.join(root, filename), "rb")
-                    # print(f"local_path={os.path.join(root, filename)}",
-                    #       f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}")
-                    self.ws.dbfs.upload(dbfs_path, contents, overwrite=True)
-
     def initialize_uc_resources(self, runner_conf):
         '''Create UC schemas and volumes needed to run the integration tests'''
         SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
@@ -907,24 +742,88 @@ class DLTMETARunner:
                                       f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/"
                                       )
 
+    def generate_onboarding_file(self, runner_conf: DLTMetaRunnerConf):
+        """Generate onboarding file from template."""
+        match runner_conf.source:
+            case "cloudfiles":
+                self.create_cloudfiles_onboarding(runner_conf)
+            case "eventhub":
+                self.create_eventhub_onboarding(runner_conf)
+            case "kafka":
+                self.create_kafka_onboarding(runner_conf)
+
+    def create_cloudfiles_onboarding(self, runner_conf: DLTMetaRunnerConf):
+        """Create onboarding file when the source is cloudfiles by filling out the templates."""
+
+        string_subs = {
+            "{uc_volume_path}": runner_conf.uc_volume_path,
+            "{uc_catalog_name}": runner_conf.uc_catalog_name,
+            "{bronze_schema}": runner_conf.bronze_schema,
+            "{silver_schema}": runner_conf.silver_schema,
+            # "{run_id}": runner_conf.run_id,
+        }
+
+        # Open the onboarding templates and sub in the proper table locations, paths, etc.
+        with open(f"{runner_conf.cloudfiles_template}", "r") as f:
+            onboard_json = f.read()
+
+        with open(f"{runner_conf.cloudfiles_A2_template}") as f:
+            onboard_json_a2 = f.read()
+
+        for key, val in string_subs.items():
+            onboard_json = onboard_json.replace(key, val)
+            onboard_json_a2 = onboard_json_a2.replace(key, val)
+
+        with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
+            json.dump(json.loads(onboard_json), onboarding_file, indent=4)
+
+        with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file_a2:
+            json.dump(json.loads(onboard_json_a2), onboarding_file_a2, indent=4)
+
+    def copy(self, runner_conf: DLTMetaRunnerConf):
+        if runner_conf.uc_catalog_name:
+            print(f"uploading to {runner_conf.uc_volume_path}/{self.base_dir}/ started")
+            src = runner_conf.int_tests_dir
+            dst = runner_conf.uc_volume_path
+            main_dir = src.replace('file:', '')
+            base_dir_name = None
+            if main_dir.endswith('/'):
+                base_dir_name = main_dir[:-1]
+            if base_dir_name is None:
+                base_dir_name = main_dir[main_dir.rfind('/') + 1:]
+            else:
+                base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:-1]
+            for root, dirs, files in os.walk(main_dir):
+                for filename in files:
+                    if not filename.endswith(".py") and not filename.endswith(".md"):
+                        target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
+                        uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}".replace("//", "/")
+                        contents = open(os.path.join(root, filename), "rb")
+                        self.ws.files.upload(file_path=uc_volume_path, contents=contents, overwrite=True)
+
+    def upload_files_to_databricks(self, runner_conf: DLTMetaRunnerConf):
+        uc_vol_full_path = f"{runner_conf.uc_volume_path}/{runner_conf.int_tests_dir}"
+        print(f"Integration test file upload to {uc_vol_full_path} starting...")
+        # Upload the entire resources directory containing ddl and test data
+        for root, dirs, files in os.walk(f"{runner_conf.int_tests_dir}/resources"):
+            print(root, '|', dirs, '|', files)
+
+        print(f"Integration test file upload to {uc_vol_full_path} complete!!!")
 
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
         """Create testing metadata including schemas, volumes, and uploading necessary notebooks"""
 
         # Generate uc schemas, volumes and upload onboarding files
-        self.initialize_uc_resources(runner_conf)
-        self.generate_onboarding_file(runner_conf)
+        # self.initialize_uc_resources(runner_conf)
+        # self.generate_onboarding_file(runner_conf)
+        self.upload_files_to_databricks(runner_conf)
+
         exit()
 
-        print("int_tests_dir: ", runner_conf.int_tests_dir)
-        self.copy(runner_conf)
-        print(
-            f"uploading to {runner_conf.runners_nb_path}/{self.base_dir}/ complete!!!"
-        )
-
         # Upload required notebooks for the given source
-        print(f"uploading to {runner_conf.runners_nb_path} started")
+        print(f"Notebooks upload to {runner_conf.runners_nb_path} started...")
         self.ws.workspace.mkdirs(f"{runner_conf.runners_nb_path}/runners")
+
         for notebook in os.listdir(runner_conf.runners_full_local_path):
             local_path = os.path.join(runner_conf.runners_full_local_path, notebook)
             with open(local_path, "rb") as nb_file:
@@ -933,13 +832,11 @@ class DLTMETARunner:
                     format=ImportFormat.SOURCE,
                     language=Language.PYTHON,
                     content=nb_file.read(),
-        )
-        print(f"uploading to {runner_conf.runners_nb_path} complete!!!")
+                )
+        print(f"Notebooks upload to {runner_conf.runners_nb_path} complete!!!")
 
         if runner_conf.uc_catalog_name:
             self.build_and_upload_package(runner_conf)
-
-
 
     def create_cluster(self, runner_conf: DLTMetaRunnerConf):
         print("Cluster creation started...")
@@ -1055,14 +952,21 @@ class DLTMETARunner:
         print("Cleaning up complete!!!")
 
     def run(self, runner_conf: DLTMetaRunnerConf):
-        try:
-            self.init_dltmeta_runner_conf(runner_conf)
-            exit()
-            self.create_bronze_silver_dlt(runner_conf)
-            self.launch_workflow(runner_conf)
-            self.download_test_results(runner_conf)
-        except Exception as e:
-            print(e)
+
+        self.init_dltmeta_runner_conf(runner_conf)
+        exit()
+        self.create_bronze_silver_dlt(runner_conf)
+        self.launch_workflow(runner_conf)
+        self.download_test_results(runner_conf)
+
+        # try:
+        #    self.init_dltmeta_runner_conf(runner_conf)
+        #    exit()
+        #    self.create_bronze_silver_dlt(runner_conf)
+        #    self.launch_workflow(runner_conf)
+        #    self.download_test_results(runner_conf)
+        # except Exception as e:
+        #    print(e)
         # finally:
         #     print("Cleaning up...")
         #     self.clean_up(runner_conf)
@@ -1189,7 +1093,7 @@ def process_arguments() -> dict[str: str]:
             parser.add_argument(f"--{arg[0]}", help=arg[1], type=arg[2], required=arg[3])
     args = vars(parser.parse_args())
 
-    def check_mandatory_arg(args, mandatory_args):
+    def check_cond_mandatory_arg(args, mandatory_args):
         """Post argument parsing check for conditionally required arguments"""
         for mand_arg in mandatory_args:
             if args[mand_arg] is None:
@@ -1197,7 +1101,7 @@ def process_arguments() -> dict[str: str]:
 
     # Check for arguments that are required depending on the selected source
     if args["source"] == "eventhub":
-        check_mandatory_arg(
+        check_cond_mandatory_arg(
             args,
             [
                 "eventhub_name",
@@ -1210,7 +1114,7 @@ def process_arguments() -> dict[str: str]:
             ],
         )
     elif args["source"] == "kafka":
-        check_mandatory_arg(
+        check_cond_mandatory_arg(
             args,
             ["kafka_topic_name", "kafka_broker"],
         )
