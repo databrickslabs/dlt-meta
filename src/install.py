@@ -99,7 +99,11 @@ class WorkspaceInstaller:
     def _version(self):
         return __version__
 
-    def _upload_wheel(self) -> str:
+    def _upload_wheel(self, uc_volume_path: str = None) -> str:
+        """
+        Upload the wheel to user's workspace folder and to the uc_volume for the run if provided.
+        The path to the UC volume wheel will be provided if possible, else the workspace location.
+        """
         with tempfile.TemporaryDirectory() as tmp_dir:
             local_wheel = self._build_wheel(tmp_dir)
             remote_wheel = f"{self._install_folder}/wheels/{local_wheel.name}"
@@ -108,7 +112,12 @@ class WorkspaceInstaller:
                 self._ws.workspace.mkdirs(remote_dirname)
                 logger.info(f"Uploading wheel to /Workspace{remote_wheel}")
                 self._ws.workspace.upload(remote_wheel, f, overwrite=True, format=ImportFormat.AUTO)
-        return remote_wheel
+                if uc_volume_path:
+                    uc_wheel_path = f"{uc_volume_path}/wheels/{local_wheel.name}"
+                    logger.info(f"Uploading wheel to {uc_wheel_path}")
+                    self._ws.workspace.upload(uc_wheel_path, f, overwrite=True, format=ImportFormat.AUTO)
+                    return uc_wheel_path
+        return f"/Workspace{remote_wheel}"
 
     def _build_wheel(self, tmp_dir: str, *, verbose: bool = False):
         """Helper to build the wheel package"""
