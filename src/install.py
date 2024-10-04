@@ -111,11 +111,17 @@ class WorkspaceInstaller:
             with local_wheel.open("rb") as f:
                 self._ws.workspace.mkdirs(remote_dirname)
                 logger.info(f"Uploading wheel to /Workspace{remote_wheel}")
-                self._ws.workspace.upload(remote_wheel, f, overwrite=True, format=ImportFormat.AUTO)
-                if uc_volume_path:
-                    uc_wheel_path = f"{uc_volume_path}/wheels/{local_wheel.name}"
+                self._ws.workspace.upload(
+                    remote_wheel, f, overwrite=True, format=ImportFormat.AUTO
+                )
+            if uc_volume_path:
+                # Reopen to the wheel file since how it uploads it, if you try to upload twice
+                # under the same open statement, the second upload the file is empty, it probably
+                # treats the open output as some sort of iterator
+                with local_wheel.open("rb") as f:
+                    uc_wheel_path = f"{uc_volume_path}wheels/{local_wheel.name}"
                     logger.info(f"Uploading wheel to {uc_wheel_path}")
-                    self._ws.workspace.upload(uc_wheel_path, f, overwrite=True, format=ImportFormat.AUTO)
+                    self._ws.files.upload(uc_wheel_path, f, overwrite=True)
                     return uc_wheel_path
         return f"/Workspace{remote_wheel}"
 

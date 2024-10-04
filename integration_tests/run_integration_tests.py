@@ -769,14 +769,14 @@ class DLTMETARunner:
         Upload all necessary data, configuration files, wheels, and notebooks to run the
         integration tests
         """
-        uc_vol_full_path = f"{runner_conf.uc_volume_path}/{runner_conf.int_tests_dir}"
+        uc_vol_full_path = f"{runner_conf.uc_volume_path}{runner_conf.int_tests_dir}"
         print(f"Integration test file upload to {uc_vol_full_path} starting...")
         # Upload the entire resources directory containing ddl and test data
         for root, dirs, files in os.walk(f"{runner_conf.int_tests_dir}/resources"):
             for file in files:
                 with open(os.path.join(root, file), "rb") as content:
                     self.ws.files.upload(
-                        file_path=f"{runner_conf.uc_volume_path}/{root}/{file}",
+                        file_path=f"{runner_conf.uc_volume_path}{root}/{file}",
                         contents=content,
                         overwrite=True,
                     )
@@ -784,14 +784,14 @@ class DLTMETARunner:
         # Upload all the JSONs in the conf directory, that is the generated onboarding JSONs and
         # the DQE JSONS
         for root, dirs, files in os.walk(f"{runner_conf.int_tests_dir}/conf"):
-            if file.endswith("json"):
                 for file in files:
-                    with open(os.path.join(root, file), "rb") as content:
-                        self.ws.files.upload(
-                            file_path=f"{runner_conf.uc_volume_path}/{root}/{file}",
-                            contents=content,
-                            overwrite=True,
-                        )
+                    if file.endswith(".json"):
+                        with open(os.path.join(root, file), "rb") as content:
+                            self.ws.files.upload(
+                                file_path=f"{runner_conf.uc_volume_path}{root}/{file}",
+                                contents=content,
+                                overwrite=True,
+                            )
         print(f"Integration test file upload to {uc_vol_full_path} complete!!!")
 
         # Upload required notebooks for the given source
@@ -821,7 +821,6 @@ class DLTMETARunner:
         self.initialize_uc_resources(runner_conf)
         self.generate_onboarding_file(runner_conf)
         self.upload_files_to_databricks(runner_conf)
-
 
     def create_cluster(self, runner_conf: DLTMetaRunnerConf):
         print("Cluster creation started...")
@@ -957,15 +956,7 @@ class DLTMETARunner:
         #     self.clean_up(runner_conf)
 
 
-def get_workspace_api_client(profile=None) -> WorkspaceClient:
-    """Get api client with config."""
-    if profile:
-        workspace_client = WorkspaceClient(profile=profile)
-    else:
-        workspace_client = WorkspaceClient(host=input('Databricks Workspace URL: '), token=input('Token: '))
-    return workspace_client
-
-def process_arguments() -> dict[str: str]:
+def process_arguments() -> dict[str:str]:
     """
     Get, process, and validate the command line arguements
 
@@ -1073,9 +1064,13 @@ def process_arguments() -> dict[str: str]:
     parser = argparse.ArgumentParser()
     for arg in input_args:
         if arg[4]:
-            parser.add_argument(f"--{arg[0]}", help=arg[1], type=arg[2], required=arg[3], choices=arg[4])
+            parser.add_argument(
+                f"--{arg[0]}", help=arg[1], type=arg[2], required=arg[3], choices=arg[4]
+            )
         else:
-            parser.add_argument(f"--{arg[0]}", help=arg[1], type=arg[2], required=arg[3])
+            parser.add_argument(
+                f"--{arg[0]}", help=arg[1], type=arg[2], required=arg[3]
+            )
     args = vars(parser.parse_args())
 
     def check_cond_mandatory_arg(args, mandatory_args):
@@ -1106,6 +1101,17 @@ def process_arguments() -> dict[str: str]:
 
     print(f"Processing comand line arguments Complete: {args}")
     return args
+
+
+def get_workspace_api_client(profile=None) -> WorkspaceClient:
+    """Get api client with config."""
+    if profile:
+        workspace_client = WorkspaceClient(profile=profile)
+    else:
+        workspace_client = WorkspaceClient(
+            host=input("Databricks Workspace URL: "), token=input("Token: ")
+        )
+    return workspace_client
 
 
 def main():
