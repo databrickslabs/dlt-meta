@@ -105,10 +105,6 @@ class WorkspaceInstaller:
             remote_wheel = f"{self._install_folder}/wheels/{local_wheel.name}"
             remote_dirname = os.path.dirname(remote_wheel)
             with local_wheel.open("rb") as f:
-                self._ws.dbfs.mkdirs(remote_dirname)
-                logger.info(f"Uploading wheel to dbfs:{remote_wheel}")
-                self._ws.dbfs.upload(remote_wheel, f, overwrite=True)
-            with local_wheel.open("rb") as f:
                 self._ws.workspace.mkdirs(remote_dirname)
                 logger.info(f"Uploading wheel to /Workspace{remote_wheel}")
                 self._ws.workspace.upload(remote_wheel, f, overwrite=True, format=ImportFormat.AUTO)
