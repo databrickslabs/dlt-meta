@@ -249,3 +249,4 @@ As part of above scenarios for scd_type1 stores if records are missing in snapsh
     ```commandline
     python demo/launch_acfs_demo.py --uc_catalog_name=<<>>
     ```
+    ![acfs.png](../docs/static/images/acfs.png)
