@@ -194,22 +194,6 @@ class DLTMETARunner:
             _me = ws.current_user.me()
         return _me.user_name
 
-    def build_and_upload_package(self, runner_conf: DLTMetaRunnerConf):
-        """
-        Build and upload the Python package.
-
-        Parameters:
-        ----------
-        runner_conf : DLTMetaRunnerConf
-            The runner configuration.
-
-        Raises:
-        ------
-        Exception
-            If the build process fails.
-        """
-        runner_conf.remote_whl_path = f"/Workspace{self.wsi._upload_wheel()}"
-
     def create_dlt_meta_pipeline(self,
                                  pipeline_name: str,
                                  layer: str,
@@ -780,27 +764,6 @@ class DLTMETARunner:
         with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file_a2:
             json.dump(json.loads(onboard_json_a2), onboarding_file_a2, indent=4)
 
-    def copy(self, runner_conf: DLTMetaRunnerConf):
-        if runner_conf.uc_catalog_name:
-            print(f"uploading to {runner_conf.uc_volume_path}/{self.base_dir}/ started")
-            src = runner_conf.int_tests_dir
-            dst = runner_conf.uc_volume_path
-            main_dir = src.replace('file:', '')
-            base_dir_name = None
-            if main_dir.endswith('/'):
-                base_dir_name = main_dir[:-1]
-            if base_dir_name is None:
-                base_dir_name = main_dir[main_dir.rfind('/') + 1:]
-            else:
-                base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:-1]
-            for root, dirs, files in os.walk(main_dir):
-                for filename in files:
-                    if not filename.endswith(".py") and not filename.endswith(".md"):
-                        target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
-                        uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}".replace("//", "/")
-                        contents = open(os.path.join(root, filename), "rb")
-                        self.ws.files.upload(file_path=uc_volume_path, contents=contents, overwrite=True)
-
     def upload_files_to_databricks(self, runner_conf: DLTMetaRunnerConf):
         """
         Upload all necessary data, configuration files, wheels, and notebooks to run the
@@ -846,6 +809,11 @@ class DLTMETARunner:
                 )
         print(f"Notebooks upload to {runner_conf.runners_nb_path} complete!!!")
 
+        print("Python wheel upload starting...")
+        # Upload the wheel to both the workspace and the uc volume
+        runner_conf.remote_whl_path = f"{self.wsi._upload_wheel(uc_volume_path=runner_conf.uc_volume_path)}"
+        print(f"Python wheel upload to {runner_conf.remote_whl_path} completed!!!")
+
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
         """Create testing metadata including schemas, volumes, and uploading necessary notebooks"""
 
@@ -854,10 +822,6 @@ class DLTMETARunner:
         self.generate_onboarding_file(runner_conf)
         self.upload_files_to_databricks(runner_conf)
 
-        exit()
-
-        if runner_conf.uc_catalog_name:
-            self.build_and_upload_package(runner_conf)
 
     def create_cluster(self, runner_conf: DLTMetaRunnerConf):
         print("Cluster creation started...")
