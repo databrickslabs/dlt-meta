@@ -10,3 +10,4 @@ draft: false
  3. **Append FLOW Autoloader Demo**: Write to same target from multiple sources using append_flow and adding file metadata using [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  4. **Append FLOW Eventhub Demo**: Write to same target from multiple sources using append_flow and adding using [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  5. **Silver Fanout Demo**:  This demo will showcase fanout architecture can be implemented in silver layer
+ 6. **Apply Changes From Snapshot Demo**:  This demo will showcase [apply_changes_from_snapshot](https://docs.databricks.com/en/delta-live-tables/python-ref.html#change-data-capture-from-database-snapshots-with-python-in-delta-live-tables) can be implemented inside bronze layer

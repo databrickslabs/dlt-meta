@@ -4,6 +4,7 @@
  3. [Append FLOW Autoloader Demo](#append-flow-autoloader-file-metadata-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  4. [Append FLOW Eventhub Demo](#append-flow-eventhub-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  5. [Silver Fanout Demo](#silver-fanout-demo): This demo showcases the implementation of fanout architecture in the silver layer.
+ 6. [Apply Changes From Snapshot Demo](#Apply-changes-from-snapshot-demo): This demo showcases the implementation of ingesting from snapshots in bronze layer
 
 
 
@@ -217,3 +218,34 @@ This demo will perform following tasks:
     ![silver_fanout_workflow.png](../docs/static/images/silver_fanout_workflow.png)
     
     ![silver_fanout_dlt.png](../docs/static/images/silver_fanout_dlt.png)
+
+
+# Apply Changes From Snapshot Demo
+This demo will showcase how to load bronze tables from snapshot files. There are two sources product and stores in which product is **scd_type=2** and stores is **scd_type=1**. 
+Day1 there is LOAD_1.csv file and for which next_snapshot_and_version function will be provided inside[dlt_meta_pipeline_snapshot.ipynb](https://github.com/databrickslabs/dlt-meta/blob/main/examples/dlt_meta_pipeline_snapshot.ipynb)
+Day2 there will be LOAD_2.csv file loaded which will have updated values for products and stores with v2_
+Day3 there will be LOAD_3.csv file loaded which will have updated values for products and stores with v3_
+As part of above scenarios for scd_type1 stores if records are missing in snapshot those records will be deleted. for scd_typ2 matching keys will expire old records and insert new record with version_number
+### Steps:
+1. Launch Command Prompt
+
+2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
+
+3. ```commandline
+    git clone https://github.com/databrickslabs/dlt-meta.git 
+    ```
+
+4. ```commandline
+    cd dlt-meta
+    ```
+5. Set python environment variable into terminal
+    ```commandline
+    dlt_meta_home=$(pwd)
+    ```
+    ```commandline
+    export PYTHONPATH=$dlt_meta_home
+
+6. Run the command 
+    ```commandline
+    python demo/launch_acfs_demo.py --uc_catalog_name=<<>>
+    ```
