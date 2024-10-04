@@ -100,7 +100,7 @@ class DLTMetaRunnerConf:
     onboarding_file_path: str = "integration_tests/conf/onboarding.json"
     onboarding_A2_file_path: str = "integration_tests/conf/onboarding_A2.json"
     onboarding_fanout_file_path: str = "integration_tests/conf/onboarding.json"
-    int_tests_dir: str = "./integration_tests"
+    int_tests_dir: str = "integration_tests"
     dlt_meta_schema: str = None
     bronze_schema: str = None
     silver_schema: str = None
@@ -802,23 +802,34 @@ class DLTMETARunner:
                         self.ws.files.upload(file_path=uc_volume_path, contents=contents, overwrite=True)
 
     def upload_files_to_databricks(self, runner_conf: DLTMetaRunnerConf):
+        """
+        Upload all necessary data, configuration files, wheels, and notebooks to run the
+        integration tests
+        """
         uc_vol_full_path = f"{runner_conf.uc_volume_path}/{runner_conf.int_tests_dir}"
         print(f"Integration test file upload to {uc_vol_full_path} starting...")
         # Upload the entire resources directory containing ddl and test data
         for root, dirs, files in os.walk(f"{runner_conf.int_tests_dir}/resources"):
-            print(root, '|', dirs, '|', files)
+            for file in files:
+                with open(os.path.join(root, file), "rb") as content:
+                    self.ws.files.upload(
+                        file_path=f"{runner_conf.uc_volume_path}/{root}/{file}",
+                        contents=content,
+                        overwrite=True,
+                    )
 
+        # Upload all the JSONs in the conf directory, that is the generated onboarding JSONs and
+        # the DQE JSONS
+        for root, dirs, files in os.walk(f"{runner_conf.int_tests_dir}/conf"):
+            if file.endswith("json"):
+                for file in files:
+                    with open(os.path.join(root, file), "rb") as content:
+                        self.ws.files.upload(
+                            file_path=f"{runner_conf.uc_volume_path}/{root}/{file}",
+                            contents=content,
+                            overwrite=True,
+                        )
         print(f"Integration test file upload to {uc_vol_full_path} complete!!!")
-
-    def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
-        """Create testing metadata including schemas, volumes, and uploading necessary notebooks"""
-
-        # Generate uc schemas, volumes and upload onboarding files
-        # self.initialize_uc_resources(runner_conf)
-        # self.generate_onboarding_file(runner_conf)
-        self.upload_files_to_databricks(runner_conf)
-
-        exit()
 
         # Upload required notebooks for the given source
         print(f"Notebooks upload to {runner_conf.runners_nb_path} started...")
@@ -834,6 +845,16 @@ class DLTMETARunner:
                     content=nb_file.read(),
                 )
         print(f"Notebooks upload to {runner_conf.runners_nb_path} complete!!!")
+
+    def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
+        """Create testing metadata including schemas, volumes, and uploading necessary notebooks"""
+
+        # Generate uc schemas, volumes and upload onboarding files
+        self.initialize_uc_resources(runner_conf)
+        self.generate_onboarding_file(runner_conf)
+        self.upload_files_to_databricks(runner_conf)
+
+        exit()
 
         if runner_conf.uc_catalog_name:
             self.build_and_upload_package(runner_conf)
