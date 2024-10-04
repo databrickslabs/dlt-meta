@@ -221,11 +221,14 @@ This demo will perform following tasks:
 
 
 # Apply Changes From Snapshot Demo
-This demo will showcase how to load bronze tables from snapshot files. There are two sources product and stores in which product is **scd_type=2** and stores is **scd_type=1**. 
-Day1 there is LOAD_1.csv file and for which next_snapshot_and_version function will be provided inside[dlt_meta_pipeline_snapshot.ipynb](https://github.com/databrickslabs/dlt-meta/blob/main/examples/dlt_meta_pipeline_snapshot.ipynb)
-Day2 there will be LOAD_2.csv file loaded which will have updated values for products and stores with v2_
-Day3 there will be LOAD_3.csv file loaded which will have updated values for products and stores with v3_
-As part of above scenarios for scd_type1 stores if records are missing in snapshot those records will be deleted. for scd_typ2 matching keys will expire old records and insert new record with version_number
+  - This demo will perform following steps
+    - Showcase onboarding process for apply changes from snapshot pattern
+    - Run onboarding for the bronze stores and products tables, which contains data snapshot data in csv files.
+    - Run Bronze DLT to load initial snapshot (LOAD_1.csv)
+    - Upload incremental snapshot LOAD_2.csv version=2 for stores and product
+    - Run Bronze DLT to load incremental snapshot (LOAD_2.csv). Stores is scd_type=2 so updated records will expired and added new records with version_number. Products is scd_type=1 so in case records missing for scd_type=1 will be deleted.
+    - Upload incremental snapshot LOAD_3.csv version=3 for stores and product
+    - Run Bronze DLT to load incremental snapshot (LOAD_3.csv). Stores is scd_type=2 so updated records will expired and added new records with version_number. Products is scd_type=1 so in case records missing for scd_type=1 will be deleted.
 ### Steps:
 1. Launch Command Prompt
 
