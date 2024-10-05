@@ -42,9 +42,9 @@ class OnboardCommand:
     import_author: str
     version: str
     dlt_meta_schema: str
-    dbfs_path: None
-    cloud: None
-    dbr_version: None
+    dbfs_path: str = None
+    cloud: str = None
+    dbr_version: str = None
     serverless: bool = True
     bronze_schema: str = None
     silver_schema: str = None
@@ -520,9 +520,9 @@ class DLTMeta:
                             if 'uc_volume_path' in source_value:
                                 data_flow[key][source_key] = source_value.format(
                                     uc_volume_path=f"{cmd.uc_volume_path}/dltmeta_conf/")
-                            else:
+                            elif 'dbfs_path' in source_value:
                                 data_flow[key][source_key] = source_value.format(
-                                    uc_volume_path=f"{cmd.dbfs_path}/dltmeta_conf/")
+                                    dbfs_path=f"{cmd.dbfs_path}/dltmeta_conf/")
                 if 'uc_volume_path' in value:
                     if cmd.uc_enabled:
                         data_flow[key] = value.format(uc_volume_path=f"{cmd.uc_volume_path}/dltmeta_conf/")
