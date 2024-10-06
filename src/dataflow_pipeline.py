@@ -329,6 +329,7 @@ class DataflowPipeline:
             keys=self.appy_changes_from_snapshot.keys,
             stored_as_scd_type=self.appy_changes_from_snapshot.scd_type,
             track_history_column_list=self.appy_changes_from_snapshot.track_history_column_list,
+            track_history_except_column_list=self.appy_changes_from_snapshot.track_history_except_column_list,
         )
 
     def write_bronze_with_dqe(self):

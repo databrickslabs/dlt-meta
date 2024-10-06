@@ -148,7 +148,6 @@ class DataflowSpecUtils:
         "ignore_null_updates_except_column_list": None
     }
 
-    apply_changes_from_snapshot_api_mandatory_attributes = ["keys", "scd_type"]
     append_flow_mandatory_attributes = ["name", "source_format", "create_streaming_table", "source_details"]
     append_flow_api_attributes_defaults = {
         "comment": None,
@@ -158,10 +157,21 @@ class DataflowSpecUtils:
         "once": False
     }
 
-    additional_bronze_df_columns = ["appendFlows", "appendFlowsSchemas"]
+    additional_bronze_df_columns = ["appendFlows", "appendFlowsSchemas", "applyChangesFromSnapshot"]
     additional_silver_df_columns = ["dataQualityExpectations", "appendFlows", "appendFlowsSchemas"]
     additional_cdc_apply_changes_columns = ["flow_name", "once"]
+    apply_changes_from_snapshot_api_attributes = [
+        "keys",
+        "scd_type",
+        "track_history_column_list",
+        "track_history_except_column_list"
+    ]
+    apply_changes_from_snapshot_api_mandatory_attributes = ["keys", "scd_type"]
     additional_apply_changes_from_snapshot_columns = ["track_history_column_list", "track_history_except_column_list"]
+    apply_changes_from_snapshot_api_attributes_defaults = {
+        "track_history_column_list": None,
+        "track_history_except_column_list": None
+    }
 
     @staticmethod
     def _get_dataflow_spec(

@@ -469,4 +469,3 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
         }"""  # Missing closing bracket for track_history_column_list
         with self.assertRaises(json.JSONDecodeError):
             DataflowSpecUtils.get_apply_changes_from_snapshot(apply_changes_from_snapshot)
-

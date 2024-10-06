@@ -28,6 +28,19 @@
             "cloudFiles.rescuedDataColumn": "_rescued_data"
         },
         "bronze_table_path_dev": "tests/resources/delta/customers",
+        "bronze_cdc_apply_changes": {
+            "keys": [
+                "id"
+            ],
+            "sequence_by": "operation_date",
+            "scd_type": "1",
+            "apply_as_deletes": "operation = 'DELETE'",
+            "except_column_list": [
+                "operation",
+                "operation_date",
+                "_rescued_data"
+            ]
+        },  
         "bronze_table_properties": {
             "pipelines.autoOptimize.managed": "false",
             "pipelines.reset.allowed": "false"

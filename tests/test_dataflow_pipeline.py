@@ -1004,3 +1004,24 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         bronze_dataflowSpec_df.appendFlows = None
         with self.assertRaises(Exception):
             pipeline = DataflowPipeline(self.spark, bronze_dataflowSpec_df, view_name, None)
+
+    def test_get_dq_expectations_with_expect_all(self):
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        onboarding_params_map['onboarding_file_path'] = self.onboarding_type2_json_file
+        o_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        o_dfs.onboard_bronze_dataflow_spec()
+        bronze_dataflowSpec_df = self.spark.read.format("delta").load(
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_path']
+        )
+        bronze_df_row = bronze_dataflowSpec_df.filter(bronze_dataflowSpec_df.dataFlowId == "201").collect()[0]
+        bronze_row_dict = DataflowSpecUtils.populate_additional_df_cols(
+            bronze_df_row.asDict(),
+            DataflowSpecUtils.additional_bronze_df_columns
+        )
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_row_dict)
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = pipeline.get_dq_expectations()
+        self.assertIsNotNone(expect_all_dict)
+        self.assertIsNotNone(expect_all_or_drop_dict)
+        self.assertIsNotNone(expect_all_or_fail_dict)
