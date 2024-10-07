@@ -895,7 +895,6 @@ class DLTMETARunner:
         self.init_dltmeta_runner_conf(runner_conf)
         self.create_bronze_silver_dlt(runner_conf)
         self.launch_workflow(runner_conf)
-        exit()
         self.download_test_results(runner_conf)
 
         # try:
