@@ -238,7 +238,7 @@ class DLTMETARunner:
             libraries=[
                 PipelineLibrary(
                     notebook=NotebookLibrary(
-                        path=f"{runner_conf.runners_nb_path}/runners/init_dlt_meta_pipeline"
+                        path=f"{runner_conf.runners_nb_path}/runners/init_dlt_meta_pipeline.py"
                     )
                 )
             ],
@@ -352,7 +352,7 @@ class DLTMETARunner:
                     description="test",
                     depends_on=[jobs.TaskDependency(task_key="silver_dlt_pipeline")],
                     notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/validate.py",
                         base_parameters={
                             "uc_enabled": "True",
                             "uc_catalog_name": f"{runner_conf.uc_catalog_name}",
@@ -409,7 +409,7 @@ class DLTMETARunner:
                     depends_on=[jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")],
                     existing_cluster_id=runner_conf.cluster_id,
                     notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events",
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events.py",
                         base_parameters={
                             "eventhub_name": self.args["eventhub_name"],
                             "eventhub_name_append_flow": self.args["eventhub_name_append_flow"],
@@ -435,7 +435,7 @@ class DLTMETARunner:
                     description="test",
                     depends_on=[jobs.TaskDependency(task_key="bronze_dlt_pipeline")],
                     notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/validate.py",
                         base_parameters={
                             "run_id": runner_conf.run_id,
                             "uc_enabled": "True",
@@ -493,7 +493,7 @@ class DLTMETARunner:
                     description="test",
                     depends_on=[jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")],
                     notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events",
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events.py",
                         base_parameters={
                             "kafka_topic": self.args["kafka_topic_name"],
                             "kafka_broker": self.args["kafka_broker"],
@@ -513,7 +513,7 @@ class DLTMETARunner:
                     description="test",
                     depends_on=[jobs.TaskDependency(task_key="bronze_dlt_pipeline")],
                     notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.runners_nb_path}/runners/validate",
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/validate.py",
                         base_parameters={
                             "run_id": runner_conf.run_id,
                             "uc_enabled": "True" ,
