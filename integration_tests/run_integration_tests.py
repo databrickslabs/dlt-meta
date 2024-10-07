@@ -371,9 +371,10 @@ class DLTMETARunner:
         dltmeta_environments = [
             jobs.JobEnvironment(
                 environment_key="dl_meta_int_env",
-                spec=compute.Environment(client=f"dlt_meta_int_test_{__version__}",
-                                         dependencies=[runner_conf.remote_whl_path]
-                                         )
+                spec=compute.Environment(
+                    client=f"dlt_meta_int_test_{__version__}",
+                    dependencies=[runner_conf.remote_whl_path],
+                ),
             )
         ]
         return self.ws.jobs.create(
