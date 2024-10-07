@@ -194,36 +194,31 @@ class DLTMETARunner:
             _me = ws.current_user.me()
         return _me.user_name
 
-    def create_dlt_meta_pipeline(self,
-                                 pipeline_name: str,
-                                 layer: str,
-                                 group: str,
-                                 target_schema: str,
-                                 runner_conf: DLTMetaRunnerConf
-                                 ):
+    def create_dlt_meta_pipeline(
+        self,
+        pipeline_name: str,
+        layer: str,
+        group: str,
+        target_schema: str,
+        runner_conf: DLTMetaRunnerConf,
+    ) -> str:
         """
         Create a DLT pipeline.
 
         Parameters:
         ----------
-        pipeline_name : str
-            The name of the pipeline.
-        layer : str
-            The layer of the pipeline.
-        target_schema : str
-            The target schema of the pipeline.
-        runner_conf : DLTMetaRunnerConf
-            The runner configuration.
+        pipeline_name : str = The name of the pipeline.
+        layer : str = The layer of the pipeline.
+        target_schema : str = The target schema of the pipeline.
+        runner_conf : DLTMetaRunnerConf = The runner configuration.
 
         Returns:
         -------
-        str
-            The ID of the created pipeline.
+        str - The ID of the created pipeline.
 
         Raises:
         ------
-        Exception
-            If the pipeline creation fails.
+        Exception -  If the pipeline creation fails.
         """
         configuration = {
             "layer": layer,
@@ -231,42 +226,25 @@ class DLTMETARunner:
             "dlt_meta_whl": runner_conf.remote_whl_path,
         }
         created = None
-        if runner_conf.uc_catalog_name:
-            configuration[f"{layer}.dataflowspecTable"] = (
-                f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}.{layer}_dataflowspec_cdc"
-            )
-            created = self.ws.pipelines.create(
-                catalog=runner_conf.uc_catalog_name,
-                name=pipeline_name,
-                serverless=True,
-                configuration=configuration,
-                libraries=[
-                    PipelineLibrary(
-                        notebook=NotebookLibrary(
-                            path=f"{runner_conf.runners_nb_path}/runners/init_dlt_meta_pipeline"
-                        )
+
+        configuration[f"{layer}.dataflowspecTable"] = (
+            f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}.{layer}_dataflowspec_cdc"
+        )
+        created = self.ws.pipelines.create(
+            catalog=runner_conf.uc_catalog_name,
+            name=pipeline_name,
+            serverless=True,
+            configuration=configuration,
+            libraries=[
+                PipelineLibrary(
+                    notebook=NotebookLibrary(
+                        path=f"{runner_conf.runners_nb_path}/runners/init_dlt_meta_pipeline"
                     )
-                ],
-                target=target_schema
-            )
-        else:
-            configuration[f"{layer}.dataflowspecTable"] = (
-                f"{runner_conf.dlt_meta_schema}.{layer}_dataflowspec_cdc"
-            )
-            created = self.ws.pipelines.create(
-                name=pipeline_name,
-                serverless=True,
-                channel="PREVIEW",
-                configuration=configuration,
-                libraries=[
-                    PipelineLibrary(
-                        notebook=NotebookLibrary(
-                            path=f"{runner_conf.runners_nb_path}/runners/init_dlt_meta_pipeline"
-                        )
-                    )
-                ],
-                target=target_schema
-            )
+                )
+            ],
+            target=target_schema,
+        )
+
         if created is None:
             raise Exception("Pipeline creation failed")
         return created.pipeline_id
@@ -277,25 +255,23 @@ class DLTMETARunner:
 
         Parameters:
         ----------
-        runner_conf : DLTMetaRunnerConf
-            The runner configuration.
+        runner_conf : DLTMetaRunnerConf = The runner configuration.
 
         Returns:
         -------
-        Job
-            The created job.
+        Job - The created job.
 
         Raises:
         ------
-        Exception
-            If the job creation fails.
+        Exception - If the job creation fails.
         """
         dltmeta_environments = [
             jobs.JobEnvironment(
                 environment_key="dl_meta_int_env",
-                spec=compute.Environment(client=f"dlt_meta_int_test_{__version__}",
-                                         dependencies=[runner_conf.remote_whl_path]
-                                         )
+                spec=compute.Environment(
+                    client=f"dlt_meta_int_test_{__version__}",
+                    dependencies=[runner_conf.remote_whl_path],
+                ),
             )
         ]
         return self.ws.jobs.create(
@@ -313,8 +289,7 @@ class DLTMETARunner:
                         named_parameters={
                             "onboard_layer": "bronze_silver",
                             "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
-                            "onboarding_file_path":
-                            f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding.json",
+                            "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding.json",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
                             "silver_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/silver",
                             "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
@@ -323,13 +298,15 @@ class DLTMETARunner:
                             "bronze_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/bronze",
                             "overwrite": "True",
                             "env": runner_conf.env,
-                            "uc_enabled": "True"
+                            "uc_enabled": "True",
                         },
-                    )
+                    ),
                 ),
                 jobs.Task(
                     task_key="bronze_dlt_pipeline",
-                    depends_on=[jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")],
+                    depends_on=[
+                        jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")
+                    ],
                     pipeline_task=jobs.PipelineTask(
                         pipeline_id=runner_conf.bronze_pipeline_id
                     ),
@@ -346,16 +323,15 @@ class DLTMETARunner:
                         named_parameters={
                             "onboard_layer": "bronze",
                             "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
-                            "onboarding_file_path":
-                            f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding_A2.json",
+                            "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding_A2.json",
                             "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                             "import_author": "Ravi",
                             "version": "v1",
                             "overwrite": "False",
                             "env": runner_conf.env,
-                            "uc_enabled": "True"
+                            "uc_enabled": "True",
                         },
-                    )
+                    ),
                 ),
                 jobs.Task(
                     task_key="bronze_A2_dlt_pipeline",
@@ -369,7 +345,7 @@ class DLTMETARunner:
                     depends_on=[jobs.TaskDependency(task_key="bronze_A2_dlt_pipeline")],
                     pipeline_task=jobs.PipelineTask(
                         pipeline_id=runner_conf.silver_pipeline_id
-                    )
+                    ),
                 ),
                 jobs.Task(
                     task_key="validate_results",
@@ -383,12 +359,11 @@ class DLTMETARunner:
                             "bronze_schema": f"{runner_conf.bronze_schema}",
                             "silver_schema": f"{runner_conf.silver_schema}",
                             "output_file_path": f"/Workspace{runner_conf.test_output_file_path}",
-                            "run_id": runner_conf.run_id
-                        }
-                    )
-
+                            "run_id": runner_conf.run_id,
+                        },
+                    ),
                 ),
-            ]
+            ],
         )
 
     def create_eventhub_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
@@ -784,10 +759,10 @@ class DLTMETARunner:
         # Upload all the JSONs in the conf directory, that is the generated onboarding JSONs and
         # the DQE JSONS
         for root, dirs, files in os.walk(f"{runner_conf.int_tests_dir}/conf"):
-                for file in files:
-                    if file.endswith(".json"):
-                        with open(os.path.join(root, file), "rb") as content:
-                            self.ws.files.upload(
+            for file in files:
+                if file.endswith(".json"):
+                    with open(os.path.join(root, file), "rb") as content:
+                        self.ws.files.upload(
                                 file_path=f"{runner_conf.uc_volume_path}{root}/{file}",
                                 contents=content,
                                 overwrite=True,
@@ -822,76 +797,58 @@ class DLTMETARunner:
         self.generate_onboarding_file(runner_conf)
         self.upload_files_to_databricks(runner_conf)
 
-    def create_cluster(self, runner_conf: DLTMetaRunnerConf):
-        print("Cluster creation started...")
-        if runner_conf.uc_catalog_name:
-            mode = compute.DataSecurityMode.SINGLE_USER
-            spark_confs = {}
-        else:
-            mode = compute.DataSecurityMode.NONE
-            spark_confs = {}
-        clstr = self.ws.clusters.create(
-            cluster_name=f"dlt-meta-onboarding-cluster-{runner_conf.run_id}",
-            spark_version=runner_conf.dbr_version,
-            node_type_id=runner_conf.node_type_id,
-            driver_node_type_id=runner_conf.node_type_id,
-            num_workers=2,
-            spark_conf=spark_confs,
-            autotermination_minutes=30,
-            spark_env_vars={
-                "PYSPARK_PYTHON": "/databricks/python3/bin/python3",
-                "WSFS_ENABLE": "false"
-            },
-            data_security_mode=mode
-        ).result()
-        print(f"Cluster creation finished. clusters={clstr}")
-        print(f"Cluster creation finished. cluster_id={clstr.cluster_id}")
-        print(f"host: {self.ws.config.host}, workspace_id: {self.ws.get_workspace_id()}")
-        runner_conf.cluster_id = clstr.cluster_id
-        webbrowser.open(f"{self.ws.config.host}/compute/clusters/{clstr.cluster_id}?o={self.ws.get_workspace_id()}")
-
-    def download_test_results(self, runner_conf: DLTMetaRunnerConf):
-        ws_output_file = self.ws.workspace.download(runner_conf.test_output_file_path)
-        with open(f"integration_test_output_{runner_conf.run_id}.csv", "wb") as output_file:
-            output_file.write(ws_output_file.read())
-
     def create_bronze_silver_dlt(self, runner_conf: DLTMetaRunnerConf):
         runner_conf.bronze_pipeline_id = self.create_dlt_meta_pipeline(
             f"dlt-meta-bronze-{runner_conf.run_id}",
             "bronze",
             "A1",
             runner_conf.bronze_schema,
-            runner_conf)
+            runner_conf,
+        )
 
-        if runner_conf.source and runner_conf.source == "cloudfiles":
+        if runner_conf.source == "cloudfiles":
             runner_conf.bronze_pipeline_A2_id = self.create_dlt_meta_pipeline(
                 f"dlt-meta-bronze-A2-{runner_conf.run_id}",
                 "bronze",
                 "A2",
                 runner_conf.bronze_schema,
-                runner_conf)
+                runner_conf,
+            )
 
             runner_conf.silver_pipeline_id = self.create_dlt_meta_pipeline(
                 f"dlt-meta-silver-{runner_conf.run_id}",
                 "silver",
                 "A1",
                 runner_conf.silver_schema,
-                runner_conf)
+                runner_conf,
+            )
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
-        if runner_conf.source == "cloudfiles":
-            created_job = self.create_cloudfiles_workflow_spec(runner_conf)
-        elif runner_conf.source == "eventhub":
-            created_job = self.create_eventhub_workflow_spec(runner_conf)
-        elif runner_conf.source == "kafka":
-            created_job = self.create_kafka_workflow_spec(runner_conf)
+
+        match runner_conf.source:
+            case "cloudfiles":
+                created_job = self.create_cloudfiles_workflow_spec(runner_conf)
+            case "eventhub":
+                created_job = self.create_eventhub_workflow_spec(runner_conf)
+            case "kafka":
+                created_job = self.create_kafka_workflow_spec(runner_conf)
+
         runner_conf.job_id = created_job.job_id
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
-        webbrowser.open(f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}")
+        webbrowser.open(
+            f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
+        )
         print(f"Waiting for job to complete. job_id={created_job.job_id}")
         run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result()
         print(f"Job run finished. run_id={run_by_id}")
         return created_job
+
+    def download_test_results(self, runner_conf: DLTMetaRunnerConf):
+        ws_output_file = self.ws.workspace.download(runner_conf.test_output_file_path)
+        with open(
+            f"integration_test_output_{runner_conf.run_id}.csv", "wb"
+        ) as output_file:
+            output_file.write(ws_output_file.read())
 
     def open_job_url(self, runner_conf, created_job):
         runner_conf.job_id = created_job.job_id
@@ -910,8 +867,6 @@ class DLTMETARunner:
             self.ws.pipelines.delete(runner_conf.silver_pipeline_id)
         if runner_conf.cluster_id:
             self.ws.clusters.delete(runner_conf.cluster_id)
-        if runner_conf.dbfs_tmp_path:
-            self.ws.dbfs.delete(runner_conf.dbfs_tmp_path, recursive=True)
         if runner_conf.uc_catalog_name:
             test_schema_list = [runner_conf.dlt_meta_schema, runner_conf.bronze_schema, runner_conf.silver_schema]
             schema_list = self.ws.schemas.list(catalog_name=runner_conf.uc_catalog_name)
@@ -938,9 +893,9 @@ class DLTMETARunner:
     def run(self, runner_conf: DLTMetaRunnerConf):
 
         self.init_dltmeta_runner_conf(runner_conf)
-        exit()
         self.create_bronze_silver_dlt(runner_conf)
         self.launch_workflow(runner_conf)
+        exit()
         self.download_test_results(runner_conf)
 
         # try:
