@@ -417,7 +417,7 @@ class DLTMETARunner:
         return self.ws.jobs.create(
             name=f"dlt-meta-{runner_conf.run_id}",
             environments=dltmeta_environments,
-            tasks= []
+            tasks= tasks
         )
 
     def initialize_uc_resources(self, runner_conf):
