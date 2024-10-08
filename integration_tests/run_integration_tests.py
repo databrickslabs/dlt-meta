@@ -140,14 +140,7 @@ class DLTMETARunner:
         self.base_dir = base_dir
 
     def init_runner_conf(self) -> DLTMetaRunnerConf:
-        """
-        Initialize the runner configuration for running integration tests.
-
-        Returns:
-        -------
-        DLTMetaRunnerConf
-            The initialized runner configuration.
-        """
+        """Initialize the runner configuration for running integration tests. """
         run_id = uuid.uuid4().hex
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
