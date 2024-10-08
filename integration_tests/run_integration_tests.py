@@ -17,7 +17,12 @@ from src.install import WorkspaceInstaller
 import json
 
 # Dictionary mapping cloud providers to node types
-cloud_node_type_id_dict = {"aws": "i3.xlarge", "azure": "Standard_D3_v2", "gcp": "n1-highmem-4"}
+cloud_node_type_id_dict = {
+    "aws": "i3.xlarge",
+    "azure": "Standard_D3_v2",
+    "gcp": "n1-highmem-4",
+}
+
 
 @dataclass
 class DLTMetaRunnerConf:
@@ -73,6 +78,7 @@ class DLTMetaRunnerConf:
     job_id : str, optional
         The ID of the job to use for the test run.
     """
+
     run_id: str
     username: str = None
     run_name: str = None
@@ -80,8 +86,8 @@ class DLTMetaRunnerConf:
     uc_volume_name: str = "dlt_meta_files"
     onboarding_file_path: str = "integration_tests/conf/onboarding.json"
     onboarding_A2_file_path: str = "integration_tests/conf/onboarding_A2.json"
-    #onboarding_fanout_file_path: str = "integration_tests/conf/onboarding.json"
-    #onboarding_fanout_templates: str = None
+    # onboarding_fanout_file_path: str = "integration_tests/conf/onboarding.json"
+    # onboarding_fanout_templates: str = None
     int_tests_dir: str = "integration_tests"
     dlt_meta_schema: str = None
     bronze_schema: str = None
@@ -104,10 +110,12 @@ class DLTMetaRunnerConf:
 
     # cloudfiles info
     cloudfiles_template: str = "integration_tests/conf/cloudfiles-onboarding.template"
-    cloudfiles_A2_template: str = "integration_tests/conf/cloudfiles-onboarding_A2.template"
+    cloudfiles_A2_template: str = (
+        "integration_tests/conf/cloudfiles-onboarding_A2.template"
+    )
 
     # eventhub info
-    eventhub_template: str = "integration_tests/conf/eventhub-onboarding.template",
+    eventhub_template: str = ("integration_tests/conf/eventhub-onboarding.template",)
     eventhub_input_data: str = None
     eventhub_append_flow_input_data: str = None
     eventhub_name: str = None
@@ -134,14 +142,15 @@ class DLTMETARunner:
     - workspace_client: Databricks workspace client
     - runner_conf: test information
     """
-    def __init__(self, args: dict[str: str], ws, base_dir):
+
+    def __init__(self, args: dict[str:str], ws, base_dir):
         self.args = args
         self.ws = ws
         self.wsi = WorkspaceInstaller(ws)
         self.base_dir = base_dir
 
     def init_runner_conf(self) -> DLTMetaRunnerConf:
-        """Initialize the runner configuration for running integration tests. """
+        """Initialize the runner configuration for running integration tests."""
         run_id = uuid.uuid4().hex
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
@@ -158,18 +167,21 @@ class DLTMETARunner:
                 f"{run_id}/integration-test-output.csv"
             ),
             # kafka provided args
-            kafka_topic = self.args["kafka_topic"],
-            kafka_broker = self.args["kafka_broker"],
+            kafka_topic=self.args["kafka_topic"],
+            kafka_broker=self.args["kafka_broker"],
             # eventhub provided args
-            eventhub_name = self.args["eventhub_name"],
-            eventhub_name_append_flow = self.args["eventhub_name_append_flow"],
-            eventhub_producer_accesskey_name = self.args["eventhub_consumer_accesskey_name"],
-            eventhub_consumer_accesskey_name = self.args["eventhub_consumer_accesskey_name"],
-            eventhub_accesskey_secret_name = self.args["eventhub_accesskey_secret_name"],
-            eventhub_secrets_scope_name = self.args["eventhub_secrets_scope_name"],
-            eventhub_namespace = self.args["eventhub_namespace"],
-            eventhub_port = self.args["eventhub_port"],
-
+            eventhub_name=self.args["eventhub_name"],
+            eventhub_name_append_flow=self.args["eventhub_name_append_flow"],
+            eventhub_producer_accesskey_name=self.args[
+                "eventhub_consumer_accesskey_name"
+            ],
+            eventhub_consumer_accesskey_name=self.args[
+                "eventhub_consumer_accesskey_name"
+            ],
+            eventhub_accesskey_secret_name=self.args["eventhub_accesskey_secret_name"],
+            eventhub_secrets_scope_name=self.args["eventhub_secrets_scope_name"],
+            eventhub_namespace=self.args["eventhub_namespace"],
+            eventhub_port=self.args["eventhub_port"],
         )
 
         # Set the proper directory location for the notebooks that need to be uploaded to run and
@@ -182,7 +194,9 @@ class DLTMETARunner:
         try:
             runner_conf.runners_full_local_path = source_paths[runner_conf.source]
         except KeyError:
-            raise Exception("Given source is not support. Support source are: cloudfiles, eventhub, or kafka")
+            raise Exception(
+                "Given source is not support. Support source are: cloudfiles, eventhub, or kafka"
+            )
 
         return runner_conf
 
@@ -417,7 +431,7 @@ class DLTMETARunner:
         return self.ws.jobs.create(
             name=f"dlt-meta-{runner_conf.run_id}",
             environments=dltmeta_environments,
-            tasks= tasks
+            tasks=tasks,
         )
 
     def initialize_uc_resources(self, runner_conf):
@@ -528,10 +542,10 @@ class DLTMETARunner:
                 if file.endswith(".json"):
                     with open(os.path.join(root, file), "rb") as content:
                         self.ws.files.upload(
-                                file_path=f"{runner_conf.uc_volume_path}{root}/{file}",
-                                contents=content,
-                                overwrite=True,
-                            )
+                            file_path=f"{runner_conf.uc_volume_path}{root}/{file}",
+                            contents=content,
+                            overwrite=True,
+                        )
         print(f"Integration test file upload to {uc_vol_full_path} complete!!!")
 
         # Upload required notebooks for the given source
@@ -551,7 +565,9 @@ class DLTMETARunner:
 
         print("Python wheel upload starting...")
         # Upload the wheel to both the workspace and the uc volume
-        runner_conf.remote_whl_path = f"{self.wsi._upload_wheel(uc_volume_path=runner_conf.uc_volume_path)}"
+        runner_conf.remote_whl_path = (
+            f"{self.wsi._upload_wheel(uc_volume_path=runner_conf.uc_volume_path)}"
+        )
         print(f"Python wheel upload to {runner_conf.remote_whl_path} completed!!!")
 
     def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
@@ -627,21 +643,25 @@ class DLTMETARunner:
         if runner_conf.silver_pipeline_id:
             self.ws.pipelines.delete(runner_conf.silver_pipeline_id)
         if runner_conf.uc_catalog_name:
-            test_schema_list = [runner_conf.dlt_meta_schema, runner_conf.bronze_schema, runner_conf.silver_schema]
+            test_schema_list = [
+                runner_conf.dlt_meta_schema,
+                runner_conf.bronze_schema,
+                runner_conf.silver_schema,
+            ]
             schema_list = self.ws.schemas.list(catalog_name=runner_conf.uc_catalog_name)
             for schema in schema_list:
                 if schema.name in test_schema_list:
                     print(f"Deleting schema: {schema.name}")
                     vol_list = self.ws.volumes.list(
                         catalog_name=runner_conf.uc_catalog_name,
-                        schema_name=schema.name
+                        schema_name=schema.name,
                     )
                     for vol in vol_list:
                         print(f"Deleting volume:{vol.full_name}")
                         self.ws.volumes.delete(vol.full_name)
                     tables_list = self.ws.tables.list(
                         catalog_name=runner_conf.uc_catalog_name,
-                        schema_name=schema.name
+                        schema_name=schema.name,
                     )
                     for table in tables_list:
                         print(f"Deleting table:{table.full_name}")
@@ -659,6 +679,7 @@ class DLTMETARunner:
             traceback.print_exc()
         finally:
             self.clean_up(runner_conf)
+
 
 def process_arguments() -> dict[str:str]:
     """
@@ -761,7 +782,13 @@ def process_arguments() -> dict[str:str]:
             False,
             [],
         ],
-        ["kafka_broker", "Provide kafka broker e.g 127.0.0.1:9092", str.lower, False, []],
+        [
+            "kafka_broker",
+            "Provide kafka broker e.g 127.0.0.1:9092",
+            str.lower,
+            False,
+            [],
+        ],
     ]
 
     # Build cli parser
@@ -806,6 +833,7 @@ def process_arguments() -> dict[str:str]:
     print(f"Processing comand line arguments Complete: {args}")
     return args
 
+
 def get_workspace_api_client(profile=None) -> WorkspaceClient:
     """Get api client with config."""
     if profile:
@@ -824,6 +852,7 @@ def main():
     integration_test_runner = DLTMETARunner(args, workspace_client, "integration_tests")
     runner_conf = integration_test_runner.init_runner_conf()
     integration_test_runner.run(runner_conf)
+
 
 if __name__ == "__main__":
     main()
