@@ -622,6 +622,8 @@ class DLTMETARunner:
             self.ws.jobs.delete(runner_conf.job_id)
         if runner_conf.bronze_pipeline_id:
             self.ws.pipelines.delete(runner_conf.bronze_pipeline_id)
+        if runner_conf.bronze_pipeline_A2_id:
+            self.ws.pipelines.delete(runner_conf.bronze_pipeline_A2_id)
         if runner_conf.silver_pipeline_id:
             self.ws.pipelines.delete(runner_conf.silver_pipeline_id)
         if runner_conf.uc_catalog_name:
