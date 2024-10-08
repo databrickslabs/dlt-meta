@@ -4,6 +4,11 @@
 
 # COMMAND ----------
 
+dbutils.library.restartPython()
+
+
+# COMMAND ----------
+
 # DBTITLE 1,Extract input from notebook params
 dbutils.widgets.text("kafka_topic","kafka_topic","")
 dbutils.widgets.text("kafka_broker","kafka_broker","")
@@ -27,6 +32,6 @@ with open(f"{kafka_input_data}") as f:
     data = json.load(f)
 
 for event in data:
-  producer.send(kafka_topic,event) 
-  
+  producer.send(kafka_topic,event)
+
 producer.close()

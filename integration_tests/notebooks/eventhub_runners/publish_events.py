@@ -4,7 +4,7 @@
 
 # COMMAND ----------
 
-# MAGIC %sh pip install azure-eventhub
+# MAGIC %pip install azure-eventhub
 
 # COMMAND ----------
 

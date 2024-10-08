@@ -43,7 +43,7 @@
 
     - 9b. Run the command for eventhub
         ```commandline
-        python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>> --source=eventhub  --cloud_provider_name=aws --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer  --eventhub_name_append_flow=TODO? --eventhub_accesskey_secret_name=TODO?
+        python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>> --source=eventhub  --cloud_provider_name=aws --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer  --eventhub_name_append_flow=test_append_flow --eventhub_accesskey_secret_name=test_secret_name --profile=<<DEFAULT>>
         ```
 
     - - For eventhub integration tests, the following are the prerequisites:

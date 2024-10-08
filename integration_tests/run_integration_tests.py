@@ -855,4 +855,13 @@ def main():
 
 
 if __name__ == "__main__":
+    """
+    Cloud files tests passing
+
+    Kafka is failling due to 'AttributeError: '_SixMetaPathImporter' object has no attribute 'find_spec''
+    that occurs on from kafka import KafkaProducer when using a serverless notebook (it succeeds on
+    a classic cluster)
+
+    No eventhub connection to be able to test that
+    """
     main()
