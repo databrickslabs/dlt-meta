@@ -822,7 +822,7 @@ def main():
     workspace_client = get_workspace_api_client(args["profile"])
     integration_test_runner = DLTMETARunner(args, workspace_client, "integration_tests")
     runner_conf = integration_test_runner.init_runner_conf()
-    #integration_test_runner.run(runner_conf)
+    integration_test_runner.run(runner_conf)
 
 if __name__ == "__main__":
     main()
