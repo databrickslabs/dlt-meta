@@ -12,7 +12,7 @@
             "eventhub.secretsScopeName": "{eventhub_secrets_scope_name}",
             "kafka.sasl.mechanism": "PLAIN",
             "kafka.security.protocol": "SASL_SSL",
-            "eventhub.namespace": "{eventhub_nmspace}",
+            "eventhub.namespace": "{eventhub_namespace}",
             "eventhub.port": "{eventhub_port}"
         },
         "bronze_reader_options": {
@@ -42,7 +42,7 @@
                         "eventhub.secretsScopeName": "{eventhub_secrets_scope_name}",
                         "kafka.sasl.mechanism": "PLAIN",
                         "kafka.security.protocol": "SASL_SSL",
-                        "eventhub.namespace": "{eventhub_nmspace}",
+                        "eventhub.namespace": "{eventhub_namespace}",
                         "eventhub.port": "{eventhub_port}"
                     },
                     "reader_options": {
@@ -53,7 +53,7 @@
                         "kafka.session.timeout.ms": "60000"
                     },
                     "once": false
-            }    
-        ]        
+            }
+        ]
     }
 ]

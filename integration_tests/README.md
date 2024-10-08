@@ -62,14 +62,14 @@
 
     - 9c. Run the command for kafka
         ```commandline
-        python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>>  --source=kafka --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092 --cloud_provider_name=aws --profile=DEFAULT
+        python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>>  --source=kafka --kafka_topic=dlt-meta-integration-test --kafka_broker=host:9092 --cloud_provider_name=aws --profile=DEFAULT
         ```
 
     - - For kafka integration tests, the following are the prerequisites:
         1. Needs kafka instance running
 
     - - Following are the mandatory arguments for running EventHubs integration test
-        1. Provide your kafka topic name : --kafka_topic_name
+        1. Provide your kafka topic name : --kafka_topic
         2. Provide kafka_broker : --kafka_broker
 
 10. Once finished integration output file will be copied locally to

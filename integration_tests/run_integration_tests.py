@@ -5,6 +5,7 @@ import uuid
 import argparse
 import os
 import webbrowser
+import traceback
 from dataclasses import dataclass
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
@@ -13,22 +14,10 @@ from src.__about__ import __version__
 from databricks.sdk.service.workspace import ImportFormat, Language
 from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType
 from src.install import WorkspaceInstaller
-
 import json
 
 # Dictionary mapping cloud providers to node types
 cloud_node_type_id_dict = {"aws": "i3.xlarge", "azure": "Standard_D3_v2", "gcp": "n1-highmem-4"}
-
-DLT_META_RUNNER_NOTEBOOK = """
-# Databricks notebook source
-# MAGIC %pip install {remote_wheel}
-# dbutils.library.restartPython()
-# COMMAND ----------
-layer = spark.conf.get("layer", None)
-from src.dataflow_pipeline import DataflowPipeline
-DataflowPipeline.invoke_dlt_pipeline(spark, layer)
-"""
-
 
 @dataclass
 class DLTMetaRunnerConf:
@@ -45,8 +34,6 @@ class DLTMetaRunnerConf:
         The name of the unified catalog to use for the test run.
     onboarding_file_path : str, optional
         The path to the onboarding file to use for the test run.
-    dbfs_tmp_path : str, optional
-        The temporary DBFS path to use for the test run.
     int_tests_dir : str, optional
         The directory containing the integration tests.
     dlt_meta_schema : str, optional
@@ -77,18 +64,12 @@ class DLTMetaRunnerConf:
         The path to the unified volume to use for the test run.
     uc_target_whl_path : str, optional
         The path to the unified catalog target whl file to use for the test run.
-    dbfs_whl_path : str, optional
-        The path to the DBFS whl file to use for the test run.
     node_type_id : str, optional
         The node type ID to use for the test run.
-    dbr_version : str, optional
-        The Databricks runtime version to use for the test run.
     bronze_pipeline_id : str, optional
         The ID of the bronze pipeline to use for the test run.
     silver_pipeline_id : str, optional
         The ID of the silver pipeline to use for the test run.
-    cluster_id : str, optional
-        The ID of the cluster to use for the test run.
     job_id : str, optional
         The ID of the job to use for the test run.
     """
@@ -99,7 +80,8 @@ class DLTMetaRunnerConf:
     uc_volume_name: str = "dlt_meta_files"
     onboarding_file_path: str = "integration_tests/conf/onboarding.json"
     onboarding_A2_file_path: str = "integration_tests/conf/onboarding_A2.json"
-    onboarding_fanout_file_path: str = "integration_tests/conf/onboarding.json"
+    #onboarding_fanout_file_path: str = "integration_tests/conf/onboarding.json"
+    #onboarding_fanout_templates: str = None
     int_tests_dir: str = "integration_tests"
     dlt_meta_schema: str = None
     bronze_schema: str = None
@@ -107,28 +89,39 @@ class DLTMetaRunnerConf:
     runners_nb_path: str = None
     runners_full_local_path: str = None
     source: str = None
-    cloudfiles_template: str = "integration_tests/conf/cloudfiles-onboarding.template"
-    cloudfiles_A2_template: str = "integration_tests/conf/cloudfiles-onboarding_A2.template"
-    #onboarding_fanout_templates: str = None
-    eventhub_template: str = "integration_tests/conf/eventhub-onboarding.template",
-    eventhub_input_data: str = None
-    eventhub_append_flow_input_data: str = None
-    kafka_template: str = "integration_tests/conf/kafka-onboarding.template"
     env: str = "it"
     whl_path: str = None
     volume_info: VolumeInfo = None
     uc_volume_path: str = None
     uc_target_whl_path: str = None
     remote_whl_path: str = None
-    dbfs_whl_path: str = None
     node_type_id: str = None
-    dbr_version: str = None
     bronze_pipeline_id: str = None
     bronze_pipeline_A2_id: str = None
     silver_pipeline_id: str = None
-    cluster_id: str = None
     job_id: str = None
     test_output_file_path: str = None
+
+    # cloudfiles info
+    cloudfiles_template: str = "integration_tests/conf/cloudfiles-onboarding.template"
+    cloudfiles_A2_template: str = "integration_tests/conf/cloudfiles-onboarding_A2.template"
+
+    # eventhub info
+    eventhub_template: str = "integration_tests/conf/eventhub-onboarding.template",
+    eventhub_input_data: str = None
+    eventhub_append_flow_input_data: str = None
+    eventhub_name: str = None
+    eventhub_name_append_flow: str = None
+    eventhub_accesskey_name: str = None
+    eventhub_accesskey_secret_name: str = None
+    eventhub_secrets_scope_name: str = None
+    eventhub_namespace: str = None
+    eventhub_port: str = None
+
+    # kafka info
+    kafka_template: str = "integration_tests/conf/kafka-onboarding.template"
+    kafka_topic: str = None
+    kafka_broker: str = None
 
 
 class DLTMETARunner:
@@ -170,6 +163,18 @@ class DLTMETARunner:
                 f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/"
                 f"{run_id}/integration-test-output.csv"
             ),
+            # kafka provided args
+            kafka_topic = self.args["kafka_topic"],
+            kafka_broker = self.args["kafka_broker"],
+            # eventhub provided args
+            eventhub_name = self.args["eventhub_name"],
+            eventhub_name_append_flow = self.args["eventhub_name_append_flow"],
+            eventhub_accesskey_name = self.args["eventhub_accesskey_name"],
+            eventhub_accesskey_secret_name = self.args["eventhub_accesskey_secret_name"],
+            eventhub_secrets_scope_name = self.args["eventhub_secrets_scope_name"],
+            eventhub_namespace = self.args["eventhub_namespace"],
+            eventhub_port = self.args["eventhub_port"],
+
         )
 
         # Set the proper directory location for the notebooks that need to be uploaded to run and
@@ -249,22 +254,9 @@ class DLTMETARunner:
             raise Exception("Pipeline creation failed")
         return created.pipeline_id
 
-    def create_cloudfiles_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
-        """
-        Create the CloudFiles workflow specification.
+    def create_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
+        """Create the Databricks Workflow Job given the DLT Meta configuration specs"""
 
-        Parameters:
-        ----------
-        runner_conf : DLTMetaRunnerConf = The runner configuration.
-
-        Returns:
-        -------
-        Job - The created job.
-
-        Raises:
-        ------
-        Exception - If the job creation fails.
-        """
         dltmeta_environments = [
             jobs.JobEnvironment(
                 environment_key="dl_meta_int_env",
@@ -274,471 +266,248 @@ class DLTMETARunner:
                 ),
             )
         ]
-        return self.ws.jobs.create(
-            name=f"dlt-meta-{runner_conf.run_id}",
-            environments=dltmeta_environments,
-            tasks=[
-                jobs.Task(
-                    task_key="setup_dlt_meta_pipeline_spec",
-                    environment_key="dl_meta_int_env",
-                    description="test",
-                    timeout_seconds=0,
-                    python_wheel_task=jobs.PythonWheelTask(
-                        package_name="dlt_meta",
-                        entry_point="run",
-                        named_parameters={
-                            "onboard_layer": "bronze_silver",
-                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
-                            "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding.json",
-                            "silver_dataflowspec_table": "silver_dataflowspec_cdc",
-                            "silver_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/silver",
-                            "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
-                            "import_author": "Ravi",
-                            "version": "v1",
-                            "bronze_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/bronze",
-                            "overwrite": "True",
-                            "env": runner_conf.env,
-                            "uc_enabled": "True",
-                        },
-                    ),
+
+        tasks = [
+            jobs.Task(
+                task_key="setup_dlt_meta_pipeline_spec",
+                environment_key="dl_meta_int_env",
+                description="test",
+                timeout_seconds=0,
+                python_wheel_task=jobs.PythonWheelTask(
+                    package_name="dlt_meta",
+                    entry_point="run",
+                    named_parameters={
+                        "onboard_layer": (
+                            "bronze_silver"
+                            if runner_conf.source == "cloudfiles"
+                            else "bronze"
+                        ),
+                        "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
+                        "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding.json",
+                        "silver_dataflowspec_table": "silver_dataflowspec_cdc",
+                        "silver_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/silver",
+                        "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
+                        "import_author": "Ravi",
+                        "version": "v1",
+                        "bronze_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/bronze",
+                        "overwrite": "True",
+                        "env": runner_conf.env,
+                        "uc_enabled": "True",
+                    },
                 ),
+            ),
+            jobs.Task(
+                task_key="bronze_dlt_pipeline",
+                depends_on=[
+                    jobs.TaskDependency(
+                        task_key=(
+                            "setup_dlt_meta_pipeline_spec"
+                            if runner_conf.source == "cloudfiles"
+                            else "publish_events"
+                        )
+                    )
+                ],
+                pipeline_task=jobs.PipelineTask(
+                    pipeline_id=runner_conf.bronze_pipeline_id
+                ),
+            ),
+            jobs.Task(
+                task_key="validate_results",
+                description="test",
+                depends_on=[
+                    jobs.TaskDependency(
+                        task_key=(
+                            "silver_dlt_pipeline"
+                            if runner_conf.source == "cloudfiles"
+                            else "bronze_dlt_pipeline"
+                        )
+                    )
+                ],
+                notebook_task=jobs.NotebookTask(
+                    notebook_path=f"{runner_conf.runners_nb_path}/runners/validate.py",
+                    base_parameters={
+                        "uc_enabled": "True",
+                        "uc_catalog_name": f"{runner_conf.uc_catalog_name}",
+                        "bronze_schema": f"{runner_conf.bronze_schema}",
+                        "silver_schema": (
+                            f"{runner_conf.silver_schema}"
+                            if runner_conf.source == "cloudfiles"
+                            else None
+                        ),
+                        "output_file_path": f"/Workspace{runner_conf.test_output_file_path}",
+                        "run_id": runner_conf.run_id,
+                    },
+                ),
+            ),
+        ]
+
+        if runner_conf.source == "cloudfiles":
+            tasks.extend(
+                [
+                    jobs.Task(
+                        task_key="onboard_spec_A2",
+                        depends_on=[
+                            jobs.TaskDependency(task_key="bronze_dlt_pipeline")
+                        ],
+                        description="test",
+                        environment_key="dl_meta_int_env",
+                        timeout_seconds=0,
+                        python_wheel_task=jobs.PythonWheelTask(
+                            package_name="dlt_meta",
+                            entry_point="run",
+                            named_parameters={
+                                "onboard_layer": "bronze",
+                                "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
+                                "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding_A2.json",
+                                "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
+                                "import_author": "Ravi",
+                                "version": "v1",
+                                "overwrite": "False",
+                                "env": runner_conf.env,
+                                "uc_enabled": "True",
+                            },
+                        ),
+                    ),
+                    jobs.Task(
+                        task_key="bronze_A2_dlt_pipeline",
+                        depends_on=[jobs.TaskDependency(task_key="onboard_spec_A2")],
+                        pipeline_task=jobs.PipelineTask(
+                            pipeline_id=runner_conf.bronze_pipeline_A2_id
+                        ),
+                    ),
+                    jobs.Task(
+                        task_key="silver_dlt_pipeline",
+                        depends_on=[
+                            jobs.TaskDependency(task_key="bronze_A2_dlt_pipeline")
+                        ],
+                        pipeline_task=jobs.PipelineTask(
+                            pipeline_id=runner_conf.silver_pipeline_id
+                        ),
+                    ),
+                ]
+            )
+        else:
+            match runner_conf.source:
+                case "eventhub":
+                    base_parameters = {
+                        "eventhub_name": runner_conf.eventhub_name,
+                        "eventhub_name_append_flow": runner_conf.eventhub_name_append_flow,
+                        "eventhub_namespace": runner_conf.eventhub_namespace,
+                        "eventhub_secrets_scope_name": runner_conf.eventhub_secrets_scope_name,
+                        "eventhub_accesskey_name": runner_conf.eventhub_accesskey_name,
+                        "eventhub_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",
+                        "eventhub_append_flow_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",
+                    }
+                case "kafka":
+                    base_parameters = {
+                        "kafka_topic": runner_conf.kafka_topic,
+                        "kafka_broker": runner_conf.kafka_broker,
+                        "kafka_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",
+                    }
+
+            tasks.append(
                 jobs.Task(
-                    task_key="bronze_dlt_pipeline",
+                    task_key="publish_events",
+                    description="test",
                     depends_on=[
                         jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")
                     ],
-                    pipeline_task=jobs.PipelineTask(
-                        pipeline_id=runner_conf.bronze_pipeline_id
-                    ),
-                ),
-                jobs.Task(
-                    task_key="onboard_spec_A2",
-                    depends_on=[jobs.TaskDependency(task_key="bronze_dlt_pipeline")],
-                    description="test",
-                    environment_key="dl_meta_int_env",
-                    timeout_seconds=0,
-                    python_wheel_task=jobs.PythonWheelTask(
-                        package_name="dlt_meta",
-                        entry_point="run",
-                        named_parameters={
-                            "onboard_layer": "bronze",
-                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
-                            "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding_A2.json",
-                            "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
-                            "import_author": "Ravi",
-                            "version": "v1",
-                            "overwrite": "False",
-                            "env": runner_conf.env,
-                            "uc_enabled": "True",
-                        },
-                    ),
-                ),
-                jobs.Task(
-                    task_key="bronze_A2_dlt_pipeline",
-                    depends_on=[jobs.TaskDependency(task_key="onboard_spec_A2")],
-                    pipeline_task=jobs.PipelineTask(
-                        pipeline_id=runner_conf.bronze_pipeline_A2_id
-                    ),
-                ),
-                jobs.Task(
-                    task_key="silver_dlt_pipeline",
-                    depends_on=[jobs.TaskDependency(task_key="bronze_A2_dlt_pipeline")],
-                    pipeline_task=jobs.PipelineTask(
-                        pipeline_id=runner_conf.silver_pipeline_id
-                    ),
-                ),
-                jobs.Task(
-                    task_key="validate_results",
-                    description="test",
-                    depends_on=[jobs.TaskDependency(task_key="silver_dlt_pipeline")],
                     notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.runners_nb_path}/runners/validate.py",
-                        base_parameters={
-                            "uc_enabled": "True",
-                            "uc_catalog_name": f"{runner_conf.uc_catalog_name}",
-                            "bronze_schema": f"{runner_conf.bronze_schema}",
-                            "silver_schema": f"{runner_conf.silver_schema}",
-                            "output_file_path": f"/Workspace{runner_conf.test_output_file_path}",
-                            "run_id": runner_conf.run_id,
-                        },
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events.py",
+                        base_parameters=base_parameters,
                     ),
-                ),
-            ],
-        )
-
-    def create_eventhub_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
-        """Create Job specification."""
-        dltmeta_environments = [
-            jobs.JobEnvironment(
-                environment_key="dl_meta_int_env",
-                spec=compute.Environment(
-                    client=f"dlt_meta_int_test_{__version__}",
-                    dependencies=[runner_conf.remote_whl_path],
                 ),
             )
-        ]
+
         return self.ws.jobs.create(
             name=f"dlt-meta-{runner_conf.run_id}",
             environments=dltmeta_environments,
-            tasks=[
-                jobs.Task(
-                    task_key="setup_dlt_meta_pipeline_spec",
-                    description="setup_dlt_meta_pipeline_spec",
-                    environment_key="dl_meta_int_env",
-                    timeout_seconds=0,
-                    python_wheel_task=jobs.PythonWheelTask(
-                        package_name="dlt_meta",
-                        entry_point="run",
-                        named_parameters={
-                            "onboard_layer": "bronze",
-                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
-                            "onboarding_file_path":
-                            f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding.json",
-                            "silver_dataflowspec_table": "silver_dataflowspec_cdc",
-                            "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
-                            "import_author": "Ravi",
-                            "version": "v1",
-                            "overwrite": "True",
-                            "env": runner_conf.env,
-                            "uc_enabled": "True"
-                        }
-                    )
-                ),
-                jobs.Task(
-                    task_key="publish_events",
-                    description="test",
-                    depends_on=[jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")],
-                    existing_cluster_id=runner_conf.cluster_id,
-                    notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events.py",
-                        base_parameters={
-                            "eventhub_name": self.args["eventhub_name"],
-                            "eventhub_name_append_flow": self.args["eventhub_name_append_flow"],
-                            "eventhub_namespace": self.args["eventhub_namespace"],
-                            "eventhub_secrets_scope_name": self.args["eventhub_secrets_scope_name"],
-                            "eventhub_accesskey_name": self.args["eventhub_producer_accesskey_name"],
-                            "eventhub_input_data":
-                            f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",
-                            "eventhub_append_flow_input_data":
-                            f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",
-                        }
-                    )
-                ),
-                jobs.Task(
-                    task_key="bronze_dlt_pipeline",
-                    depends_on=[jobs.TaskDependency(task_key="publish_events")],
-                    pipeline_task=jobs.PipelineTask(
-                        pipeline_id=runner_conf.bronze_pipeline_id
-                    ),
-                ),
-                jobs.Task(
-                    task_key="validate_results",
-                    description="test",
-                    depends_on=[jobs.TaskDependency(task_key="bronze_dlt_pipeline")],
-                    notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.runners_nb_path}/runners/validate.py",
-                        base_parameters={
-                            "run_id": runner_conf.run_id,
-                            "uc_enabled": "True",
-                            "uc_catalog_name": runner_conf.uc_catalog_name,
-                            "bronze_schema": runner_conf.bronze_schema,
-                            "output_file_path": f"/Workspace{runner_conf.test_output_file_path}"
-                        }
-                    )
-                )
-            ]
+            tasks= []
         )
-
-    def create_kafka_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
-        """Create Job specification."""
-        dltmeta_environments = [
-            jobs.JobEnvironment(
-                environment_key="dl_meta_int_env",
-                spec=compute.Environment(client=f"dlt_meta_int_test_{__version__}",
-                                         dependencies=[runner_conf.remote_whl_path]
-                                         )
-            )
-        ]
-        dbfs_path = runner_conf.dbfs_tmp_path.replace("dbfs:/", "/dbfs/")
-        return self.ws.jobs.create(
-            name=f"dlt-meta-{runner_conf.run_id}",
-            environemnts=dltmeta_environments,
-            tasks=[
-                jobs.Task(
-                    task_key="setup_dlt_meta_pipeline_spec",
-                    description="test",
-                    environment_key="dl_meta_int_env",
-                    timeout_seconds=0,
-                    python_wheel_task=jobs.PythonWheelTask(
-                        package_name="dlt_meta",
-                        entry_point="run",
-                        named_parameters={
-                            "onboard_layer": "bronze",
-                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
-                            "onboarding_file_path":
-                            f"{runner_conf.dbfs_tmp_path}/{self.base_dir}/conf/onboarding.json",
-                            "silver_dataflowspec_table": "silver_dataflowspec_cdc",
-                            "silver_dataflowspec_path": f"{self._install_folder()}/dltmeta/data/dlt_spec/silver",
-                            "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
-                            "import_author": "Ravi",
-                            "version": "v1",
-                            "bronze_dataflowspec_path": f"{self._install_folder()}/dltmeta/data/dlt_spec/bronze",
-                            "overwrite": "True",
-                            "env": runner_conf.env,
-                            "uc_enabled": "True"
-                        }
-                    )
-                ),
-                jobs.Task(
-                    task_key="publish_events",
-                    description="test",
-                    depends_on=[jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")],
-                    notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events.py",
-                        base_parameters={
-                            "kafka_topic": self.args["kafka_topic_name"],
-                            "kafka_broker": self.args["kafka_broker"],
-                            "kafka_input_data": f"/{dbfs_path}/{self.base_dir}/resources/data/iot/iot.json"
-                        }
-                    )
-                ),
-                jobs.Task(
-                    task_key="bronze_dlt_pipeline",
-                    depends_on=[jobs.TaskDependency(task_key="publish_events")],
-                    pipeline_task=jobs.PipelineTask(
-                        pipeline_id=runner_conf.bronze_pipeline_id
-                    ),
-                ),
-                jobs.Task(
-                    task_key="validate_results",
-                    description="test",
-                    depends_on=[jobs.TaskDependency(task_key="bronze_dlt_pipeline")],
-                    notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.runners_nb_path}/runners/validate.py",
-                        base_parameters={
-                            "run_id": runner_conf.run_id,
-                            "uc_enabled": "True" ,
-                            "uc_catalog_name": runner_conf.uc_catalog_name,
-                            "bronze_schema": runner_conf.bronze_schema,
-                            "output_file_path": f"/Workspace{runner_conf.test_output_file_path}"
-                        }
-                    )
-                ),
-            ]
-        )
-
-    def create_kafka_onboarding(self, runner_conf: DLTMetaRunnerConf):
-        """Create kafka onboarding file."""
-        with open(f"{runner_conf.kafka_template}") as f:
-            onboard_obj = json.load(f)
-        kafka_topic = self.args["kafka_topic_name"].lower()
-        kafka_bootstrap_servers = self.args["kafka_broker"].lower()
-        for data_flow in onboard_obj:
-            for key, value in data_flow.items():
-                if key == "source_details":
-                    for source_key, source_value in value.items():
-                        if 'dbfs_path' in source_value:
-                            data_flow[key][source_key] = source_value.format(dbfs_path=runner_conf.dbfs_tmp_path)
-                        if 'kafka_topic' in source_value:
-                            data_flow[key][source_key] = source_value.format(kafka_topic=kafka_topic)
-                        if 'kafka_bootstrap_servers' in source_value:
-                            data_flow[key][source_key] = source_value.format(
-                                kafka_bootstrap_servers=kafka_bootstrap_servers)
-                if 'dbfs_path' in value:
-                    data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
-                elif 'run_id' in value:
-                    data_flow[key] = value.format(run_id=runner_conf.run_id)
-                elif 'uc_catalog_name' in value and 'bronze_schema' in value:
-                    if runner_conf.uc_catalog_name:
-                        data_flow[key] = value.format(
-                            uc_catalog_name=runner_conf.uc_catalog_name,
-                            bronze_schema=runner_conf.bronze_schema
-                        )
-                    else:
-                        data_flow[key] = value.format(
-                            uc_catalog_name=f"bronze_{runner_conf.run_id}",
-                            bronze_schema=""
-                        ).replace(".", "")
-        with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
-            json.dump(onboard_obj, onboarding_file)
-
-    def create_eventhub_onboarding(self, runner_conf: DLTMetaRunnerConf):
-        """Create eventhub onboarding file."""
-        with open(f"{runner_conf.eventhub_template}") as f:
-            onboard_obj = json.load(f)
-        eventhub_name = self.args["eventhub_name"].lower()
-        eventhub_name_append_flow = self.args["eventhub_name_append_flow"].lower()
-        eventhub_accesskey_name = self.args["eventhub_consumer_accesskey_name"].lower()
-        eventhub_accesskey_secret_name = self.args["eventhub_accesskey_secret_name"].lower()
-        eventhub_secrets_scope_name = self.args["eventhub_secrets_scope_name"].lower()
-        eventhub_namespace = self.args["eventhub_namespace"].lower()
-        eventhub_port = self.args["eventhub_port"].lower()
-        for data_flow in onboard_obj:
-            for key, value in data_flow.items():
-                if key == "source_details":
-                    for source_key, source_value in value.items():
-                        if 'dbfs_path' in source_value:
-                            data_flow[key][source_key] = source_value.format(dbfs_path=runner_conf.dbfs_tmp_path)
-                        if 'uc_volume_path' in source_value:
-                            data_flow[key][source_key] = source_value.format(uc_volume_path=runner_conf.uc_volume_path)
-                        if 'eventhub_name' in source_value:
-                            data_flow[key][source_key] = source_value.format(eventhub_name=eventhub_name)
-                        if 'eventhub_accesskey_name' in source_value:
-                            data_flow[key][source_key] = source_value.format(
-                                eventhub_accesskey_name=eventhub_accesskey_name)
-                        if 'eventhub_secrets_scope_name' in source_value:
-                            data_flow[key][source_key] = source_value.format(
-                                eventhub_secrets_scope_name=eventhub_secrets_scope_name)
-                        if 'eventhub_accesskey_secret_name' in source_value:
-                            data_flow[key][source_key] = source_value.format(
-                                eventhub_accesskey_secret_name=eventhub_accesskey_secret_name)
-                        if 'eventhub_nmspace' in source_value:
-                            data_flow[key][source_key] = source_value.format(eventhub_nmspace=eventhub_namespace)
-                        if 'eventhub_port' in source_value:
-                            data_flow[key][source_key] = source_value.format(eventhub_port=eventhub_port)
-                if key == 'bronze_append_flows':
-                    counter = 0
-                    for flows in value:
-                        for flow_key, flow_value in flows.items():
-                            if flow_key == "source_details":
-                                for source_key, source_value in flows[flow_key].items():
-                                    if 'dbfs_path' in source_value:
-                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
-                                            dbfs_path=runner_conf.dbfs_tmp_path)
-                                    if 'uc_volume_path' in source_value:
-                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
-                                            uc_volume_path=runner_conf.uc_volume_path)
-                                    if 'eventhub_name_append_flow' in source_value:
-                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
-                                            eventhub_name_append_flow=eventhub_name_append_flow)
-                                    if 'eventhub_accesskey_name' in source_value:
-                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
-                                            eventhub_accesskey_name=eventhub_accesskey_name)
-                                    if 'eventhub_secrets_scope_name' in source_value:
-                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
-                                            eventhub_secrets_scope_name=eventhub_secrets_scope_name)
-                                    if 'eventhub_accesskey_secret_name' in source_value:
-                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
-                                            eventhub_accesskey_secret_name=eventhub_accesskey_secret_name)
-                                    if 'eventhub_nmspace' in source_value:
-                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
-                                            eventhub_nmspace=eventhub_namespace)
-                                    if 'eventhub_port' in source_value:
-                                        data_flow[key][counter][flow_key][source_key] = source_value.format(
-                                            eventhub_port=eventhub_port)
-                        counter += 1
-                if 'dbfs_path' in value:
-                    data_flow[key] = value.format(dbfs_path=runner_conf.dbfs_tmp_path)
-                elif 'uc_volume_path' in value:
-                    data_flow[key] = value.format(uc_volume_path=runner_conf.uc_volume_path)
-                elif 'run_id' in value:
-                    data_flow[key] = value.format(run_id=runner_conf.run_id)
-                elif 'uc_catalog_name' in value and 'bronze_schema' in value:
-                    if runner_conf.uc_catalog_name:
-                        data_flow[key] = value.format(
-                            uc_catalog_name=runner_conf.uc_catalog_name,
-                            bronze_schema=runner_conf.bronze_schema
-                        )
-                    else:
-                        data_flow[key] = value.format(
-                            uc_catalog_name=f"bronze_{runner_conf.run_id}",
-                            bronze_schema=""
-                        ).replace(".", "")
-
-        with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
-            json.dump(onboard_obj, onboarding_file)
-
-    def replace_eventhub_source_details_values(self,
-                                               runner_conf,
-                                               eventhub_name,
-                                               eventhub_name_append_flow,
-                                               eventhub_accesskey_name,
-                                               eventhub_accesskey_secret_name,
-                                               eventhub_secrets_scope_name,
-                                               eventhub_namespace,
-                                               eventhub_port,
-                                               data_flow,
-                                               key,
-                                               source_key,
-                                               source_value):
-        if 'dbfs_path' in source_value:
-            data_flow[key][source_key] = source_value.format(dbfs_path=runner_conf.dbfs_tmp_path)
-        if 'eventhub_name' in source_value:
-            data_flow[key][source_key] = source_value.format(eventhub_name=eventhub_name)
-        if 'eventhub_name_append_flow' in source_value:
-            data_flow[key][source_key] = source_value.format(eventhub_name_append_flow=eventhub_name_append_flow)
-        if 'eventhub_accesskey_name' in source_value:
-            data_flow[key][source_key] = source_value.format(
-                eventhub_accesskey_name=eventhub_accesskey_name)
-        if 'eventhub_secrets_scope_name' in source_value:
-            data_flow[key][source_key] = source_value.format(
-                eventhub_secrets_scope_name=eventhub_secrets_scope_name)
-        if 'eventhub_accesskey_secret_name' in source_value:
-            data_flow[key][source_key] = source_value.format(
-                eventhub_accesskey_secret_name=eventhub_accesskey_secret_name)
-        if 'eventhub_nmspace' in source_value:
-            data_flow[key][source_key] = source_value.format(eventhub_nmspace=eventhub_namespace)
-        if 'eventhub_port' in source_value:
-            data_flow[key][source_key] = source_value.format(eventhub_port=eventhub_port)
 
     def initialize_uc_resources(self, runner_conf):
-        '''Create UC schemas and volumes needed to run the integration tests'''
-        SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                              name=runner_conf.dlt_meta_schema,
-                                              comment="dlt_meta framework schema")
-        SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                              name=runner_conf.bronze_schema,
-                                              comment="bronze_schema")
+        """Create UC schemas and volumes needed to run the integration tests"""
+        SchemasAPI(self.ws.api_client).create(
+            catalog_name=runner_conf.uc_catalog_name,
+            name=runner_conf.dlt_meta_schema,
+            comment="dlt_meta framework schema",
+        )
+        SchemasAPI(self.ws.api_client).create(
+            catalog_name=runner_conf.uc_catalog_name,
+            name=runner_conf.bronze_schema,
+            comment="bronze_schema",
+        )
         if runner_conf.source == "cloudfiles":
-            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                  name=runner_conf.silver_schema,
-                                                  comment="silver_schema")
-        volume_info = self.ws.volumes.create(catalog_name=runner_conf.uc_catalog_name,
-                                             schema_name=runner_conf.dlt_meta_schema,
-                                             name=runner_conf.uc_volume_name,
-                                             volume_type=VolumeType.MANAGED)
+            SchemasAPI(self.ws.api_client).create(
+                catalog_name=runner_conf.uc_catalog_name,
+                name=runner_conf.silver_schema,
+                comment="silver_schema",
+            )
+        volume_info = self.ws.volumes.create(
+            catalog_name=runner_conf.uc_catalog_name,
+            schema_name=runner_conf.dlt_meta_schema,
+            name=runner_conf.uc_volume_name,
+            volume_type=VolumeType.MANAGED,
+        )
         runner_conf.volume_info = volume_info
-        runner_conf.uc_volume_path = (f"/Volumes/{runner_conf.volume_info.catalog_name}/"
-                                      f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/"
-                                      )
+        runner_conf.uc_volume_path = (
+            f"/Volumes/{runner_conf.volume_info.catalog_name}/"
+            f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/"
+        )
 
     def generate_onboarding_file(self, runner_conf: DLTMetaRunnerConf):
-        """Generate onboarding file from template."""
-        match runner_conf.source:
-            case "cloudfiles":
-                self.create_cloudfiles_onboarding(runner_conf)
-            case "eventhub":
-                self.create_eventhub_onboarding(runner_conf)
-            case "kafka":
-                self.create_kafka_onboarding(runner_conf)
-
-    def create_cloudfiles_onboarding(self, runner_conf: DLTMetaRunnerConf):
-        """Create onboarding file when the source is cloudfiles by filling out the templates."""
+        """Generate onboarding file from templates."""
 
         string_subs = {
             "{uc_volume_path}": runner_conf.uc_volume_path,
             "{uc_catalog_name}": runner_conf.uc_catalog_name,
             "{bronze_schema}": runner_conf.bronze_schema,
-            "{silver_schema}": runner_conf.silver_schema,
-            # "{run_id}": runner_conf.run_id,
         }
+
+        match runner_conf.source:
+            case "cloudfiles":
+                string_subs.update({"{silver_schema}": runner_conf.silver_schema})
+            case "eventhub":
+                string_subs.update(
+                    {
+                        "{run_id}": runner_conf.run_id,
+                        "{eventhub_name}": runner_conf.eventhub_name,
+                        "{eventhub_name_append_flow}": runner_conf.eventhub_name_append_flow,
+                        "{eventhub_accesskey_name}": runner_conf.eventhub_accesskey_name,
+                        "{eventhub_accesskey_secret_name}": runner_conf.eventhub_accesskey_secret_name,
+                        "{eventhub_secrets_scope_name}": runner_conf.eventhub_secrets_scope_name,
+                        "{eventhub_namespace}": runner_conf.eventhub_namespace,
+                        "{eventhub_port}": runner_conf.eventhub_port,
+                    }
+                )
+            case "kafka":
+                string_subs.update(
+                    {
+                        "{run_id}": runner_conf.run_id,
+                        "{kafka_topic}": runner_conf.kafka_topic,
+                        "{kafka_broker}": runner_conf.kafka_broker,
+                    }
+                )
 
         # Open the onboarding templates and sub in the proper table locations, paths, etc.
         with open(f"{runner_conf.cloudfiles_template}", "r") as f:
             onboard_json = f.read()
 
-        with open(f"{runner_conf.cloudfiles_A2_template}") as f:
-            onboard_json_a2 = f.read()
+        if runner_conf.source == "cloudfiles":
+            with open(f"{runner_conf.cloudfiles_A2_template}") as f:
+                onboard_json_a2 = f.read()
 
         for key, val in string_subs.items():
             onboard_json = onboard_json.replace(key, val)
-            onboard_json_a2 = onboard_json_a2.replace(key, val)
+            if runner_conf.source == "cloudfiles":
+                onboard_json_a2 = onboard_json_a2.replace(key, val)
 
         with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
             json.dump(json.loads(onboard_json), onboarding_file, indent=4)
 
-        with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file_a2:
-            json.dump(json.loads(onboard_json_a2), onboarding_file_a2, indent=4)
+        if runner_conf.source == "cloudfiles":
+            with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file_a2:
+                json.dump(json.loads(onboard_json_a2), onboarding_file_a2, indent=4)
 
     def upload_files_to_databricks(self, runner_conf: DLTMetaRunnerConf):
         """
@@ -826,13 +595,7 @@ class DLTMETARunner:
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
 
-        match runner_conf.source:
-            case "cloudfiles":
-                created_job = self.create_cloudfiles_workflow_spec(runner_conf)
-            case "eventhub":
-                created_job = self.create_eventhub_workflow_spec(runner_conf)
-            case "kafka":
-                created_job = self.create_kafka_workflow_spec(runner_conf)
+        created_job = self.create_workflow_spec(runner_conf)
 
         runner_conf.job_id = created_job.job_id
         print(f"Job created successfully. job_id={created_job.job_id}, started run...")
@@ -866,8 +629,6 @@ class DLTMETARunner:
             self.ws.pipelines.delete(runner_conf.bronze_pipeline_id)
         if runner_conf.silver_pipeline_id:
             self.ws.pipelines.delete(runner_conf.silver_pipeline_id)
-        if runner_conf.cluster_id:
-            self.ws.clusters.delete(runner_conf.cluster_id)
         if runner_conf.uc_catalog_name:
             test_schema_list = [runner_conf.dlt_meta_schema, runner_conf.bronze_schema, runner_conf.silver_schema]
             schema_list = self.ws.schemas.list(catalog_name=runner_conf.uc_catalog_name)
@@ -892,23 +653,16 @@ class DLTMETARunner:
         print("Cleaning up complete!!!")
 
     def run(self, runner_conf: DLTMetaRunnerConf):
-
-        self.init_dltmeta_runner_conf(runner_conf)
-        self.create_bronze_silver_dlt(runner_conf)
-        self.launch_workflow(runner_conf)
-        self.download_test_results(runner_conf)
-
-        # try:
-        #    self.init_dltmeta_runner_conf(runner_conf)
-        #    exit()
-        #    self.create_bronze_silver_dlt(runner_conf)
-        #    self.launch_workflow(runner_conf)
-        #    self.download_test_results(runner_conf)
-        # except Exception as e:
-        #    print(e)
-        # finally:
-        #     print("Cleaning up...")
-        #     self.clean_up(runner_conf)
+        try:
+            self.init_dltmeta_runner_conf(runner_conf)
+            self.create_bronze_silver_dlt(runner_conf)
+            self.launch_workflow(runner_conf)
+            self.download_test_results(runner_conf)
+        except Exception as e:
+            traceback.print_exc()
+        finally:
+            print("Cleaning up...")
+            self.clean_up(runner_conf)
 
 
 def process_arguments() -> dict[str:str]:
@@ -958,61 +712,61 @@ def process_arguments() -> dict[str:str]:
         [
             "eventhub_name_append_flow",
             "Provide eventhub_name_append_flow e.g: iot_af",
-            str,
+            str.lower,
             False,
             [],
         ],
         [
             "eventhub_producer_accesskey_name",
             "Provide access key that has write permission on the eventhub",
-            str,
+            str.lower,
             False,
             [],
         ],
         [
             "eventhub_consumer_accesskey_name",
             "Provide access key that has read permission on the eventhub",
-            str,
+            str.lower,
             False,
             [],
         ],
         [
             "eventhub_secrets_scope_name",
             "Provide eventhub_secrets_scope_name e.g: eventhubs_creds",
-            str,
+            str.lower,
             False,
             [],
         ],
         [
             "eventhub_accesskey_secret_name",
             "Provide eventhub_accesskey_secret_name e.g: RootManageSharedAccessKey",
-            str,
+            str.lower,
             False,
             [],
         ],
         [
             "eventhub_namespace",
             "Provide eventhub_namespace e.g: topic-standar",
-            str,
+            str.lower,
             False,
             [],
         ],
         [
             "eventhub_port",
             "Provide eventhub_port e.g: 9093",
-            str,
+            str.lower,
             False,
             [],
         ],
         # Kafka arguments
         [
-            "kafka_topic_name",
+            "kafka_topic",
             "Provide kafka topic name e.g: iot",
-            str,
+            str.lower,
             False,
             [],
         ],
-        ["kafka_broker", "Provide kafka broker e.g 127.0.0.1:9092", str, False, []],
+        ["kafka_broker", "Provide kafka broker e.g 127.0.0.1:9092", str.lower, False, []],
     ]
 
     # Build cli parser
@@ -1051,7 +805,7 @@ def process_arguments() -> dict[str:str]:
     elif args["source"] == "kafka":
         check_cond_mandatory_arg(
             args,
-            ["kafka_topic_name", "kafka_broker"],
+            ["kafka_topic", "kafka_broker"],
         )
 
     print(f"Processing comand line arguments Complete: {args}")
@@ -1075,7 +829,7 @@ def main():
     workspace_client = get_workspace_api_client(args["profile"])
     integration_test_runner = DLTMETARunner(args, workspace_client, "integration_tests")
     runner_conf = integration_test_runner.init_runner_conf()
-    integration_test_runner.run(runner_conf)
+    #integration_test_runner.run(runner_conf)
 
 if __name__ == "__main__":
     main()
