@@ -6,7 +6,7 @@
         "source_format": "eventhub",
         "source_details": {
             "source_schema_path": "{uc_volume_path}/integration_tests/resources/eventhub_iot_schema.ddl",
-            "eventhub.accessKeyName": "{eventhub_accesskey_name}",
+            "eventhub.accessKeyName": "{eventhub_consumer_accesskey_name}",
             "eventhub.name": "{eventhub_name}",
             "eventhub.accessKeySecretName": "{eventhub_accesskey_secret_name}",
             "eventhub.secretsScopeName": "{eventhub_secrets_scope_name}",
@@ -36,7 +36,7 @@
                     "source_format": "eventhub",
                     "source_details": {
                         "source_schema_path": "{uc_volume_path}/integration_tests/resources/eventhub_iot_schema.ddl",
-                        "eventhub.accessKeyName": "{eventhub_accesskey_name}",
+                        "eventhub.accessKeyName": "{eventhub_consumer_accesskey_name}",
                         "eventhub.name": "{eventhub_name_append_flow}",
                         "eventhub.accessKeySecretName": "{eventhub_accesskey_secret_name}",
                         "eventhub.secretsScopeName": "{eventhub_secrets_scope_name}",

@@ -112,7 +112,8 @@ class DLTMetaRunnerConf:
     eventhub_append_flow_input_data: str = None
     eventhub_name: str = None
     eventhub_name_append_flow: str = None
-    eventhub_accesskey_name: str = None
+    eventhub_producer_accesskey_name: str = None
+    eventhub_consumer_accesskey_name: str = None
     eventhub_accesskey_secret_name: str = None
     eventhub_secrets_scope_name: str = None
     eventhub_namespace: str = None
@@ -162,7 +163,8 @@ class DLTMETARunner:
             # eventhub provided args
             eventhub_name = self.args["eventhub_name"],
             eventhub_name_append_flow = self.args["eventhub_name_append_flow"],
-            eventhub_accesskey_name = self.args["eventhub_accesskey_name"],
+            eventhub_producer_accesskey_name = self.args["eventhub_consumer_accesskey_name"],
+            eventhub_consumer_accesskey_name = self.args["eventhub_consumer_accesskey_name"],
             eventhub_accesskey_secret_name = self.args["eventhub_accesskey_secret_name"],
             eventhub_secrets_scope_name = self.args["eventhub_secrets_scope_name"],
             eventhub_namespace = self.args["eventhub_namespace"],
@@ -387,7 +389,7 @@ class DLTMETARunner:
                         "eventhub_name_append_flow": runner_conf.eventhub_name_append_flow,
                         "eventhub_namespace": runner_conf.eventhub_namespace,
                         "eventhub_secrets_scope_name": runner_conf.eventhub_secrets_scope_name,
-                        "eventhub_accesskey_name": runner_conf.eventhub_accesskey_name,
+                        "eventhub_accesskey_name": runner_conf.eventhub_producer_accesskey_name,
                         "eventhub_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",
                         "eventhub_append_flow_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",
                     }
@@ -466,7 +468,7 @@ class DLTMETARunner:
                         "{run_id}": runner_conf.run_id,
                         "{eventhub_name}": runner_conf.eventhub_name,
                         "{eventhub_name_append_flow}": runner_conf.eventhub_name_append_flow,
-                        "{eventhub_accesskey_name}": runner_conf.eventhub_accesskey_name,
+                        "{eventhub_consumer_accesskey_name}": runner_conf.eventhub_consumer_accesskey_name,
                         "{eventhub_accesskey_secret_name}": runner_conf.eventhub_accesskey_secret_name,
                         "{eventhub_secrets_scope_name}": runner_conf.eventhub_secrets_scope_name,
                         "{eventhub_namespace}": runner_conf.eventhub_namespace,
@@ -657,7 +659,6 @@ class DLTMETARunner:
             print("Cleaning up...")
             self.clean_up(runner_conf)
 
-
 def process_arguments() -> dict[str:str]:
     """
     Get, process, and validate the command line arguements
@@ -701,7 +702,7 @@ def process_arguments() -> dict[str:str]:
             ["cloudfiles", "eventhub", "kafka"],
         ],
         # Eventhub arguments
-        ["eventhub_name", "Provide eventhub_name e.g: iot", str, False, []],
+        ["eventhub_name", "Provide eventhub_name e.g: iot", str.lower, False, []],
         [
             "eventhub_name_append_flow",
             "Provide eventhub_name_append_flow e.g: iot_af",
@@ -803,7 +804,6 @@ def process_arguments() -> dict[str:str]:
 
     print(f"Processing comand line arguments Complete: {args}")
     return args
-
 
 def get_workspace_api_client(profile=None) -> WorkspaceClient:
     """Get api client with config."""
