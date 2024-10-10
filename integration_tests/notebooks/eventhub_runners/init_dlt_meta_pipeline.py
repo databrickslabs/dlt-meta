@@ -1,6 +1,6 @@
 # Databricks notebook source
 dlt_meta_whl = spark.conf.get("dlt_meta_whl")
-%pip install $dlt_meta_whl
+%pip install $dlt_meta_whl # noqa : E999
 
 # COMMAND ----------
 

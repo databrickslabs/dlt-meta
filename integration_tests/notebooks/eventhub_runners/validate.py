@@ -13,12 +13,12 @@ log_list.append("Completed Bronze Eventhub DLT Pipeline.")
 
 UC_TABLES = {
     f"{uc_catalog_name}.{bronze_schema}.bronze_{run_id}_iot": 20,
-    f"{uc_catalog_name}.{bronze_schema}.bronze_{run_id}_iot_quarantine": 2
+    f"{uc_catalog_name}.{bronze_schema}.bronze_{run_id}_iot_quarantine": 2,
 }
 
 NON_UC_TABLES = {
     f"{uc_catalog_name}.{bronze_schema}.bronze_{run_id}_iot": 20,
-    f"{uc_catalog_name}.{bronze_schema}.bronze_{run_id}_iot_quarantine": 2
+    f"{uc_catalog_name}.{bronze_schema}.bronze_{run_id}_iot_quarantine": 2,
 }
 
 log_list.append("Validating DLT EVenthub Bronze Table Counts...")
