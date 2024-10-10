@@ -7,7 +7,7 @@
         "source_details": {
             "source_schema_path": "{uc_volume_path}/integration_tests/resources/eventhub_iot_schema.ddl",
             "subscribe": "{kafka_topic}",
-            "kafka.bootstrap.servers": "{kafka_bootstrap_servers}"
+            "kafka.bootstrap.servers": "{kafka_broker}"
         },
         "bronze_reader_options": {
             "startingOffsets": "earliest",

@@ -99,20 +99,31 @@ class WorkspaceInstaller:
     def _version(self):
         return __version__
 
-    def _upload_wheel(self) -> str:
+    def _upload_wheel(self, uc_volume_path: str = None) -> str:
+        """
+        Upload the wheel to user's workspace folder and to the uc_volume for the run if provided.
+        The path to the UC volume wheel will be provided if possible, else the workspace location.
+        """
         with tempfile.TemporaryDirectory() as tmp_dir:
             local_wheel = self._build_wheel(tmp_dir)
             remote_wheel = f"{self._install_folder}/wheels/{local_wheel.name}"
             remote_dirname = os.path.dirname(remote_wheel)
             with local_wheel.open("rb") as f:
-                self._ws.dbfs.mkdirs(remote_dirname)
-                logger.info(f"Uploading wheel to dbfs:{remote_wheel}")
-                self._ws.dbfs.upload(remote_wheel, f, overwrite=True)
-            with local_wheel.open("rb") as f:
                 self._ws.workspace.mkdirs(remote_dirname)
                 logger.info(f"Uploading wheel to /Workspace{remote_wheel}")
-                self._ws.workspace.upload(remote_wheel, f, overwrite=True, format=ImportFormat.AUTO)
-        return remote_wheel
+                self._ws.workspace.upload(
+                    remote_wheel, f, overwrite=True, format=ImportFormat.AUTO
+                )
+            if uc_volume_path:
+                # Reopen to the wheel file since how it uploads it, if you try to upload twice
+                # under the same open statement, the second upload the file is empty, it probably
+                # treats the open output as some sort of iterator
+                with local_wheel.open("rb") as f:
+                    uc_wheel_path = f"{uc_volume_path}wheels/{local_wheel.name}"
+                    logger.info(f"Uploading wheel to {uc_wheel_path}")
+                    self._ws.files.upload(uc_wheel_path, f, overwrite=True)
+                    return uc_wheel_path
+        return f"/Workspace{remote_wheel}"
 
     def _build_wheel(self, tmp_dir: str, *, verbose: bool = False):
         """Helper to build the wheel package"""

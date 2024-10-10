@@ -53,7 +53,7 @@ class CliTests(unittest.TestCase):
                 mock_open.return_value = MagicMock()
                 mock_dbfs_upload = MagicMock()
                 mock_ws.dbfs.upload = mock_dbfs_upload
-                dltmeta.copy("file:/path/to/src", "/dbfs/path/to/dst")
+                dltmeta.copy_to_dbfs("file:/path/to/src", "/dbfs/path/to/dst")
                 self.assertEqual(mock_dbfs_upload.call_count, 3)
 
     @patch('src.cli.WorkspaceClient')

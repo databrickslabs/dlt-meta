@@ -191,13 +191,13 @@ class DLTMeta:
                 self._ws.dbfs.upload(dbfs_path, contents, overwrite=True)
 
     def create_uc_volume(self, uc_catalog_name, dlt_meta_schema):
-        volume_info = self._ws.volumes.create(catalog_name=uc_catalog_name,
-                                              schema_name=dlt_meta_schema,
-                                              name=dlt_meta_schema,
-                                              volume_type=VolumeType.MANAGED)
-        return (f"/Volumes/{volume_info.catalog_name}/"
-                f"{volume_info.schema_name}/{volume_info.name}/"
-                )
+        volume_info = self._ws.volumes.create(
+            catalog_name=uc_catalog_name,
+            schema_name=dlt_meta_schema,
+            name=dlt_meta_schema,
+            volume_type=VolumeType.MANAGED,
+        )
+        return f"/Volumes/{volume_info.catalog_name}/{volume_info.schema_name}/{volume_info.name}/"
 
     def onboard(self, cmd: OnboardCommand):
         """Perform the onboarding process."""
