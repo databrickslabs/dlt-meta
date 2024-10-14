@@ -367,7 +367,7 @@ class DLTMETARunner:
                             named_parameters={
                                 "onboard_layer": "bronze",
                                 "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
-                                "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding_A2.json",
+                                "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding_A2.json", # noqa : E501
                                 "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                                 "import_author": "Ravi",
                                 "version": "v1",
@@ -404,14 +404,14 @@ class DLTMETARunner:
                         "eventhub_namespace": runner_conf.eventhub_namespace,
                         "eventhub_secrets_scope_name": runner_conf.eventhub_secrets_scope_name,
                         "eventhub_accesskey_name": runner_conf.eventhub_producer_accesskey_name,
-                        "eventhub_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",
-                        "eventhub_append_flow_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",
+                        "eventhub_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json", # noqa : E501
+                        "eventhub_append_flow_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",# noqa : E501
                     }
                 case "kafka":
                     base_parameters = {
                         "kafka_topic": runner_conf.kafka_topic,
                         "kafka_broker": runner_conf.kafka_broker,
-                        "kafka_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",
+                        "kafka_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json", # noqa : E501
                     }
 
             tasks.append(
@@ -676,6 +676,7 @@ class DLTMETARunner:
             self.launch_workflow(runner_conf)
             self.download_test_results(runner_conf)
         except Exception as e:
+            print(e)
             traceback.print_exc()
         finally:
             self.clean_up(runner_conf)

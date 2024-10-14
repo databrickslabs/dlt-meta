@@ -35,7 +35,13 @@ eventhub_append_flow_input_data = dbutils.widgets.get("eventhub_append_flow_inpu
 # COMMAND ----------
 
 print(
-    f"eventhub_name={eventhub_name}, eventhub_name_append_flow={eventhub_name_append_flow}, eventhub_namespace={eventhub_namespace}, eventhub_secrets_scope_name={eventhub_secrets_scope_name}, eventhub_accesskey_name={eventhub_accesskey_name}, eventhub_input_data={eventhub_input_data}, eventhub_append_flow_input_data={eventhub_append_flow_input_data}"
+    f"""eventhub_name={eventhub_name},
+    eventhub_name_append_flow={eventhub_name_append_flow},
+    eventhub_namespace={eventhub_namespace},
+    eventhub_secrets_scope_name={eventhub_secrets_scope_name},
+    eventhub_accesskey_name={eventhub_accesskey_name},
+    eventhub_input_data={eventhub_input_data},
+    eventhub_append_flow_input_data={eventhub_append_flow_input_data}"""
 )
 
 # COMMAND ----------
@@ -46,7 +52,7 @@ from azure.eventhub import EventHubProducerClient, EventData
 eventhub_shared_access_value = dbutils.secrets.get(
     scope=eventhub_secrets_scope_name, key=eventhub_accesskey_name
 )
-eventhub_conn = f"Endpoint=sb://{eventhub_namespace}.servicebus.windows.net/;SharedAccessKeyName={eventhub_accesskey_name};SharedAccessKey={eventhub_shared_access_value}"
+eventhub_conn = f"Endpoint=sb://{eventhub_namespace}.servicebus.windows.net/;SharedAccessKeyName={eventhub_accesskey_name};SharedAccessKey={eventhub_shared_access_value}" # noqa : E501
 
 client = EventHubProducerClient.from_connection_string(
     eventhub_conn, eventhub_name=eventhub_name

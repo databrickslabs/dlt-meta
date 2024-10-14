@@ -30,6 +30,7 @@ class DLTMETAFCFDemo(DLTMETARunner):
             self.create_bronze_silver_dlt(runner_conf)
             self.launch_workflow(runner_conf)
         except Exception as e:
+            print(e)
             traceback.print_exc()
 
     def init_runner_conf(self) -> DLTMetaRunnerConf:
@@ -57,7 +58,7 @@ class DLTMETAFCFDemo(DLTMETARunner):
             onboarding_file_path="demo/conf/onboarding.json",
             onboarding_A2_file_path="demo/conf/onboarding_A2.json",
             env="demo",
-            runners_full_local_path = './demo/notebooks/afam_cloudfiles_runners/',
+            runners_full_local_path='./demo/notebooks/afam_cloudfiles_runners/',
             test_output_file_path=(
                 f"/Users/{self.wsi._my_username}/dlt_meta_demo/"
                 f"{run_id}/demo-output.csv"
@@ -69,7 +70,6 @@ class DLTMETAFCFDemo(DLTMETARunner):
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
         created_job = self.create_workflow_spec(runner_conf)
         self.open_job_url(runner_conf, created_job)
-
 
 
 def main():
