@@ -1,7 +1,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
+
 from src.__about__ import __version__
-from src.cli import DLTMeta, OnboardCommand, DeployCommand, DLT_META_RUNNER_NOTEBOOK
+from src.cli import DLT_META_RUNNER_NOTEBOOK, DeployCommand, DLTMeta, OnboardCommand
 
 
 class CliTests(unittest.TestCase):
@@ -24,7 +25,7 @@ class CliTests(unittest.TestCase):
         overwrite=True,
         bronze_dataflowspec_table="bronze_dataflowspec",
         silver_dataflowspec_table="silver_dataflowspec",
-        update_paths=True
+        update_paths=True,
     )
     deploy_cmd = DeployCommand(
         layer="bronze",
@@ -44,19 +45,19 @@ class CliTests(unittest.TestCase):
     def test_copy(self):
         mock_ws = MagicMock()
         dltmeta = DLTMeta(mock_ws)
-        with patch('os.walk') as mock_walk:
+        with patch("os.walk") as mock_walk:
             mock_walk.return_value = [
                 ("/path/to/src", [], ["file1.txt", "file2.txt"]),
-                ("/path/to/src/subdir", [], ["file3.txt"])
+                ("/path/to/src/subdir", [], ["file3.txt"]),
             ]
-            with patch('builtins.open') as mock_open:
+            with patch("builtins.open") as mock_open:
                 mock_open.return_value = MagicMock()
                 mock_dbfs_upload = MagicMock()
                 mock_ws.dbfs.upload = mock_dbfs_upload
                 dltmeta.copy_to_dbfs("file:/path/to/src", "/dbfs/path/to/dst")
                 self.assertEqual(mock_dbfs_upload.call_count, 3)
 
-    @patch('src.cli.WorkspaceClient')
+    @patch("src.cli.WorkspaceClient")
     def test_onboard(self, mock_workspace_client):
         mock_dbfs = MagicMock()
         mock_jobs = MagicMock()
@@ -73,12 +74,12 @@ class CliTests(unittest.TestCase):
         with patch.object(dltmeta._wsi, "_upload_wheel", return_value="/path/to/wheel"):
             dltmeta.onboard(self.onboard_cmd)
 
-        mock_workspace_client.dbfs.exists.assert_called_once_with('/dbfs/dltmeta_conf/')
+        mock_workspace_client.dbfs.exists.assert_called_once_with("/dbfs/dltmeta_conf/")
         mock_workspace_client.dbfs.mkdirs.assert_called_once_with("/dbfs/dltmeta_conf/")
         mock_workspace_client.jobs.create.assert_called_once()
         mock_workspace_client.jobs.run_now.assert_called_once_with(job_id="job_id")
 
-    @patch('src.cli.WorkspaceClient')
+    @patch("src.cli.WorkspaceClient")
     def test_create_onnboarding_job(self, mock_workspace_client):
 
         mock_workspace_client.jobs.create.return_value = MagicMock(job_id="job_id")
@@ -90,7 +91,7 @@ class CliTests(unittest.TestCase):
         mock_workspace_client.jobs.create.assert_called_once()
         self.assertEqual(job.job_id, "job_id")
 
-    @patch('src.cli.WorkspaceClient')
+    @patch("src.cli.WorkspaceClient")
     def test_install_folder(self, mock_workspace_client):
         dltmeta = DLTMeta(mock_workspace_client)
         dltmeta._wsi = mock_workspace_client.return_value
@@ -98,9 +99,11 @@ class CliTests(unittest.TestCase):
         folder = dltmeta._install_folder()
         self.assertEqual(folder, "/Users/name/dlt-meta")
 
-    @patch('src.cli.WorkspaceClient')
+    @patch("src.cli.WorkspaceClient")
     def test_create_dlt_meta_pipeline(self, mock_workspace_client):
-        mock_workspace_client.pipelines.create.return_value = MagicMock(pipeline_id="pipeline_id")
+        mock_workspace_client.pipelines.create.return_value = MagicMock(
+            pipeline_id="pipeline_id"
+        )
         mock_workspace_client.workspace.mkdirs.return_value = None
         mock_workspace_client.workspace.upload.return_value = None
         dltmeta = DLTMeta(mock_workspace_client)
@@ -108,12 +111,16 @@ class CliTests(unittest.TestCase):
         dltmeta._wsi._upload_wheel.return_value = None
         dltmeta._my_username = MagicMock(return_value="name")
         dltmeta._create_dlt_meta_pipeline(self.deploy_cmd)
-        runner_notebook_py = DLT_META_RUNNER_NOTEBOOK.format(version=__version__).encode("utf8")
+        runner_notebook_py = DLT_META_RUNNER_NOTEBOOK.format(
+            version=__version__
+        ).encode("utf8")
         runner_notebook_path = f"{dltmeta._install_folder()}/init_dlt_meta_pipeline.py"
-        mock_workspace_client.workspace.mkdirs.assert_called_once_with("/Users/name/dlt-meta")
-        mock_workspace_client.workspace.upload.assert_called_once_with(runner_notebook_path,
-                                                                       runner_notebook_py,
-                                                                       overwrite=True)
+        mock_workspace_client.workspace.mkdirs.assert_called_once_with(
+            "/Users/name/dlt-meta"
+        )
+        mock_workspace_client.workspace.upload.assert_called_once_with(
+            runner_notebook_path, runner_notebook_py, overwrite=True
+        )
         mock_workspace_client.pipelines.create.assert_called_once()
 
         mock_workspace_client.pipelines.create.assert_called_once()
@@ -134,22 +141,25 @@ class CliTests(unittest.TestCase):
             silver_dataflowspec_path="tests/resources/silver_dataflowspec",
             uc_enabled=True,
             uc_catalog_name="uc_catalog",
+            uc_volume_path="uc_catalog/dlt_meta/files",
             overwrite=True,
             bronze_dataflowspec_table="bronze_dataflowspec",
             silver_dataflowspec_table="silver_dataflowspec",
-            update_paths=True
+            update_paths=True,
         )
         dltmeta = DLTMeta(None)
-        named_parameters = dltmeta._get_onboarding_named_parameters(cmd, "onboarding.json")
+        named_parameters = dltmeta._get_onboarding_named_parameters(
+            cmd, "onboarding.json"
+        )
         expected_named_parameters = {
             "onboard_layer": "bronze",
             "database": "uc_catalog.dlt_meta" if cmd.uc_enabled else "dlt_meta",
-            "onboarding_file_path": "/dbfs/dltmeta_conf/onboarding.json",
+            "onboarding_file_path": "uc_catalog/dlt_meta/files/dltmeta_conf/onboarding.json",
             "import_author": "John Doe",
             "version": "1.0",
             "overwrite": "True",
             "env": "dev",
             "uc_enabled": "True",
-            "bronze_dataflowspec_table": "bronze_dataflowspec"
+            "bronze_dataflowspec_table": "bronze_dataflowspec",
         }
         self.assertEqual(named_parameters, expected_named_parameters)
