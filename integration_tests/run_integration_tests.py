@@ -474,30 +474,29 @@ class DLTMETARunner:
             "{bronze_schema}": runner_conf.bronze_schema,
         }
 
-        match runner_conf.source:
-            case "cloudfiles":
-                string_subs.update({"{silver_schema}": runner_conf.silver_schema})
-            case "eventhub":
-                string_subs.update(
-                    {
-                        "{run_id}": runner_conf.run_id,
-                        "{eventhub_name}": runner_conf.eventhub_name,
-                        "{eventhub_name_append_flow}": runner_conf.eventhub_name_append_flow,
-                        "{eventhub_consumer_accesskey_name}": runner_conf.eventhub_consumer_accesskey_name,
-                        "{eventhub_accesskey_secret_name}": runner_conf.eventhub_accesskey_secret_name,
-                        "{eventhub_secrets_scope_name}": runner_conf.eventhub_secrets_scope_name,
-                        "{eventhub_namespace}": runner_conf.eventhub_namespace,
-                        "{eventhub_port}": runner_conf.eventhub_port,
-                    }
-                )
-            case "kafka":
-                string_subs.update(
-                    {
-                        "{run_id}": runner_conf.run_id,
-                        "{kafka_topic}": runner_conf.kafka_topic,
-                        "{kafka_broker}": runner_conf.kafka_broker,
-                    }
-                )
+        if runner_conf.source == "cloudfiles":
+            string_subs.update({"{silver_schema}": runner_conf.silver_schema})
+        elif runner_conf.source == "eventhub":
+            string_subs.update(
+                {
+                    "{run_id}": runner_conf.run_id,
+                    "{eventhub_name}": runner_conf.eventhub_name,
+                    "{eventhub_name_append_flow}": runner_conf.eventhub_name_append_flow,
+                    "{eventhub_consumer_accesskey_name}": runner_conf.eventhub_consumer_accesskey_name,
+                    "{eventhub_accesskey_secret_name}": runner_conf.eventhub_accesskey_secret_name,
+                    "{eventhub_secrets_scope_name}": runner_conf.eventhub_secrets_scope_name,
+                    "{eventhub_namespace}": runner_conf.eventhub_namespace,
+                    "{eventhub_port}": runner_conf.eventhub_port,
+                }
+            )
+        elif runner_conf.source == "kafka":
+            string_subs.update(
+                {
+                    "{run_id}": runner_conf.run_id,
+                    "{kafka_topic}": runner_conf.kafka_topic,
+                    "{kafka_broker}": runner_conf.kafka_broker,
+                }
+            )
 
         # Open the onboarding templates and sub in the proper table locations, paths, etc.
         with open(f"{runner_conf.cloudfiles_template}", "r") as f:
