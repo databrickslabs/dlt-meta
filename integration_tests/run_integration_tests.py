@@ -1,20 +1,22 @@
 """ A script to run integration tests for DLT-Meta."""
 
 # Import necessary modules
-import uuid
 import argparse
-import os
-import webbrowser
-import traceback
-from dataclasses import dataclass
-from databricks.sdk import WorkspaceClient
-from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
-from databricks.sdk.service import jobs, compute
-from src.__about__ import __version__
-from databricks.sdk.service.workspace import ImportFormat, Language
-from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType
-from src.install import WorkspaceInstaller
 import json
+import os
+import traceback
+import uuid
+import webbrowser
+from dataclasses import dataclass
+
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.service import compute, jobs
+from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType
+from databricks.sdk.service.pipelines import NotebookLibrary, PipelineLibrary
+from databricks.sdk.service.workspace import ImportFormat, Language
+
+from src.__about__ import __version__
+from src.install import WorkspaceInstaller
 
 # Dictionary mapping cloud providers to node types
 cloud_node_type_id_dict = {
@@ -367,7 +369,7 @@ class DLTMETARunner:
                             named_parameters={
                                 "onboard_layer": "bronze",
                                 "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
-                                "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding_A2.json", # noqa : E501
+                                "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding_A2.json",  # noqa : E501
                                 "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                                 "import_author": "Ravi",
                                 "version": "v1",
@@ -396,23 +398,22 @@ class DLTMETARunner:
                 ]
             )
         else:
-            match runner_conf.source:
-                case "eventhub":
-                    base_parameters = {
-                        "eventhub_name": runner_conf.eventhub_name,
-                        "eventhub_name_append_flow": runner_conf.eventhub_name_append_flow,
-                        "eventhub_namespace": runner_conf.eventhub_namespace,
-                        "eventhub_secrets_scope_name": runner_conf.eventhub_secrets_scope_name,
-                        "eventhub_accesskey_name": runner_conf.eventhub_producer_accesskey_name,
-                        "eventhub_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json", # noqa : E501
-                        "eventhub_append_flow_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",# noqa : E501
-                    }
-                case "kafka":
-                    base_parameters = {
-                        "kafka_topic": runner_conf.kafka_topic,
-                        "kafka_broker": runner_conf.kafka_broker,
-                        "kafka_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json", # noqa : E501
-                    }
+            if runner_conf.source == "eventhub":
+                base_parameters = {
+                    "eventhub_name": runner_conf.eventhub_name,
+                    "eventhub_name_append_flow": runner_conf.eventhub_name_append_flow,
+                    "eventhub_namespace": runner_conf.eventhub_namespace,
+                    "eventhub_secrets_scope_name": runner_conf.eventhub_secrets_scope_name,
+                    "eventhub_accesskey_name": runner_conf.eventhub_producer_accesskey_name,
+                    "eventhub_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
+                    "eventhub_append_flow_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",  # noqa : E501
+                }
+            elif runner_conf.source == "kafka":
+                base_parameters = {
+                    "kafka_topic": runner_conf.kafka_topic,
+                    "kafka_broker": runner_conf.kafka_broker,
+                    "kafka_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
+                }
 
             tasks.append(
                 jobs.Task(
