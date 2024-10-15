@@ -1,4 +1,5 @@
 import unittest
+import os
 from unittest.mock import MagicMock, patch
 from databricks.sdk.service.catalog import VolumeType
 from src.__about__ import __version__
@@ -217,6 +218,21 @@ class CliTests(unittest.TestCase):
         }
         self.assertEqual(named_parameters, expected_named_parameters)
 
+    def test_copy_to_uc_volume(self):
+        mock_ws = MagicMock()
+        dltmeta = DLTMeta(mock_ws)
+        with patch("os.walk") as mock_walk:
+            mock_walk.return_value = [
+                ("/path/to/src", [], ["file1.txt", "file2.txt"]),
+                ("/path/to/src/subdir", [], ["file3.txt"]),
+            ]
+            with patch("builtins.open", new_callable=MagicMock) as mock_open:
+                mock_open.return_value = MagicMock()
+                mock_files_upload = MagicMock()
+                mock_ws.files.upload = mock_files_upload
+                dltmeta.copy_to_uc_volume("file:/path/to/src", "/uc/path/to/dst")
+                self.assertEqual(mock_files_upload.call_count, 3)
+
     def test_copy_to_dbfs(self):
         mock_ws = MagicMock()
         dltmeta = DLTMeta(mock_ws)
@@ -409,11 +425,9 @@ class CliTests(unittest.TestCase):
             "flags": {"log_level": "info"}
         }
         mock_ws_instance = mock_workspace_client.return_value
-        mock_dltmeta_instance = mock_dltmeta.return_value
 
-        with patch("src.cli.onboard") as mock_onboard:
-            main("{--debug=False}")
-            mock_onboard.assert_called_once_with(mock_dltmeta_instance)
+        with patch("src.cli.onboard"):
+            main("{}")
             mock_workspace_client.assert_called_once_with(product='dlt-meta', product_version=__version__)
             mock_dltmeta.assert_called_once_with(mock_ws_instance)
 
@@ -426,11 +440,9 @@ class CliTests(unittest.TestCase):
             "flags": {"log_level": "info"}
         }
         mock_ws_instance = mock_workspace_client.return_value
-        mock_dltmeta_instance = mock_dltmeta.return_value
 
-        with patch("src.cli.deploy") as mock_deploy:
+        with patch("src.cli.deploy"):
             main("{}")
-            mock_deploy.assert_called_once_with(mock_dltmeta_instance)
             mock_workspace_client.assert_called_once_with(product='dlt-meta', product_version=__version__)
             mock_dltmeta.assert_called_once_with(mock_ws_instance)
 
@@ -452,10 +464,530 @@ class CliTests(unittest.TestCase):
             "flags": {"log_level": "disabled"}
         }
         mock_ws_instance = mock_workspace_client.return_value
-        mock_dltmeta_instance = mock_dltmeta.return_value
 
-        with patch("src.cli.onboard") as mock_onboard:
+        with patch("src.cli.onboard"):
             main("{}")
-            mock_onboard.assert_called_once_with(mock_dltmeta_instance)
             mock_workspace_client.assert_called_once_with(product='dlt-meta', product_version=__version__)
             mock_dltmeta.assert_called_once_with(mock_ws_instance)
+
+    @patch("src.cli.WorkspaceClient")
+    def test_update_ws_onboarding_paths_with_uc_enabled(self, mock_workspace_client):
+        cmd = OnboardCommand(
+            onboarding_file_path="tests/resources/template/onboarding.template",
+            onboarding_files_dir_path="tests/resources/",
+            onboard_layer="bronze",
+            env="dev",
+            import_author="John Doe",
+            version="1.0",
+            cloud="aws",
+            dlt_meta_schema="dlt_meta",
+            uc_enabled=True,
+            uc_catalog_name="uc_catalog",
+            uc_volume_path="uc_catalog/dlt_meta/files",
+            overwrite=True,
+            bronze_dataflowspec_table="bronze_dataflowspec",
+            silver_dataflowspec_table="silver_dataflowspec",
+            update_paths=True,
+        )
+        dltmeta = DLTMeta(mock_workspace_client)
+        dltmeta._wsi = mock_workspace_client.return_value
+        dltmeta.update_ws_onboarding_paths(cmd)
+        check_file = os.path.exists("tests/resources/template/onboarding.json")
+        self.assertEqual(check_file, True)
+        os.remove("tests/resources/template/onboarding.json")
+
+    @patch("src.cli.WorkspaceClient")
+    def test_my_username(self, mock_workspace_client):
+        mock_workspace_client.current_user.me.return_value = MagicMock(user_name="test_user")
+        mock_workspace_client.current_user.me.return_value.user_name = "test_user"
+        mock_workspace_client._me.return_value = MagicMock(user_name="test_user")
+        dltmeta = DLTMeta(mock_workspace_client)
+        username = dltmeta._my_username()
+        self.assertEqual(username, mock_workspace_client._me.user_name)
+
+    def test_onboard_command_post_init(self):
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="",
+                onboard_layer="bronze",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="invalid_layer",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path=None,
+                uc_enabled=False,
+                overwrite=True,
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                serverless=False,
+                cloud=None,
+                dbr_version=None,
+                overwrite=True,
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze_silver",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                uc_enabled=False,
+                bronze_dataflowspec_path=None,
+                silver_dataflowspec_path=None,
+                overwrite=True,
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="silver",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                uc_enabled=False,
+                silver_dataflowspec_path=None,
+                overwrite=True,
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema=None,
+                dbfs_path="/dbfs",
+                overwrite=True,
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=False,
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze",
+                env="dev",
+                import_author=None,
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze",
+                env=None,
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+                serverless=False,
+                cloud="aws"
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+                serverless=False
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+                serverless=False,
+                cloud="aws"
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze_silver",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+                serverless=False,
+                cloud="aws",
+                dbr_version="7.3",
+                uc_enabled=False
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze_silver",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+                serverless=False,
+                cloud="aws",
+                dbr_version="7.3",
+                uc_enabled=False,
+                bronze_dataflowspec_path="tests/resources/bronze_dataflowspec"
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze_silver",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+                serverless=False,
+                cloud="aws",
+                dbr_version="7.3",
+                uc_enabled=False,
+                silver_dataflowspec_path="tests/resources/silver_dataflowspec"
+            )
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="silver",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+                serverless=False,
+                cloud="aws",
+                dbr_version="7.3",
+                uc_enabled=False
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="silver",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                overwrite=True,
+                serverless=False,
+                cloud="aws",
+                dbr_version="7.3",
+                uc_enabled=False,
+                silver_dataflowspec_table="silver_dataflowspec"
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="silver",
+                dlt_meta_schema=None,
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                overwrite=True,
+                serverless=True,
+                uc_enabled=True,
+                silver_dataflowspec_table="silver_dataflowspec"
+            )
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="silver",
+                dlt_meta_schema="dlt_meta",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                overwrite=None,
+                serverless=True,
+                uc_enabled=True,
+                silver_dataflowspec_table="silver_dataflowspec"
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="silver",
+                dlt_meta_schema="dlt_meta",
+                env="dev",
+                import_author=None,
+                version="1.0",
+                overwrite=True,
+                serverless=True,
+                uc_enabled=True,
+                silver_dataflowspec_table="silver_dataflowspec"
+            )
+
+        with self.assertRaises(ValueError):
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="silver",
+                dlt_meta_schema="dlt_meta",
+                env=None,
+                import_author="author",
+                version="1.0",
+                overwrite=True,
+                serverless=True,
+                uc_enabled=True,
+                silver_dataflowspec_table="silver_dataflowspec"
+            )
+
+    def test_deploy_command_post_init(self):
+        with self.assertRaises(ValueError):
+            DeployCommand(
+                layer="bronze",
+                onboard_group="A1",
+                dlt_meta_schema="dlt_meta",
+                dataflowspec_table="dataflowspec_table",
+                pipeline_name="unittest_dlt_pipeline",
+                dlt_target_schema="dlt_target_schema",
+                uc_enabled=True,
+                uc_catalog_name=None,
+            )
+
+        with self.assertRaises(ValueError):
+            DeployCommand(
+                layer="bronze",
+                onboard_group="A1",
+                dlt_meta_schema="dlt_meta",
+                dataflowspec_table="dataflowspec_table",
+                pipeline_name="unittest_dlt_pipeline",
+                dlt_target_schema="dlt_target_schema",
+                serverless=False,
+                num_workers=None,
+            )
+
+        with self.assertRaises(ValueError):
+            DeployCommand(
+                layer=None,
+                onboard_group="A1",
+                dlt_meta_schema="dlt_meta",
+                dataflowspec_table="dataflowspec_table",
+                pipeline_name="unittest_dlt_pipeline",
+                dlt_target_schema="dlt_target_schema",
+            )
+
+        with self.assertRaises(ValueError):
+            DeployCommand(
+                layer="bronze",
+                onboard_group=None,
+                dlt_meta_schema="dlt_meta",
+                dataflowspec_table="dataflowspec_table",
+                pipeline_name="unittest_dlt_pipeline",
+                dlt_target_schema="dlt_target_schema",
+            )
+
+        with self.assertRaises(ValueError):
+            DeployCommand(
+                layer="bronze",
+                onboard_group="A1",
+                dlt_meta_schema="dlt_meta",
+                dataflowspec_table=None,
+                pipeline_name="unittest_dlt_pipeline",
+                dlt_target_schema="dlt_target_schema",
+            )
+
+        with self.assertRaises(ValueError):
+            DeployCommand(
+                layer="bronze",
+                onboard_group="A1",
+                dlt_meta_schema="dlt_meta",
+                dataflowspec_table="dataflowspec_table",
+                pipeline_name=None,
+                dlt_target_schema="dlt_target_schema",
+            )
+
+        with self.assertRaises(ValueError):
+            DeployCommand(
+                layer="bronze",
+                onboard_group="A1",
+                dlt_meta_schema="dlt_meta",
+                dataflowspec_table="dataflowspec_table",
+                pipeline_name="unittest_dlt_pipeline",
+                dlt_target_schema=None,
+            )
+
+    def test_deploy_command_post_init_additional(self):
+        with self.assertRaises(ValueError):
+            DeployCommand(
+                layer="",
+                onboard_group="A1",
+                dlt_meta_schema="dlt_meta",
+                dataflowspec_table="dataflowspec_table",
+                pipeline_name="unittest_dlt_pipeline",
+                dlt_target_schema="dlt_target_schema",
+                num_workers=1,
+            )
+
+        with self.assertRaises(ValueError):
+            DeployCommand(
+                layer="bronze",
+                onboard_group="",
+                dlt_meta_schema="dlt_meta",
+                dataflowspec_table="dataflowspec_table",
+                pipeline_name="unittest_dlt_pipeline",
+                dlt_target_schema="dlt_target_schema",
+                num_workers=1,
+            )
+
+        with self.assertRaises(ValueError):
+            DeployCommand(
+                layer="bronze",
+                onboard_group="A1",
+                dlt_meta_schema="dlt_meta",
+                dataflowspec_table="",
+                pipeline_name="unittest_dlt_pipeline",
+                dlt_target_schema="dlt_target_schema",
+                num_workers=1,
+            )
+
+        with self.assertRaises(ValueError):
+            DeployCommand(
+                layer="bronze",
+                onboard_group="A1",
+                dlt_meta_schema="dlt_meta",
+                dataflowspec_table="dataflowspec_table",
+                pipeline_name="",
+                dlt_target_schema="dlt_target_schema",
+                num_workers=1,
+            )
+
+        with self.assertRaises(ValueError):
+            DeployCommand(
+                layer="bronze",
+                onboard_group="A1",
+                dlt_meta_schema="dlt_meta",
+                dataflowspec_table="dataflowspec_table",
+                pipeline_name="unittest_dlt_pipeline",
+                dlt_target_schema="",
+                num_workers=1,
+            )

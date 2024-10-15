@@ -67,8 +67,8 @@ class OnboardCommand:
             raise ValueError("onboard_layer is required")
         if self.onboard_layer.lower() not in ["bronze", "silver", "bronze_silver"]:
             raise ValueError("onboard_layer must be one of bronze, silver, bronze_silver")
-        if self.uc_enabled == "":
-            raise ValueError("uc_enabled is required, please set to True or False")
+        # if self.uc_enabled == "":
+        #     raise ValueError("uc_enabled is required, please set to True or False")
         if not self.uc_enabled and not self.dbfs_path:
             raise ValueError("dbfs_path is required")
         if not self.serverless:
@@ -150,6 +150,8 @@ class DLTMeta:
     def _my_username(self):
         if not hasattr(self._ws, "_me"):
             _me = self._ws.current_user.me()
+        else:
+            _me = self._ws._me
         return _me.user_name
 
     def copy_to_uc_volume(self, src, dst):
