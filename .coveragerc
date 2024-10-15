@@ -7,8 +7,6 @@ omit =
     tests/*
     src/install.py
     src/uninstall.py
-    src/config.py
-    src/cli.py
 
 [report]
 exclude_lines =
