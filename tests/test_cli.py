@@ -62,7 +62,7 @@ class CliTests(unittest.TestCase):
         dbfs_path="/dbfs",
     )
 
-    def test_copy(self):
+    def test_copy_to_uc_volume(self):
         mock_ws = MagicMock()
         dltmeta = DLTMeta(mock_ws)
         with patch("os.walk") as mock_walk:
@@ -76,6 +76,7 @@ class CliTests(unittest.TestCase):
                 mock_ws.dbfs.upload = mock_dbfs_upload
                 dltmeta.copy_to_dbfs("file:/path/to/src", "/dbfs/path/to/dst")
                 self.assertEqual(mock_dbfs_upload.call_count, 3)
+
 
     @patch("src.cli.WorkspaceClient")
     @patch("builtins.open", new_callable=MagicMock)
@@ -181,15 +182,12 @@ class CliTests(unittest.TestCase):
 
     def test_get_onboarding_named_parameters(self):
         cmd = OnboardCommand(
-            dbr_version="7.3",
-            dbfs_path="/dbfs",
             onboarding_file_path="tests/resources/onboarding.json",
             onboarding_files_dir_path="tests/resources/",
             onboard_layer="bronze",
             env="dev",
-            import_author="John Doe",
+            import_author="Ravi Gawai",
             version="1.0",
-            cloud="aws",
             dlt_meta_schema="dlt_meta",
             bronze_dataflowspec_path="tests/resources/bronze_dataflowspec",
             silver_dataflowspec_path="tests/resources/silver_dataflowspec",
@@ -210,6 +208,7 @@ class CliTests(unittest.TestCase):
             "database": "uc_catalog.dlt_meta" if cmd.uc_enabled else "dlt_meta",
             "onboarding_file_path": "uc_catalog/dlt_meta/files/dltmeta_conf/onboarding.json",
             "import_author": "John Doe",
+            "import_author": "Ravi Gawai",
             "version": "1.0",
             "overwrite": "True",
             "env": "dev",

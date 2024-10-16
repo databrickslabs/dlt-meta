@@ -4,6 +4,7 @@
  3. [Append FLOW Autoloader Demo](#append-flow-autoloader-file-metadata-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  4. [Append FLOW Eventhub Demo](#append-flow-eventhub-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  5. [Silver Fanout Demo](#silver-fanout-demo): This demo showcases the implementation of fanout architecture in the silver layer.
+ 6. [Apply Changes From Snapshot Demo](#Apply-changes-from-snapshot-demo): This demo showcases the implementation of ingesting from snapshots in bronze layer
 
 
 
@@ -216,5 +217,40 @@ This demo will perform following tasks:
         - Paste to command prompt
 
     ![silver_fanout_workflow.png](../docs/static/images/silver_fanout_workflow.png)
-
+    
     ![silver_fanout_dlt.png](../docs/static/images/silver_fanout_dlt.png)
+
+
+# Apply Changes From Snapshot Demo
+  - This demo will perform following steps
+    - Showcase onboarding process for apply changes from snapshot pattern
+    - Run onboarding for the bronze stores and products tables, which contains data snapshot data in csv files.
+    - Run Bronze DLT to load initial snapshot (LOAD_1.csv)
+    - Upload incremental snapshot LOAD_2.csv version=2 for stores and product
+    - Run Bronze DLT to load incremental snapshot (LOAD_2.csv). Stores is scd_type=2 so updated records will expired and added new records with version_number. Products is scd_type=1 so in case records missing for scd_type=1 will be deleted.
+    - Upload incremental snapshot LOAD_3.csv version=3 for stores and product
+    - Run Bronze DLT to load incremental snapshot (LOAD_3.csv). Stores is scd_type=2 so updated records will expired and added new records with version_number. Products is scd_type=1 so in case records missing for scd_type=1 will be deleted.
+### Steps:
+1. Launch Command Prompt
+
+2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
+
+3. ```commandline
+    git clone https://github.com/databrickslabs/dlt-meta.git 
+    ```
+
+4. ```commandline
+    cd dlt-meta
+    ```
+5. Set python environment variable into terminal
+    ```commandline
+    dlt_meta_home=$(pwd)
+    ```
+    ```commandline
+    export PYTHONPATH=$dlt_meta_home
+
+6. Run the command 
+    ```commandline
+    python demo/launch_acfs_demo.py --uc_catalog_name=<<>>
+    ```
+    ![acfs.png](../docs/static/images/acfs.png)

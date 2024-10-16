@@ -466,6 +466,7 @@ class OnboardDataflowspec:
             "schema",
             "partitionColumns",
             "cdcApplyChanges",
+            "applyChangesFromSnapshot",
             "dataQualityExpectations",
             "quarantineTargetDetails",
             "quarantineTableProperties",
@@ -495,6 +496,7 @@ class OnboardDataflowspec:
                 StructField("schema", StringType(), True),
                 StructField("partitionColumns", ArrayType(StringType(), True), True),
                 StructField("cdcApplyChanges", StringType(), True),
+                StructField("applyChangesFromSnapshot", StringType(), True),
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField(
                     "quarantineTargetDetails",
@@ -556,9 +558,10 @@ class OnboardDataflowspec:
                 "table": onboarding_row["bronze_table"],
             }
             if not self.uc_enabled:
-                bronze_target_details["path"] = onboarding_row[
-                    f"bronze_table_path_{env}"
-                ]
+                if f"bronze_table_path_{env}" in onboarding_row:
+                    bronze_target_details["path"] = onboarding_row[f"bronze_table_path_{env}"]
+                else:
+                    raise Exception(f"bronze_table_path_{env} not provided in onboarding_row={onboarding_row}")
             bronze_table_properties = {}
             if (
                 "bronze_table_properties" in onboarding_row
@@ -585,6 +588,12 @@ class OnboardDataflowspec:
                     self.__delete_none(
                         onboarding_row["bronze_cdc_apply_changes"].asDict()
                     )
+            apply_changes_from_snapshot = None
+            if ("bronze_apply_changes_from_snapshot" in onboarding_row
+                    and onboarding_row["bronze_apply_changes_from_snapshot"]):
+                self.__validate_apply_changes_from_snapshot(onboarding_row, "bronze")
+                apply_changes_from_snapshot = json.dumps(
+                    self.__delete_none(onboarding_row["bronze_apply_changes_from_snapshot"].asDict())
                 )
             data_quality_expectations = None
             quarantine_target_details = {}
@@ -629,6 +638,10 @@ class OnboardDataflowspec:
             append_flows, append_flows_schemas = self.get_append_flows_json(
                 onboarding_row, "bronze", env
             )
+                        quarantine_target_details, quarantine_table_properties = self.__get_quarantine_details(
+                            env, onboarding_row
+                        )
+            append_flows, append_flows_schemas = self.get_append_flows_json(onboarding_row, "bronze", env)
             bronze_row = (
                 bronze_data_flow_spec_id,
                 bronze_data_flow_spec_group,
@@ -641,6 +654,7 @@ class OnboardDataflowspec:
                 schema,
                 partition_columns,
                 cdc_apply_changes,
+                apply_changes_from_snapshot,
                 data_quality_expectations,
                 quarantine_target_details,
                 quarantine_table_properties,
@@ -655,6 +669,29 @@ class OnboardDataflowspec:
         ).toDF(*data_flow_spec_columns)
 
         return data_flow_spec_rows_df
+
+    def __get_quarantine_details(self, env, onboarding_row):
+        quarantine_table_partition_columns = ""
+        quarantine_target_details = {}
+        quarantine_table_properties = {}
+        if (
+            "bronze_quarantine_table_partitions" in onboarding_row
+            and onboarding_row["bronze_quarantine_table_partitions"]
+        ):
+            quarantine_table_partition_columns = onboarding_row["bronze_quarantine_table_partitions"]
+        quarantine_target_details = {"database": onboarding_row[f"bronze_database_quarantine_{env}"],
+                                     "table": onboarding_row["bronze_quarantine_table"],
+                                     "partition_columns": quarantine_table_partition_columns
+                                     }
+        if not self.uc_enabled:
+            quarantine_target_details["path"] = onboarding_row[f"bronze_quarantine_table_path_{env}"]
+        if (
+            "bronze_quarantine_table_properties" in onboarding_row
+            and onboarding_row["bronze_quarantine_table_properties"]
+        ):
+            quarantine_table_properties = self.__delete_none(
+                onboarding_row["bronze_quarantine_table_properties"].asDict())
+        return quarantine_target_details, quarantine_table_properties
 
     def get_append_flows_json(self, onboarding_row, layer, env):
         append_flows = None
@@ -698,7 +735,7 @@ class OnboardDataflowspec:
 
     def __validate_apply_changes(self, onboarding_row, layer):
         cdc_apply_changes = onboarding_row[f"{layer}_cdc_apply_changes"]
-        json_cdc_apply_changes = cdc_apply_changes.asDict()
+        json_cdc_apply_changes = self.__delete_none(cdc_apply_changes.asDict())
         logger.info(f"actual mergeInfo={json_cdc_apply_changes}")
         payload_keys = json_cdc_apply_changes.keys()
         missing_cdc_payload_keys = set(
@@ -725,6 +762,34 @@ class OnboardDataflowspec:
                 {DataflowSpecUtils.cdc_applychanges_api_mandatory_attributes} exists"""
             )
 
+    def __validate_apply_changes_from_snapshot(self, onboarding_row, layer):
+        apply_changes_from_snapshot = onboarding_row[f"{layer}_apply_changes_from_snapshot"]
+        json_apply_changes_from_snapshot = self.__delete_none(apply_changes_from_snapshot.asDict())
+        logger.info(f"actual applyChangesFromSnapshot={json_apply_changes_from_snapshot}")
+        payload_keys = json_apply_changes_from_snapshot.keys()
+        missing_apply_changes_from_snapshot_payload_keys = (
+            set(DataflowSpecUtils.apply_changes_from_snapshot_api_attributes).difference(payload_keys)
+        )
+        logger.info(
+            f"""missing applyChangesFromSnapshot payload keys:{missing_apply_changes_from_snapshot_payload_keys}
+                for onboarding row = {onboarding_row}"""
+        )
+        if set(DataflowSpecUtils.apply_changes_from_snapshot_api_mandatory_attributes) - set(payload_keys):
+            missing_mandatory_attr = set(DataflowSpecUtils.apply_changes_from_snapshot_api_mandatory_attributes) - set(
+                payload_keys
+            )
+            logger.info(f"mandatory missing keys= {missing_mandatory_attr}")
+            raise Exception(
+                f"""mandatory missing atrributes for {layer}_apply_changes_from_snapshot = {
+                missing_mandatory_attr}
+                for onboarding row = {onboarding_row}"""
+            )
+        else:
+            logger.info(
+                f"""all mandatory {layer}_apply_changes_from_snapshot atrributes
+                 {DataflowSpecUtils.apply_changes_from_snapshot_api_mandatory_attributes} exists"""
+            )
+
     def get_bronze_source_details_reader_options_schema(self, onboarding_row, env):
         """Get bronze source reader options.
 
@@ -738,7 +803,11 @@ class OnboardDataflowspec:
         bronze_reader_config_options = {}
         schema = None
         source_format = onboarding_row["source_format"]
-        bronze_reader_options_json = onboarding_row["bronze_reader_options"]
+        bronze_reader_options_json = (
+            onboarding_row["bronze_reader_options"]
+            if "bronze_reader_options" in onboarding_row
+            else {}
+        )
         if bronze_reader_options_json:
             bronze_reader_config_options = self.__delete_none(
                 bronze_reader_options_json.asDict()
@@ -746,10 +815,9 @@ class OnboardDataflowspec:
         source_details_json = onboarding_row["source_details"]
         if source_details_json:
             source_details_file = self.__delete_none(source_details_json.asDict())
-            if (
-                source_format.lower() == "cloudfiles"
-                or source_format.lower() == "delta"
-            ):
+            if (source_format.lower() == "cloudfiles"
+                    or source_format.lower() == "delta"
+                    or source_format.lower() == "snapshot"):
                 if f"source_path_{env}" in source_details_file:
                     source_details["path"] = source_details_file[f"source_path_{env}"]
                 if "source_database" in source_details_file:
@@ -775,6 +843,16 @@ class OnboardDataflowspec:
             elif (
                 source_format.lower() == "eventhub" or source_format.lower() == "kafka"
             ):
+                        source_metadata_dict["select_metadata_cols"] = select_metadata_cols
+                    source_details["source_metadata"] = json.dumps(self.__delete_none(source_metadata_dict))
+                if source_format.lower() == "snapshot":
+                    snapshot_format = source_details_file.get("snapshot_format", None)
+                    if snapshot_format is None:
+                        raise Exception("snapshot_format is missing in the source_details")
+                    source_details["snapshot_format"] = snapshot_format
+                    if f"source_path_{env}" in source_details_file:
+                        source_details["path"] = source_details_file[f"source_path_{env}"]
+            elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
                 source_details = source_details_file
             if "source_schema_path" in source_details_file:
                 source_schema_path = source_details_file["source_schema_path"]

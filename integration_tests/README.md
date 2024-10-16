@@ -36,16 +36,15 @@
 
 9. Run integration test against cloudfile or eventhub or kafka using below options. To use the Databricks profile configured using CLI then pass ```--profile <profile-name>``` to below command otherwise provide workspace url and token in command line. You will also need to provide a Unity Catalog catalog for which the schemas, tables, and files will be created in.
 
-    - 9a. Run the command for cloudfiles
+    - 9a. Run the command for  **cloudfiles**
         ```commandline
         python integration_tests/run_integration_tests.py  --uc_catalog_name=<<uc catalog name>> --source=cloudfiles --cloud_provider_name=aws --profile=<<DEFAULT>>
         ```
 
-    - 9b. Run the command for eventhub
+    - 9b. Run the command for **eventhub**
         ```commandline
         python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>> --source=eventhub  --cloud_provider_name=aws --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer  --eventhub_name_append_flow=test_append_flow --eventhub_accesskey_secret_name=test_secret_name --profile=<<DEFAULT>>
         ```
-
     - - For eventhub integration tests, the following are the prerequisites:
         1. Needs eventhub instance running
         2. Use Databricks CLI, Create databricks secrets scope for eventhub keys (```databricks secrets create-scope eventhubs_creds```)
@@ -60,10 +59,9 @@
         6. Provide eventhub access key name : --eventhub_consumer_accesskey_name
 
 
-    - 9c. Run the command for kafka
+    - 9c. Run the command for **kafka**
         ```commandline
         python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>>  --source=kafka --kafka_topic=dlt-meta-integration-test --kafka_broker=host:9092 --cloud_provider_name=aws --profile=DEFAULT
-        ```
 
     - - For kafka integration tests, the following are the prerequisites:
         1. Needs kafka instance running
@@ -71,6 +69,12 @@
     - - Following are the mandatory arguments for running EventHubs integration test
         1. Provide your kafka topic name : --kafka_topic
         2. Provide kafka_broker : --kafka_broker
+    
+    - 9d. Run the command for **snapshot**
+        ```commandline
+        python integration_tests/run_integration_tests.py --source=snapshot --uc_catalog_name=<<>>
+        ```
+
 
 10. Once finished integration output file will be copied locally to
 ```integration-test-output_<run_id>.txt```
