@@ -160,4 +160,4 @@ databricks.yaml
 integration_test_output*.csv
 
 .databricks
-databricks.yaml
+databricks.yml
