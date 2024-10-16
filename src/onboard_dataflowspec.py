@@ -543,6 +543,7 @@ class OnboardDataflowspec:
                 "eventhub",
                 "kafka",
                 "delta",
+                "snapshot"
             ]:
                 raise Exception(
                     f"Source format {source_format} not supported in DLT-META! row={onboarding_row}"
@@ -584,10 +585,7 @@ class OnboardDataflowspec:
                 and onboarding_row["bronze_cdc_apply_changes"]
             ):
                 self.__validate_apply_changes(onboarding_row, "bronze")
-                cdc_apply_changes = json.dumps(
-                    self.__delete_none(
-                        onboarding_row["bronze_cdc_apply_changes"].asDict()
-                    )
+                cdc_apply_changes = json.dumps(self.__delete_none(onboarding_row["bronze_cdc_apply_changes"].asDict()))
             apply_changes_from_snapshot = None
             if ("bronze_apply_changes_from_snapshot" in onboarding_row
                     and onboarding_row["bronze_apply_changes_from_snapshot"]):
@@ -607,41 +605,12 @@ class OnboardDataflowspec:
                         bronze_data_quality_expectations_json
                     )
                     if onboarding_row["bronze_quarantine_table"]:
-                        quarantine_table_partition_columns = ""
-                        if (
-                            "bronze_quarantine_table_partitions" in onboarding_row
-                            and onboarding_row["bronze_quarantine_table_partitions"]
-                        ):
-                            quarantine_table_partition_columns = onboarding_row[
-                                "bronze_quarantine_table_partitions"
-                            ]
-                        quarantine_target_details = {
-                            "database": onboarding_row[
-                                f"bronze_database_quarantine_{env}"
-                            ],
-                            "table": onboarding_row["bronze_quarantine_table"],
-                            "partition_columns": quarantine_table_partition_columns,
-                        }
-                        if not self.uc_enabled:
-                            quarantine_target_details["path"] = onboarding_row[
-                                f"bronze_quarantine_table_path_{env}"
-                            ]
-                        if (
-                            "bronze_quarantine_table_properties" in onboarding_row
-                            and onboarding_row["bronze_quarantine_table_properties"]
-                        ):
-                            quarantine_table_properties = self.__delete_none(
-                                onboarding_row[
-                                    "bronze_quarantine_table_properties"
-                                ].asDict()
-                            )
-            append_flows, append_flows_schemas = self.get_append_flows_json(
-                onboarding_row, "bronze", env
-            )
                         quarantine_target_details, quarantine_table_properties = self.__get_quarantine_details(
                             env, onboarding_row
                         )
-            append_flows, append_flows_schemas = self.get_append_flows_json(onboarding_row, "bronze", env)
+            append_flows, append_flows_schemas = self.get_append_flows_json(
+                onboarding_row, "bronze", env
+            )
             bronze_row = (
                 bronze_data_flow_spec_id,
                 bronze_data_flow_spec_group,
@@ -690,7 +659,8 @@ class OnboardDataflowspec:
             and onboarding_row["bronze_quarantine_table_properties"]
         ):
             quarantine_table_properties = self.__delete_none(
-                onboarding_row["bronze_quarantine_table_properties"].asDict())
+                onboarding_row["bronze_quarantine_table_properties"].asDict()
+            )
         return quarantine_target_details, quarantine_table_properties
 
     def get_append_flows_json(self, onboarding_row, layer, env):
@@ -834,24 +804,17 @@ class OnboardDataflowspec:
                         select_metadata_cols = self.__delete_none(
                             source_metadata_dict["select_metadata_cols"].asDict()
                         )
-                        source_metadata_dict["select_metadata_cols"] = (
-                            select_metadata_cols
-                        )
+                        source_metadata_dict["select_metadata_cols"] = select_metadata_cols
                     source_details["source_metadata"] = json.dumps(
                         self.__delete_none(source_metadata_dict)
                     )
-            elif (
-                source_format.lower() == "eventhub" or source_format.lower() == "kafka"
-            ):
-                        source_metadata_dict["select_metadata_cols"] = select_metadata_cols
-                    source_details["source_metadata"] = json.dumps(self.__delete_none(source_metadata_dict))
-                if source_format.lower() == "snapshot":
-                    snapshot_format = source_details_file.get("snapshot_format", None)
-                    if snapshot_format is None:
-                        raise Exception("snapshot_format is missing in the source_details")
-                    source_details["snapshot_format"] = snapshot_format
-                    if f"source_path_{env}" in source_details_file:
-                        source_details["path"] = source_details_file[f"source_path_{env}"]
+            if source_format.lower() == "snapshot":
+                snapshot_format = source_details_file.get("snapshot_format", None)
+                if snapshot_format is None:
+                    raise Exception("snapshot_format is missing in the source_details")
+                source_details["snapshot_format"] = snapshot_format
+                if f"source_path_{env}" in source_details_file:
+                    source_details["path"] = source_details_file[f"source_path_{env}"]
             elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
                 source_details = source_details_file
             if "source_schema_path" in source_details_file:

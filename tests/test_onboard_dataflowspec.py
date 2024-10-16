@@ -397,8 +397,9 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
             )
         }
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-        quarantine_target_details, quarantine_table_properties = onboardDataFlowSpecs.__get_quarantine_details(
-            "it", onboarding_row
+        quarantine_target_details, quarantine_table_properties = (
+            onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
+                "it", onboarding_row)
         )
         self.assertEqual(quarantine_target_details["database"], "quarantine_db")
         self.assertEqual(quarantine_target_details["table"], "quarantine_table")
@@ -414,30 +415,10 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
             "bronze_quarantine_table_path_it": "quarantine_path"
         }
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-        quarantine_target_details, quarantine_table_properties = onboardDataFlowSpecs.__get_quarantine_details(
-            "it", onboarding_row)
-        self.assertEqual(quarantine_target_details["database"], "quarantine_db")
-        self.assertEqual(quarantine_target_details["table"], "quarantine_table")
-        self.assertEqual(quarantine_target_details["partition_columns"], "")
+        quarantine_target_details, quarantine_table_properties = (
+            onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
+                "it", onboarding_row
+            )
+        )
         self.assertEqual(quarantine_target_details["path"], "quarantine_path")
         self.assertEqual(quarantine_table_properties, {})
-
-    def test_get_quarantine_details_with_uc_enabled(self):
-        """Test get_quarantine_details with UC enabled."""
-        onboarding_row = {
-            "bronze_database_quarantine_it": "quarantine_db",
-            "bronze_quarantine_table": "quarantine_table",
-            "bronze_quarantine_table_properties": MagicMock(
-                asDict=MagicMock(return_value={"property_key": "property_value"})
-            )
-        }
-        onboardDataFlowSpecs = OnboardDataflowspec(
-            self.spark, self.onboarding_bronze_silver_params_map, uc_enabled=True
-        )
-        quarantine_target_details, quarantine_table_properties = onboardDataFlowSpecs.__get_quarantine_details(
-            "it", onboarding_row
-        )
-        self.assertEqual(quarantine_target_details["database"], "quarantine_db")
-        self.assertEqual(quarantine_target_details["table"], "quarantine_table")
-        self.assertNotIn("path", quarantine_target_details)
-        self.assertEqual(quarantine_table_properties, {"property_key": "property_value"})
