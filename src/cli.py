@@ -67,8 +67,8 @@ class OnboardCommand:
             raise ValueError("onboard_layer is required")
         if self.onboard_layer.lower() not in ["bronze", "silver", "bronze_silver"]:
             raise ValueError("onboard_layer must be one of bronze, silver, bronze_silver")
-        if self.uc_enabled == "":
-            raise ValueError("uc_enabled is required, please set to True or False")
+        # if self.uc_enabled == "":
+        #     raise ValueError("uc_enabled is required, please set to True or False")
         if not self.uc_enabled and not self.dbfs_path:
             raise ValueError("dbfs_path is required")
         if not self.serverless:
@@ -150,6 +150,8 @@ class DLTMeta:
     def _my_username(self):
         if not hasattr(self._ws, "_me"):
             _me = self._ws.current_user.me()
+        else:
+            _me = self._ws._me
         return _me.user_name
 
     def copy_to_uc_volume(self, src, dst):
@@ -191,13 +193,13 @@ class DLTMeta:
                 self._ws.dbfs.upload(dbfs_path, contents, overwrite=True)
 
     def create_uc_volume(self, uc_catalog_name, dlt_meta_schema):
-        volume_info = self._ws.volumes.create(catalog_name=uc_catalog_name,
-                                              schema_name=dlt_meta_schema,
-                                              name=dlt_meta_schema,
-                                              volume_type=VolumeType.MANAGED)
-        return (f"/Volumes/{volume_info.catalog_name}/"
-                f"{volume_info.schema_name}/{volume_info.name}/"
-                )
+        volume_info = self._ws.volumes.create(
+            catalog_name=uc_catalog_name,
+            schema_name=dlt_meta_schema,
+            name=dlt_meta_schema,
+            volume_type=VolumeType.MANAGED,
+        )
+        return f"/Volumes/{volume_info.catalog_name}/{volume_info.schema_name}/{volume_info.name}/"
 
     def onboard(self, cmd: OnboardCommand):
         """Perform the onboarding process."""

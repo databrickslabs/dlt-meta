@@ -1,4 +1,4 @@
- # [DLT-META](https://github.com/databrickslabs/dlt-meta) DEMO's 
+ # [DLT-META](https://github.com/databrickslabs/dlt-meta) DEMO's
  1. [DAIS 2023 DEMO](#dais-2023-demo): Showcases DLT-META's capabilities of creating Bronze and Silver DLT pipelines with initial and incremental mode automatically.
  2. [Databricks Techsummit Demo](#databricks-tech-summit-fy2024-demo): 100s of data sources ingestion in bronze and silver DLT pipelines automatically.
  3. [Append FLOW Autoloader Demo](#append-flow-autoloader-file-metadata-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
@@ -8,7 +8,7 @@
 
 
 
-# DAIS 2023 DEMO 
+# DAIS 2023 DEMO
 ## [DAIS 2023 Session Recording](https://www.youtube.com/watch?v=WYv5haxLlfA)
 This Demo launches Bronze and Silver DLT pipelines with following activities:
 - Customer and Transactions feeds for initial load
@@ -21,7 +21,7 @@ This Demo launches Bronze and Silver DLT pipelines with following activities:
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
 3. ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git 
+    git clone https://github.com/databrickslabs/dlt-meta.git
     ```
 
 4. ```commandline
@@ -53,10 +53,10 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
 3. ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git 
+    git clone https://github.com/databrickslabs/dlt-meta.git
     ```
 
-4. ```commandline 
+4. ```commandline
     cd dlt-meta
     ```
 
@@ -69,8 +69,8 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
     export PYTHONPATH=$dlt_meta_home
     ```
 
-6. ```commandline 
-    python demo/launch_techsummit_demo.py --uc_catalog_name=<<>>
+6. ```commandline
+    python demo/launch_techsummit_demo.py --uc_catalog_name=<<uc catalog name>>
     ```
     - uc_catalog_name : Unity catalog name
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
@@ -89,7 +89,7 @@ This demo will perform following tasks:
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
 3. ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git 
+    git clone https://github.com/databrickslabs/dlt-meta.git
     ```
 
 4. ```commandline
@@ -106,9 +106,10 @@ This demo will perform following tasks:
     ```
 
 6. ```commandline
-    python demo/launch_af_cloudfiles_demo.py --uc_catalog_name=<<>>
+    python demo/launch_af_cloudfiles_demo.py --uc_catalog_name=<<uc catalog name>> --source=cloudfiles --cloud_provider_name=aws --profile=<<DEFAULT>>
     ```
     - uc_catalog_name : Unity Catalog name
+    - cloud_provier_name : Which cloud you are using, either AWS, Azure, or GCP
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
 ![af_am_demo.png](../docs/static/images/af_am_demo.png)
@@ -122,7 +123,7 @@ This demo will perform following tasks:
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
 3. ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git 
+    git clone https://github.com/databrickslabs/dlt-meta.git
     ```
 
 4. ```commandline
@@ -142,14 +143,14 @@ This demo will perform following tasks:
     - ```
             commandline databricks secrets create-scope eventhubs_dltmeta_creds
         ```
-    - ```commandline 
+    - ```commandline
             databricks secrets put-secret --json '{
                 "scope": "eventhubs_dltmeta_creds",
                 "key": "RootManageSharedAccessKey",
                 "string_value": "<<value>>"
-                }' 
+                }'
         ```
-- Create databricks secrets to store producer and consumer keys using the scope created in step 2 
+- Create databricks secrets to store producer and consumer keys using the scope created in step 2
 
 - Following are the mandatory arguments for running EventHubs demo
     - uc_catalog_name : unity catalog name e.g. ravi_dlt_meta_uc
@@ -161,8 +162,8 @@ This demo will perform following tasks:
     - eventhub_secrets_scope_name: Databricks secret scope name e.g. eventhubs_dltmeta_creds
     - eventhub_port: Eventhub port
 
-7. ```commandline 
-    python3 demo/launch_af_eventhub_demo.py --uc_catalog_name=<<>> --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey
+7. ```commandline
+    python3 demo/launch_af_eventhub_demo.py --uc_catalog_name=<<uc catalog name>> --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey
     ```
 
   ![af_eh_demo.png](../docs/static/images/af_eh_demo.png)
@@ -173,7 +174,7 @@ This demo will perform following tasks:
     - Run the onboarding process for the bronze cars table, which contains data from various countries.
     - Run the onboarding process for the silver tables, which have a `where_clause` based on the country condition specified in [silver_transformations_cars.json](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/silver_transformations_cars.json).
     - Run the Bronze DLT pipeline which will produce cars table.
-    - Run Silver DLT pipeline, fanning out from the bronze cars table to country-specific tables such as cars_usa, cars_uk, cars_germany, and cars_japan.    
+    - Run Silver DLT pipeline, fanning out from the bronze cars table to country-specific tables such as cars_usa, cars_uk, cars_germany, and cars_japan.
 
 ### Steps:
 1. Launch Command Prompt
@@ -181,7 +182,7 @@ This demo will perform following tasks:
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
 3. ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git 
+    git clone https://github.com/databrickslabs/dlt-meta.git
     ```
 
 4. ```commandline

@@ -7,6 +7,7 @@ from integration_tests.run_integration_tests import (
     get_workspace_api_client,
     process_arguments
 )
+import traceback
 
 
 class DLTMETAFCFDemo(DLTMETARunner):
@@ -30,6 +31,7 @@ class DLTMETAFCFDemo(DLTMETARunner):
             self.launch_workflow(runner_conf)
         except Exception as e:
             print(e)
+            traceback.print_exc()
 
     def init_runner_conf(self) -> DLTMetaRunnerConf:
         """
@@ -44,7 +46,8 @@ class DLTMETAFCFDemo(DLTMETARunner):
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
             username=self.wsi._my_username,
-            int_tests_dir="file:./demo",
+            uc_catalog_name=self.args["uc_catalog_name"],
+            int_tests_dir="demo",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_demo_{run_id}",
             bronze_schema=f"dlt_meta_bronze_demo_{run_id}",
             silver_schema=f"dlt_meta_silver_demo_{run_id}",
@@ -54,29 +57,24 @@ class DLTMETAFCFDemo(DLTMETARunner):
             cloudfiles_A2_template="demo/conf/cloudfiles-onboarding_A2.template",
             onboarding_file_path="demo/conf/onboarding.json",
             onboarding_A2_file_path="demo/conf/onboarding_A2.json",
-            env="demo"
+            env="demo",
+            runners_full_local_path='./demo/notebooks/afam_cloudfiles_runners/',
+            test_output_file_path=(
+                f"/Users/{self.wsi._my_username}/dlt_meta_demo/"
+                f"{run_id}/demo-output.csv"
+            ),
         )
-        runner_conf.uc_catalog_name = self.args.__dict__['uc_catalog_name']
-        runner_conf.runners_full_local_path = './demo/dbc/afam_cloud_files_runners.dbc'
+
         return runner_conf
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
-        created_job = self.create_snapshot_workflow_spec(runner_conf)
+        created_job = self.create_workflow_spec(runner_conf)
         self.open_job_url(runner_conf, created_job)
 
 
-afam_args_map = {
-    "--profile": "provide databricks cli profile name, if not provide databricks_host and token",
-    "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table"
-}
-
-afam_mandatory_args = [
-    "uc_catalog_name"]
-
-
 def main():
-    args = process_arguments(afam_args_map, afam_mandatory_args)
-    workspace_client = get_workspace_api_client(args.profile)
+    args = process_arguments()
+    workspace_client = get_workspace_api_client(args["profile"])
     dltmeta_afam_demo_runner = DLTMETAFCFDemo(args, workspace_client, "demo")
     print("initializing complete")
     runner_conf = dltmeta_afam_demo_runner.init_runner_conf()
