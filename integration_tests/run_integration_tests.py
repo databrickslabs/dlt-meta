@@ -134,6 +134,9 @@ class DLTMetaRunnerConf:
     kafka_topic: str = None
     kafka_broker: str = None
 
+    # snapshot info
+    snapshot_template: str = "integration_tests/conf/snapshot-onboarding.template"
+
 
 class DLTMETARunner:
     """
@@ -192,12 +195,13 @@ class DLTMETARunner:
             "cloudfiles": "./integration_tests/notebooks/cloudfile_runners/",
             "eventhub": "./integration_tests/notebooks/eventhub_runners/",
             "kafka": "./integration_tests/notebooks/kafka_runners/",
+            "snapshot": "./integration_tests/notebooks/snapshot_runners/",
         }
         try:
             runner_conf.runners_full_local_path = source_paths[runner_conf.source]
         except KeyError:
             raise Exception(
-                "Given source is not support. Support source are: cloudfiles, eventhub, or kafka"
+                "Given source is not support. Support source are: cloudfiles, eventhub, kafka or snapshot"
             )
 
         return runner_conf
@@ -267,7 +271,6 @@ class DLTMETARunner:
 
     def create_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """Create the Databricks Workflow Job given the DLT Meta configuration specs"""
-
         dltmeta_environments = [
             jobs.JobEnvironment(
                 environment_key="dl_meta_int_env",
@@ -277,7 +280,6 @@ class DLTMETARunner:
                 ),
             )
         ]
-
         tasks = [
             jobs.Task(
                 task_key="setup_dlt_meta_pipeline_spec",
@@ -313,7 +315,7 @@ class DLTMETARunner:
                     jobs.TaskDependency(
                         task_key=(
                             "setup_dlt_meta_pipeline_spec"
-                            if runner_conf.source == "cloudfiles"
+                            if runner_conf.source == "cloudfiles" or runner_conf.source == "snapshot"
                             else "publish_events"
                         )
                     )
@@ -328,9 +330,7 @@ class DLTMETARunner:
                 depends_on=[
                     jobs.TaskDependency(
                         task_key=(
-                            "silver_dlt_pipeline"
-                            if runner_conf.source == "cloudfiles"
-                            else "bronze_dlt_pipeline"
+                            self.get_validate_task_key(runner_conf.source)
                         )
                     )
                 ],
@@ -397,6 +397,58 @@ class DLTMETARunner:
                     ),
                 ]
             )
+        elif runner_conf.source == "snapshot":
+            base_parameters_v2 = {
+                "base_path": (
+                    f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/snapshots"
+                ),
+                "version": "2"
+            }
+            base_parameters_v3 = {
+                "base_path": (
+                    f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/snapshots"
+                ),
+                "version": "3"
+            }
+            tasks.extend(
+                [
+                    jobs.Task(
+                        task_key="upload_v2_snapshots",
+                        description="test",
+                        depends_on=[
+                            jobs.TaskDependency(task_key="bronze_dlt_pipeline")
+                        ],
+                        notebook_task=jobs.NotebookTask(
+                            notebook_path=f"{runner_conf.runners_nb_path}/runners/upload_snapshots.py",
+                            base_parameters=base_parameters_v2,
+                        ),
+                    ),
+                    jobs.Task(
+                        task_key="bronze_v2_dlt_pipeline",
+                        depends_on=[jobs.TaskDependency(task_key="upload_v2_snapshots")],
+                        pipeline_task=jobs.PipelineTask(
+                            pipeline_id=runner_conf.bronze_pipeline_id
+                        ),
+                    ),
+                    jobs.Task(
+                        task_key="upload_v3_snapshots",
+                        depends_on=[
+                            jobs.TaskDependency(task_key="bronze_v2_dlt_pipeline")
+                        ],
+                        notebook_task=jobs.NotebookTask(
+                            notebook_path=f"{runner_conf.runners_nb_path}/runners/upload_snapshots.py",
+                            base_parameters=base_parameters_v3,
+                        ),
+                    ),
+                    jobs.Task(
+                        task_key="bronze_v3_dlt_pipeline",
+                        depends_on=[jobs.TaskDependency(task_key="upload_v3_snapshots")],
+                        pipeline_task=jobs.PipelineTask(
+                            pipeline_id=runner_conf.bronze_pipeline_id
+                        ),
+                    ),
+                ]
+            )
         else:
             if runner_conf.source == "eventhub":
                 base_parameters = {
@@ -434,6 +486,14 @@ class DLTMETARunner:
             environments=dltmeta_environments,
             tasks=tasks,
         )
+
+    def get_validate_task_key(self, source):
+        if source == "cloudfiles":
+            return "silver_dlt_pipeline"
+        elif source == "snapshot":
+            return "bronze_v3_dlt_pipeline"
+        else:
+            return "publish_events"
 
     def initialize_uc_resources(self, runner_conf):
         """Create UC schemas and volumes needed to run the integration tests"""
@@ -499,7 +559,17 @@ class DLTMETARunner:
             )
 
         # Open the onboarding templates and sub in the proper table locations, paths, etc.
-        with open(f"{runner_conf.cloudfiles_template}", "r") as f:
+        template_path = None
+        if runner_conf.source == "cloudfiles":
+            template_path = runner_conf.cloudfiles_template
+        elif runner_conf.source == "eventhub":
+            template_path = runner_conf.eventhub_template
+        elif runner_conf.source == "kafka":
+            template_path = runner_conf.kafka_template
+        elif runner_conf.source == "snapshot":
+            template_path = runner_conf.snapshot_template
+
+        with open(f"{template_path}", "r") as f:
             onboard_json = f.read()
 
         if runner_conf.source == "cloudfiles":
@@ -715,7 +785,7 @@ def process_arguments() -> dict[str:str]:
             "Provide source type: cloudfiles, eventhub, kafka",
             str.lower,
             True,
-            ["cloudfiles", "eventhub", "kafka"],
+            ["cloudfiles", "eventhub", "kafka", "snapshot"],
         ],
         # Eventhub arguments
         ["eventhub_name", "Provide eventhub_name e.g: iot", str.lower, False, []],

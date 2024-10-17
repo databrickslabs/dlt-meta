@@ -6,8 +6,7 @@ from integration_tests.run_integration_tests import (
     DLTMETARunner,
     DLTMetaRunnerConf,
     get_workspace_api_client,
-    process_arguments,
-    cloud_node_type_id_dict
+    process_arguments
 )
 
 
