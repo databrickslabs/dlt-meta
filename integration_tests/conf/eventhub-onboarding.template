@@ -5,14 +5,14 @@
         "source_system": "Sensor Device",
         "source_format": "eventhub",
         "source_details": {
-            "source_schema_path": "{dbfs_path}/integration_tests/resources/eventhub_iot_schema.ddl",
-            "eventhub.accessKeyName": "{eventhub_accesskey_name}",
+            "source_schema_path": "{uc_volume_path}/integration_tests/resources/eventhub_iot_schema.ddl",
+            "eventhub.accessKeyName": "{eventhub_consumer_accesskey_name}",
             "eventhub.name": "{eventhub_name}",
             "eventhub.accessKeySecretName": "{eventhub_accesskey_secret_name}",
             "eventhub.secretsScopeName": "{eventhub_secrets_scope_name}",
             "kafka.sasl.mechanism": "PLAIN",
             "kafka.security.protocol": "SASL_SSL",
-            "eventhub.namespace": "{eventhub_nmspace}",
+            "eventhub.namespace": "{eventhub_namespace}",
             "eventhub.port": "{eventhub_port}"
         },
         "bronze_reader_options": {
@@ -25,24 +25,24 @@
         "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",
         "bronze_table": "bronze_{run_id}_iot",
         "bronze_partition_columns": "date",
-        "bronze_data_quality_expectations_json_it": "{dbfs_path}/integration_tests/conf/dqe/iot/bronze_data_quality_expectations.json",
+        "bronze_data_quality_expectations_json_it": "{uc_volume_path}/integration_tests/conf/dqe/iot/bronze_data_quality_expectations.json",
         "bronze_database_quarantine_it": "{uc_catalog_name}.{bronze_schema}",
         "bronze_quarantine_table": "bronze_{run_id}_iot_quarantine",
-        "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/iot_quarantine",
+        "bronze_quarantine_table_path_it": "{uc_volume_path}/data/bronze/iot_quarantine",
         "bronze_append_flows": [
             {
                     "name": "io_bronze_eventhub_append_flow",
                     "create_streaming_table": false,
                     "source_format": "eventhub",
                     "source_details": {
-                        "source_schema_path": "{dbfs_path}/integration_tests/resources/eventhub_iot_schema.ddl",
-                        "eventhub.accessKeyName": "{eventhub_accesskey_name}",
+                        "source_schema_path": "{uc_volume_path}/integration_tests/resources/eventhub_iot_schema.ddl",
+                        "eventhub.accessKeyName": "{eventhub_consumer_accesskey_name}",
                         "eventhub.name": "{eventhub_name_append_flow}",
                         "eventhub.accessKeySecretName": "{eventhub_accesskey_secret_name}",
                         "eventhub.secretsScopeName": "{eventhub_secrets_scope_name}",
                         "kafka.sasl.mechanism": "PLAIN",
                         "kafka.security.protocol": "SASL_SSL",
-                        "eventhub.namespace": "{eventhub_nmspace}",
+                        "eventhub.namespace": "{eventhub_namespace}",
                         "eventhub.port": "{eventhub_port}"
                     },
                     "reader_options": {
@@ -53,7 +53,7 @@
                         "kafka.session.timeout.ms": "60000"
                     },
                     "once": false
-            }    
-        ]        
+            }
+        ]
     }
 ]

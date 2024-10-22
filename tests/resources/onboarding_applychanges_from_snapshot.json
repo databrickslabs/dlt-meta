@@ -1,0 +1,44 @@
+[
+   {
+       "data_flow_id": "201",
+       "data_flow_group": "A1",
+       "source_system": "delta",
+       "source_format": "snapshot",
+       "source_details": {
+           "source_path_it": "/Volumes/ravi_dlt_meta_uc/dlt_meta_dataflowspecs_it_23de6188b0b0442a9f0bdbaed368b1f7/dlt_meta_dataflowspecs_it_23de6188b0b0442a9f0bdbaed368b1f7//integration_tests/resources/data/snapshots/products/LOAD_",
+           "snapshot_format": "csv"
+       },
+       "bronze_reader_options": {
+         "header": "true"
+      },        
+       "bronze_database_it": "ravi_dlt_meta_uc.dlt_meta_bronze_it_23de6188b0b0442a9f0bdbaed368b1f7",
+       "bronze_table": "products",
+       "bronze_apply_changes_from_snapshot": {
+           "keys": [
+               "product_id"
+           ],
+           "scd_type": "2"
+       }
+   },
+   {
+       "data_flow_id": "202",
+       "data_flow_group": "A1",
+       "source_system": "delta",
+       "source_format": "snapshot",
+       "source_details": {
+           "source_path_it": "/Volumes/ravi_dlt_meta_uc/dlt_meta_dataflowspecs_it_23de6188b0b0442a9f0bdbaed368b1f7/dlt_meta_dataflowspecs_it_23de6188b0b0442a9f0bdbaed368b1f7//integration_tests/resources/data/snapshots/stores/LOAD_",
+           "snapshot_format": "csv"
+       },
+       "bronze_reader_options": {
+         "header": "true"
+      },        
+       "bronze_database_it": "ravi_dlt_meta_uc.dlt_meta_bronze_it_23de6188b0b0442a9f0bdbaed368b1f7",
+       "bronze_table": "stores",
+       "bronze_apply_changes_from_snapshot": {
+           "keys": [
+               "store_id"
+           ],
+           "scd_type": "2"
+       }
+   }
+]

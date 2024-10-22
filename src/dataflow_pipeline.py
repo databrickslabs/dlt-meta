@@ -2,6 +2,7 @@
 import json
 import logging
 import dlt
+from typing import Callable
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import expr
 from pyspark.sql.types import StructType, StructField
@@ -63,7 +64,8 @@ class DataflowPipeline:
         [type]: [description]
     """
 
-    def __init__(self, spark, dataflow_spec, view_name, view_name_quarantine=None, custom_transform_func=None):
+    def __init__(self, spark, dataflow_spec, view_name, view_name_quarantine=None,
+                 custom_transform_func=None, next_snapshot_and_version: Callable = None):
         """Initialize Constructor."""
         logger.info(
             f"""dataflowSpec={dataflow_spec} ,
@@ -72,13 +74,14 @@ class DataflowPipeline:
         )
         if isinstance(dataflow_spec, BronzeDataflowSpec) or isinstance(dataflow_spec, SilverDataflowSpec):
             self.__initialize_dataflow_pipeline(
-                spark, dataflow_spec, view_name, view_name_quarantine, custom_transform_func
+                spark, dataflow_spec, view_name, view_name_quarantine, custom_transform_func, next_snapshot_and_version
             )
         else:
             raise Exception("Dataflow not supported!")
 
     def __initialize_dataflow_pipeline(
-        self, spark, dataflow_spec, view_name, view_name_quarantine, custom_transform_func
+        self, spark, dataflow_spec, view_name, view_name_quarantine, custom_transform_func,
+        next_snapshot_and_version: Callable
     ):
         """Initialize dataflow pipeline state."""
         self.spark = spark
@@ -99,12 +102,22 @@ class DataflowPipeline:
         else:
             self.appendFlows = None
         if isinstance(dataflow_spec, BronzeDataflowSpec):
+            self.next_snapshot_and_version = next_snapshot_and_version
+            if self.next_snapshot_and_version:
+                self.appy_changes_from_snapshot = DataflowSpecUtils.get_apply_changes_from_snapshot(
+                    self.dataflowSpec.applyChangesFromSnapshot
+                )
+            else:
+                if dataflow_spec.sourceFormat == "snapshot":
+                    raise Exception(f"Snapshot reader function not provided for dataflowspec={dataflow_spec}!")
             if dataflow_spec.schema is not None:
                 self.schema_json = json.loads(dataflow_spec.schema)
             else:
                 self.schema_json = None
         else:
             self.schema_json = None
+            self.next_snapshot_and_version = None
+            self.appy_changes_from_snapshot = None
         if isinstance(dataflow_spec, SilverDataflowSpec):
             self.silver_schema = self.get_silver_schema()
         else:
@@ -117,20 +130,21 @@ class DataflowPipeline:
     def read(self):
         """Read DLT."""
         logger.info("In read function")
-        if isinstance(self.dataflowSpec, BronzeDataflowSpec):
+        if isinstance(self.dataflowSpec, BronzeDataflowSpec) and not self.next_snapshot_and_version:
             dlt.view(
                 self.read_bronze,
                 name=self.view_name,
                 comment=f"input dataset view for {self.view_name}",
             )
-        elif isinstance(self.dataflowSpec, SilverDataflowSpec):
+        elif isinstance(self.dataflowSpec, SilverDataflowSpec) and not self.next_snapshot_and_version:
             dlt.view(
                 self.read_silver,
                 name=self.view_name,
                 comment=f"input dataset view for {self.view_name}",
             )
         else:
-            raise Exception("Dataflow read not supported for {}".format(type(self.dataflowSpec)))
+            if not self.next_snapshot_and_version:
+                raise Exception("Dataflow read not supported for {}".format(type(self.dataflowSpec)))
         if self.appendFlows:
             self.read_append_flows()
 
@@ -178,7 +192,12 @@ class DataflowPipeline:
     def write_bronze(self):
         """Write Bronze tables."""
         bronze_dataflow_spec: BronzeDataflowSpec = self.dataflowSpec
-        if bronze_dataflow_spec.dataQualityExpectations:
+        if bronze_dataflow_spec.sourceFormat and bronze_dataflow_spec.sourceFormat.lower() == "snapshot":
+            if self.next_snapshot_and_version:
+                self.apply_changes_from_snapshot()
+            else:
+                raise Exception("Snapshot reader function not provided!")
+        elif bronze_dataflow_spec.dataQualityExpectations:
             self.write_bronze_with_dqe()
         elif bronze_dataflow_spec.cdcApplyChanges:
             self.cdc_apply_changes()
@@ -297,6 +316,21 @@ class DataflowPipeline:
     def write_to_delta(self):
         """Write to Delta."""
         return dlt.read_stream(self.view_name)
+
+    def apply_changes_from_snapshot(self):
+        target_path = None if self.uc_enabled else self.dataflowSpec.targetDetails["path"]
+        self.create_streaming_table(None, target_path)
+        dlt.apply_changes_from_snapshot(
+            target=f"{self.dataflowSpec.targetDetails['table']}",
+            source=lambda latest_snapshot_version:
+            self.next_snapshot_and_version(latest_snapshot_version,
+                                           self.dataflowSpec
+                                           ),
+            keys=self.appy_changes_from_snapshot.keys,
+            stored_as_scd_type=self.appy_changes_from_snapshot.scd_type,
+            track_history_column_list=self.appy_changes_from_snapshot.track_history_column_list,
+            track_history_except_column_list=self.appy_changes_from_snapshot.track_history_except_column_list,
+        )
 
     def write_bronze_with_dqe(self):
         """Write Bronze table with data quality expectations."""
@@ -513,7 +547,7 @@ class DataflowPipeline:
         self.write()
 
     @staticmethod
-    def invoke_dlt_pipeline(spark, layer, custom_transform_func=None):
+    def invoke_dlt_pipeline(spark, layer, custom_transform_func=None, next_snapshot_and_version: Callable = None):
         """Invoke dlt pipeline will launch dlt with given dataflowspec.
 
         Args:
@@ -544,7 +578,8 @@ class DataflowPipeline:
                 dataflowSpec,
                 f"{dataflowSpec.targetDetails['table']}_{layer}_inputView",
                 quarantine_input_view_name,
-                custom_transform_func
+                custom_transform_func,
+                next_snapshot_and_version
             )
 
             dlt_data_flow.run_dlt()

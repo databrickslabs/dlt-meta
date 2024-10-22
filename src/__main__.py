@@ -7,19 +7,20 @@ from pyspark.sql import SparkSession
 logger = logging.getLogger("dlt-meta")
 logger.setLevel(logging.INFO)
 
-arguments = ["--onboard_layer",
-             "--onboarding_file_path",
-             "--database",
-             "--env",
-             "--bronze_dataflowspec_table",
-             "--bronze_dataflowspec_path",
-             "--silver_dataflowspec_table",
-             "--silver_dataflowspec_path",
-             "--import_author",
-             "--version",
-             "--overwrite",
-             "--uc_enabled",
-             ]
+arguments = [
+    "--onboard_layer",
+    "--onboarding_file_path",
+    "--database",
+    "--env",
+    "--bronze_dataflowspec_table",
+    "--bronze_dataflowspec_path",
+    "--silver_dataflowspec_table",
+    "--silver_dataflowspec_path",
+    "--import_author",
+    "--version",
+    "--overwrite",
+    "--uc_enabled",
+]
 
 
 def parse_args():
