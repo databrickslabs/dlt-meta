@@ -109,6 +109,9 @@ class DLTMetaRunnerConf:
     silver_pipeline_id: str = None
     job_id: str = None
     test_output_file_path: str = None
+    onboarding_fanout_templates: str = None  # "demo/conf/onboarding_fanout_cars.template",
+    onboarding_file_path: str = None  # "demo/conf/onboarding_cars.json",
+    onboarding_fanout_file_path: str = None  # "demo/conf/onboarding_fanout_cars.json",
 
     # cloudfiles info
     cloudfiles_template: str = "integration_tests/conf/cloudfiles-onboarding.template"
@@ -165,7 +168,7 @@ class DLTMETARunner:
             bronze_schema=f"dlt_meta_bronze_it_{run_id}",
             silver_schema=f"dlt_meta_silver_it_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
-            source=self.args["source"],
+            source=self.args["source"] if "source" in self.args else None,
             # node_type_id=cloud_node_type_id_dict[self.args["cloud_provider_name"]],
             test_output_file_path=(
                 f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/"
@@ -569,24 +572,36 @@ class DLTMETARunner:
         elif runner_conf.source == "snapshot":
             template_path = runner_conf.snapshot_template
 
-        with open(f"{template_path}", "r") as f:
-            onboard_json = f.read()
+        if template_path:
+            with open(f"{template_path}", "r") as f:
+                onboard_json = f.read()
 
-        if runner_conf.source == "cloudfiles":
-            with open(f"{runner_conf.cloudfiles_A2_template}") as f:
-                onboard_json_a2 = f.read()
-
-        for key, val in string_subs.items():
-            onboard_json = onboard_json.replace(key, val)
             if runner_conf.source == "cloudfiles":
-                onboard_json_a2 = onboard_json_a2.replace(key, val)
+                with open(f"{runner_conf.cloudfiles_A2_template}") as f:
+                    onboard_json_a2 = f.read()
 
-        with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
-            json.dump(json.loads(onboard_json), onboarding_file, indent=4)
+            for key, val in string_subs.items():
+                onboard_json = onboard_json.replace(key, val)
+                if runner_conf.source == "cloudfiles":
+                    onboard_json_a2 = onboard_json_a2.replace(key, val)
 
-        if runner_conf.source == "cloudfiles":
-            with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file_a2:
-                json.dump(json.loads(onboard_json_a2), onboarding_file_a2, indent=4)
+            with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
+                json.dump(json.loads(onboard_json), onboarding_file, indent=4)
+
+            if runner_conf.source == "cloudfiles":
+                with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file_a2:
+                    json.dump(json.loads(onboard_json_a2), onboarding_file_a2, indent=4)
+
+        if runner_conf.onboarding_fanout_templates:
+            template = runner_conf.onboarding_fanout_templates
+            with open(f"{template}", "r") as f:
+                onboard_json = f.read()
+
+            for key, val in string_subs.items():
+                onboard_json = onboard_json.replace(key, val)
+
+            with open(runner_conf.onboarding_fanout_file_path, "w") as onboarding_file:
+                json.dump(json.loads(onboard_json), onboarding_file, indent=4)
 
     def upload_files_to_databricks(self, runner_conf: DLTMetaRunnerConf):
         """
@@ -784,7 +799,7 @@ def process_arguments() -> dict[str:str]:
             "source",
             "Provide source type: cloudfiles, eventhub, kafka",
             str.lower,
-            True,
+            False,
             ["cloudfiles", "eventhub", "kafka", "snapshot"],
         ],
         # Eventhub arguments
