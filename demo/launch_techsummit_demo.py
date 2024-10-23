@@ -23,9 +23,8 @@ Note: This script requires certain command line arguments to be provided in orde
 """
 
 import uuid
+import traceback
 from databricks.sdk.service import jobs, compute
-from databricks.sdk.service.catalog import VolumeType, SchemasAPI
-from databricks.sdk.service.workspace import ImportFormat
 from dataclasses import dataclass
 from src.install import WorkspaceInstaller
 from src.__about__ import __version__
@@ -86,15 +85,18 @@ class DLTMETATechSummitDemo(DLTMETARunner):
             runners_full_local_path='demo/notebooks/techsummit_runners',
             runners_nb_path=f"/Users/{self._my_username(self.ws)}/dlt_meta_techsummit_demo/{run_id}",
             int_tests_dir="demo",
-            # runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
-
-            # node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             env="prod",
-            table_count=self.args.__dict__['table_count'] if 'table_count' in self.args and self.args.__dict__['table_count'] else "100",
+            table_count=(
+                self.args.__dict__['table_count'] 
+                if 'table_count' in self.args and self.args.__dict__['table_count'] 
+                else "100"
+            ),
             table_column_count=(self.args.__dict__['table_column_count'] if 'table_column_count' in self.args and self.args.__dict__['table_column_count']
                                 else "5"),
             table_data_rows_count=(self.args.__dict__['table_data_rows_count']
-                                   if 'table_data_rows_count' in self.args and self.args.__dict__['table_data_rows_count'] else "10"),
+                                   if 'table_data_rows_count' in self.args
+                                   and self.args.__dict__['table_data_rows_count']
+                                   else "10"),
         )
         if self.args['uc_catalog_name']:
             runner_conf.uc_catalog_name = self.args['uc_catalog_name']
@@ -131,8 +133,9 @@ class DLTMETATechSummitDemo(DLTMETARunner):
             self.launch_workflow(runner_conf)
         except Exception as e:
             print(e)
-        # finally:
-        #     self.clean_up(runner_conf)
+            traceback.print_exc()
+        finally:
+            self.clean_up(runner_conf)
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
         """

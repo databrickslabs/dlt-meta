@@ -1,5 +1,6 @@
 
 import uuid
+import traceback
 from src.install import WorkspaceInstaller
 from integration_tests.run_integration_tests import (
     DLTMETARunner,
@@ -30,6 +31,9 @@ class DLTMETAFEHDemo(DLTMETARunner):
             self.launch_workflow(runner_conf)
         except Exception as e:
             print(e)
+            traceback.print_exc()
+        finally:
+            self.clean_up(runner_conf)
 
     def init_runner_conf(self) -> DLTMetaRunnerConf:
         """

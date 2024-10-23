@@ -1,4 +1,5 @@
 import uuid
+import traceback
 from databricks.sdk.service import jobs, compute
 from src.install import WorkspaceInstaller
 from src.__about__ import __version__
@@ -68,8 +69,9 @@ class DLTMETADAISDemo(DLTMETARunner):
             self.launch_workflow(runner_conf)
         except Exception as e:
             print(e)
-        # finally:
-        #     self.clean_up(runner_conf)
+            traceback.print_exc()
+        finally:
+            self.clean_up(runner_conf)
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
         """
