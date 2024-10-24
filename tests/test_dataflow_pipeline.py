@@ -37,6 +37,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "schema": None,
         "partitionColumns": [""],
         "cdcApplyChanges": None,
+        "applyChangesFromSnapshot": None,
         "dataQualityExpectations": """{
             "expect_or_drop": {
                 "no_rescued_data": "_rescued_data IS NULL",
@@ -186,7 +187,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             None,
         )
 
-        # self.assertIsNotNone(dlt_data_flow.silver_schema)
+        self.assertIsNotNone(dlt_data_flow.silver_schema)
         dlt_data_flow.run_dlt()
         assert read.called
 
@@ -349,7 +350,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         )
         silver_df = dlt_data_flow.read_silver()
         self.assertIsNotNone(silver_df)
-        # assert get_silver_schema.called
+        assert get_silver_schema.called
 
     @patch.object(DataflowPipeline, "write_bronze_with_dqe", return_value={"called"})
     @patch.object(dlt, "expect_all_or_drop", return_value={"called"})
@@ -1004,42 +1005,23 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         with self.assertRaises(Exception):
             pipeline = DataflowPipeline(self.spark, bronze_dataflowSpec_df, view_name, None)
 
-    @patch('dlt.table', new_callable=MagicMock)
-    def test_modify_schema_for_cdc_changes(self, mock_dlt_table):
-        mock_dlt_table.table.return_value = None
-        cdc_apply_changes_json = """{
-            "keys": ["id"],
-            "sequence_by": "operation_date",
-            "scd_type": "2",
-            "except_column_list": ["operation", "operation_date", "_rescued_data"]
-        }"""
-        cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(cdc_apply_changes_json)
-        bmap = DataflowPipelineTests.bronze_dataflow_spec_map
-        ddlSchemaStr = (
-            self.spark.read.text(paths="tests/resources/schema/customer_schema.ddl")
-            .select("value")
-            .collect()[0]["value"]
+    def test_get_dq_expectations_with_expect_all(self):
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        onboarding_params_map['onboarding_file_path'] = self.onboarding_type2_json_file
+        o_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        o_dfs.onboard_bronze_dataflow_spec()
+        bronze_dataflowSpec_df = self.spark.read.format("delta").load(
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_path']
         )
-        schema = T._parse_datatype_string(ddlSchemaStr)
-        bronze_dataflow_spec = BronzeDataflowSpec(
-            **bmap
+        bronze_df_row = bronze_dataflowSpec_df.filter(bronze_dataflowSpec_df.dataFlowId == "201").collect()[0]
+        bronze_row_dict = DataflowSpecUtils.populate_additional_df_cols(
+            bronze_df_row.asDict(),
+            DataflowSpecUtils.additional_bronze_df_columns
         )
-        bronze_dataflow_spec.schema = json.dumps(schema.jsonValue())
-        bronze_dataflow_spec.cdcApplyChanges = json.dumps(self.silver_cdc_apply_changes_scd2)
-        bronze_dataflow_spec.dataQualityExpectations = None
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_row_dict)
         view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
-        expected_schema = T.StructType([
-            T.StructField("address", T.StringType()),
-            T.StructField("email", T.StringType()),
-            T.StructField("firstname", T.StringType()),
-            T.StructField("id", T.StringType()),
-            T.StructField("lastname", T.StringType()),
-            T.StructField("__START_AT", T.StringType()),
-            T.StructField("__END_AT", T.StringType())
-        ])
-        modified_schema = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
-        self.assertEqual(modified_schema, expected_schema)
-        pipeline.schema_json = None
-        modified_schema = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
-        self.assertEqual(modified_schema, None)
+        expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = pipeline.get_dq_expectations()
+        self.assertIsNotNone(expect_all_dict)
+        self.assertIsNotNone(expect_all_or_drop_dict)
+        self.assertIsNotNone(expect_all_or_fail_dict)
