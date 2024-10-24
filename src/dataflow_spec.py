@@ -256,22 +256,22 @@ class DataflowSpecUtils:
                 f"""parameter {layer_arg} is missing in spark.conf.
                  Please set spark.conf.set({layer_arg},'silver') """
             )
-        dataflow_spec_table = spark.conf.get(f"{layer_arg}.dataflowspecTable", None)
+        dataflow_spec_table = spark.conf.get(f"{layer}.dataflowspecTable", None)
         if dataflow_spec_table is None:
             raise Exception(
                 f"""parameter {layer_arg}.dataflowspecTable is missing in sparkConf
                 Please set spark.conf.set('{layer_arg}.dataflowspecTable'='database.dataflowSpecTableName')"""
             )
 
-        group = spark.conf.get(f"{layer_arg}.group", None)
+        group = spark.conf.get(f"{layer}.group", None)
         dataflow_ids = spark.conf.get(f"{layer}.dataflowIds", None)
 
         if group is None and dataflow_ids is None:
             raise Exception(
-                f"""please provide {layer_arg}.group or {layer}.dataflowIds in spark.conf
+                f"""please provide {layer}.group or {layer}.dataflowIds in spark.conf
                  Please set spark.conf.set('{layer}.group'='groupName')
                  OR
-                 spark.conf.set('{layer_arg}.dataflowIds'='comma seperated dataflowIds')
+                 spark.conf.set('{layer}.dataflowIds'='comma seperated dataflowIds')
                  """
             )
 
