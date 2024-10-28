@@ -1,5 +1,5 @@
 ---
-title: "Onboarding Guide"
+title: "Local Setup Guide"
 date: 2021-08-04T14:50:11-04:00
 draft: false
 weight: 4
