@@ -6,9 +6,10 @@ pluralizeListTitles = false
 canonifyURLs = true
 
 [params]
-    description = "DLT-META Documentation"
-    author = "Ravi Gawai (Databricks)"
+    themeVariant = 'learn'
+    themeVariantAuto = 'learn'
     disableShortcutsTitle = true
     disableLandingPageButton = false
-    themeVariant = ['auto']
-    themeVariantAuto = ['learn']
+    description = "DLT-META Documentation"
+    author.name = "Ravi Gawai (Databricks)"
+    disableNextPrev = false
