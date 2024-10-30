@@ -197,6 +197,7 @@ class OnboardDataflowspec:
                 StructField(
                     "target_partition_cols", ArrayType(StringType(), True), True
                 ),
+                StructField("database", StringType(), True),
                 StructField("target_table", StringType(), True),
                 StructField("where_clause", ArrayType(StringType(), True), True),
             ]
@@ -221,10 +222,14 @@ class OnboardDataflowspec:
 
         logger.info(silver_transformation_json_file)
 
+        silver_transformation_json_df.show()
+        silver_data_flow_spec_df.show()
+
         silver_data_flow_spec_df = silver_transformation_json_df.join(
             silver_data_flow_spec_df,
-            silver_transformation_json_df.target_table
-            == silver_data_flow_spec_df.targetDetails["table"],
+            (silver_transformation_json_df.target_table == silver_data_flow_spec_df.targetDetails["table"]) &
+            ((silver_transformation_json_df.database.isNull()) | (
+                        silver_transformation_json_df.database == silver_data_flow_spec_df.targetDetails["database"]))
         )
         silver_dataflow_spec_df = (
             silver_data_flow_spec_df.drop("target_table")  # .drop("path")
