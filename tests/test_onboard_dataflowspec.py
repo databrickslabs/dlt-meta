@@ -384,3 +384,26 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map, uc_enabled=True)
         with self.assertRaises(Exception):
             onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
+
+    def test_onboard_silver_spec_positive(self):
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        onboarding_params_map['env'] = 'dev'
+        onboarding_params_map["onboarding_file_path"] = self.onboarding_silver_spec_with_similar_table_names
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map, uc_enabled=True)
+        onboardDataFlowSpecs.onboard_silver_dataflow_spec()
+
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
+        silver_dataflowSpec_df.show(truncate=False)
+
+        self.assertEqual(silver_dataflowSpec_df.count(), 2)
+
+    def test_onboard_silver_spec_negative(self):
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        onboarding_params_map['env'] = 'staging'
+        onboarding_params_map["onboarding_file_path"] = self.onboarding_silver_spec_with_similar_table_names
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map, uc_enabled=True)
+        with self.assertRaises(Exception):
+            onboardDataFlowSpecs.onboard_silver_dataflow_spec()
+

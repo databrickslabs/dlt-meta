@@ -1,0 +1,76 @@
+[
+    {
+        "data_flow_id": "100",
+        "data_flow_group": "A1",
+        "source_system": "MYSQL",
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_database": "APP",
+            "source_table": "CUSTOMERS",
+            "source_path_dev": "tests/resources/data/customers",
+            "source_schema_path": "tests/resources/schema/customer_schema.ddl",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True",
+                "autoloader_metadata_col_name": "source_metadata",
+                "select_metadata_cols": {
+                    "input_file_name": "_metadata.file_name",
+                    "input_file_path": "_metadata.file_path"
+                }
+            }
+        },
+        "bronze_database_dev": "bronze",
+        "bronze_database_staging": "bronze",
+        "bronze_database_prd": "bronze",
+        "bronze_table": "customers_cdc",
+        "bronze_reader_options": {
+            "cloudFiles.format": "json",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "bronze_table_path_dev": "tests/resources/delta/customers",
+        "bronze_cdc_apply_changes": {
+            "keys": [
+                "id"
+            ],
+            "sequence_by": "operation_date",
+            "scd_type": "1",
+            "apply_as_deletes": "operation = 'DELETE'",
+            "except_column_list": [
+                "operation",
+                "operation_date",
+                "_rescued_data"
+            ]
+        },
+        "bronze_table_properties": {
+            "pipelines.autoOptimize.managed": "false",
+            "pipelines.reset.allowed": "false"
+        },
+        "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/customers/bronze_data_quality_expectations.json",
+        "silver_database_dev": "silver",
+        "silver_database_staging": "silver1",
+        "silver_database_prd": "silver",
+        "silver_table": "customers",
+        "silver_cdc_apply_changes": {
+            "keys": [
+                "id"
+            ],
+            "sequence_by": "operation_date",
+            "scd_type": "1",
+            "apply_as_deletes": "operation = 'DELETE'",
+            "except_column_list": [
+                "operation",
+                "operation_date",
+                "_rescued_data"
+            ]
+        },
+        "silver_table_path_dev": "tests/resources/data/silver/customers",
+        "silver_table_properties": {
+            "pipelines.autoOptimize.managed": "false",
+            "pipelines.reset.allowed": "false",
+            "pipelines.autoOptimize.zOrderCols": "id,email"
+        },
+        "silver_transformation_json_dev": "tests/resources/silver_transformations_with_similar_tables.json",
+        "silver_transformation_json_staging": "tests/resources/silver_transformations_with_similar_tables.json",
+        "silver_data_quality_expectations_json_dev": "tests/resources/dqe/customers/silver_data_quality_expectations.json"
+    }
+]
