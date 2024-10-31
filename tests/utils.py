@@ -76,6 +76,8 @@ class DLTFrameworkTestCase(unittest.TestCase):
             "uc_enabled": "True"
         }
 
+        self.onboarding_silver_spec_with_similar_table_names = "tests/resources/onboarding_silver_spec_with_similar_table_names.json"
+
     def tearDown(self):
         """Tear down."""
         self.deltaPipelinesMetaStoreOps.drop_database("ravi_dlt_demo")

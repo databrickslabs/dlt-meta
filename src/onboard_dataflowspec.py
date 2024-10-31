@@ -231,6 +231,9 @@ class OnboardDataflowspec:
             ((silver_transformation_json_df.database.isNull()) | (
                         silver_transformation_json_df.database == silver_data_flow_spec_df.targetDetails["database"]))
         )
+        if silver_data_flow_spec_df.count() != silver_transformation_json_df.count():
+            raise Exception("The database name specified in the silver transformation JSON does not match the one in the onboarding template's silver table. Please verify!")
+
         silver_dataflow_spec_df = (
             silver_data_flow_spec_df.drop("target_table")  # .drop("path")
             .drop("target_partition_cols")
