@@ -110,7 +110,7 @@ class DLTMetaRunnerConf:
     job_id: str = None
     test_output_file_path: str = None
     onboarding_fanout_templates: str = None  # "demo/conf/onboarding_fanout_cars.template",
-    onboarding_file_path: str = None  # "demo/conf/onboarding_cars.json",
+    #onboarding_file_path: str = None  # "demo/conf/onboarding_cars.json",
     onboarding_fanout_file_path: str = None  # "demo/conf/onboarding_fanout_cars.json",
 
     # cloudfiles info
@@ -120,7 +120,7 @@ class DLTMetaRunnerConf:
     )
 
     # eventhub info
-    eventhub_template: str = ("integration_tests/conf/eventhub-onboarding.template",)
+    eventhub_template: str = "integration_tests/conf/eventhub-onboarding.template"
     eventhub_input_data: str = None
     eventhub_append_flow_input_data: str = None
     eventhub_name: str = None
@@ -496,7 +496,7 @@ class DLTMETARunner:
         elif source == "snapshot":
             return "bronze_v3_dlt_pipeline"
         else:
-            return "publish_events"
+            return "bronze_dlt_pipeline"
 
     def initialize_uc_resources(self, runner_conf):
         """Create UC schemas and volumes needed to run the integration tests"""
@@ -581,6 +581,7 @@ class DLTMETARunner:
                     onboard_json_a2 = f.read()
 
             for key, val in string_subs.items():
+                val = "" if val is None else val  # Ensure val is a string
                 onboard_json = onboard_json.replace(key, val)
                 if runner_conf.source == "cloudfiles":
                     onboard_json_a2 = onboard_json_a2.replace(key, val)
