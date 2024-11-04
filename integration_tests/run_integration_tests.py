@@ -110,7 +110,7 @@ class DLTMetaRunnerConf:
     job_id: str = None
     test_output_file_path: str = None
     onboarding_fanout_templates: str = None  # "demo/conf/onboarding_fanout_cars.template",
-    #onboarding_file_path: str = None  # "demo/conf/onboarding_cars.json",
+    # onboarding_file_path: str = None  # "demo/conf/onboarding_cars.json",
     onboarding_fanout_file_path: str = None  # "demo/conf/onboarding_fanout_cars.json",
 
     # cloudfiles info

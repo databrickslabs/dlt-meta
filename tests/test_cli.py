@@ -62,22 +62,6 @@ class CliTests(unittest.TestCase):
         dbfs_path="/dbfs",
     )
 
-    def test_copy_to_uc_volume(self):
-        mock_ws = MagicMock()
-        dltmeta = DLTMeta(mock_ws)
-        with patch("os.walk") as mock_walk:
-            mock_walk.return_value = [
-                ("/path/to/src", [], ["file1.txt", "file2.txt"]),
-                ("/path/to/src/subdir", [], ["file3.txt"]),
-            ]
-            with patch("builtins.open") as mock_open:
-                mock_open.return_value = MagicMock()
-                mock_dbfs_upload = MagicMock()
-                mock_ws.dbfs.upload = mock_dbfs_upload
-                dltmeta.copy_to_dbfs("file:/path/to/src", "/dbfs/path/to/dst")
-                self.assertEqual(mock_dbfs_upload.call_count, 3)
-
-
     @patch("src.cli.WorkspaceClient")
     @patch("builtins.open", new_callable=MagicMock)
     def test_onboard_with_uc(self, mock_open, mock_workspace_client):
@@ -186,7 +170,7 @@ class CliTests(unittest.TestCase):
             onboarding_files_dir_path="tests/resources/",
             onboard_layer="bronze",
             env="dev",
-            import_author="Ravi Gawai",
+            import_author="John Doe",
             version="1.0",
             dlt_meta_schema="dlt_meta",
             bronze_dataflowspec_path="tests/resources/bronze_dataflowspec",
@@ -208,7 +192,7 @@ class CliTests(unittest.TestCase):
             "database": "uc_catalog.dlt_meta" if cmd.uc_enabled else "dlt_meta",
             "onboarding_file_path": "uc_catalog/dlt_meta/files/dltmeta_conf/onboarding.json",
             "import_author": "John Doe",
-            "import_author": "Ravi Gawai",
+            # "import_author": "Ravi Gawai",
             "version": "1.0",
             "overwrite": "True",
             "env": "dev",

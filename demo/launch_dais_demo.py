@@ -48,7 +48,7 @@ class DLTMETADAISDemo(DLTMETARunner):
             cloudfiles_template="demo/conf/onboarding.template",
             env="prod",
             source="cloudfiles",
-            #runners_full_local_path='./demo/dbc/dais_dlt_meta_runners.dbc',
+            # runners_full_local_path='./demo/dbc/dais_dlt_meta_runners.dbc',
             onboarding_file_path='demo/conf/onboarding.json'
         )
         if self.args['uc_catalog_name']:
