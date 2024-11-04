@@ -87,12 +87,15 @@ class DLTMETATechSummitDemo(DLTMETARunner):
             int_tests_dir="demo",
             env="prod",
             table_count=(
-                self.args.__dict__['table_count'] 
-                if 'table_count' in self.args and self.args.__dict__['table_count'] 
+                self.args.__dict__['table_count']
+                if 'table_count' in self.args and self.args.__dict__['table_count']
                 else "100"
             ),
-            table_column_count=(self.args.__dict__['table_column_count'] if 'table_column_count' in self.args and self.args.__dict__['table_column_count']
-                                else "5"),
+            table_column_count=(
+                self.args.__dict__['table_column_count']
+                if 'table_column_count' in self.args and self.args.__dict__['table_column_count']
+                else "5"
+            ),
             table_data_rows_count=(self.args.__dict__['table_data_rows_count']
                                    if 'table_data_rows_count' in self.args
                                    and self.args.__dict__['table_data_rows_count']
