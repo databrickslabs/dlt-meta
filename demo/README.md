@@ -1,4 +1,4 @@
- # [DLT-META](https://github.com/databrickslabs/dlt-meta) DEMO's
+ # [DLT-META](https://github.com/databrickslabs/dlt-meta) DEMOs
  1. [DAIS 2023 DEMO](#dais-2023-demo): Showcases DLT-META's capabilities of creating Bronze and Silver DLT pipelines with initial and incremental mode automatically.
  2. [Databricks Techsummit Demo](#databricks-tech-summit-fy2024-demo): 100s of data sources ingestion in bronze and silver DLT pipelines automatically.
  3. [Append FLOW Autoloader Demo](#append-flow-autoloader-file-metadata-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
@@ -6,6 +6,7 @@
  5. [Silver Fanout Demo](#silver-fanout-demo): This demo showcases the implementation of fanout architecture in the silver layer.
  6. [Apply Changes From Snapshot Demo](#Apply-changes-from-snapshot-demo): This demo showcases the implementation of ingesting from snapshots in bronze layer
 
+The source argument is optional for the demos.
 
 
 # DAIS 2023 DEMO
@@ -38,7 +39,7 @@ This Demo launches Bronze and Silver DLT pipelines with following activities:
     ```
 
 6. ```commandline
-    python demo/launch_dais_demo.py --uc_catalog_name=<<uc catalog name>>
+    python demo/launch_dais_demo.py --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
     - uc_catalog_name : Unity catalog name
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
@@ -70,7 +71,7 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
     ```
 
 6. ```commandline
-    python demo/launch_techsummit_demo.py --uc_catalog_name=<<uc catalog name>>
+    python demo/launch_techsummit_demo.py --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
     - uc_catalog_name : Unity catalog name
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
@@ -106,10 +107,9 @@ This demo will perform following tasks:
     ```
 
 6. ```commandline
-    python demo/launch_af_cloudfiles_demo.py --uc_catalog_name=<<uc catalog name>> --source=cloudfiles --cloud_provider_name=aws --profile=<<DEFAULT>>
+    python demo/launch_af_cloudfiles_demo.py --uc_catalog_name=<<uc catalog name>> --source=cloudfiles --profile=<<DEFAULT>>
     ```
     - uc_catalog_name : Unity Catalog name
-    - cloud_provier_name : Which cloud you are using, either AWS, Azure, or GCP
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
 ![af_am_demo.png](../docs/static/images/af_am_demo.png)
@@ -163,7 +163,7 @@ This demo will perform following tasks:
     - eventhub_port: Eventhub port
 
 7. ```commandline
-    python3 demo/launch_af_eventhub_demo.py --uc_catalog_name=<<uc catalog name>> --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey
+    python3 demo/launch_af_eventhub_demo.py --uc_catalog_name=<<uc catalog name>> --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey --profile=<<DEFAULT>>
     ```
 
   ![af_eh_demo.png](../docs/static/images/af_eh_demo.png)
@@ -195,9 +195,7 @@ This demo will perform following tasks:
     ```commandline
     export PYTHONPATH=$dlt_meta_home
 
-6. Run the command ```python demo/launch_silver_fanout_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/dais-dlt-meta-silver-fanout```
-    - db_version : Databricks Runtime Version
-    - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
+6. Run the command ```python demo/launch_silver_fanout_demo.py --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>```
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
 
     - - 6a. Databricks Workspace URL:
@@ -251,6 +249,6 @@ This demo will perform following tasks:
 
 6. Run the command 
     ```commandline
-    python demo/launch_acfs_demo.py --uc_catalog_name=<<>>
+    python demo/launch_acfs_demo.py --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
     ![acfs.png](../docs/static/images/acfs.png)
