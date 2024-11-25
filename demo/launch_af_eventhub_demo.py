@@ -58,7 +58,7 @@ class DLTMETAFEHDemo(DLTMETARunner):
         return runner_conf
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
-        created_job = self.create_eventhub_workflow_spec(runner_conf)
+        created_job = self.create_workflow_spec(runner_conf)
         self.open_job_url(runner_conf, created_job)
         return created_job
 

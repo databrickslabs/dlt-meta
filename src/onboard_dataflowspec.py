@@ -390,6 +390,7 @@ class OnboardDataflowspec:
             onboarding_df = self.spark.read.option("multiline", "true").json(
                 onboarding_file_path
             )
+            onboarding_df.show()
             self.onboard_file_type = "json"
             onboarding_df_dupes = (
                 onboarding_df.groupBy("data_flow_id").count().filter("count > 1")

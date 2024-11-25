@@ -161,3 +161,6 @@ integration_test_output*.csv
 
 .databricks
 databricks.yaml
+
+.databricks
+oboarding_job_details.json

@@ -65,7 +65,7 @@ class DataflowPipeline:
     """
 
     def __init__(self, spark, dataflow_spec, view_name, view_name_quarantine=None,
-                 custom_transform_func=None, next_snapshot_and_version: Callable = None):
+                 custom_transform_func: Callable = None, next_snapshot_and_version: Callable = None):
         """Initialize Constructor."""
         logger.info(
             f"""dataflowSpec={dataflow_spec} ,
@@ -80,7 +80,7 @@ class DataflowPipeline:
             raise Exception("Dataflow not supported!")
 
     def __initialize_dataflow_pipeline(
-        self, spark, dataflow_spec, view_name, view_name_quarantine, custom_transform_func,
+        self, spark, dataflow_spec, view_name, view_name_quarantine, custom_transform_func: Callable,
         next_snapshot_and_version: Callable
     ):
         """Initialize dataflow pipeline state."""
@@ -118,10 +118,7 @@ class DataflowPipeline:
             self.schema_json = None
             self.next_snapshot_and_version = None
             self.appy_changes_from_snapshot = None
-        if isinstance(dataflow_spec, SilverDataflowSpec):
-            self.silver_schema = self.get_silver_schema()
-        else:
-            self.silver_schema = None
+        self.silver_schema = None
 
     def table_has_expectations(self):
         """Table has expectations check."""
@@ -256,7 +253,7 @@ class DataflowPipeline:
 
     def apply_custom_transform_fun(self, input_df):
         if self.custom_transform_func:
-            input_df = self.custom_transform_func(input_df)
+            input_df = self.custom_transform_func(input_df, self.dataflowSpec)
         return input_df
 
     def get_silver_schema(self):
@@ -442,6 +439,52 @@ class DataflowPipeline:
         if cdc_apply_changes is None:
             raise Exception("cdcApplychanges is None! ")
 
+        struct_schema = None
+        if self.schema_json:
+            struct_schema = self.modify_schema_for_cdc_changes(cdc_apply_changes)
+
+        target_path = None if self.uc_enabled else self.dataflowSpec.targetDetails["path"]
+
+        self.create_streaming_table(struct_schema, target_path)
+
+        apply_as_deletes = None
+        if cdc_apply_changes.apply_as_deletes:
+            apply_as_deletes = expr(cdc_apply_changes.apply_as_deletes)
+
+        apply_as_truncates = None
+        if cdc_apply_changes.apply_as_truncates:
+            apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
+        target_table = (
+            f"{self.dataflowSpec.targetDetails['database']}.{self.dataflowSpec.targetDetails['table']}"
+            if self.uc_enabled
+            else self.dataflowSpec.targetDetails['table']
+        )
+        dlt.apply_changes(
+            target=target_table,
+            source=self.view_name,
+            keys=cdc_apply_changes.keys,
+            sequence_by=cdc_apply_changes.sequence_by,
+            where=cdc_apply_changes.where,
+            ignore_null_updates=cdc_apply_changes.ignore_null_updates,
+            apply_as_deletes=apply_as_deletes,
+            apply_as_truncates=apply_as_truncates,
+            column_list=cdc_apply_changes.column_list,
+            except_column_list=cdc_apply_changes.except_column_list,
+            stored_as_scd_type=cdc_apply_changes.scd_type,
+            track_history_column_list=cdc_apply_changes.track_history_column_list,
+            track_history_except_column_list=cdc_apply_changes.track_history_except_column_list,
+            flow_name=cdc_apply_changes.flow_name,
+            once=cdc_apply_changes.once,
+            ignore_null_updates_column_list=cdc_apply_changes.ignore_null_updates_column_list,
+            ignore_null_updates_except_column_list=cdc_apply_changes.ignore_null_updates_except_column_list
+        )
+
+    def modify_schema_for_cdc_changes(self, cdc_apply_changes):
+        if isinstance(self.dataflowSpec, BronzeDataflowSpec) and self.schema_json is None:
+            return None
+        if isinstance(self.dataflowSpec, SilverDataflowSpec) and self.silver_schema is None:
+            return None
+
         struct_schema = (
             StructType.fromJson(self.schema_json)
             if isinstance(self.dataflowSpec, BronzeDataflowSpec)
@@ -465,43 +508,17 @@ class DataflowPipeline:
         if struct_schema and cdc_apply_changes.scd_type == "2":
             struct_schema.add(StructField("__START_AT", sequenced_by_data_type))
             struct_schema.add(StructField("__END_AT", sequenced_by_data_type))
-
-        target_path = None if self.uc_enabled else self.dataflowSpec.targetDetails["path"]
-
-        self.create_streaming_table(struct_schema, target_path)
-
-        apply_as_deletes = None
-        if cdc_apply_changes.apply_as_deletes:
-            apply_as_deletes = expr(cdc_apply_changes.apply_as_deletes)
-
-        apply_as_truncates = None
-        if cdc_apply_changes.apply_as_truncates:
-            apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
-
-        dlt.apply_changes(
-            target=f"{self.dataflowSpec.targetDetails['table']}",
-            source=self.view_name,
-            keys=cdc_apply_changes.keys,
-            sequence_by=cdc_apply_changes.sequence_by,
-            where=cdc_apply_changes.where,
-            ignore_null_updates=cdc_apply_changes.ignore_null_updates,
-            apply_as_deletes=apply_as_deletes,
-            apply_as_truncates=apply_as_truncates,
-            column_list=cdc_apply_changes.column_list,
-            except_column_list=cdc_apply_changes.except_column_list,
-            stored_as_scd_type=cdc_apply_changes.scd_type,
-            track_history_column_list=cdc_apply_changes.track_history_column_list,
-            track_history_except_column_list=cdc_apply_changes.track_history_except_column_list,
-            flow_name=cdc_apply_changes.flow_name,
-            once=cdc_apply_changes.once,
-            ignore_null_updates_column_list=cdc_apply_changes.ignore_null_updates_column_list,
-            ignore_null_updates_except_column_list=cdc_apply_changes.ignore_null_updates_except_column_list
-        )
+        return struct_schema
 
     def create_streaming_table(self, struct_schema, target_path=None):
         expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = self.get_dq_expectations()
+        target_table = (
+            f"{self.dataflowSpec.targetDetails['database']}.{self.dataflowSpec.targetDetails['table']}"
+            if self.uc_enabled
+            else self.dataflowSpec.targetDetails['table']
+        )
         dlt.create_streaming_table(
-            name=f"{self.dataflowSpec.targetDetails['table']}",
+            name=target_table,
             table_properties=self.dataflowSpec.tableProperties,
             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
             path=target_path,
@@ -547,7 +564,11 @@ class DataflowPipeline:
         self.write()
 
     @staticmethod
-    def invoke_dlt_pipeline(spark, layer, custom_transform_func=None, next_snapshot_and_version: Callable = None):
+    def invoke_dlt_pipeline(spark,
+                            layer,
+                            bronze_custom_transform_func: Callable = None,
+                            silver_custom_transform_func: Callable = None,
+                            next_snapshot_and_version: Callable = None):
         """Invoke dlt pipeline will launch dlt with given dataflowspec.
 
         Args:
@@ -557,9 +578,28 @@ class DataflowPipeline:
         dataflowspec_list = None
         if "bronze" == layer.lower():
             dataflowspec_list = DataflowSpecUtils.get_bronze_dataflow_spec(spark)
+            DataflowPipeline._launch_dlt_flow(
+                spark, "bronze", dataflowspec_list, bronze_custom_transform_func, next_snapshot_and_version
+            )
         elif "silver" == layer.lower():
             dataflowspec_list = DataflowSpecUtils.get_silver_dataflow_spec(spark)
-        logger.info(f"Length of Dataflow Spec {len(dataflowspec_list)}")
+            DataflowPipeline._launch_dlt_flow(
+                spark, "silver", dataflowspec_list, silver_custom_transform_func, next_snapshot_and_version
+            )
+        elif "bronze_silver" == layer.lower():
+            bronze_dataflowspec_list = DataflowSpecUtils.get_bronze_dataflow_spec(spark)
+            DataflowPipeline._launch_dlt_flow(
+                spark, "bronze", bronze_dataflowspec_list, bronze_custom_transform_func
+            )
+            silver_dataflowspec_list = DataflowSpecUtils.get_silver_dataflow_spec(spark)
+            DataflowPipeline._launch_dlt_flow(
+                spark, "silver", silver_dataflowspec_list, silver_custom_transform_func
+            )
+
+    @staticmethod
+    def _launch_dlt_flow(
+        spark, layer, dataflowspec_list, custom_transform_func=None, next_snapshot_and_version: Callable = None
+    ):
         for dataflowSpec in dataflowspec_list:
             logger.info("Printing Dataflow Spec")
             logger.info(dataflowSpec)
@@ -568,8 +608,7 @@ class DataflowPipeline:
                     and dataflowSpec.quarantineTargetDetails != {}:
                 quarantine_input_view_name = (
                     f"{dataflowSpec.quarantineTargetDetails['table']}"
-                    f"_{layer}_quarantine_inputView",
-                    custom_transform_func
+                    f"_{layer}_quarantine_inputView"
                 )
             else:
                 logger.info("quarantine_input_view_name set to None")
@@ -581,5 +620,4 @@ class DataflowPipeline:
                 custom_transform_func,
                 next_snapshot_and_version
             )
-
             dlt_data_flow.run_dlt()
