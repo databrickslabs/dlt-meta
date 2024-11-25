@@ -272,7 +272,7 @@ class DLTMeta:
             jobs.JobEnvironment(
                 environment_key="dl_meta_cli_env",
                 spec=compute.Environment(client=f"dlt_meta_cli_{__version__}",
-                                         dependencies=["/Workspace/Users/ravi.gawai@databricks.com/dlt-meta/wheels/dlt_meta-0.0.9-py3-none-any.whl"]#[f"dlt-meta=={self.version}"]
+                                         dependencies=[f"dlt-meta=={self.version}"]
                                          )
             )
         ]
@@ -378,8 +378,8 @@ class DLTMeta:
                                                         )
                                                     )
                                                 ],
-                                                schema=cmd.dlt_target_schema, # for DPM
-                                                #target=cmd.dlt_target_schema,
+                                                schema=cmd.dlt_target_schema,  # for DPM
+                                                # target=cmd.dlt_target_schema,
                                                 clusters=[pipelines.PipelineCluster(label="default",
                                                                                     num_workers=cmd.num_workers)]
                                                 if not cmd.serverless else None,
@@ -626,11 +626,11 @@ def main(raw):
     if command not in MAPPING:
         msg = f"cannot find command: {command}"
         raise KeyError(msg)
-    # flags = payload["flags"]
-    # log_level = flags.pop("log_level")
-    # if log_level != "disabled":
-    #     databricks_logger = logging.getLogger("databricks")
-    #     databricks_logger.setLevel(log_level.upper())
+    flags = payload["flags"]
+    log_level = flags.pop("log_level")
+    if log_level != "disabled":
+        databricks_logger = logging.getLogger("databricks")
+        databricks_logger.setLevel(log_level.upper())
     version = __about__.__version__
     ws = WorkspaceClient(product='dlt-meta', product_version=version)
     dltmeta = DLTMeta(ws)
