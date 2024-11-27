@@ -585,7 +585,11 @@ class OnboardDataflowspec:
                 and onboarding_row["bronze_cdc_apply_changes"]
             ):
                 self.__validate_apply_changes(onboarding_row, "bronze")
-                cdc_apply_changes = json.dumps(self.__delete_none(onboarding_row["bronze_cdc_apply_changes"].asDict()))
+                cdc_apply_changes = json.dumps(
+                    self.__delete_none(
+                        onboarding_row["bronze_cdc_apply_changes"].asDict()
+                    )
+                )
             apply_changes_from_snapshot = None
             if ("bronze_apply_changes_from_snapshot" in onboarding_row
                     and onboarding_row["bronze_apply_changes_from_snapshot"]):
@@ -608,6 +612,7 @@ class OnboardDataflowspec:
                         quarantine_target_details, quarantine_table_properties = self.__get_quarantine_details(
                             env, onboarding_row
                         )
+
             append_flows, append_flows_schemas = self.get_append_flows_json(
                 onboarding_row, "bronze", env
             )
@@ -648,11 +653,15 @@ class OnboardDataflowspec:
             and onboarding_row["bronze_quarantine_table_partitions"]
         ):
             quarantine_table_partition_columns = onboarding_row["bronze_quarantine_table_partitions"]
-        quarantine_target_details = {"database": onboarding_row[f"bronze_database_quarantine_{env}"],
-                                     "table": onboarding_row["bronze_quarantine_table"],
-                                     "partition_columns": quarantine_table_partition_columns
-                                     }
-        if not self.uc_enabled:
+        if (
+            f"bronze_database_quarantine_{env}" in onboarding_row
+            and onboarding_row[f"bronze_database_quarantine_{env}"]
+        ):
+            quarantine_target_details = {"database": onboarding_row[f"bronze_database_quarantine_{env}"],
+                                         "table": onboarding_row["bronze_quarantine_table"],
+                                         "partition_columns": quarantine_table_partition_columns
+                                         }
+        if not self.uc_enabled and f"bronze_quarantine_table_path_{env}" in onboarding_row:
             quarantine_target_details["path"] = onboarding_row[f"bronze_quarantine_table_path_{env}"]
         if (
             "bronze_quarantine_table_properties" in onboarding_row
@@ -817,6 +826,15 @@ class OnboardDataflowspec:
                     source_details["path"] = source_details_file[f"source_path_{env}"]
             elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
                 source_details = source_details_file
+            elif source_format.lower() == "snapshot":
+                snapshot_format = source_details_file.get("snapshot_format", None)
+                if snapshot_format is None:
+                    raise Exception("snapshot_format is missing in the source_details")
+                source_details["snapshot_format"] = snapshot_format
+                if f"source_path_{env}" in source_details_file:
+                    source_details["path"] = source_details_file[f"source_path_{env}"]
+                else:
+                    raise Exception(f"source_path_{env} is missing in the source_details")
             if "source_schema_path" in source_details_file:
                 source_schema_path = source_details_file["source_schema_path"]
                 if source_schema_path:
