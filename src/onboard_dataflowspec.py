@@ -9,7 +9,8 @@ import pyspark.sql.types as T
 from pyspark.sql import functions as f
 from pyspark.sql.types import ArrayType, MapType, StringType, StructField, StructType
 
-from src.dataflow_spec import BronzeDataflowSpec, DataflowSpecUtils, SilverDataflowSpec
+from src.dataflow_spec import BronzeDataflowSpec, DataflowSpecUtils, SilverDataflowSpec, \
+    SilverCDCApplyChangesFromSnapshot
 from src.metastore_ops import DeltaPipelinesInternalTableOps, DeltaPipelinesMetaStoreOps
 
 logger = logging.getLogger("databricks.labs.dltmeta")
@@ -466,7 +467,7 @@ class OnboardDataflowspec:
             "schema",
             "partitionColumns",
             "cdcApplyChanges",
-            "applyChangesFromSnapshot",
+            "cdcApplyChangesFromSnapshot",
             "dataQualityExpectations",
             "quarantineTargetDetails",
             "quarantineTableProperties",
@@ -496,7 +497,7 @@ class OnboardDataflowspec:
                 StructField("schema", StringType(), True),
                 StructField("partitionColumns", ArrayType(StringType(), True), True),
                 StructField("cdcApplyChanges", StringType(), True),
-                StructField("applyChangesFromSnapshot", StringType(), True),
+                StructField("cdcApplyChangesFromSnapshot", StringType(), True),
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField(
                     "quarantineTargetDetails",
@@ -586,11 +587,11 @@ class OnboardDataflowspec:
             ):
                 self.__validate_apply_changes(onboarding_row, "bronze")
                 cdc_apply_changes = json.dumps(self.__delete_none(onboarding_row["bronze_cdc_apply_changes"].asDict()))
-            apply_changes_from_snapshot = None
+            cdc_apply_changes_from_snapshot = None
             if ("bronze_apply_changes_from_snapshot" in onboarding_row
                     and onboarding_row["bronze_apply_changes_from_snapshot"]):
                 self.__validate_apply_changes_from_snapshot(onboarding_row, "bronze")
-                apply_changes_from_snapshot = json.dumps(
+                cdc_apply_changes_from_snapshot = json.dumps(
                     self.__delete_none(onboarding_row["bronze_apply_changes_from_snapshot"].asDict())
                 )
             data_quality_expectations = None
@@ -623,12 +624,12 @@ class OnboardDataflowspec:
                 schema,
                 partition_columns,
                 cdc_apply_changes,
-                apply_changes_from_snapshot,
+                cdc_apply_changes_from_snapshot,
                 data_quality_expectations,
                 quarantine_target_details,
                 quarantine_table_properties,
                 append_flows,
-                append_flows_schemas,
+                append_flows_schemas
             )
             data.append(bronze_row)
             # logger.info(bronze_parition_columns)
@@ -897,9 +898,10 @@ class OnboardDataflowspec:
             "tableProperties",
             "partitionColumns",
             "cdcApplyChanges",
+            "cdcApplyChangesFromSnapshot",
             "dataQualityExpectations",
             "appendFlows",
-            "appendFlowsSchemas",
+            "appendFlowsSchemas"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -923,6 +925,7 @@ class OnboardDataflowspec:
                 ),
                 StructField("partitionColumns", ArrayType(StringType(), True), True),
                 StructField("cdcApplyChanges", StringType(), True),
+                StructField("cdcApplyChangesFromSnapshot", StringType(), True),
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField("appendFlows", StringType(), True),
                 StructField(
@@ -1001,6 +1004,14 @@ class OnboardDataflowspec:
                     silver_cdc_apply_changes = json.dumps(
                         self.__delete_none(silver_cdc_apply_changes_row.asDict())
                     )
+            silver_cdc_apply_changes_from_snapshot = None
+            if ("silver_cdc_apply_changes_from_snapshot" in onboarding_row
+                    and onboarding_row["silver_cdc_apply_changes_from_snapshot"]):
+                # Performs validation of input json
+                snapshot_properties = SilverCDCApplyChangesFromSnapshot.from_dict(
+                    onboarding_row["silver_cdc_apply_changes_from_snapshot"].asDict()
+                )
+                silver_cdc_apply_changes_from_snapshot = snapshot_properties.to_json()
             data_quality_expectations = None
             if f"silver_data_quality_expectations_json_{env}" in onboarding_row:
                 silver_data_quality_expectations_json = onboarding_row[
@@ -1024,9 +1035,10 @@ class OnboardDataflowspec:
                 silver_table_properties,
                 silver_parition_columns,
                 silver_cdc_apply_changes,
+                silver_cdc_apply_changes_from_snapshot,
                 data_quality_expectations,
                 append_flows,
-                append_flow_schemas,
+                append_flow_schemas
             )
             data.append(silver_row)
             logger.info(f"silver_data ==== {data}")
