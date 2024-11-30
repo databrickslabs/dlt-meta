@@ -33,6 +33,11 @@
             "pipelines.reset.allowed": "false"
         },
         "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/customers/bronze_data_quality_expectations.json",
+        "bronze_database_quarantine_dev": "bronze",
+        "bronze_database_quarantine_staging": "bronze",
+        "bronze_database_quarantine_prd": "bronze",
+        "bronze_quarantine_table": "customers_cdc_quarantine",
+        "bronze_quarantine_table_path_dev": "tests/resources/data/bronze/customers_quarantine",        
         "silver_database_dev": "silver",
         "silver_database_staging": "silver",
         "silver_database_prd": "silver",
