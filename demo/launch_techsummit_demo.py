@@ -137,8 +137,8 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         except Exception as e:
             print(e)
             traceback.print_exc()
-        finally:
-            self.clean_up(runner_conf)
+        # finally:
+        #     self.clean_up(runner_conf)
 
     def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
         """

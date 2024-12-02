@@ -106,10 +106,9 @@ This demo will perform following tasks:
     ```
 
 6. ```commandline
-    python demo/launch_af_cloudfiles_demo.py --uc_catalog_name=<<uc catalog name>> --source=cloudfiles --cloud_provider_name=aws --profile=<<DEFAULT>>
+    python demo/launch_af_cloudfiles_demo.py --uc_catalog_name=<<uc catalog name>> --source=cloudfiles --profile=<<DEFAULT>>
     ```
     - uc_catalog_name : Unity Catalog name
-    - cloud_provier_name : Which cloud you are using, either AWS, Azure, or GCP
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
 ![af_am_demo.png](../docs/static/images/af_am_demo.png)
@@ -195,9 +194,10 @@ This demo will perform following tasks:
     ```commandline
     export PYTHONPATH=$dlt_meta_home
 
-6. Run the command ```python demo/launch_silver_fanout_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/dais-dlt-meta-silver-fanout```
-    - db_version : Databricks Runtime Version
-    - dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
+6. Run the command 
+    ```commandline
+        python demo/launch_silver_fanout_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>>
+    ```
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
 
     - - 6a. Databricks Workspace URL:
