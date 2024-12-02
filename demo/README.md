@@ -194,8 +194,13 @@ This demo will perform following tasks:
     ```
     ```commandline
     export PYTHONPATH=$dlt_meta_home
+    ```
 
-6. Run the command ```python demo/launch_silver_fanout_demo.py --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>```
+6. Run the command 
+    ```commandline
+        python demo/launch_silver_fanout_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>>
+    ```
+
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
 
     - - 6a. Databricks Workspace URL:

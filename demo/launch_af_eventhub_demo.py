@@ -32,8 +32,8 @@ class DLTMETAFEHDemo(DLTMETARunner):
         except Exception as e:
             print(e)
             traceback.print_exc()
-        finally:
-            self.clean_up(runner_conf)
+        # finally:
+        #     self.clean_up(runner_conf)
 
     def init_runner_conf(self) -> DLTMetaRunnerConf:
         """

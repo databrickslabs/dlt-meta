@@ -158,3 +158,5 @@ demo/conf/onboarding*.json
 databricks.yaml
 integration_test_output*.csv
 databricks.yml
+
+.databricks
