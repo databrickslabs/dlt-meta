@@ -550,7 +550,7 @@ class OnboardDataflowspec:
                 )
             source_details, bronze_reader_config_options, schema = (
                 self.get_bronze_source_details_reader_options_schema(
-                    onboarding_row, env
+                    onboarding_row, "bronze_reader_options", env
                 )
             )
             bronze_target_format = "delta"
@@ -685,7 +685,9 @@ class OnboardDataflowspec:
                 json_append_flow = json_append_flow.asDict()
                 append_flow_map = {}
                 for key in json_append_flow.keys():
-                    if isinstance(json_append_flow[key], Row):
+                    if isinstance(json_append_flow[key], Row) and key not in [
+                        "source_details", "reader_options", "source_format"
+                    ]:
                         fs = json_append_flow[key].__fields__
                         mp = {}
                         for ff in fs:
@@ -705,7 +707,14 @@ class OnboardDataflowspec:
                         append_flow_map[key] = self.__delete_none(mp)
                     else:
                         append_flow_map[key] = json_append_flow[key]
+                source_details, reader_options, schema = (
+                    self.get_bronze_source_details_reader_options_schema(json_append_flow, "reader_options", env)
+                )
+                append_flow_map["source_details"] = source_details
+                append_flow_map["reader_options"] = reader_options
+                append_flow_map["source_format"] = json_append_flow["source_format"]
                 af_list.append(self.__delete_none(append_flow_map))
+                append_flows_schema[json_append_flow["name"]] = schema
             append_flows = json.dumps(af_list)
         return append_flows, append_flows_schema
 
@@ -766,7 +775,7 @@ class OnboardDataflowspec:
                  {DataflowSpecUtils.apply_changes_from_snapshot_api_mandatory_attributes} exists"""
             )
 
-    def get_bronze_source_details_reader_options_schema(self, onboarding_row, env):
+    def get_bronze_source_details_reader_options_schema(self, onboarding_row, reader_option_key, env):
         """Get bronze source reader options.
 
         Args:
@@ -776,73 +785,77 @@ class OnboardDataflowspec:
             [type]: [description]
         """
         source_details = {}
-        bronze_reader_config_options = {}
+        reader_config_options = {}
         schema = None
         source_format = onboarding_row["source_format"]
         bronze_reader_options_json = (
-            onboarding_row["bronze_reader_options"]
-            if "bronze_reader_options" in onboarding_row
+            onboarding_row[reader_option_key]
+            if reader_option_key in onboarding_row
             else {}
         )
         if bronze_reader_options_json:
-            bronze_reader_config_options = self.__delete_none(
+            reader_config_options = self.__delete_none(
                 bronze_reader_options_json.asDict()
             )
         source_details_json = onboarding_row["source_details"]
         if source_details_json:
-            source_details_file = self.__delete_none(source_details_json.asDict())
-            if (source_format.lower() == "cloudfiles"
-                    or source_format.lower() == "delta"
-                    or source_format.lower() == "snapshot"):
-                if f"source_path_{env}" in source_details_file:
-                    source_details["path"] = source_details_file[f"source_path_{env}"]
-                if "source_database" in source_details_file:
-                    source_details["source_database"] = source_details_file[
-                        "source_database"
-                    ]
-                if "source_table" in source_details_file:
-                    source_details["source_table"] = source_details_file["source_table"]
-                if "source_metadata" in source_details_file:
-                    source_metadata_dict = self.__delete_none(
-                        source_details_file["source_metadata"].asDict()
-                    )
-                    if "select_metadata_cols" in source_metadata_dict:
-                        select_metadata_cols = self.__delete_none(
-                            source_metadata_dict["select_metadata_cols"].asDict()
-                        )
-                        source_metadata_dict["select_metadata_cols"] = (
-                            select_metadata_cols
-                        )
-                    source_details["source_metadata"] = json.dumps(
-                        self.__delete_none(source_metadata_dict)
-                    )
-            elif (
-                source_format.lower() == "eventhub" or source_format.lower() == "kafka"
-            ):
-                source_details = source_details_file
-            elif source_format.lower() == "snapshot":
-                snapshot_format = source_details_file.get("snapshot_format", None)
-                if snapshot_format is None:
-                    raise Exception("snapshot_format is missing in the source_details")
-                source_details["snapshot_format"] = snapshot_format
-                if f"source_path_{env}" in source_details_file:
-                    source_details["path"] = source_details_file[f"source_path_{env}"]
-                else:
-                    raise Exception(f"source_path_{env} is missing in the source_details")
-            if "source_schema_path" in source_details_file:
-                source_schema_path = source_details_file["source_schema_path"]
-                if source_schema_path:
-                    if self.bronze_schema_mapper is not None:
-                        schema = self.bronze_schema_mapper(
-                            source_schema_path, self.spark
-                        )
-                    else:
-                        schema = self.__get_bronze_schema(source_schema_path)
-                else:
-                    logger.info(f"no input schema provided for row={onboarding_row}")
-                logger.info("spark_schmea={}".format(schema))
+            source_details = {}
+            source_details, schema = self.get_source_details_schema(
+                env, source_details, source_format, source_details_json
+            )
 
-        return source_details, bronze_reader_config_options, schema
+        return source_details, reader_config_options, schema
+
+    def get_source_details_schema(self, env, source_details, source_format, source_details_json):
+        source_details_file = self.__delete_none(source_details_json.asDict())
+        if (
+            source_format.lower() in ("cloudfiles", "delta", "snapshot")
+        ):
+            if f"source_path_{env}" in source_details_file:
+                source_details["path"] = source_details_file[f"source_path_{env}"]
+            if "source_database" in source_details_file:
+                source_details["source_database"] = source_details_file["source_database"]
+            if "source_table" in source_details_file:
+                source_details["source_table"] = source_details_file["source_table"]
+            if "source_metadata" in source_details_file:
+                source_metadata_dict = self.__delete_none(
+                    source_details_file["source_metadata"].asDict()
+                )
+                if "select_metadata_cols" in source_metadata_dict:
+                    select_metadata_cols = self.__delete_none(
+                        source_metadata_dict["select_metadata_cols"].asDict()
+                    )
+                    source_metadata_dict["select_metadata_cols"] = (
+                        select_metadata_cols
+                    )
+                source_details["source_metadata"] = json.dumps(
+                    self.__delete_none(source_metadata_dict)
+                )
+        elif (source_format.lower() == "eventhub" or source_format.lower() == "kafka"):
+            source_details = source_details_file
+        elif source_format.lower() == "snapshot":
+            snapshot_format = source_details_file.get("snapshot_format", None)
+            if snapshot_format is None:
+                raise Exception("snapshot_format is missing in the source_details")
+            source_details["snapshot_format"] = snapshot_format
+            if f"source_path_{env}" in source_details_file:
+                source_details["path"] = source_details_file[f"source_path_{env}"]
+            else:
+                raise Exception(f"source_path_{env} is missing in the source_details")
+        if "source_schema_path" in source_details_file:
+            source_schema_path = source_details_file["source_schema_path"]
+            if source_schema_path:
+                if self.bronze_schema_mapper is not None:
+                    schema = self.bronze_schema_mapper(source_schema_path, self.spark)
+                else:
+                    schema = self.__get_bronze_schema(source_schema_path)
+            else:
+                logger.info(f"no input schema provided for row={source_details_json}")
+            logger.info("spark_schmea={}".format(schema))
+        else:
+            logger.info(f"no input schema provided for row={source_details_json}")
+            schema = None
+        return source_details, schema
 
     def __validate_append_flow(self, onboarding_row, layer):
         append_flows = onboarding_row[f"{layer}_append_flows"]

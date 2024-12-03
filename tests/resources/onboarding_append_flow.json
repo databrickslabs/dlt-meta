@@ -34,7 +34,15 @@
                     "source_database": "APP",
                     "source_table": "CUSTOMERS",
                     "source_path_dev": "tests/resources/data/customers_af",
-                    "source_schema_path": "tests/resources/schema/customer_schema.ddl"
+                    "source_schema_path": "tests/resources/schema/customer_schema.ddl",
+                    "source_metadata": {
+                        "include_autoloader_metadata_column": "True",
+                        "autoloader_metadata_col_name": "source_metadata",
+                        "select_metadata_cols": {
+                            "input_file_name": "_metadata.file_name",
+                            "input_file_path": "_metadata.file_path"
+                        }
+                    }
                 },
                 "reader_options": {
                     "cloudFiles.format": "json",
