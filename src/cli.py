@@ -222,7 +222,7 @@ class DLTMeta:
             self._ws.dbfs.mkdirs(f"{cmd.dbfs_path}/dltmeta_conf/")
             self._ws.dbfs.upload(f"{cmd.dbfs_path}/dltmeta_conf/{onboarding_filename}", ob_file, overwrite=True)
             self.update_ws_onboarding_paths(cmd)
-            onboarding_filename = os.path.basename(cmd.onboarding_file_path)            
+            onboarding_filename = os.path.basename(cmd.onboarding_file_path)
             self.copy_to_dbfs(cmd.onboarding_files_dir_path, cmd.dbfs_path + "/dltmeta_conf/")
             logger.info(f"uploading to  {cmd.dbfs_path}/dltmeta_conf complete!!!")
         created_job = self.create_onnboarding_job(cmd)
@@ -498,7 +498,7 @@ class DLTMeta:
         load_from_ojd_json = False
         if oc_job_details_json:
             load_from_ojd_json_opt = self._wsi._choice(
-                "onboarding_job_details.json Found! Do you want to use it for deployment?", 
+                "onboarding_job_details.json Found! Do you want to use it for deployment?",
                 ['Yes', 'No']
             )
         load_from_ojd_json = True if load_from_ojd_json_opt == "Yes" else False
@@ -507,7 +507,7 @@ class DLTMeta:
             oc_job_details_json = json.loads(oc_job_details_json)
             deploy_cmd_dict["uc_enabled"] = self._wsi._choice(
                 "Deploy DLT-META with unity catalog enabled?", ["True", "False"])
-            deploy_cmd_dict["uc_enabled"] = True if deploy_cmd_dict["uc_enabled"] == "True" else False            
+            deploy_cmd_dict["uc_enabled"] = True if deploy_cmd_dict["uc_enabled"] == "True" else False
             if deploy_cmd_dict["uc_enabled"]:
                 deploy_cmd_dict["uc_catalog_name"] = self._wsi._question(
                     "Provide unity catalog name")
