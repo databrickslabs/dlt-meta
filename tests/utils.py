@@ -42,6 +42,7 @@ class DLTFrameworkTestCase(unittest.TestCase):
         self.onboarding_bronze_type2_json_file = "tests/resources/onboarding_ac_bronze_type2.json"
         self.onboarding_append_flow_json_file = "tests/resources/onboarding_append_flow.json"
         self.onboarding_silver_fanout_json_file = "tests/resources/onboarding_silverfanout.json"
+        self.onboarding_multiple_partitions_file = "tests/resources/onboarding_multiple_partitions.json"
         self.onboarding_apply_changes_from_snapshot_json_file = (
             "tests/resources/onboarding_applychanges_from_snapshot.json"
         )
