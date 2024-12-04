@@ -23,9 +23,8 @@ Note: This script requires certain command line arguments to be provided in orde
 """
 
 import uuid
+import traceback
 from databricks.sdk.service import jobs, compute
-from databricks.sdk.service.catalog import VolumeType, SchemasAPI
-from databricks.sdk.service.workspace import ImportFormat
 from dataclasses import dataclass
 from src.install import WorkspaceInstaller
 from src.__about__ import __version__
@@ -83,56 +82,46 @@ class DLTMETATechSummitDemo(DLTMETARunner):
             dlt_meta_schema=f"dlt_meta_dataflowspecs_demo_{run_id}",
             bronze_schema=f"dlt_meta_bronze_demo_{run_id}",
             silver_schema=f"dlt_meta_silver_demo_{run_id}",
-            runners_full_local_path='./demo/dbc/tech_summit_dlt_meta_runners.dbc',
+            runners_full_local_path='demo/notebooks/techsummit_runners',
             runners_nb_path=f"/Users/{self._my_username(self.ws)}/dlt_meta_techsummit_demo/{run_id}",
-            # node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
+            int_tests_dir="demo",
             env="prod",
-            table_count=self.args.__dict__['table_count'] if self.args.__dict__['table_count'] else "100",
-            table_column_count=(self.args.__dict__['table_column_count'] if self.args.__dict__['table_column_count']
-                                else "5"),
+            table_count=(
+                self.args.__dict__['table_count']
+                if 'table_count' in self.args and self.args.__dict__['table_count']
+                else "100"
+            ),
+            table_column_count=(
+                self.args.__dict__['table_column_count']
+                if 'table_column_count' in self.args and self.args.__dict__['table_column_count']
+                else "5"
+            ),
             table_data_rows_count=(self.args.__dict__['table_data_rows_count']
-                                   if self.args.__dict__['table_data_rows_count'] else "10"),
-            worker_nodes=self.args.__dict__['worker_nodes'] if self.args.__dict__['worker_nodes'] else "4",
-            source="cloudFiles",
-            onboarding_file_path='demo/conf/onboarding.json'
+                                   if 'table_data_rows_count' in self.args
+                                   and self.args.__dict__['table_data_rows_count']
+                                   else "10"),
         )
-        if self.args.__dict__['uc_catalog_name']:
-            runner_conf.uc_catalog_name = self.args.__dict__['uc_catalog_name']
-            runner_conf.uc_volume_name = f"{self.args.__dict__['uc_catalog_name']}_volume_{run_id}"
+        if self.args['uc_catalog_name']:
+            runner_conf.uc_catalog_name = self.args['uc_catalog_name']
+            runner_conf.uc_volume_name = f"{self.args['uc_catalog_name']}_volume_{run_id}"
         return runner_conf
 
-    def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
-        """
-        Initializes the DLT-META runner configuration by uploading the necessary files and creating the required
-        schemas and volumes.
+    def create_bronze_silver_dlt(self, runner_conf: DLTMetaRunnerConf):
+        runner_conf.bronze_pipeline_id = self.create_dlt_meta_pipeline(
+            f"dlt-meta-bronze-{runner_conf.run_id}",
+            "bronze",
+            "A1",
+            runner_conf.bronze_schema,
+            runner_conf,
+        )
 
-        Parameters:
-        - runner_conf: The DLTMetaRunnerConf object containing the runner configuration parameters.
-        """
-        fp = open(runner_conf.runners_full_local_path, "rb")
-        self.ws.workspace.mkdirs(runner_conf.runners_nb_path)
-        self.ws.workspace.upload(path=f"{runner_conf.runners_nb_path}/runners",
-                                 format=ImportFormat.DBC, content=fp.read())
-        if runner_conf.uc_catalog_name:
-            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                  name=runner_conf.dlt_meta_schema,
-                                                  comment="dlt_meta framework schema")
-            volume_info = self.ws.volumes.create(catalog_name=runner_conf.uc_catalog_name,
-                                                 schema_name=runner_conf.dlt_meta_schema,
-                                                 name=runner_conf.uc_volume_name,
-                                                 volume_type=VolumeType.MANAGED)
-            runner_conf.volume_info = volume_info
-            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                  name=runner_conf.bronze_schema,
-                                                  comment="bronze_schema")
-            SchemasAPI(self.ws.api_client).create(catalog_name=runner_conf.uc_catalog_name,
-                                                  name=runner_conf.silver_schema,
-                                                  comment="silver_schema")
-            runner_conf.uc_volume_path = (f"/Volumes/{runner_conf.volume_info.catalog_name}/"
-                                          f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/"
-                                          )
-
-        self.build_and_upload_package(runner_conf)  # comment this line before merging to master
+        runner_conf.silver_pipeline_id = self.create_dlt_meta_pipeline(
+            f"dlt-meta-silver-{runner_conf.run_id}",
+            "silver",
+            "A1",
+            runner_conf.silver_schema,
+            runner_conf,
+        )
 
     def run(self, runner_conf: DLTMetaRunnerConf):
         """
@@ -147,6 +136,7 @@ class DLTMETATechSummitDemo(DLTMETARunner):
             self.launch_workflow(runner_conf)
         except Exception as e:
             print(e)
+            traceback.print_exc()
         # finally:
         #     self.clean_up(runner_conf)
 
@@ -170,26 +160,25 @@ class DLTMETATechSummitDemo(DLTMETARunner):
         Returns:
         - created_job: The created job object.
         """
-        database, dlt_lib = self.init_db_dltlib(runner_conf)
-        environments = [
+        dltmeta_environments = [
             jobs.JobEnvironment(
-                environment_key="dlt_meta_techsummit_demo_env",
+                environment_key="dl_meta_int_env",
                 spec=compute.Environment(
                     client=f"dlt_meta_int_test_{__version__}",
-                    dependencies=["dlt_meta==0.0.8"]
-                )
+                    dependencies=[runner_conf.remote_whl_path],
+                ),
             )
         ]
         return self.ws.jobs.create(
             name=f"dlt-meta-techsummit-demo-{runner_conf.run_id}",
-            environments=environments,
+            environments=dltmeta_environments,
             tasks=[
                 jobs.Task(
                     task_key="generate_data",
                     description="Generate Test Data and Onboarding Files",
                     timeout_seconds=0,
                     notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.runners_nb_path}/runners/data_generator",
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/data_generator.py",
                         base_parameters={
                             "base_input_path": runner_conf.uc_volume_path,
                             "table_column_count": runner_conf.table_column_count,
@@ -207,14 +196,14 @@ class DLTMETATechSummitDemo(DLTMETARunner):
                     task_key="onboarding_job",
                     description="Sets up metadata tables for DLT-META",
                     depends_on=[jobs.TaskDependency(task_key="generate_data")],
-                    environment_key="dlt_meta_techsummit_demo_env",
+                    environment_key="dl_meta_int_env",
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
                         entry_point="run",
                         named_parameters={
                             "onboard_layer": "bronze_silver",
-                            "database": database,
+                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
                             "onboarding_file_path":
                             f"{runner_conf.uc_volume_path}/conf/onboarding.json",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
@@ -250,7 +239,6 @@ class DLTMETATechSummitDemo(DLTMETARunner):
 techsummit_args_map = {"--profile": "provide databricks cli profile name, if not provide databricks_host and token",
                        "--uc_catalog_name": "provide databricks uc_catalog name, \
                                             this is required to create volume, schema, table",
-                       "--worker_nodes": "worker_nodes",
                        "--table_count": "table_count",
                        "--table_column_count": "table_column_count",
                        "--table_data_rows_count": "table_data_rows_count"
@@ -260,8 +248,8 @@ techsummit_mandatory_args = ["uc_catalog_name"]
 
 
 def main():
-    args = process_arguments(techsummit_args_map, techsummit_mandatory_args)
-    workspace_client = get_workspace_api_client(args.profile)
+    args = process_arguments()
+    workspace_client = get_workspace_api_client(args["profile"])
     dltmeta_techsummit_demo_runner = DLTMETATechSummitDemo(args, workspace_client, "demo")
     print("initializing complete")
     runner_conf = dltmeta_techsummit_demo_runner.init_runner_conf()

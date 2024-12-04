@@ -608,9 +608,11 @@ class OnboardDataflowspec:
                     data_quality_expectations = self.__get_data_quality_expecations(
                         bronze_data_quality_expectations_json
                     )
-                    quarantine_target_details, quarantine_table_properties = self.__get_quarantine_details(
-                        env, onboarding_row
-                    )
+                    if onboarding_row["bronze_quarantine_table"]:
+                        quarantine_target_details, quarantine_table_properties = self.__get_quarantine_details(
+                            env, onboarding_row
+                        )
+
             append_flows, append_flows_schemas = self.get_append_flows_json(
                 onboarding_row, "bronze", env
             )
@@ -666,7 +668,8 @@ class OnboardDataflowspec:
             and onboarding_row["bronze_quarantine_table_properties"]
         ):
             quarantine_table_properties = self.__delete_none(
-                onboarding_row["bronze_quarantine_table_properties"].asDict())
+                onboarding_row["bronze_quarantine_table_properties"].asDict()
+            )
         return quarantine_target_details, quarantine_table_properties
 
     def get_append_flows_json(self, onboarding_row, layer, env):
@@ -810,15 +813,18 @@ class OnboardDataflowspec:
                         select_metadata_cols = self.__delete_none(
                             source_metadata_dict["select_metadata_cols"].asDict()
                         )
-                        source_metadata_dict["select_metadata_cols"] = (
-                            select_metadata_cols
-                        )
+                        source_metadata_dict["select_metadata_cols"] = select_metadata_cols
                     source_details["source_metadata"] = json.dumps(
                         self.__delete_none(source_metadata_dict)
                     )
-            elif (
-                source_format.lower() == "eventhub" or source_format.lower() == "kafka"
-            ):
+            if source_format.lower() == "snapshot":
+                snapshot_format = source_details_file.get("snapshot_format", None)
+                if snapshot_format is None:
+                    raise Exception("snapshot_format is missing in the source_details")
+                source_details["snapshot_format"] = snapshot_format
+                if f"source_path_{env}" in source_details_file:
+                    source_details["path"] = source_details_file[f"source_path_{env}"]
+            elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
                 source_details = source_details_file
             elif source_format.lower() == "snapshot":
                 snapshot_format = source_details_file.get("snapshot_format", None)
