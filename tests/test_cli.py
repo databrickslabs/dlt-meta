@@ -187,7 +187,7 @@ class CliTests(unittest.TestCase):
             onboarding_files_dir_path="tests/resources/",
             onboard_layer="bronze",
             env="dev",
-            import_author="John Doe",
+            import_author="Ravi Gawai",
             version="1.0",
             dlt_meta_schema="dlt_meta",
             bronze_dataflowspec_path="tests/resources/bronze_dataflowspec",
