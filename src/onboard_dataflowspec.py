@@ -384,6 +384,14 @@ class OnboardDataflowspec:
         _dict.update(filtered)
         return _dict
 
+    def __split_comma_separated(self, value):
+        """Splits a string by commas if it contains commas, or wraps the value in a list if it doesn't."""
+        if "," in value:
+            columns = value.split(",")
+        else:
+            columns = [value]
+        return columns
+
     def __get_onboarding_file_dataframe(self, onboarding_file_path):
         onboarding_df = None
         if onboarding_file_path.lower().endswith(".json"):
@@ -577,11 +585,7 @@ class OnboardDataflowspec:
                 "bronze_partition_columns" in onboarding_row
                 and onboarding_row["bronze_partition_columns"]
             ):
-                # Split if this is a list separated by commas
-                if "," in onboarding_row["bronze_partition_columns"]:
-                    partition_columns = onboarding_row["bronze_partition_columns"].split(",")
-                else:
-                    partition_columns = [onboarding_row["bronze_partition_columns"]]
+                partition_columns = self.__split_comma_separated(onboarding_row["bronze_partition_columns"])
 
             cdc_apply_changes = None
             if (
@@ -654,11 +658,8 @@ class OnboardDataflowspec:
             "bronze_quarantine_table_partitions" in onboarding_row
             and onboarding_row["bronze_quarantine_table_partitions"]
         ):
-            # Split if this is a list separated by commas
-            if "," in onboarding_row["bronze_quarantine_table_partitions"]:
-                quarantine_table_partition_columns = onboarding_row["bronze_quarantine_table_partitions"].split(",")
-            else:
-                quarantine_table_partition_columns = onboarding_row["bronze_quarantine_table_partitions"]
+            quarantine_table_partition_columns = self.__split_comma_separated(onboarding_row["bronze_quarantine_table_partitions"])
+
         if (
             f"bronze_database_quarantine_{env}" in onboarding_row
             and onboarding_row[f"bronze_database_quarantine_{env}"]
@@ -1001,16 +1002,12 @@ class OnboardDataflowspec:
                     onboarding_row["silver_table_properties"].asDict()
                 )
 
-            silver_parition_columns = [""]
+            silver_partition_columns = [""]
             if (
                 "silver_partition_columns" in onboarding_row
                 and onboarding_row["silver_partition_columns"]
             ):
-                # Split if this is a list separated by commas
-                if "," in onboarding_row["silver_partition_columns"]:
-                    silver_parition_columns = onboarding_row["silver_partition_columns"].split(",")
-                else:
-                    silver_parition_columns = [onboarding_row["silver_partition_columns"]]
+                silver_partition_columns = self.__split_comma_separated(onboarding_row["silver_partition_columns"])
 
             silver_cdc_apply_changes = None
             if (
@@ -1046,7 +1043,7 @@ class OnboardDataflowspec:
                 silver_target_format,
                 silver_target_details,
                 silver_table_properties,
-                silver_parition_columns,
+                silver_partition_columns,
                 silver_cdc_apply_changes,
                 data_quality_expectations,
                 append_flows,

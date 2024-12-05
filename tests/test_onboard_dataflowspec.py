@@ -177,7 +177,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map, uc_enabled=True)
         onboardDataFlowSpecs.onboard_dataflow_specs()
 
-        #Assert Bronze DataflowSpec for multiple partition, and quarantine partition columns.
+        # Assert Bronze DataflowSpec for multiple partition, and quarantine partition columns.
         bronze_dataflowSpec_df = self.read_dataflowspec(
             self.onboarding_bronze_silver_params_uc_map['database'],
             self.onboarding_bronze_silver_params_uc_map['bronze_dataflowspec_table'])
@@ -189,8 +189,8 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
                 col for col in bronze_row.quarantineTargetDetails.get('partition_columns').strip('[]').split(',')
             ]
             self.assertEqual(len(quarantine_partitions), 2)
-        
-        #Assert Silver DataflowSpec for multiple partition columns.
+
+        # Assert Silver DataflowSpec for multiple partition columns.
         silver_dataflowSpec_df = self.read_dataflowspec(
             self.onboarding_bronze_silver_params_map['database'],
             self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
