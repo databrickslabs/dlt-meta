@@ -40,6 +40,7 @@ class BronzeDataflowSpec:
     createdBy: str
     updateDate: datetime
     updatedBy: str
+    clusterBy: list
 
 
 @dataclass
@@ -66,6 +67,7 @@ class SilverDataflowSpec:
     createdBy: str
     updateDate: datetime
     updatedBy: str
+    clusterBy: list
 
 
 @dataclass
