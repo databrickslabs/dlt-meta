@@ -658,7 +658,9 @@ class OnboardDataflowspec:
             "bronze_quarantine_table_partitions" in onboarding_row
             and onboarding_row["bronze_quarantine_table_partitions"]
         ):
-            quarantine_table_partition_columns = self.__split_comma_separated(onboarding_row["bronze_quarantine_table_partitions"])
+            quarantine_table_partition_columns = self.__split_comma_separated(
+                onboarding_row["bronze_quarantine_table_partitions"]
+            )
 
         if (
             f"bronze_database_quarantine_{env}" in onboarding_row
