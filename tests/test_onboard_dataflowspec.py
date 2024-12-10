@@ -442,4 +442,3 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         self.assertEqual(quarantine_target_details["table"], "quarantine_table")
         self.assertNotIn("path", quarantine_target_details)
         self.assertEqual(quarantine_table_properties, {"property_key": "property_value"})
-

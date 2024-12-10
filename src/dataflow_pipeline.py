@@ -17,7 +17,8 @@ logger.setLevel(logging.INFO)
 class AppendFlowWriter:
     """Append Flow Writer class."""
 
-    def __init__(self, spark, append_flow, target, struct_schema, table_properties=None, partition_cols=None, cluster_by=None):
+    def __init__(self, spark, append_flow, target, struct_schema, table_properties=None, partition_cols=None,
+                 cluster_by=None):
         """Init."""
         self.spark = spark
         self.target = target
