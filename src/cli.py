@@ -20,7 +20,8 @@ logger = logging.getLogger('databricks.labs.dltmeta')
 
 DLT_META_RUNNER_NOTEBOOK = """
 # Databricks notebook source
-# MAGIC %pip install dlt-meta=={version}
+# MAGIC version = spark.conf.get("version", None)
+# MAGIC %pip install dlt-meta==$version
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
