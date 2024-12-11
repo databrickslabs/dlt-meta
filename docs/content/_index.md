@@ -4,7 +4,6 @@ date: 2021-08-04T14:50:11-04:00
 draft: false
 ---
 
-# DLT-META 
 
 ## Project Overview
 DLT-META is a metadata-driven framework designed to work with Databricks Delta Live Tables (DLT). This framework enables the automation of bronze and silver data pipelines by leveraging metadata recorded in an onboarding JSON file. This file, known as the Dataflowspec, serves as the data flow specification, detailing the source and target metadata required for the pipelines.

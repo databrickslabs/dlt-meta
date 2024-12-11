@@ -1,5 +1,6 @@
 
 import uuid
+import traceback
 from databricks.sdk.service import jobs, compute
 from src.install import WorkspaceInstaller
 from src.__about__ import __version__
@@ -50,6 +51,9 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
             self.launch_workflow(runner_conf)
         except Exception as e:
             print(e)
+            traceback.print_exc()
+        # finally:
+        #     self.clean_up(runner_conf)
 
     def init_runner_conf(self) -> DLTMetaRunnerConf:
         """
@@ -64,13 +68,13 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
             username=self.wsi._my_username,
-            int_tests_dir="file:./demo",
+            int_tests_dir="demo",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_demo_{run_id}",
             bronze_schema=f"dlt_meta_bronze_demo_{run_id}",
             silver_schema=f"dlt_meta_silver_demo_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_fout_demo/{run_id}",
-            runners_full_local_path='./demo/dbc/silver_fout_runners.dbc',
-            source="cloudFiles",
+            runners_full_local_path="demo/notebooks/silver_fanout_runners",
+            source="cloudfiles",
             # node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             # dbr_version=self.args.__dict__['dbr_version'],
             cloudfiles_template="demo/conf/onboarding_cars.template",
@@ -79,7 +83,7 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
             onboarding_fanout_file_path="demo/conf/onboarding_fanout_cars.json",
             env="demo"
         )
-        runner_conf.uc_catalog_name = self.args.__dict__['uc_catalog_name']
+        runner_conf.uc_catalog_name = self.args['uc_catalog_name']
         runner_conf.uc_volume_name = f"{runner_conf.uc_catalog_name}_dlt_meta_fout_demo_{run_id}"
         return runner_conf
 
@@ -97,14 +101,13 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
         Returns:
         - created_job: The created job object.
         """
-        database, dlt_lib = self.init_db_dltlib(runner_conf)
         dltmeta_environments = [
             jobs.JobEnvironment(
-                environment_key="dl_meta_sfo_demo_env",
-                spec=compute.Environment(client=f"dlt_meta_int_test_{__version__}",
-                                         # dependencies=[f"dlt_meta=={__version__}"],
-                                         dependencies=["dlt_meta==0.0.8"]
-                                         )
+                environment_key="dl_meta_int_env",
+                spec=compute.Environment(
+                    client=f"dlt_meta_int_test_{__version__}",
+                    dependencies=[runner_conf.remote_whl_path],
+                ),
             )
         ]
         return self.ws.jobs.create(
@@ -114,15 +117,14 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
                 jobs.Task(
                     task_key="onboarding_job",
                     description="Sets up metadata tables for DLT-META",
-                    # existing_cluster_id=runner_conf.cluster_id,
-                    environment_key="dl_meta_sfo_demo_env",
+                    environment_key="dl_meta_int_env",
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
                         entry_point="run",
                         named_parameters={
                             "onboard_layer": "bronze_silver",
-                            "database": database,
+                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
                             "onboarding_file_path":
                             f"{runner_conf.uc_volume_path}/{runner_conf.onboarding_file_path}",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
@@ -134,21 +136,19 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
                             "uc_enabled": "True"
                         },
                     ),
-                    # libraries=dlt_lib
                 ),
                 jobs.Task(
                     task_key="onboard_silverfanout_job",
                     description="Sets up metadata tables for DLT-META",
                     depends_on=[jobs.TaskDependency(task_key="onboarding_job")],
-                    # existing_cluster_id=runner_conf.cluster_id,
-                    environment_key="dl_meta_sfo_demo_env",
+                    environment_key="dl_meta_int_env",
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
                         entry_point="run",
                         named_parameters={
                             "onboard_layer": "silver",
-                            "database": database,
+                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
                             "onboarding_file_path":
                             f"{runner_conf.uc_volume_path}/{runner_conf.onboarding_fanout_file_path}",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
@@ -159,7 +159,6 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
                             "uc_enabled": "True"
                         },
                     ),
-                    # libraries=dlt_lib
                 ),
                 jobs.Task(
                     task_key="bronze_dlt",
@@ -179,17 +178,9 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
         )
 
 
-sfo_args_map = {
-    "--profile": "provide databricks cli profile name, if not provide databricks_host and token",
-    "--uc_catalog_name": "provide databricks uc_catalog name, this is required to create volume, schema, table"
-}
-
-sfo_mandatory_args = ["uc_catalog_name"]
-
-
 def main():
-    args = process_arguments(sfo_args_map, sfo_mandatory_args)
-    workspace_client = get_workspace_api_client(args.profile)
+    args = process_arguments()
+    workspace_client = get_workspace_api_client(args['profile'])
     dltmeta_afam_demo_runner = DLTMETATSilverFanoutDemo(args, workspace_client, "demo")
     print("initializing complete")
     runner_conf = dltmeta_afam_demo_runner.init_runner_conf()

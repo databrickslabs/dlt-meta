@@ -472,6 +472,7 @@ class OnboardDataflowspec:
             "quarantineTableProperties",
             "appendFlows",
             "appendFlowsSchemas",
+            "clusterBy",
         ]
         data_flow_spec_schema = StructType(
             [
@@ -509,11 +510,8 @@ class OnboardDataflowspec:
                     True,
                 ),
                 StructField("appendFlows", StringType(), True),
-                StructField(
-                    "appendFlowsSchemas",
-                    MapType(StringType(), StringType(), True),
-                    True,
-                ),
+                StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True),
+                StructField("clusterBy", ArrayType(StringType(), True), True),
             ]
         )
         data = []
@@ -579,6 +577,10 @@ class OnboardDataflowspec:
             ):
                 partition_columns = [onboarding_row["bronze_partition_columns"]]
 
+            cluster_by = [""]
+            if "bronze_cluster_by" in onboarding_row and onboarding_row["bronze_cluster_by"]:
+                cluster_by = onboarding_row["bronze_cluster_by"]
+
             cdc_apply_changes = None
             if (
                 "bronze_cdc_apply_changes" in onboarding_row
@@ -608,9 +610,11 @@ class OnboardDataflowspec:
                     data_quality_expectations = self.__get_data_quality_expecations(
                         bronze_data_quality_expectations_json
                     )
-                    quarantine_target_details, quarantine_table_properties = self.__get_quarantine_details(
-                        env, onboarding_row
-                    )
+                    if onboarding_row["bronze_quarantine_table"]:
+                        quarantine_target_details, quarantine_table_properties = self.__get_quarantine_details(
+                            env, onboarding_row
+                        )
+
             append_flows, append_flows_schemas = self.get_append_flows_json(
                 onboarding_row, "bronze", env
             )
@@ -632,6 +636,7 @@ class OnboardDataflowspec:
                 quarantine_table_properties,
                 append_flows,
                 append_flows_schemas,
+                cluster_by
             )
             data.append(bronze_row)
             # logger.info(bronze_parition_columns)
@@ -651,13 +656,23 @@ class OnboardDataflowspec:
             and onboarding_row["bronze_quarantine_table_partitions"]
         ):
             quarantine_table_partition_columns = onboarding_row["bronze_quarantine_table_partitions"]
+
+        quarantine_table_cluster_by = None
+        if (
+                "bronze_quarantine_table_cluster_by" in onboarding_row
+                and onboarding_row["bronze_quarantine_table_cluster_by"]
+                and len(onboarding_row["bronze_quarantine_table_cluster_by"]) > 0
+        ):
+            quarantine_table_cluster_by = ",".join(onboarding_row["bronze_quarantine_table_cluster_by"])
+
         if (
             f"bronze_database_quarantine_{env}" in onboarding_row
             and onboarding_row[f"bronze_database_quarantine_{env}"]
         ):
             quarantine_target_details = {"database": onboarding_row[f"bronze_database_quarantine_{env}"],
                                          "table": onboarding_row["bronze_quarantine_table"],
-                                         "partition_columns": quarantine_table_partition_columns
+                                         "partition_columns": quarantine_table_partition_columns,
+                                         "cluster_by": quarantine_table_cluster_by
                                          }
         if not self.uc_enabled and f"bronze_quarantine_table_path_{env}" in onboarding_row:
             quarantine_target_details["path"] = onboarding_row[f"bronze_quarantine_table_path_{env}"]
@@ -666,7 +681,8 @@ class OnboardDataflowspec:
             and onboarding_row["bronze_quarantine_table_properties"]
         ):
             quarantine_table_properties = self.__delete_none(
-                onboarding_row["bronze_quarantine_table_properties"].asDict())
+                onboarding_row["bronze_quarantine_table_properties"].asDict()
+            )
         return quarantine_target_details, quarantine_table_properties
 
     def get_append_flows_json(self, onboarding_row, layer, env):
@@ -810,15 +826,18 @@ class OnboardDataflowspec:
                         select_metadata_cols = self.__delete_none(
                             source_metadata_dict["select_metadata_cols"].asDict()
                         )
-                        source_metadata_dict["select_metadata_cols"] = (
-                            select_metadata_cols
-                        )
+                        source_metadata_dict["select_metadata_cols"] = select_metadata_cols
                     source_details["source_metadata"] = json.dumps(
                         self.__delete_none(source_metadata_dict)
                     )
-            elif (
-                source_format.lower() == "eventhub" or source_format.lower() == "kafka"
-            ):
+            if source_format.lower() == "snapshot":
+                snapshot_format = source_details_file.get("snapshot_format", None)
+                if snapshot_format is None:
+                    raise Exception("snapshot_format is missing in the source_details")
+                source_details["snapshot_format"] = snapshot_format
+                if f"source_path_{env}" in source_details_file:
+                    source_details["path"] = source_details_file[f"source_path_{env}"]
+            elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
                 source_details = source_details_file
             elif source_format.lower() == "snapshot":
                 snapshot_format = source_details_file.get("snapshot_format", None)
@@ -912,6 +931,7 @@ class OnboardDataflowspec:
             "dataQualityExpectations",
             "appendFlows",
             "appendFlowsSchemas",
+            "clusterBy"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -937,11 +957,8 @@ class OnboardDataflowspec:
                 StructField("cdcApplyChanges", StringType(), True),
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField("appendFlows", StringType(), True),
-                StructField(
-                    "appendFlowsSchemas",
-                    MapType(StringType(), StringType(), True),
-                    True,
-                ),
+                StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True),
+                StructField("clusterBy", ArrayType(StringType(), True), True)
             ]
         )
         data = []
@@ -1000,6 +1017,10 @@ class OnboardDataflowspec:
             ):
                 silver_parition_columns = [onboarding_row["silver_partition_columns"]]
 
+            silver_cluster_by = [""]
+            if "silver_cluster_by" in onboarding_row and onboarding_row["silver_cluster_by"]:
+                silver_cluster_by = onboarding_row["silver_cluster_by"]
+
             silver_cdc_apply_changes = None
             if (
                 "silver_cdc_apply_changes" in onboarding_row
@@ -1039,6 +1060,7 @@ class OnboardDataflowspec:
                 data_quality_expectations,
                 append_flows,
                 append_flow_schemas,
+                silver_cluster_by
             )
             data.append(silver_row)
             logger.info(f"silver_data ==== {data}")
