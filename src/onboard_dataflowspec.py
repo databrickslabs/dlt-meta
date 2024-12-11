@@ -62,7 +62,7 @@ class OnboardDataflowspec:
         if sorted(set(attributes)) != sorted(set(dict_obj.keys())):
             attributes_keys = set(dict_obj.keys())
             logger.info("In validate dict attributes")
-            logger.info(set(attributes), attributes_keys)
+            logger.info(f"expected: {set(attributes)}, actual: {attributes_keys}")
             logger.info(
                 "missing attributes : {}".format(
                     set(attributes).difference(attributes_keys)
@@ -656,18 +656,18 @@ class OnboardDataflowspec:
         quarantine_table_partition_columns = ""
         quarantine_target_details = {}
         quarantine_table_properties = {}
+        quarantine_table_cluster_by = None
         if (
             "bronze_quarantine_table_partitions" in onboarding_row
             and onboarding_row["bronze_quarantine_table_partitions"]
         ):
 
-        quarantine_table_cluster_by = None
-        if (
-                "bronze_quarantine_table_cluster_by" in onboarding_row
-                and onboarding_row["bronze_quarantine_table_cluster_by"]
-                and len(onboarding_row["bronze_quarantine_table_cluster_by"]) > 0
-        ):
-            quarantine_table_cluster_by = ",".join(onboarding_row["bronze_quarantine_table_cluster_by"])
+            if (
+                    "bronze_quarantine_table_cluster_by" in onboarding_row
+                    and onboarding_row["bronze_quarantine_table_cluster_by"]
+                    and len(onboarding_row["bronze_quarantine_table_cluster_by"]) > 0
+            ):
+                quarantine_table_cluster_by = ",".join(onboarding_row["bronze_quarantine_table_cluster_by"])
 
             # Split if this is a list separated by commas
             if "," in onboarding_row["bronze_quarantine_table_partitions"]:

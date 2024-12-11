@@ -33,6 +33,7 @@ The `onboarding.json` file contains links to [silver_transformations.json](https
 | bronze_table | Delta lake bronze table name |
 | bronze_reader_options | Reader options which can be provided to spark reader <br> e.g multiline=true,header=true in json format |
 | bronze_parition_columns | Bronze table partition cols list |
+| bronze_cluster_by | Bronze tables cluster by cols list |
 | bronze_cdc_apply_changes | Bronze cdc apply changes Json |
 | bronze_table_path_{env} | Bronze table storage path.|
 | bronze_table_properties | DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false" }` |
@@ -41,11 +42,13 @@ The `onboarding.json` file contains links to [silver_transformations.json](https
 | bronze_quarantine_table	Bronze | Table for quarantine data which fails expectations |
 | bronze_quarantine_table_path_{env} | Bronze database for quarantine data which fails expectations. |
 | bronze_quarantine_table_partitions | Bronze quarantine tables partition cols |
+| bronze_quarantine_table_cluster_by | Bronze quarantine tables cluster cols |
 | bronze_quarantine_table_properties | DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false" }` |
 | bronze_append_flows | Bronze table append flows json. e.g.`"bronze_append_flows":[{"name":"customer_bronze_flow", "create_streaming_table": false,"source_format": "cloudFiles", "source_details": {"source_database": "APP","source_table":"CUSTOMERS", "source_path_dev": "tests/resources/data/customers", "source_schema_path": "tests/resources/schema/customer_schema.ddl"},"reader_options": {"cloudFiles.format": "json","cloudFiles.inferColumnTypes": "true","cloudFiles.rescuedDataColumn": "_rescued_data"},"once": true}]` |
 | silver_database_{env} | Silver database name. |
 | silver_table | Silver table name |
 | silver_partition_columns | Silver table partition columns list |
+| silver_cluster_by | Silver tables cluster by cols list |
 | silver_cdc_apply_changes | Silver cdc apply changes Json |
 | silver_table_path_{env} | Silver table storage path. |
 | silver_table_properties | DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false"}` |
