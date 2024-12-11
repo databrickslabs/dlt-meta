@@ -390,6 +390,7 @@ class OnboardDataflowspec:
             onboarding_df = self.spark.read.option("multiline", "true").json(
                 onboarding_file_path
             )
+            onboarding_df.show()
             self.onboard_file_type = "json"
             onboarding_df_dupes = (
                 onboarding_df.groupBy("data_flow_id").count().filter("count > 1")
@@ -575,7 +576,11 @@ class OnboardDataflowspec:
                 "bronze_partition_columns" in onboarding_row
                 and onboarding_row["bronze_partition_columns"]
             ):
-                partition_columns = [onboarding_row["bronze_partition_columns"]]
+                # Split if this is a list separated by commas
+                if "," in onboarding_row["bronze_partition_columns"]:
+                    partition_columns = onboarding_row["bronze_partition_columns"].split(",")
+                else:
+                    partition_columns = [onboarding_row["bronze_partition_columns"]]
 
             cluster_by = [""]
             if "bronze_cluster_by" in onboarding_row and onboarding_row["bronze_cluster_by"]:
@@ -655,7 +660,6 @@ class OnboardDataflowspec:
             "bronze_quarantine_table_partitions" in onboarding_row
             and onboarding_row["bronze_quarantine_table_partitions"]
         ):
-            quarantine_table_partition_columns = onboarding_row["bronze_quarantine_table_partitions"]
 
         quarantine_table_cluster_by = None
         if (
@@ -665,6 +669,11 @@ class OnboardDataflowspec:
         ):
             quarantine_table_cluster_by = ",".join(onboarding_row["bronze_quarantine_table_cluster_by"])
 
+            # Split if this is a list separated by commas
+            if "," in onboarding_row["bronze_quarantine_table_partitions"]:
+                quarantine_table_partition_columns = onboarding_row["bronze_quarantine_table_partitions"].split(",")
+            else:
+                quarantine_table_partition_columns = onboarding_row["bronze_quarantine_table_partitions"]
         if (
             f"bronze_database_quarantine_{env}" in onboarding_row
             and onboarding_row[f"bronze_database_quarantine_{env}"]
@@ -1015,7 +1024,11 @@ class OnboardDataflowspec:
                 "silver_partition_columns" in onboarding_row
                 and onboarding_row["silver_partition_columns"]
             ):
-                silver_parition_columns = [onboarding_row["silver_partition_columns"]]
+                # Split if this is a list separated by commas
+                if "," in onboarding_row["silver_partition_columns"]:
+                    silver_parition_columns = onboarding_row["silver_partition_columns"].split(",")
+                else:
+                    silver_parition_columns = [onboarding_row["silver_partition_columns"]]
 
             silver_cluster_by = [""]
             if "silver_cluster_by" in onboarding_row and onboarding_row["silver_cluster_by"]:
