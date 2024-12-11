@@ -17,7 +17,8 @@ logger.setLevel(logging.INFO)
 class AppendFlowWriter:
     """Append Flow Writer class."""
 
-    def __init__(self, spark, append_flow, target, struct_schema, table_properties=None, partition_cols=None):
+    def __init__(self, spark, append_flow, target, struct_schema, table_properties=None, partition_cols=None,
+                 cluster_by=None):
         """Init."""
         self.spark = spark
         self.target = target
@@ -25,6 +26,7 @@ class AppendFlowWriter:
         self.struct_schema = struct_schema
         self.table_properties = table_properties
         self.partition_cols = partition_cols
+        self.cluster_by = cluster_by
 
     def write_af_to_delta(self):
         """Write to Delta."""
@@ -36,7 +38,8 @@ class AppendFlowWriter:
             dlt.create_streaming_table(
                 name=self.target,
                 table_properties=self.table_properties,
-                partition_cols=self.partition_cols,
+                partition_cols=DataflowSpecUtils.get_partition_cols(self.partition_cols),
+                cluster_by=DataflowSpecUtils.get_partition_cols(self.cluster_by),
                 schema=self.struct_schema,
                 expect_all=None,
                 expect_all_or_drop=None,
@@ -204,6 +207,7 @@ class DataflowPipeline:
                 self.write_to_delta,
                 name=f"{bronze_dataflow_spec.targetDetails['table']}",
                 partition_cols=DataflowSpecUtils.get_partition_cols(bronze_dataflow_spec.partitionColumns),
+                cluster_by=DataflowSpecUtils.get_partition_cols(bronze_dataflow_spec.clusterBy),
                 table_properties=bronze_dataflow_spec.tableProperties,
                 path=target_path,
                 comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}",
@@ -222,6 +226,7 @@ class DataflowPipeline:
                 self.write_to_delta,
                 name=f"{silver_dataflow_spec.targetDetails['table']}",
                 partition_cols=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.partitionColumns),
+                cluster_by=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.clusterBy),
                 table_properties=silver_dataflow_spec.tableProperties,
                 path=target_path,
                 comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}",
@@ -350,6 +355,7 @@ class DataflowPipeline:
                         name=f"{bronzeDataflowSpec.targetDetails['table']}",
                         table_properties=bronzeDataflowSpec.tableProperties,
                         partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
+                        cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
                         path=target_path,
                         comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
                     )
@@ -362,6 +368,7 @@ class DataflowPipeline:
                             name=f"{bronzeDataflowSpec.targetDetails['table']}",
                             table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
+                            cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
                             path=target_path,
                             comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
                         )
@@ -377,6 +384,7 @@ class DataflowPipeline:
                             name=f"{bronzeDataflowSpec.targetDetails['table']}",
                             table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
+                            cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
                             path=target_path,
                             comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
                         )
@@ -386,11 +394,18 @@ class DataflowPipeline:
                         dlt_table_with_expectation)
             if expect_or_quarantine_dict:
                 q_partition_cols = None
+                q_cluster_by = None
                 if (
                     "partition_columns" in bronzeDataflowSpec.quarantineTargetDetails
                     and bronzeDataflowSpec.quarantineTargetDetails["partition_columns"]
                 ):
                     q_partition_cols = [bronzeDataflowSpec.quarantineTargetDetails["partition_columns"]]
+
+                if (
+                        "cluster_by" in bronzeDataflowSpec.quarantineTargetDetails
+                        and bronzeDataflowSpec.quarantineTargetDetails["cluster_by"]
+                ):
+                    q_cluster_by = bronzeDataflowSpec.quarantineTargetDetails["cluster_by"]
                 target_path = None if self.uc_enabled else bronzeDataflowSpec.quarantineTargetDetails["path"]
                 dlt.expect_all_or_drop(expect_or_quarantine_dict)(
                     dlt.table(
@@ -398,6 +413,7 @@ class DataflowPipeline:
                         name=f"{bronzeDataflowSpec.quarantineTargetDetails['table']}",
                         table_properties=bronzeDataflowSpec.quarantineTableProperties,
                         partition_cols=q_partition_cols,
+                        cluster_by=q_cluster_by,
                         path=target_path,
                         comment=f"""bronze dlt quarantine_path table
                         {bronzeDataflowSpec.quarantineTargetDetails['table']}""",
@@ -429,7 +445,8 @@ class DataflowPipeline:
                 self.dataflowSpec.targetDetails['table'],
                 struct_schema,
                 self.dataflowSpec.tableProperties,
-                self.dataflowSpec.partitionColumns
+                self.dataflowSpec.partitionColumns,
+                self.dataflowSpec.clusterBy
             )
             append_flow_writer.write_flow()
 
@@ -521,6 +538,7 @@ class DataflowPipeline:
             name=target_table,
             table_properties=self.dataflowSpec.tableProperties,
             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
+            cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
             path=target_path,
             schema=struct_schema,
             expect_all=expect_all_dict,

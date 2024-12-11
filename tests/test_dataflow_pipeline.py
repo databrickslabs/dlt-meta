@@ -56,6 +56,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "createdBy": "dlt-meta-unittest",
         "updateDate": datetime.now,
         "updatedBy": "dlt-meta-unittest",
+        "clusterBy": [""],
     }
     silver_cdc_apply_changes = {
         "keys": ["id"],
@@ -111,6 +112,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "createdBy": "dlt-meta-unittest",
         "updateDate": datetime.now,
         "updatedBy": "dlt-meta-unittest",
+        "clusterBy": [""],
     }
 
     def setUp(self):
