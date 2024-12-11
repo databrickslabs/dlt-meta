@@ -435,8 +435,10 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(
             self.spark, self.onboarding_bronze_silver_params_map, uc_enabled=True
         )
-        quarantine_target_details, quarantine_table_properties = onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
-            "it", onboarding_row
+        quarantine_target_details, quarantine_table_properties = (
+            onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
+                "it", onboarding_row
+            )
         )
         self.assertEqual(quarantine_target_details["database"], "quarantine_db")
         self.assertEqual(quarantine_target_details["table"], "quarantine_table")
