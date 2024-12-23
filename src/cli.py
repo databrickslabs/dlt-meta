@@ -20,7 +20,7 @@ logger = logging.getLogger('databricks.labs.dltmeta')
 
 DLT_META_RUNNER_NOTEBOOK = """
 # Databricks notebook source
-# MAGIC %pip install dlt-meta=={version}
+# MAGIC %pip install /Workspace/Users/ravi.gawai@databricks.com/dlt-meta/wheels/dlt_meta-0.0.9-py3-none-any.whl #dlt-meta=={version}
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
@@ -271,7 +271,7 @@ class DLTMeta:
         dltmeta_environments = [
             jobs.JobEnvironment(
                 environment_key="dl_meta_cli_env",
-                spec=compute.Environment(client=f"dlt_meta_cli_{__version__}",
+                spec=compute.Environment(client="1",
                                          dependencies=[f"dlt-meta=={self.version}"]
                                          )
             )
@@ -520,7 +520,7 @@ class DLTMeta:
                 "Provide dlt meta layer", ['bronze', 'silver', 'bronze_silver'])
             if deploy_cmd_dict["layer"] == "bronze" or deploy_cmd_dict["layer"] == "bronze_silver":
                 if deploy_cmd_dict["uc_enabled"]:
-                    deploy_cmd_dict["dlt_meta_bronze_schema"] = oc_job_details_json["bronze_schema"]
+                    deploy_cmd_dict["dlt_meta_bronze_schema"] = oc_job_details_json["dlt_meta_schema"]
                     deploy_cmd_dict["dataflowspec_bronze_table"] = oc_job_details_json["bronze_dataflowspec_table"]
                 else:
                     deploy_cmd_dict["dataflowspec_bronze_path"] = oc_job_details_json["bronze_dataflowspec_path"]
@@ -528,7 +528,7 @@ class DLTMeta:
                     "Provide dlt meta bronze onboard group")
             if deploy_cmd_dict["layer"] == "silver" or deploy_cmd_dict["layer"] == "bronze_silver":
                 if deploy_cmd_dict["uc_enabled"]:
-                    deploy_cmd_dict["dlt_meta_silver_schema"] = oc_job_details_json["silver_schema"]
+                    deploy_cmd_dict["dlt_meta_silver_schema"] = oc_job_details_json["dlt_meta_schema"]
                     deploy_cmd_dict["dataflowspec_silver_table"] = oc_job_details_json["silver_dataflowspec_table"]
                 else:
                     deploy_cmd_dict["dataflowspec_silver_path"] = oc_job_details_json["silver_dataflowspec_path"]

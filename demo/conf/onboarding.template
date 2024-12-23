@@ -18,6 +18,7 @@
          "cloudFiles.rescuedDataColumn": "_rescued_data",
          "header": "true"
       },
+      "bronze_cluster_by":["customer_id"],
       "bronze_data_quality_expectations_json_prod": "{uc_volume_path}/demo/conf/dqe/customers.json",
       "bronze_database_quarantine_prod": "{uc_catalog_name}.{bronze_schema}",
       "bronze_quarantine_table": "customers_quarantine",
@@ -38,6 +39,7 @@
             "_rescued_data"
          ]
       },
+      "silver_cluster_by":["customer_id"],
       "silver_transformation_json_prod": "{uc_volume_path}/demo/conf/silver_transformations.json",
       "silver_data_quality_expectations_json_prod": "{uc_volume_path}/demo/conf/dqe/customers_silver_dqe.json"
 
