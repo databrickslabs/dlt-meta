@@ -12,7 +12,7 @@ from databricks.sdk.service import jobs, pipelines, compute
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
 from databricks.sdk.core import DatabricksError
 from databricks.sdk.service.catalog import SchemasAPI, VolumeType
-from src import __about__, __version__
+from src import __about__
 from src.install import WorkspaceInstaller
 
 logger = logging.getLogger('databricks.labs.dltmeta')
@@ -20,7 +20,7 @@ logger = logging.getLogger('databricks.labs.dltmeta')
 
 DLT_META_RUNNER_NOTEBOOK = """
 # Databricks notebook source
-# MAGIC %pip install /Workspace/Users/ravi.gawai@databricks.com/dlt-meta/wheels/dlt_meta-0.0.9-py3-none-any.whl #dlt-meta=={version}
+# MAGIC %pip install dlt-meta=={version}
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------

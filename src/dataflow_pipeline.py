@@ -476,7 +476,7 @@ class DataflowPipeline:
             apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
         target_table = (
             f"{self.dataflowSpec.targetDetails['database']}.{self.dataflowSpec.targetDetails['table']}"
-            if self.uc_enabled
+            if self.uc_enabled and self.dpm_enabled
             else self.dataflowSpec.targetDetails['table']
         )
         dlt.apply_changes(

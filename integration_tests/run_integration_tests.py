@@ -278,7 +278,7 @@ class DLTMETARunner:
             jobs.JobEnvironment(
                 environment_key="dl_meta_int_env",
                 spec=compute.Environment(
-                    client=f"dlt_meta_int_test_{__version__}",
+                    client="1",
                     dependencies=[runner_conf.remote_whl_path],
                 ),
             )
@@ -346,7 +346,7 @@ class DLTMETARunner:
                         "silver_schema": (
                             f"{runner_conf.silver_schema}"
                             if runner_conf.source == "cloudfiles"
-                            else None
+                            else ""
                         ),
                         "output_file_path": f"/Workspace{runner_conf.test_output_file_path}",
                         "run_id": runner_conf.run_id,
