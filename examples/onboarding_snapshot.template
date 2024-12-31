@@ -1,0 +1,439 @@
+[
+    {
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_path_dev": "{dbfs_path}/poc/poc_incremental_scd1",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True",
+                "autoloader_metadata_col_name": "source_metadata",
+                "select_metadata_cols": {
+                    "input_file_name": "_metadata.file_name",
+                    "input_file_path": "_metadata.file_path",
+                    "file_modification_time": "_metadata.file_modification_time"
+                }
+            }
+        },
+        "bronze_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name",
+            "delta.feature.timestampNtz": "supported"
+        },
+        "bronze_reader_options": {
+            "cloudFiles.format": "csv",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data",
+            "header": true
+        },
+        "silver_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name"
+        },
+        "silver_reader_options": {
+            "cloudFiles.format": "delta",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "source_system": "poc",
+        "silver_transformation_json_dev": "{dbfs_path}/dlt-config/poc/silver_transformations.json",
+        "bronze_database_quarantine_dev": "poc.bronze",
+        "data_flow_id": "poc_poc_incremental_scd1_data_flow",
+        "data_flow_group": "poc_group",
+        "bronze_database_dev": "poc.bronze",
+        "silver_database_dev": "poc.silver",
+        "bronze_table": "poc_incremental_scd1",
+        "silver_table": "poc_incremental_scd1",
+        "bronze_table_path_dev": "poc.bronze.poc_incremental_scd1",
+        "silver_table_path_dev": "poc.silver.poc_incremental_scd1",
+        "bronze_quarantine_table": "poc_incremental_scd1_quarantine",
+        "bronze_quarantine_table_path_dev": "poc.bronze.poc_incremental_scd1_quarantine",
+        "silver_cdc_apply_changes": {
+            "keys": [
+                "ID"
+            ],
+            "sequence_by": "Date",
+            "scd_type": 1,
+            "except_column_list": [
+                "file_modification_time",
+                "input_file_name",
+                "source_metadata",
+                "_rescued_data",
+                "input_file_path"
+            ],
+            "flow_name": "poc_poc_incremental_scd1_silver_cdc_flow"
+        }
+    },
+    {
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_path_dev": "{dbfs_path}/poc/poc_incremental_scd2",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True",
+                "autoloader_metadata_col_name": "source_metadata",
+                "select_metadata_cols": {
+                    "input_file_name": "_metadata.file_name",
+                    "input_file_path": "_metadata.file_path",
+                    "file_modification_time": "_metadata.file_modification_time"
+                }
+            }
+        },
+        "bronze_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name",
+            "delta.feature.timestampNtz": "supported"
+        },
+        "bronze_reader_options": {
+            "cloudFiles.format": "csv",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data",
+            "header": true
+        },
+        "silver_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name"
+        },
+        "silver_reader_options": {
+            "cloudFiles.format": "delta",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "source_system": "poc",
+        "silver_transformation_json_dev": "{dbfs_path}/dlt-config/poc/silver_transformations.json",
+        "bronze_database_quarantine_dev": "poc.bronze",
+        "data_flow_id": "poc_poc_incremental_scd2_data_flow",
+        "data_flow_group": "poc_group",
+        "bronze_database_dev": "poc.bronze",
+        "silver_database_dev": "poc.silver",
+        "bronze_table": "poc_incremental_scd2",
+        "silver_table": "poc_incremental_scd2",
+        "bronze_table_path_dev": "poc.bronze.poc_incremental_scd2",
+        "silver_table_path_dev": "poc.silver.poc_incremental_scd2",
+        "bronze_quarantine_table": "poc_incremental_scd2_quarantine",
+        "bronze_quarantine_table_path_dev": "poc.bronze.poc_incremental_scd2_quarantine",
+        "silver_cdc_apply_changes": {
+            "keys": [
+                "ID"
+            ],
+            "sequence_by": "Date",
+            "scd_type": 2,
+            "except_column_list": [
+                "file_modification_time",
+                "input_file_name",
+                "source_metadata",
+                "_rescued_data",
+                "input_file_path"
+            ],
+            "flow_name": "poc_poc_incremental_scd2_silver_cdc_flow"
+        }
+    },
+    {
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_path_dev": "{dbfs_path}/inbound/poc/poc_append",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True",
+                "autoloader_metadata_col_name": "source_metadata",
+                "select_metadata_cols": {
+                    "input_file_name": "_metadata.file_name",
+                    "input_file_path": "_metadata.file_path",
+                    "file_modification_time": "_metadata.file_modification_time"
+                }
+            }
+        },
+        "bronze_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name",
+            "delta.feature.timestampNtz": "supported"
+        },
+        "bronze_reader_options": {
+            "cloudFiles.format": "csv",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data",
+            "header": true
+        },
+        "silver_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name"
+        },
+        "silver_reader_options": {
+            "cloudFiles.format": "delta",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "source_system": "poc",
+        "silver_transformation_json_dev": "{dbfs_path}/dlt-config/poc/silver_transformations.json",
+        "bronze_database_quarantine_dev": "poc.bronze",
+        "data_flow_id": "poc_poc_append_data_flow",
+        "data_flow_group": "poc_group",
+        "bronze_database_dev": "poc.bronze",
+        "silver_database_dev": "poc.silver",
+        "bronze_table": "poc_append",
+        "silver_table": "poc_append",
+        "bronze_table_path_dev": "poc.bronze.poc_append",
+        "silver_table_path_dev": "poc.silver.poc_append",
+        "bronze_quarantine_table": "poc_append_quarantine",
+        "bronze_quarantine_table_path_dev": "poc.bronze.poc_append_quarantine"
+    },
+    {
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_path_dev": "{dbfs_path}/inbound/poc/poc_full_scd2",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True",
+                "autoloader_metadata_col_name": "source_metadata",
+                "select_metadata_cols": {
+                    "input_file_name": "_metadata.file_name",
+                    "input_file_path": "_metadata.file_path",
+                    "file_modification_time": "_metadata.file_modification_time"
+                }
+            }
+        },
+        "bronze_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name",
+            "delta.feature.timestampNtz": "supported"
+        },
+        "bronze_reader_options": {
+            "cloudFiles.format": "csv",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data",
+            "header": true
+        },
+        "silver_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name"
+        },
+        "silver_reader_options": {
+            "cloudFiles.format": "delta",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "source_system": "poc",
+        "silver_transformation_json_dev": "{dbfs_path}/dlt-config/poc/silver_transformations.json",
+        "bronze_database_quarantine_dev": "poc.bronze",
+        "data_flow_id": "poc_poc_full_scd2_data_flow",
+        "data_flow_group": "poc_group",
+        "bronze_database_dev": "poc.bronze",
+        "silver_database_dev": "poc.silver",
+        "bronze_table": "poc_full_scd2",
+        "silver_table": "poc_full_scd2",
+        "bronze_table_path_dev": "poc.bronze.poc_full_scd2",
+        "silver_table_path_dev": "poc.silver.poc_full_scd2",
+        "bronze_quarantine_table": "poc_full_scd2_quarantine",
+        "bronze_quarantine_table_path_dev": "poc.bronze.poc_full_scd2_quarantine",
+        "silver_cdc_apply_changes_from_snapshot": {
+            "keys": [
+                "ID"
+            ],
+            "sequence_by": "Date",
+            "checkpoint_path": "{dbfs_path}/dbx_framework/poc",
+            "scd_type": 2,
+            "track_history_column_list": null,
+            "track_history_except_column_list": [
+                "file_modification_time",
+                "input_file_name",
+                "source_metadata",
+                "_rescued_data",
+                "input_file_path"
+            ]
+        }
+    },
+    {
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_path_dev": "{dbfs_path}/inbound/poc/poc_scenario_3",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True",
+                "autoloader_metadata_col_name": "source_metadata",
+                "select_metadata_cols": {
+                    "input_file_name": "_metadata.file_name",
+                    "input_file_path": "_metadata.file_path",
+                    "file_modification_time": "_metadata.file_modification_time"
+                }
+            }
+        },
+        "bronze_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name",
+            "delta.feature.timestampNtz": "supported"
+        },
+        "bronze_reader_options": {
+            "cloudFiles.format": "parquet",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "silver_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name"
+        },
+        "silver_reader_options": {
+            "cloudFiles.format": "delta",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "source_system": "poc",
+        "silver_transformation_json_dev": "{dbfs_path}/dlt-config/poc/silver_transformations.json",
+        "bronze_database_quarantine_dev": "poc.bronze",
+        "data_flow_id": "poc_poc_scenario_3_data_flow",
+        "data_flow_group": "poc_group",
+        "bronze_database_dev": "poc.bronze",
+        "silver_database_dev": "poc.silver",
+        "bronze_table": "poc_scenario_3",
+        "silver_table": "poc_scenario_3",
+        "bronze_table_path_dev": "poc.bronze.poc_scenario_3",
+        "silver_table_path_dev": "poc.silver.poc_scenario_3",
+        "bronze_quarantine_table": "poc_scenario_3_quarantine",
+        "bronze_quarantine_table_path_dev": "poc.bronze.poc_scenario_3_quarantine",
+        "silver_cdc_apply_changes_from_snapshot": {
+            "keys": [
+                "ID"
+            ],
+            "sequence_by": "datetime",
+            "checkpoint_path": "{dbfs_path}/dbx_framework/poc",
+            "scd_type": 2,
+            "track_history_column_list": null,
+            "track_history_except_column_list": [
+                "file_modification_time",
+                "input_file_name",
+                "source_metadata",
+                "_rescued_data",
+                "input_file_path"
+            ]
+        }
+    },
+    {
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_path_dev": "{dbfs_path}/inbound/poc/poc_scenario_4",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True",
+                "autoloader_metadata_col_name": "source_metadata",
+                "select_metadata_cols": {
+                    "input_file_name": "_metadata.file_name",
+                    "input_file_path": "_metadata.file_path",
+                    "file_modification_time": "_metadata.file_modification_time"
+                }
+            }
+        },
+        "bronze_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name",
+            "delta.feature.timestampNtz": "supported"
+        },
+        "bronze_reader_options": {
+            "cloudFiles.format": "parquet",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "silver_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name"
+        },
+        "silver_reader_options": {
+            "cloudFiles.format": "delta",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "source_system": "poc",
+        "silver_transformation_json_dev": "{dbfs_path}/dlt-config/poc/silver_transformations.json",
+        "bronze_database_quarantine_dev": "poc.bronze",
+        "data_flow_id": "poc_poc_scenario_4_data_flow",
+        "data_flow_group": "poc_group",
+        "bronze_database_dev": "poc.bronze",
+        "silver_database_dev": "poc.silver",
+        "bronze_table": "poc_scenario_4",
+        "silver_table": "poc_scenario_4",
+        "bronze_table_path_dev": "poc.bronze.poc_scenario_4",
+        "silver_table_path_dev": "poc.silver.poc_scenario_4",
+        "bronze_quarantine_table": "poc_scenario_4_quarantine",
+        "bronze_quarantine_table_path_dev": "poc.bronze.poc_scenario_4_quarantine",
+        "silver_cdc_apply_changes_from_snapshot": {
+            "keys": [],
+            "sequence_by": "datetime",
+            "checkpoint_path": "{dbfs_path}/dbx_framework/poc",
+            "scd_type": 1,
+            "track_history_column_list": null,
+            "track_history_except_column_list": [
+                "file_modification_time",
+                "input_file_name",
+                "source_metadata",
+                "_rescued_data",
+                "input_file_path"
+            ]
+        }
+    },
+    {
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_path_dev": "{dbfs_path}/inbound/poc/poc_scenario_4_scd2",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True",
+                "autoloader_metadata_col_name": "source_metadata",
+                "select_metadata_cols": {
+                    "input_file_name": "_metadata.file_name",
+                    "input_file_path": "_metadata.file_path",
+                    "file_modification_time": "_metadata.file_modification_time"
+                }
+            }
+        },
+        "bronze_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name",
+            "delta.feature.timestampNtz": "supported"
+        },
+        "bronze_reader_options": {
+            "cloudFiles.format": "parquet",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "silver_table_properties": {
+            "delta.minReaderVersion": "2",
+            "delta.minWriterVersion": "5",
+            "delta.columnMapping.mode": "name"
+        },
+        "silver_reader_options": {
+            "cloudFiles.format": "delta",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "source_system": "poc",
+        "silver_transformation_json_dev": "{dbfs_path}/dlt-config/poc/silver_transformations.json",
+        "bronze_database_quarantine_dev": "poc.bronze",
+        "data_flow_id": "poc_poc_scenario_4_scd2_data_flow",
+        "data_flow_group": "poc_group",
+        "bronze_database_dev": "poc.bronze",
+        "silver_database_dev": "poc.silver",
+        "bronze_table": "poc_scenario_4_scd2",
+        "silver_table": "poc_scenario_4_scd2",
+        "bronze_table_path_dev": "poc.bronze.poc_scenario_4_scd2",
+        "silver_table_path_dev": "poc.silver.poc_scenario_4_scd2",
+        "bronze_quarantine_table": "poc_scenario_4_scd2_quarantine",
+        "bronze_quarantine_table_path_dev": "poc.bronze.poc_scenario_4_scd2_quarantine",
+        "silver_cdc_apply_changes_from_snapshot": {
+            "keys": [],
+            "sequence_by": "datetime",
+            "checkpoint_path": "{dbfs_path}/dbx_framework/poc",
+            "scd_type": 2,
+            "track_history_column_list": null,
+            "track_history_except_column_list": [
+                "file_modification_time",
+                "input_file_name",
+                "source_metadata",
+                "_rescued_data",
+                "input_file_path"
+            ]
+        }
+    }
+]

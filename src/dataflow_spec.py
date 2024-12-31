@@ -1,9 +1,11 @@
 """Dataflow Spec related utilities."""
 import json
 import logging
-from dataclasses import dataclass
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, asdict
 from datetime import datetime
-from typing import List
+from json import JSONDecodeError
+from typing import List, Optional, Dict
 
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import col, lit, row_number
@@ -15,26 +17,52 @@ logger.setLevel(logging.INFO)
 
 
 @dataclass
+class BaseSpecDefault(ABC):
+    @property
+    @abstractmethod
+    def mandatory_keys(self):
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def optional_keys(self):
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def from_dict(cls, spec_dict):
+        pass
+
+    @classmethod
+    def from_json(cls, spec_json):
+        try:
+            snapshot_params = json.loads(spec_json)
+        except JSONDecodeError as e:
+            raise JSONDecodeError(f"Failed to load JSON string {spec_json} as ApplySnapshotProperties.",
+                                  e.doc, e.pos)
+        return cls.from_dict(snapshot_params)
+
+
+@dataclass
 class BronzeDataflowSpec:
     """A schema to hold a dataflow spec used for writing to the bronze layer."""
-
     dataFlowId: str
     dataFlowGroup: str
     sourceFormat: str
-    sourceDetails: map
-    readerConfigOptions: map
+    sourceDetails: Dict
+    readerConfigOptions: Dict
     targetFormat: str
-    targetDetails: map
+    targetDetails: Dict
     tableProperties: map
     schema: str
     partitionColumns: list
     cdcApplyChanges: str
-    applyChangesFromSnapshot: str
+    cdcApplyChangesFromSnapshot: str
     dataQualityExpectations: str
-    quarantineTargetDetails: map
-    quarantineTableProperties: map
+    quarantineTargetDetails: Dict
+    quarantineTableProperties: Dict
     appendFlows: str
-    appendFlowsSchemas: map
+    appendFlowsSchemas: Dict
     version: str
     createDate: datetime
     createdBy: str
@@ -49,18 +77,19 @@ class SilverDataflowSpec:
     dataFlowId: str
     dataFlowGroup: str
     sourceFormat: str
-    sourceDetails: map
-    readerConfigOptions: map
+    sourceDetails: Dict
+    readerConfigOptions: Dict
     targetFormat: str
-    targetDetails: map
-    tableProperties: map
+    targetDetails: Dict
+    tableProperties: Dict
     selectExp: list
     whereClause: list
     partitionColumns: list
     cdcApplyChanges: str
+    cdcApplyChangesFromSnapshot: str
     dataQualityExpectations: str
     appendFlows: str
-    appendFlowsSchemas: map
+    appendFlowsSchemas: Dict
     version: str
     createDate: datetime
     createdBy: str
@@ -90,12 +119,117 @@ class CDCApplyChanges:
 
 
 @dataclass
-class ApplyChangesFromSnapshot:
-    """CDC ApplyChangesFromSnapshot structure."""
-    keys: list
-    scd_type: str
-    track_history_column_list: list
-    track_history_except_column_list: list
+class BronzeCDCApplyChangesFromSnapshot(BaseSpecDefault):
+    keys: List[str]
+    scd_type: int
+    track_history_column_list: Optional[List[str]] = None
+    track_history_except_column_list: Optional[List[str]] = None
+
+    @property
+    def mandatory_keys(self):
+        return {"keys", "scd_type"}
+
+    @property
+    def optional_keys(self):
+        return {"track_history_column_list", "track_history_except_column_list", "timeout"}
+
+    @classmethod
+    def from_dict(cls, snapshot_dict):
+        logger.info(f"actual mergeInfo={snapshot_dict}")
+        if snapshot_dict.get("track_history_column_list", None) is None:
+            snapshot_dict["track_history_column_list"] = list()
+        if snapshot_dict.get("track_history_except_column_list", None) is None:
+            snapshot_dict["track_history_except_column_list"] = list()
+        try:
+            return cls(
+                keys=snapshot_dict["keys"],
+                scd_type=snapshot_dict["scd_type"],
+                track_history_column_list=snapshot_dict["track_history_column_list"],
+                track_history_except_column_list=snapshot_dict["track_history_except_column_list"],
+            )
+        except KeyError:
+            msg = (f'Missing mandatory keys for apply changes from snapshot.'
+                   f'\nKeys from the payload are {snapshot_dict.keys()}'
+                   f"\nMandatory keys are {cls.mandatory_keys}"
+                   f"\nOptional keys are {cls.optional_keys}")
+            raise KeyError(msg)
+
+    @classmethod
+    def from_json(cls, spec_json):
+        try:
+            snapshot_params = json.loads(spec_json)
+        except JSONDecodeError as e:
+            raise JSONDecodeError(f"Failed to load JSON string {spec_json} as ApplySnapshotProperties.",
+                                  e.doc, e.pos)
+        return cls.from_dict(snapshot_params)
+
+    def to_json(self):
+        return json.dumps({
+            "keys": self.keys,
+            "scd_type": self.scd_type,
+            "track_history_column_list": self.track_history_column_list,
+            "track_history_except_column_list": self.track_history_except_column_list,
+        })
+
+
+# [AV]: Python 3.8 does not support dataclass inheritance with positional arguments if the parent has default values.
+# Until we set dlt-meta to 3.10, this code will remain duplicated.
+@dataclass
+class SilverCDCApplyChangesFromSnapshot(BaseSpecDefault):
+    sequence_by: str
+    checkpoint_path: str
+    keys: List[str]
+    scd_type: int
+    track_history_column_list: Optional[List[str]] = None
+    track_history_except_column_list: Optional[List[str]] = None
+    merge_schema: Optional[bool] = False
+    timeout: int = 300
+    agg_snapshot: Optional[DataFrame] = None
+
+    @property
+    def mandatory_keys(self):
+        return {"sequence_by", "checkpoint_path", "keys", "scd_type"}
+
+    @property
+    def optional_keys(self):
+        return {"track_history_column_list", "track_history_except_column_list", "merge_schema", "timeout"}
+
+    @classmethod
+    def from_dict(cls, snapshot_dict):
+        logger.info(f"actual mergeInfo={snapshot_dict}")
+        if snapshot_dict.get("track_history_column_list", None) is None:
+            snapshot_dict["track_history_column_list"] = list()
+        if snapshot_dict.get("track_history_except_column_list", None) is None:
+            snapshot_dict["track_history_except_column_list"] = list()
+        try:
+            return cls(
+                sequence_by=snapshot_dict["sequence_by"],
+                checkpoint_path=snapshot_dict["checkpoint_path"],
+                keys=snapshot_dict["keys"],
+                scd_type=snapshot_dict["scd_type"],
+                track_history_column_list=snapshot_dict["track_history_column_list"],
+                track_history_except_column_list=snapshot_dict["track_history_except_column_list"],
+                merge_schema=snapshot_dict.get("merge_schema", False),
+                timeout=int(snapshot_dict.get("timeout", 300))
+            )
+        except KeyError:
+            msg = (f'Missing mandatory keys for apply changes from snapshot.'
+                   f'\nKeys from the payload are {snapshot_dict.keys()}'
+                   f"\nMandatory keys are {cls.mandatory_keys}"
+                   f"\nOptional keys are {cls.optional_keys}")
+            raise KeyError(msg)
+
+    def to_json(self):
+        return json.dumps({
+            "sequence_by": self.sequence_by,
+            "checkpoint_path": self.checkpoint_path,
+            "keys": self.keys,
+            "scd_type": self.scd_type,
+            "track_history_column_list": self.track_history_column_list,
+            "track_history_except_column_list": self.track_history_except_column_list,
+            "merge_schema": self.merge_schema,
+            "timeout": self.timeout
+        })
 
 
 @dataclass
@@ -166,20 +300,14 @@ class DataflowSpecUtils:
         "track_history_column_list",
         "track_history_except_column_list"
     ]
-    apply_changes_from_snapshot_api_mandatory_attributes = ["keys", "scd_type"]
-    additional_apply_changes_from_snapshot_columns = ["track_history_column_list", "track_history_except_column_list"]
-    apply_changes_from_snapshot_api_attributes_defaults = {
-        "track_history_column_list": None,
-        "track_history_except_column_list": None
-    }
 
     @staticmethod
     def _get_dataflow_spec(
-        spark: SparkSession,
-        layer: str,
-        dataflow_spec_df: DataFrame = None,
-        group: str = None,
-        dataflow_ids: str = None,
+            spark: SparkSession,
+            layer: str,
+            dataflow_spec_df: DataFrame = None,
+            group: str = None,
+            dataflow_ids: str = None,
     ) -> DataFrame:
         """Get DataflowSpec for given parameters.
 
@@ -290,43 +418,6 @@ class DataflowSpecUtils:
         return partition_cols
 
     @staticmethod
-    def get_apply_changes_from_snapshot(apply_changes_from_snapshot) -> ApplyChangesFromSnapshot:
-        """Get Apply changes from snapshot metadata."""
-        logger.info(apply_changes_from_snapshot)
-        json_apply_changes_from_snapshot = json.loads(apply_changes_from_snapshot)
-        logger.info(f"actual mergeInfo={json_apply_changes_from_snapshot}")
-        payload_keys = json_apply_changes_from_snapshot.keys()
-        missing_apply_changes_from_snapshot_payload_keys = set(
-            DataflowSpecUtils.apply_changes_from_snapshot_api_mandatory_attributes).difference(payload_keys)
-        logger.info(
-            f"missing apply changes from snapshot payload keys:"
-            f"{missing_apply_changes_from_snapshot_payload_keys}"
-        )
-        if set(DataflowSpecUtils.apply_changes_from_snapshot_api_mandatory_attributes) - set(payload_keys):
-            missing_mandatory_attr = set(DataflowSpecUtils.apply_changes_from_snapshot_api_mandatory_attributes) - set(
-                payload_keys)
-            logger.info(f"mandatory missing keys= {missing_mandatory_attr}")
-            raise Exception(f"mandatory missing keys= {missing_mandatory_attr} for merge info")
-        else:
-            logger.info(
-                f"""all mandatory keys
-                {DataflowSpecUtils.apply_changes_from_snapshot_api_mandatory_attributes} exists"""
-            )
-
-        for missing_apply_changes_from_snapshot_payload_key in missing_apply_changes_from_snapshot_payload_keys:
-            json_apply_changes_from_snapshot[
-                missing_apply_changes_from_snapshot_payload_key
-            ] = DataflowSpecUtils.cdc_applychanges_api_attributes_defaults[
-                missing_apply_changes_from_snapshot_payload_key]
-
-        logger.info(f"final mergeInfo={json_apply_changes_from_snapshot}")
-        json_apply_changes_from_snapshot = DataflowSpecUtils.populate_additional_df_cols(
-            json_apply_changes_from_snapshot,
-            DataflowSpecUtils.additional_apply_changes_from_snapshot_columns
-        )
-        return ApplyChangesFromSnapshot(**json_apply_changes_from_snapshot)
-
-    @staticmethod
     def get_cdc_apply_changes(cdc_apply_changes) -> CDCApplyChanges:
         """Get CDC Apply changes metadata."""
         logger.info(cdc_apply_changes)
@@ -375,8 +466,8 @@ class DataflowSpecUtils:
             logger.info(f"missing append flow payload keys:{missing_append_flow_payload_keys}")
             if set(DataflowSpecUtils.append_flow_mandatory_attributes) - set(payload_keys):
                 missing_mandatory_attr = (
-                    set(DataflowSpecUtils.append_flow_mandatory_attributes)
-                    - set(payload_keys)
+                        set(DataflowSpecUtils.append_flow_mandatory_attributes)
+                        - set(payload_keys)
                 )
                 logger.info(f"mandatory missing keys= {missing_mandatory_attr}")
                 raise Exception(f"mandatory missing keys= {missing_mandatory_attr} for append flow")
