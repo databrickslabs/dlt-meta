@@ -1,0 +1,21 @@
+{
+    "uc_enabled": true,
+    "dbfs_path": null,
+    "uc_catalog_name": "uc_catalog",
+    "serverless": true,
+    "cloud": null,
+    "dbr_version": null,
+    "onboarding_file_path": "demo/conf/onboarding.template",
+    "onboarding_files_dir_path": "file:/file:/demo/",
+    "dlt_meta_schema": "dlt_meta_dataflowspecs",
+    "bronze_schema": "dltmeta_bronze",
+    "silver_schema": "dltmeta_silver",
+    "onboard_layer": "bronze_silver",
+    "bronze_dataflowspec_table": "bronze_dataflowspec",
+    "silver_dataflowspec_table": "silver_dataflowspec",
+    "overwrite": "False",
+    "version": "v1",
+    "env": "prod",
+    "import_author": "author",
+    "update_paths": "True"
+}
