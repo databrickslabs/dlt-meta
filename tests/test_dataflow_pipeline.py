@@ -1,6 +1,7 @@
 """Tests for Dataflowpipeline."""
 from datetime import datetime
 import json
+import re
 import sys
 import tempfile
 import copy
@@ -15,14 +16,49 @@ from src.dataflow_pipeline import DataflowPipeline
 from src.onboard_dataflowspec import OnboardDataflowspec
 from src.dataflow_spec import DataflowSpecUtils
 from src.pipeline_readers import PipelineReaders
-
 dlt = MagicMock()
 dlt.expect_all_or_drop = MagicMock()
+dlt.apply_changes_from_snapshot = MagicMock()
 raw_delta_table_stream = MagicMock()
 
 
 class DataflowPipelineTests(DLTFrameworkTestCase):
     """Test for Dataflowpipeline."""
+
+    bronze_dataflow_spec_acs_map = {
+        "dataFlowId": "1",
+        "dataFlowGroup": "A1",
+        "sourceFormat": "json",
+        "sourceDetails": {"path": "tests/resources/data/customers"},
+        "readerConfigOptions": {
+        },
+        "targetFormat": "delta",
+        "targetDetails": {"database": "bronze", "table": "customer", "path": "tests/resources/delta/customers"},
+        "tableProperties": {},
+        "schema": None,
+        "partitionColumns": [""],
+        "cdcApplyChanges": None,
+        "applyChangesFromSnapshot": """{"keys": ["id"], "scd_type": "2"}""",
+        "dataQualityExpectations": """{
+            "expect_or_drop": {
+                "no_rescued_data": "_rescued_data IS NULL",
+                "valid_id": "id IS NOT NULL",
+                "valid_operation": "operation IN ('APPEND', 'DELETE', 'UPDATE')"
+            }
+        }""",
+        "quarantineTargetDetails": {
+            "database": "bronze", "table": "customer_dqe", "path": "tests/localtest/delta/customers_dqe"
+        },
+        "quarantineTableProperties": {},
+        "appendFlows": [],
+        "appendFlowsSchemas": {},
+        "version": "v1",
+        "createDate": datetime.now,
+        "createdBy": "dlt-meta-unittest",
+        "updateDate": datetime.now,
+        "updatedBy": "dlt-meta-unittest",
+        "clusterBy": [""],
+    }
 
     bronze_dataflow_spec_map = {
         "dataFlowId": "1",
@@ -1065,3 +1101,54 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         pipeline.schema_json = None
         modified_schema = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
         self.assertEqual(modified_schema, None)
+
+    @patch.object(dlt, 'create_streaming_table', return_value={"called"})
+    @patch.object(dlt, 'apply_changes_from_snapshot', return_value={"called"})
+    def test_apply_changes_from_snapshot(self, mock_apply_changes_from_snapshot, mock_create_streaming_table):
+        """Test apply_changes_from_snapshot method."""
+
+        def next_snapshot_and_version(latest_snapshot_version, dataflow_spec):
+            latest_snapshot_version = latest_snapshot_version or 0
+            next_version = latest_snapshot_version + 1
+            bronze_dataflow_spec: BronzeDataflowSpec = dataflow_spec
+            options = bronze_dataflow_spec.readerConfigOptions
+            snapshot_format = bronze_dataflow_spec.sourceDetails["snapshot_format"]
+            snapshot_root_path = bronze_dataflow_spec.sourceDetails['path']
+            snapshot_path = f"{snapshot_root_path}{next_version}.csv"
+            snapshot = self.spark.read.format(snapshot_format).options(**options).load(snapshot_path)
+            return (snapshot, next_version)
+
+        mock_create_streaming_table.return_value = None
+        mock_apply_changes_from_snapshot.return_value = None
+        bronze_dataflow_spec = BronzeDataflowSpec(**self.bronze_dataflow_spec_acs_map)
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name,
+                                    next_snapshot_and_version=next_snapshot_and_version)
+        pipeline.apply_changes_from_snapshot()
+        dlt.called
+
+    @patch.object(dlt, 'create_streaming_table', return_value={"called"})
+    @patch.object(dlt, 'apply_changes_from_snapshot', return_value={"called"})
+    def test_apply_changes_from_snapshot_uc_enabled(self,
+                                                    mock_apply_changes_from_snapshot,
+                                                    mock_create_streaming_table):
+        """Test apply_changes_from_snapshot method with Unity Catalog enabled."""
+        def next_snapshot_and_version(latest_snapshot_version, dataflow_spec):
+            latest_snapshot_version = latest_snapshot_version or 0
+            next_version = latest_snapshot_version + 1
+            bronze_dataflow_spec: BronzeDataflowSpec = dataflow_spec
+            options = bronze_dataflow_spec.readerConfigOptions
+            snapshot_format = bronze_dataflow_spec.sourceDetails["snapshot_format"]
+            snapshot_root_path = bronze_dataflow_spec.sourceDetails['path']
+            snapshot_path = f"{snapshot_root_path}{next_version}.csv"
+            snapshot = self.spark.read.format(snapshot_format).options(**options).load(snapshot_path)
+            return (snapshot, next_version)
+        mock_create_streaming_table.return_value = None
+        mock_apply_changes_from_snapshot.return_value = None
+        bronze_dataflow_spec = BronzeDataflowSpec(**self.bronze_dataflow_spec_acs_map)
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name,
+                                    next_snapshot_and_version=next_snapshot_and_version)
+        pipeline.apply_changes_from_snapshot()
+        dlt.called
