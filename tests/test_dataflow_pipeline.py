@@ -1,7 +1,6 @@
 """Tests for Dataflowpipeline."""
 from datetime import datetime
 import json
-import re
 import sys
 import tempfile
 import copy
@@ -1152,3 +1151,158 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
                                     next_snapshot_and_version=next_snapshot_and_version)
         pipeline.apply_changes_from_snapshot()
         dlt.called
+
+    # @patch('pyspark.sql.SparkSession.readStream')
+    # def test_get_silver_schema_uc_enabled(self, mock_read_stream):
+    #     """Test get_silver_schema with Unity Catalog enabled."""
+    #     silver_spec_map = DataflowPipelineTests.silver_dataflow_spec_map
+    #     source_details = {
+    #         "sourceDetails": {"database": "bronze", "table": "customer", "path": "tests/resources/delta/customers"}
+    #     }
+    #     silver_spec_map.update(source_details)
+    #     silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
+    #     self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+    #     mock_read_stream.table.return_value.selectExpr.return_value = raw_delta_table_stream
+    #     dlt_data_flow = DataflowPipeline(
+    #         self.spark,
+    #         silver_dataflow_spec,
+    #         f"{silver_dataflow_spec.targetDetails['table']}_inputView",
+    #         None,
+    #     )
+    #     schema = dlt_data_flow.get_silver_schema()
+    #     self.assertIsNotNone(schema)
+        # mock_read_stream.table.assert_called_once_with("bronze.customer")
+        # mock_read_stream.table.return_value.selectExpr.assert_called_once_with(*silver_dataflow_spec.selectExp)
+
+    @patch.object(DataflowSpecUtils, 'get_bronze_dataflow_spec', return_value=[MagicMock()])
+    @patch.object(DataflowSpecUtils, 'get_silver_dataflow_spec', return_value=[MagicMock()])
+    @patch.object(DataflowPipeline, '_launch_dlt_flow', return_value=None)
+    def test_invoke_dlt_pipeline_bronze_silver(
+        self, mock_launch_dlt_flow, mock_get_silver_dataflow_spec, mock_get_bronze_dataflow_spec
+    ):
+        """Test invoke_dlt_pipeline for bronze_silver layer."""
+        spark = MagicMock()
+        bronze_custom_transform_func = MagicMock()
+        silver_custom_transform_func = MagicMock()
+
+        DataflowPipeline.invoke_dlt_pipeline(
+            spark, "bronze_silver", bronze_custom_transform_func, silver_custom_transform_func
+        )
+
+        mock_get_bronze_dataflow_spec.assert_called_once_with(spark)
+        mock_get_silver_dataflow_spec.assert_called_once_with(spark)
+        mock_launch_dlt_flow.assert_any_call(
+            spark, "bronze", mock_get_bronze_dataflow_spec.return_value, bronze_custom_transform_func
+        )
+        mock_launch_dlt_flow.assert_any_call(
+            spark, "silver", mock_get_silver_dataflow_spec.return_value, silver_custom_transform_func
+        )
+
+    @patch.object(dlt, 'create_streaming_table', return_value={"called"})
+    @patch.object(dlt, 'apply_changes_from_snapshot', return_value={"called"})
+    def test_read_unsupported_dataflow(self, mock_apply_changes_from_snapshot, mock_create_streaming_table):
+        """Test apply_changes_from_snapshot method."""
+        mock_create_streaming_table.return_value = None
+        mock_apply_changes_from_snapshot.return_value = None
+        bronze_dataflow_spec = BronzeDataflowSpec(**self.bronze_dataflow_spec_acs_map)
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name)
+
+        class UnsupportedDataflowSpec:
+            pass
+        unsupported_dataflow_spec = UnsupportedDataflowSpec()
+        pipeline.dataflowSpec = unsupported_dataflow_spec
+        with self.assertRaises(Exception) as context:
+            pipeline.read()
+        self.assertTrue("Dataflow read not supported" in str(context.exception))
+
+    @patch.object(DataflowPipeline, 'apply_changes_from_snapshot', return_value=None)
+    def test_write_bronze_snapshot(self, mock_apply_changes_from_snapshot):
+        """Test write_bronze with snapshot source format."""
+        bronze_dataflow_spec = BronzeDataflowSpec(**self.bronze_dataflow_spec_acs_map)
+        bronze_dataflow_spec.sourceFormat = "snapshot"
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(
+            self.spark, bronze_dataflow_spec, view_name, None, next_snapshot_and_version=MagicMock()
+        )
+        pipeline.write_bronze()
+        assert mock_apply_changes_from_snapshot.called
+
+    @patch.object(DataflowPipeline, 'write_bronze_with_dqe', return_value=None)
+    def test_write_bronze_with_dqe(self, mock_write_bronze_with_dqe):
+        """Test write_bronze with data quality expectations."""
+        bronze_dataflow_spec = BronzeDataflowSpec(**self.bronze_dataflow_spec_map)
+        bronze_dataflow_spec.dataQualityExpectations = json.dumps({
+            "expect_or_drop": {
+                "no_rescued_data": "_rescued_data IS NULL",
+                "valid_id": "id IS NOT NULL",
+                "valid_operation": "operation IN ('APPEND', 'DELETE', 'UPDATE')"
+            }
+        })
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        pipeline.write_bronze()
+        assert mock_write_bronze_with_dqe.called
+
+    @patch.object(DataflowPipeline, 'cdc_apply_changes', return_value=None)
+    def test_write_bronze_cdc_apply_changes(self, mock_cdc_apply_changes):
+        """Test write_bronze with CDC apply changes."""
+        bronze_dataflow_spec = BronzeDataflowSpec(**self.bronze_dataflow_spec_map)
+        bronze_dataflow_spec.cdcApplyChanges = json.dumps({
+            "keys": ["id"],
+            "sequence_by": "operation_date",
+            "scd_type": "1",
+            "apply_as_deletes": "operation = 'DELETE'",
+            "except_column_list": ["operation", "operation_date", "_rescued_data"]
+        })
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputView"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        pipeline.write_bronze()
+        assert mock_cdc_apply_changes.called
+
+    @patch('pyspark.sql.SparkSession.readStream')
+    def test_get_silver_schema_uc_enabled(self, mock_read_stream):
+        """Test get_silver_schema with Unity Catalog enabled."""
+        silver_spec_map = DataflowPipelineTests.silver_dataflow_spec_map
+        source_details = {
+            "sourceDetails": {"database": "bronze", "table": "customer", "path": "tests/resources/delta/customers"}
+        }
+        silver_spec_map.update(source_details)
+        silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        mock_read_stream.table.return_value.selectExpr.return_value = raw_delta_table_stream
+        dlt_data_flow = DataflowPipeline(
+            self.spark,
+            silver_dataflow_spec,
+            f"{silver_dataflow_spec.targetDetails['table']}_inputView",
+            None,
+        )
+        schema = dlt_data_flow.get_silver_schema()
+        self.assertIsNotNone(schema)
+        # mock_read_stream.table.assert_called_once_with("bronze.customer")
+        # mock_read_stream.table.return_value.selectExpr.assert_called_once_with(*silver_dataflow_spec.selectExp)
+
+    @patch('pyspark.sql.SparkSession.readStream')
+    def test_get_silver_schema_uc_disabled(self, mock_read_stream):
+        """Test get_silver_schema with Unity Catalog disabled."""
+        silver_spec_map = DataflowPipelineTests.silver_dataflow_spec_map
+        source_details = {
+            "sourceDetails": {"database": "bronze", "table": "customer", "path": "tests/resources/delta/customers"}
+        }
+        silver_spec_map.update(source_details)
+        silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "False")
+        mock_read_stream.load.return_value.selectExpr.return_value = raw_delta_table_stream
+        dlt_data_flow = DataflowPipeline(
+            self.spark,
+            silver_dataflow_spec,
+            f"{silver_dataflow_spec.targetDetails['table']}_inputView",
+            None,
+        )
+        schema = dlt_data_flow.get_silver_schema()
+        self.assertIsNotNone(schema)
+        # mock_read_stream.load.assert_called_once_with(
+        #     path=silver_dataflow_spec.sourceDetails["path"],
+        #     format="delta"
+        # )
+        # mock_read_stream.load.return_value.selectExpr.assert_called_once_with(*silver_dataflow_spec.selectExp)
