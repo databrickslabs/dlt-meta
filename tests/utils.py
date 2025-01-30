@@ -26,9 +26,6 @@ class DLTFrameworkTestCase(unittest.TestCase):
         )
         self.spark = configure_spark_with_delta_pip(builder).getOrCreate()
         self.spark.conf.set("spark.sql.shuffle.partitions", "4")
-        self.spark.conf.set("spark.driver.memory", "4g")
-        self.spark.conf.set("spark.executor.memory", "8g")
-        self.spark.conf.set("spark.executor.memoryOverhead", "1024m")
         self.deltaPipelinesMetaStoreOps = DeltaPipelinesMetaStoreOps(self.spark)
         self.deltaPipelinesInternalTableOps = DeltaPipelinesInternalTableOps(self.spark)
         self.sc = self.spark.sparkContext
