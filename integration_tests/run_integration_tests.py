@@ -15,7 +15,6 @@ from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType
 from databricks.sdk.service.pipelines import NotebookLibrary, PipelineLibrary
 from databricks.sdk.service.workspace import ImportFormat, Language
 
-from src.__about__ import __version__
 from src.install import WorkspaceInstaller
 
 # Dictionary mapping cloud providers to node types
