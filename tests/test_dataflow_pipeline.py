@@ -150,6 +150,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "clusterBy": [""],
     }
 
+    @classmethod
     def setUp(self):
         """Set up initial resources for unit tests."""
         super().setUp()

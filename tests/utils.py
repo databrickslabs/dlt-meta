@@ -12,6 +12,7 @@ from src.metastore_ops import DeltaPipelinesMetaStoreOps, DeltaPipelinesInternal
 class DLTFrameworkTestCase(unittest.TestCase):
     """Test class base that sets up a correctly configured SparkSession for querying Delta tables."""
 
+    @classmethod
     def setUp(self):
         """Set inputs."""
         # Configurations to speed up tests and reduce memory footprint
@@ -79,6 +80,7 @@ class DLTFrameworkTestCase(unittest.TestCase):
             "uc_enabled": "True"
         }
 
+    @classmethod
     def tearDown(self):
         """Tear down."""
         self.deltaPipelinesMetaStoreOps.drop_database("ravi_dlt_demo")
