@@ -24,6 +24,8 @@ class DLTFrameworkTestCase(unittest.TestCase):
             )
         )
         self.spark = configure_spark_with_delta_pip(builder).getOrCreate()
+        self.spark.conf.set("spark.sql.shuffle.partitions", "4")
+        self.spark.conf.set("spark.ui.enabled", "false")
         self.deltaPipelinesMetaStoreOps = DeltaPipelinesMetaStoreOps(self.spark)
         self.deltaPipelinesInternalTableOps = DeltaPipelinesInternalTableOps(self.spark)
         self.sc = self.spark.sparkContext
