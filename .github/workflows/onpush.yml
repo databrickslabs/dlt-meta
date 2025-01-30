@@ -35,7 +35,16 @@ jobs:
         run: pip install coverage
       
       - name: Lint
-        run: flake8
+        run: flake8        
+
+      - name: set spark local
+        run: export SPARK_LOCAL_IP=127.0.0.1
+
+      - name: set spark executor memory
+        run: export SPARK_EXECUTOR_MEMORY=4g  
+      
+      - name: set spark driver memory
+        run: export SPARK_DRIVER_MEMORY=4g     
 
       - name: Run Unit Tests
         run: python -m coverage run
