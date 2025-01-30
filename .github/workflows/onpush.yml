@@ -44,7 +44,10 @@ jobs:
         run: export SPARK_EXECUTOR_MEMORY=6g  
       
       - name: set spark driver memory
-        run: export SPARK_DRIVER_MEMORY=6g     
+        run: export SPARK_DRIVER_MEMORY=6g
+
+      - name: set javaopts
+        run: export JAVA_OPTS="-Xmx4g -XX:+UseG1GC"
 
       - name: Run Unit Tests
         run: python -m coverage run
