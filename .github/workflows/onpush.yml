@@ -33,7 +33,10 @@ jobs:
 
       - name: Install coverage
         run: pip install coverage
-      
+
+      - name: Install psutil
+        run: pip install psutil      
+
       - name: Lint
         run: flake8        
 
@@ -49,6 +52,11 @@ jobs:
       - name: set javaopts
         run: export JAVA_OPTS="-Xmx6g -XX:+UseG1GC"
 
+      - name: Print System Information
+        run: | 
+               python -c "import psutil; import os;
+               print(f'Physical Memory: {psutil.virtual_memory().total / 1e9:.2f} GB'); print(f'CPU Cores: {os.cpu_count()}')"
+ 
       - name: Run Unit Tests
         run: python -m coverage run
 
