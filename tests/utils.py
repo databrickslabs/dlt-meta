@@ -26,6 +26,13 @@ class DLTFrameworkTestCase(unittest.TestCase):
         )
         self.spark = configure_spark_with_delta_pip(builder).getOrCreate()
         self.spark.conf.set("spark.sql.shuffle.partitions", "4")
+        self.spark.conf.set("spark.app.name", "dlt-meta-unit-tests")
+        self.spark.conf.set("spark.master", "local[4]")
+        self.spark.conf.set("spark.databricks.delta.snapshotPartitions", "2")
+        self.spark.conf.set("spark.sql.shuffle.partitions", "5")
+        self.spark.conf.set("delta.log.cacheSize", "3")
+        self.spark.conf.set("spark.databricks.delta.delta.log.cacheSize", "3")
+        self.spark.conf.set("spark.sql.sources.parallelPartitionDiscovery.parallelism", "5")
         self.deltaPipelinesMetaStoreOps = DeltaPipelinesMetaStoreOps(self.spark)
         self.deltaPipelinesInternalTableOps = DeltaPipelinesInternalTableOps(self.spark)
         self.sc = self.spark.sparkContext
