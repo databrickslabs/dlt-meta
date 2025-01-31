@@ -44,13 +44,13 @@ jobs:
         run: export SPARK_LOCAL_IP=127.0.0.1
 
       - name: set spark executor memory
-        run: export SPARK_EXECUTOR_MEMORY=6g  
+        run: export SPARK_EXECUTOR_MEMORY=8g  
       
       - name: set spark driver memory
-        run: export SPARK_DRIVER_MEMORY=6g
+        run: export SPARK_DRIVER_MEMORY=8g
 
       - name: set javaopts
-        run: export JAVA_OPTS="-Xmx6g -XX:+UseG1GC"
+        run: export JAVA_OPTS="-Xmx10g -XX:+UseG1GC"
 
       - name: Print System Information
         run: | 
