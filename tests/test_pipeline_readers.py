@@ -171,6 +171,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "clusterBy": [""],
     }
 
+    @classmethod
     def setUp(self):
         """Set initial resources."""
         super().setUp()
