@@ -159,8 +159,8 @@ class DataflowSpecUtils:
         "once": False
     }
 
-    additional_bronze_df_columns = ["appendFlows", "appendFlowsSchemas", "applyChangesFromSnapshot"]
-    additional_silver_df_columns = ["dataQualityExpectations", "appendFlows", "appendFlowsSchemas"]
+    additional_bronze_df_columns = ["appendFlows", "appendFlowsSchemas", "applyChangesFromSnapshot", "clusterBy"]
+    additional_silver_df_columns = ["dataQualityExpectations", "appendFlows", "appendFlowsSchemas", "clusterBy"]
     additional_cdc_apply_changes_columns = ["flow_name", "once"]
     apply_changes_from_snapshot_api_attributes = [
         "keys",
