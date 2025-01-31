@@ -6,7 +6,7 @@ from typing import Callable
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import expr
 from pyspark.sql.types import StructType, StructField
-
+from src.__about__ import __version__
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
 from src.pipeline_readers import PipelineReaders
 
@@ -89,8 +89,11 @@ class DataflowPipeline:
         """Initialize dataflow pipeline state."""
         self.spark = spark
         uc_enabled_str = spark.conf.get("spark.databricks.unityCatalog.enabled", "False")
+        dbp_enabled_str = spark.conf.get("pipelines.schema", None)
+        spark.conf.set("databrickslab.dlt-meta.version", f"{__version__}")
         uc_enabled_str = uc_enabled_str.lower()
         self.uc_enabled = True if uc_enabled_str == "true" else False
+        self.dpm_enabled = True if dbp_enabled_str else False
         self.dataflowSpec = dataflow_spec
         self.view_name = view_name
         if view_name_quarantine:
@@ -473,7 +476,7 @@ class DataflowPipeline:
             apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
         target_table = (
             f"{self.dataflowSpec.targetDetails['database']}.{self.dataflowSpec.targetDetails['table']}"
-            if self.uc_enabled
+            if self.uc_enabled and self.dpm_enabled
             else self.dataflowSpec.targetDetails['table']
         )
         dlt.apply_changes(
@@ -531,7 +534,7 @@ class DataflowPipeline:
         expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = self.get_dq_expectations()
         target_table = (
             f"{self.dataflowSpec.targetDetails['database']}.{self.dataflowSpec.targetDetails['table']}"
-            if self.uc_enabled
+            if self.uc_enabled and self.dpm_enabled
             else self.dataflowSpec.targetDetails['table']
         )
         dlt.create_streaming_table(

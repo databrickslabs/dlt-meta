@@ -12,7 +12,7 @@ from databricks.sdk.service import jobs, pipelines, compute
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
 from databricks.sdk.core import DatabricksError
 from databricks.sdk.service.catalog import SchemasAPI, VolumeType
-from src import __about__, __version__
+from src import __about__
 from src.install import WorkspaceInstaller
 
 logger = logging.getLogger('databricks.labs.dltmeta')
@@ -134,14 +134,14 @@ class DeployCommand:
         if self.layer in ["bronze", "bronze_silver"]:
             if not self.onboard_bronze_group:
                 raise ValueError("onboard_bronze_group is required")
-            if not self.dataflowspec_bronze_table:
+            if self.uc_enabled and not self.dataflowspec_bronze_table:
                 raise ValueError("dataflowspec_bronze_table is required")
             if not self.uc_enabled and not self.dataflowspec_bronze_path:
                 raise ValueError("dataflowspec_bronze_path is required")
         if self.layer in ["silver", "bronze_silver"]:
             if not self.onboard_silver_group:
                 raise ValueError("onboard_silver_group is required")
-            if not self.dataflowspec_silver_table:
+            if self.uc_enabled and not self.dataflowspec_silver_table:
                 raise ValueError("dataflowspec_silver_table is required")
             if not self.uc_enabled and not self.dataflowspec_silver_path:
                 raise ValueError("dataflowspec_silver_path is required")
@@ -271,7 +271,7 @@ class DLTMeta:
         dltmeta_environments = [
             jobs.JobEnvironment(
                 environment_key="dl_meta_cli_env",
-                spec=compute.Environment(client=f"dlt_meta_cli_{__version__}",
+                spec=compute.Environment(client="1",
                                          dependencies=[f"dlt-meta=={self.version}"]
                                          )
             )
@@ -451,26 +451,16 @@ class DLTMeta:
             "Provide dlt meta silver layer schema name", default=f'dltmeta_silver_{uuid.uuid4().hex}')
         onboard_cmd_dict["onboard_layer"] = self._wsi._choice(
             "Provide dlt meta layer", ['bronze', 'silver', 'bronze_silver'])
-        if onboard_cmd_dict["onboard_layer"] == "bronze":
+        if onboard_cmd_dict["onboard_layer"] in ["bronze", "bronze_silver"]:
             onboard_cmd_dict["bronze_dataflowspec_table"] = self._wsi._question(
                 "Provide bronze dataflow spec table name", default='bronze_dataflowspec')
             if not onboard_cmd_dict["uc_enabled"]:
                 onboard_cmd_dict["bronze_dataflowspec_path"] = self._wsi._question(
                     "Provide bronze dataflow spec path", default=f'{self._install_folder()}/bronze_dataflow_specs')
-        if onboard_cmd_dict["onboard_layer"] == "silver":
+        if onboard_cmd_dict["onboard_layer"] in ["silver", "bronze_silver"]:
             onboard_cmd_dict["silver_dataflowspec_table"] = self._wsi._question(
                 "Provide silver dataflow spec table name", default='silver_dataflowspec')
             if not onboard_cmd_dict["uc_enabled"]:
-                onboard_cmd_dict["silver_dataflowspec_path"] = self._wsi._question(
-                    "Provide silver dataflow spec path", default=f'{self._install_folder()}/silver_dataflow_specs')
-        if onboard_cmd_dict["onboard_layer"] == "bronze_silver":
-            onboard_cmd_dict["bronze_dataflowspec_table"] = self._wsi._question(
-                "Provide bronze dataflow spec table name", default='bronze_dataflowspec')
-            onboard_cmd_dict["silver_dataflowspec_table"] = self._wsi._question(
-                "Provide silver dataflow spec table name", default='silver_dataflowspec')
-            if not onboard_cmd_dict["uc_enabled"]:
-                onboard_cmd_dict["bronze_dataflowspec_path"] = self._wsi._question(
-                    "Provide bronze dataflow spec path", default=f'{self._install_folder()}/bronze_dataflow_specs')
                 onboard_cmd_dict["silver_dataflowspec_path"] = self._wsi._question(
                     "Provide silver dataflow spec path", default=f'{self._install_folder()}/silver_dataflow_specs')
         onboard_cmd_dict["overwrite"] = self._wsi._choice(
@@ -501,7 +491,7 @@ class DLTMeta:
                 "onboarding_job_details.json Found! Do you want to use it for deployment?",
                 ['Yes', 'No']
             )
-        load_from_ojd_json = True if load_from_ojd_json_opt == "Yes" else False
+            load_from_ojd_json = True if load_from_ojd_json_opt == "Yes" else False
         deploy_cmd_dict = {}
         if load_from_ojd_json:
             oc_job_details_json = json.loads(oc_job_details_json)
@@ -520,7 +510,7 @@ class DLTMeta:
                 "Provide dlt meta layer", ['bronze', 'silver', 'bronze_silver'])
             if deploy_cmd_dict["layer"] == "bronze" or deploy_cmd_dict["layer"] == "bronze_silver":
                 if deploy_cmd_dict["uc_enabled"]:
-                    deploy_cmd_dict["dlt_meta_bronze_schema"] = oc_job_details_json["bronze_schema"]
+                    deploy_cmd_dict["dlt_meta_bronze_schema"] = oc_job_details_json["dlt_meta_schema"]
                     deploy_cmd_dict["dataflowspec_bronze_table"] = oc_job_details_json["bronze_dataflowspec_table"]
                 else:
                     deploy_cmd_dict["dataflowspec_bronze_path"] = oc_job_details_json["bronze_dataflowspec_path"]
@@ -528,7 +518,7 @@ class DLTMeta:
                     "Provide dlt meta bronze onboard group")
             if deploy_cmd_dict["layer"] == "silver" or deploy_cmd_dict["layer"] == "bronze_silver":
                 if deploy_cmd_dict["uc_enabled"]:
-                    deploy_cmd_dict["dlt_meta_silver_schema"] = oc_job_details_json["silver_schema"]
+                    deploy_cmd_dict["dlt_meta_silver_schema"] = oc_job_details_json["dlt_meta_schema"]
                     deploy_cmd_dict["dataflowspec_silver_table"] = oc_job_details_json["silver_dataflowspec_table"]
                 else:
                     deploy_cmd_dict["dataflowspec_silver_path"] = oc_job_details_json["silver_dataflowspec_path"]
@@ -551,7 +541,7 @@ class DLTMeta:
                 deploy_cmd_dict["serverless"] = False
             deploy_cmd_dict["layer"] = self._wsi._choice(
                 "Provide dlt meta layer", ['bronze', 'silver', 'bronze_silver'])
-            if deploy_cmd_dict["layer"] == "bronze" or deploy_cmd_dict["layer"] == "bronze_silver":
+            if deploy_cmd_dict["layer"] in ["bronze", "bronze_silver"]:
                 deploy_cmd_dict["onboard_bronze_group"] = self._wsi._question(
                     "Provide dlt meta onboard bronze group")
                 deploy_cmd_dict["dlt_meta_bronze_schema"] = self._wsi._question(
@@ -561,20 +551,20 @@ class DLTMeta:
                 if not deploy_cmd_dict["uc_enabled"]:
                     deploy_cmd_dict["dataflowspec_bronze_path"] = self._wsi._question(
                         "Provide bronze dataflowspec path", default=f'{self._install_folder()}/bronze_dataflow_specs')
-                if deploy_cmd_dict["layer"] == "silver" or deploy_cmd_dict["layer"] == "bronze_silver":
-                    deploy_cmd_dict["onboard_silver_group"] = self._wsi._question(
-                        "Provide dlt meta silver onboard group")
-                    deploy_cmd_dict["dlt_meta_silver_schema"] = self._wsi._question(
-                        "Provide dlt_meta silver dataflowspec schema name")
-                    deploy_cmd_dict["dataflowspec_silver_table"] = self._wsi._question(
-                        "Provide silver dataflowspec table name", default='silver_dataflowspec')
-                    if not deploy_cmd_dict["uc_enabled"]:
-                        deploy_cmd_dict["dataflowspec_path"] = self._wsi._question(
-                            "Provide silver dataflowspec path",
-                            default=f'{self._install_folder()}/silver_dataflow_specs')
-                if not deploy_cmd_dict["serverless"]:
-                    deploy_cmd_dict["num_workers"] = int(self._wsi._question(
-                        "Provide number of workers", default=4))
+            if deploy_cmd_dict["layer"] in ["silver", "bronze_silver"]:
+                deploy_cmd_dict["onboard_silver_group"] = self._wsi._question(
+                    "Provide dlt meta silver onboard group")
+                deploy_cmd_dict["dlt_meta_silver_schema"] = self._wsi._question(
+                    "Provide dlt_meta silver dataflowspec schema name")
+                deploy_cmd_dict["dataflowspec_silver_table"] = self._wsi._question(
+                    "Provide silver dataflowspec table name", default='silver_dataflowspec')
+                if not deploy_cmd_dict["uc_enabled"]:
+                    deploy_cmd_dict["dataflowspec_path"] = self._wsi._question(
+                        "Provide silver dataflowspec path",
+                        default=f'{self._install_folder()}/silver_dataflow_specs')
+            if not deploy_cmd_dict["serverless"]:
+                deploy_cmd_dict["num_workers"] = int(self._wsi._question(
+                    "Provide number of workers", default=4))
         layer = deploy_cmd_dict["layer"]
         deploy_cmd_dict["pipeline_name"] = self._wsi._question(
             "Provide dlt meta pipeline name", default=f"dlt_meta_{layer}_pipeline_{uuid.uuid4().hex}")
