@@ -282,13 +282,18 @@ class DataflowSpecUtils:
         """Get partition columns."""
         partition_cols = None
         if partition_columns:
-            if len(partition_columns) == 1:
-                if partition_columns[0] == "" or partition_columns[0].strip() == "":
-                    partition_cols = None
-                else:
-                    partition_cols = partition_columns
+            if isinstance(partition_columns, str):
+                # quarantineTableProperties cluster by
+                partition_cols = partition_columns.split(',')
+
             else:
-                partition_cols = list(filter(None, partition_columns))
+                if len(partition_columns) == 1:
+                    if partition_columns[0] == "" or partition_columns[0].strip() == "":
+                        partition_cols = None
+                    else:
+                        partition_cols = partition_columns
+                else:
+                    partition_cols = list(filter(None, partition_columns))
         return partition_cols
 
     @staticmethod
