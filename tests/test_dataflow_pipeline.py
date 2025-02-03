@@ -150,16 +150,18 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "clusterBy": [""],
     }
 
-    @classmethod
-    def setUp(self):
-        """Set up initial resources for unit tests."""
-        super().setUp()
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-        onboardDataFlowSpecs.onboard_dataflow_specs()
+    # @classmethod
+    # def setUp(self):
+    #     """Set up initial resources for unit tests."""
+    #     super().setUp()
+    #     onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
+    #     onboardDataFlowSpecs.onboard_dataflow_specs()
 
     @patch.object(DataflowPipeline, "run_dlt", return_value={"called"})
     def test_invoke_dlt_pipeline_bronz_positive(self, run_dlt):
         """Test for brozne dlt pipeline."""
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
+        onboardDataFlowSpecs.onboard_dataflow_specs()
         database = self.onboarding_bronze_silver_params_map["database"]
         bronze_dataflow_table = self.onboarding_bronze_silver_params_map["bronze_dataflowspec_table"]
         self.spark.conf.set("bronze.group", "A1")
@@ -178,6 +180,8 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
     @patch.object(DataflowPipeline, "run_dlt", return_value={"called"})
     def test_invoke_dlt_pipeline_silver_positive(self, run_dlt):
         """Test for brozne dlt pipeline."""
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
+        onboardDataFlowSpecs.onboard_dataflow_specs()
         database = self.onboarding_bronze_silver_params_map["database"]
         silver_dataflow_table = self.onboarding_bronze_silver_params_map["silver_dataflowspec_table"]
         self.spark.conf.set("silver.group", "A1")
