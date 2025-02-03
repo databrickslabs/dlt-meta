@@ -742,14 +742,14 @@ class DLTMETARunner:
                         schema_name=schema.name,
                     )
                     for vol in vol_list:
-                        print(f"Deleting volume:{vol.full_name}")
+                        print(f"Deleting volume: {vol.full_name}")
                         self.ws.volumes.delete(vol.full_name)
                     tables_list = self.ws.tables.list(
                         catalog_name=runner_conf.uc_catalog_name,
                         schema_name=schema.name,
                     )
                     for table in tables_list:
-                        print(f"Deleting table:{table.full_name}")
+                        print(f"Deleting table: {table.full_name}")
                         self.ws.tables.delete(table.full_name)
                     self.ws.schemas.delete(schema.full_name)
         print("Cleaning up complete!!!")

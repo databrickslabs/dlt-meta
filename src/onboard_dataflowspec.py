@@ -582,9 +582,8 @@ class OnboardDataflowspec:
                 else:
                     partition_columns = [onboarding_row["bronze_partition_columns"]]
 
-            cluster_by = [""]
-            if "bronze_cluster_by" in onboarding_row and onboarding_row["bronze_cluster_by"]:
-                cluster_by = onboarding_row["bronze_cluster_by"]
+            cluster_by = self.__get_cluster_by_properties(onboarding_row, bronze_table_properties,
+                                                          "bronze_cluster_by")
 
             cdc_apply_changes = None
             if (
@@ -652,6 +651,14 @@ class OnboardDataflowspec:
 
         return data_flow_spec_rows_df
 
+    def __get_cluster_by_properties(self, onboarding_row, table_properties, cluster_key):
+        cluster_by = None
+        if cluster_key in onboarding_row and onboarding_row[cluster_key]:
+            if table_properties.get('pipelines.autoOptimize.zOrderCols', None) is not None:
+                raise Exception(f"Can not support zOrder and cluster_by together at {cluster_key}")
+            cluster_by = onboarding_row[cluster_key]
+        return cluster_by
+
     def __get_quarantine_details(self, env, onboarding_row):
         quarantine_table_partition_columns = ""
         quarantine_target_details = {}
@@ -661,19 +668,21 @@ class OnboardDataflowspec:
             "bronze_quarantine_table_partitions" in onboarding_row
             and onboarding_row["bronze_quarantine_table_partitions"]
         ):
-
-            if (
-                    "bronze_quarantine_table_cluster_by" in onboarding_row
-                    and onboarding_row["bronze_quarantine_table_cluster_by"]
-                    and len(onboarding_row["bronze_quarantine_table_cluster_by"]) > 0
-            ):
-                quarantine_table_cluster_by = ",".join(onboarding_row["bronze_quarantine_table_cluster_by"])
-
             # Split if this is a list separated by commas
             if "," in onboarding_row["bronze_quarantine_table_partitions"]:
                 quarantine_table_partition_columns = onboarding_row["bronze_quarantine_table_partitions"].split(",")
             else:
                 quarantine_table_partition_columns = onboarding_row["bronze_quarantine_table_partitions"]
+        if (
+            "bronze_quarantine_table_properties" in onboarding_row
+            and onboarding_row["bronze_quarantine_table_properties"]
+        ):
+            quarantine_table_properties = self.__delete_none(
+                onboarding_row["bronze_quarantine_table_properties"].asDict()
+            )
+
+        quarantine_table_cluster_by = self.__get_cluster_by_properties(onboarding_row, quarantine_table_properties,
+                                                                       "bronze_quarantine_table_cluster_by")
         if (
             f"bronze_database_quarantine_{env}" in onboarding_row
             and onboarding_row[f"bronze_database_quarantine_{env}"]
@@ -685,13 +694,7 @@ class OnboardDataflowspec:
                                          }
         if not self.uc_enabled and f"bronze_quarantine_table_path_{env}" in onboarding_row:
             quarantine_target_details["path"] = onboarding_row[f"bronze_quarantine_table_path_{env}"]
-        if (
-            "bronze_quarantine_table_properties" in onboarding_row
-            and onboarding_row["bronze_quarantine_table_properties"]
-        ):
-            quarantine_table_properties = self.__delete_none(
-                onboarding_row["bronze_quarantine_table_properties"].asDict()
-            )
+
         return quarantine_target_details, quarantine_table_properties
 
     def get_append_flows_json(self, onboarding_row, layer, env):
@@ -1030,9 +1033,8 @@ class OnboardDataflowspec:
                 else:
                     silver_parition_columns = [onboarding_row["silver_partition_columns"]]
 
-            silver_cluster_by = [""]
-            if "silver_cluster_by" in onboarding_row and onboarding_row["silver_cluster_by"]:
-                silver_cluster_by = onboarding_row["silver_cluster_by"]
+            silver_cluster_by = self.__get_cluster_by_properties(onboarding_row, silver_table_properties,
+                                                                 "silver_cluster_by")
 
             silver_cdc_apply_changes = None
             if (
