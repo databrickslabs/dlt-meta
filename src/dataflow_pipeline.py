@@ -408,7 +408,9 @@ class DataflowPipeline:
                         "cluster_by" in bronzeDataflowSpec.quarantineTargetDetails
                         and bronzeDataflowSpec.quarantineTargetDetails["cluster_by"]
                 ):
-                    q_cluster_by = bronzeDataflowSpec.quarantineTargetDetails["cluster_by"]
+                    q_cluster_by = DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.
+                                                                        quarantineTargetDetails['cluster_by'])
+
                 target_path = None if self.uc_enabled else bronzeDataflowSpec.quarantineTargetDetails["path"]
                 dlt.expect_all_or_drop(expect_or_quarantine_dict)(
                     dlt.table(
