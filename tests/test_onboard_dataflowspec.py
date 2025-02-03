@@ -529,19 +529,17 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
                 "it", onboarding_row)
         print(str(context.exception))
         self.assertEqual(str(context.exception),
-            f"Can not support zOrder and cluster_by together at bronze_quarantine_table_cluster_by")
+                         "Can not support zOrder and cluster_by together at bronze_quarantine_table_cluster_by")
 
     def test_set_bronze_table_cluster_by_properties(self):
         """Test get_quarantine_details with partitions and properties."""
         onboarding_row = {
             "bronze_cluster_by": ['col1', 'col2'],
-            "bronze_table_properties":  {
-            "pipelines.autoOptimize.managed": "true"
-        }
+            "bronze_table_properties": {"pipelines.autoOptimize.managed": "true"}
         }
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-        cluster_by = onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(onboarding_row,
-                                        onboarding_row['bronze_table_properties'], "bronze_cluster_by")
+        cluster_by = onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
+            onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
         self.assertEqual(cluster_by, ['col1', 'col2'])
 
     def test_set_bronze_table_cluster_by_and_zOrder_properties(self):
@@ -555,23 +553,21 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
 
         with self.assertRaises(Exception) as context:
-            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(onboarding_row,
-                                                    onboarding_row['bronze_table_properties'], "bronze_cluster_by")
-        print(str(context.exception))
-        self.assertEqual(str(context.exception),
+            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
+                onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
+        self.assertEqual(
+            str(context.exception),
             "Can not support zOrder and cluster_by together at bronze_cluster_by")
 
     def test_set_silver_table_cluster_by_properties(self):
         """Test get_quarantine_details with partitions and properties."""
         onboarding_row = {
             "silver_cluster_by": ['col1', 'col2'],
-            "silver_table_properties":  {
-            "pipelines.autoOptimize.managed": "true"
-        }
+            "silver_table_properties": {"pipelines.autoOptimize.managed": "true"}
         }
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-        cluster_by = onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(onboarding_row,
-                                        onboarding_row['silver_table_properties'], "silver_cluster_by")
+        cluster_by = onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
+            onboarding_row, onboarding_row['silver_table_properties'], "silver_cluster_by")
         self.assertEqual(cluster_by, ['col1', 'col2'])
 
     def test_set_silver_table_cluster_by_and_zOrder_properties(self):
@@ -585,10 +581,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
 
         with self.assertRaises(Exception) as context:
-            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(onboarding_row,
-                                                    onboarding_row['silver_table_properties'], "silver_cluster_by")
-        print(str(context.exception))
-        self.assertEqual(str(context.exception),
-            "Can not support zOrder and cluster_by together at silver_cluster_by")
-
-
+            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
+                onboarding_row, onboarding_row['silver_table_properties'], "silver_cluster_by")
+        self.assertEqual(
+            str(context.exception), "Can not support zOrder and cluster_by together at silver_cluster_by")
