@@ -8,7 +8,7 @@ INSTALL_REQUIRES = ["setuptools", "databricks-sdk"]
 
 DEV_REQUIREMENTS = [
     "flake8==6.0",
-    "delta-spark==2.0.2"
+    "delta-spark==3.2.1"
 ]
 
 IT_REQUIREMENTS = ["typer[all]==0.6.1"]
@@ -19,7 +19,7 @@ package_long_description = """###Databricks Labs DLT-META Framework###
     """
 setup(
     name="dlt_meta",
-    version="0.0.8",
+    version="0.0.9",
     python_requires=">=3.8",
     setup_requires=["wheel>=0.37.1,<=0.42.0"],
     install_requires=INSTALL_REQUIRES,

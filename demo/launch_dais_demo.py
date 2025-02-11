@@ -1,11 +1,11 @@
 import uuid
-import webbrowser
-from databricks.sdk.service import jobs
+import traceback
+from databricks.sdk.service import jobs, compute
 from src.install import WorkspaceInstaller
+from src.__about__ import __version__
 from integration_tests.run_integration_tests import (
     DLTMETARunner,
     DLTMetaRunnerConf,
-    cloud_node_type_id_dict,
     get_workspace_api_client,
     process_arguments
 )
@@ -37,23 +37,23 @@ class DLTMETADAISDemo(DLTMETARunner):
         runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
             username=self._my_username(self.ws),
-            dbfs_tmp_path=f"{self.args.__dict__['dbfs_path']}/{run_id}",
-            int_tests_dir="file:./demo",
+            int_tests_dir="demo",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_demo_{run_id}",
             bronze_schema=f"dlt_meta_bronze_dais_demo_{run_id}",
             silver_schema=f"dlt_meta_silver_dais_demo_{run_id}",
-            runners_nb_path=f"/Users/{self._my_username(self.ws)}/dlt_meta_dais_demo/{run_id}",
-            node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
-            dbr_version=self.args.__dict__['dbr_version'],
+            runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_dais_demo/{run_id}",
+            runners_full_local_path="demo/notebooks/dais_runners",
+            # node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
+            # dbr_version=self.args.__dict__['dbr_version'],
             cloudfiles_template="demo/conf/onboarding.template",
             env="prod",
-            source=self.args.__dict__['source'],
-            runners_full_local_path='./demo/dbc/dais_dlt_meta_runners.dbc',
+            source="cloudfiles",
+            # runners_full_local_path='./demo/dbc/dais_dlt_meta_runners.dbc',
             onboarding_file_path='demo/conf/onboarding.json'
         )
-        if self.args.__dict__['uc_catalog_name']:
-            runner_conf.uc_catalog_name = self.args.__dict__['uc_catalog_name']
-            runner_conf.uc_volume_name = f"{self.args.__dict__['uc_catalog_name']}_volume_{run_id}"
+        if self.args['uc_catalog_name']:
+            runner_conf.uc_catalog_name = self.args['uc_catalog_name']
+            runner_conf.uc_volume_name = f"{runner_conf.uc_catalog_name}_dais_demo_{run_id}"
 
         return runner_conf
 
@@ -67,10 +67,10 @@ class DLTMETADAISDemo(DLTMETARunner):
         try:
             self.init_dltmeta_runner_conf(runner_conf)
             self.create_bronze_silver_dlt(runner_conf)
-            self.create_cluster(runner_conf)
             self.launch_workflow(runner_conf)
         except Exception as e:
             print(e)
+            traceback.print_exc()
         # finally:
         #     self.clean_up(runner_conf)
 
@@ -82,11 +82,7 @@ class DLTMETADAISDemo(DLTMETARunner):
         - runner_conf: DLTMetaRunnerConf object
         """
         created_job = self.create_daisdemo_workflow(runner_conf)
-        runner_conf.job_id = created_job.job_id
-        url = f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
-        self.ws.jobs.run_now(job_id=created_job.job_id)
-        webbrowser.open(url)
-        print(f"Job created successfully. job_id={created_job.job_id}, url={url}")
+        self.open_job_url(runner_conf, created_job)
 
     def create_daisdemo_workflow(self, runner_conf: DLTMetaRunnerConf):
         """
@@ -98,38 +94,46 @@ class DLTMETADAISDemo(DLTMETARunner):
         Returns:
         - created_job: created job object
         """
-        database, dlt_lib = self.init_db_dltlib(runner_conf)
+        dltmeta_environments = [
+            jobs.JobEnvironment(
+                environment_key="dl_meta_int_env",
+                spec=compute.Environment(
+                    client=f"dlt_meta_int_test_{__version__}",
+                    dependencies=[runner_conf.remote_whl_path],
+                ),
+            )
+        ]
         return self.ws.jobs.create(
             name=f"dltmeta_dais_demo-{runner_conf.run_id}",
+            environments=dltmeta_environments,
             tasks=[
                 jobs.Task(
                     task_key="setup_dlt_meta_pipeline_spec",
                     description="test",
-                    existing_cluster_id=runner_conf.cluster_id,
+                    environment_key="dl_meta_int_env",
                     timeout_seconds=0,
                     python_wheel_task=jobs.PythonWheelTask(
                         package_name="dlt_meta",
                         entry_point="run",
                         named_parameters={
                             "onboard_layer": "bronze_silver",
-                            "database": database,
-                            "onboarding_file_path": f"{runner_conf.dbfs_tmp_path}/demo/conf/onboarding.json",
+                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
+                            "onboarding_file_path": f"{runner_conf.uc_volume_path}/demo/conf/onboarding.json",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
                             "silver_dataflowspec_path": (
-                                f"{runner_conf.dbfs_tmp_path}/demo/resources/data/dlt_spec/silver"
+                                f"{runner_conf.uc_volume_path}/demo/resources/data/dlt_spec/silver"
                             ),
                             "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                             "import_author": "Ravi",
                             "version": "v1",
                             "bronze_dataflowspec_path": (
-                                f"{runner_conf.dbfs_tmp_path}/demo/resources/data/dlt_spec/bronze"
+                                f"{runner_conf.uc_volume_path}/demo/resources/data/dlt_spec/bronze"
                             ),
                             "overwrite": "True",
                             "env": runner_conf.env,
                             "uc_enabled": "True" if runner_conf.uc_catalog_name else "False"
                         }
-                    ),
-                    libraries=dlt_lib
+                    )
                 ),
                 jobs.Task(
                     task_key="bronze_initial_run",
@@ -149,11 +153,10 @@ class DLTMETADAISDemo(DLTMETARunner):
                     task_key="load_incremental_data",
                     description="Load Incremental Data",
                     depends_on=[jobs.TaskDependency(task_key="silver_initial_run")],
-                    existing_cluster_id=runner_conf.cluster_id,
                     notebook_task=jobs.NotebookTask(
-                        notebook_path=f"{runner_conf.runners_nb_path}/runners/load_incremental_data",
+                        notebook_path=f"{runner_conf.runners_nb_path}/runners/load_incremental_data.py",
                         base_parameters={
-                            "dbfs_tmp_path": runner_conf.dbfs_tmp_path
+                            "dbfs_tmp_path": runner_conf.uc_volume_path
                         }
                     )
                 ),
@@ -176,23 +179,10 @@ class DLTMETADAISDemo(DLTMETARunner):
         )
 
 
-dais_args_map = {"--profile": "provide databricks cli profile name, if not provide databricks_host and token",
-                 "--source": "provide source. Supported values are cloudfiles, eventhub, kafka",
-                 "--uc_catalog_name": "provide databricks uc_catalog name, \
-                     this is required to create volume, schema, table",
-                 "--cloud_provider_name": "provide cloud provider name. Supported values are aws , azure , gcp",
-                 "--dbr_version": "Provide databricks runtime spark version e.g 15.3.x-scala2.12",
-                 "--dbfs_path": "Provide databricks workspace dbfs path where you want run integration tests \
-                        e.g --dbfs_path=dbfs:/tmp/DLT-META/"}
-
-dais_mandatory_args = ["source", "cloud_provider_name",
-                       "dbr_version", "dbfs_path"]
-
-
 def main():
     """Entry method to run integration tests."""
-    args = process_arguments(dais_args_map, dais_mandatory_args)
-    workspace_client = get_workspace_api_client(args.profile)
+    args = process_arguments()
+    workspace_client = get_workspace_api_client(args['profile'])
     dltmeta_dais_demo_runner = DLTMETADAISDemo(args, workspace_client, "demo")
     runner_conf = dltmeta_dais_demo_runner.init_runner_conf()
     dltmeta_dais_demo_runner.run(runner_conf)

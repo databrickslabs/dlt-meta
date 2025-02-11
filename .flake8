@@ -1,6 +1,6 @@
 [flake8]
 ignore = BLK100,E402,W503
-exclude = .git,__pycache__,docs/source/conf.py,old,build,dist,dist,.eggs
+exclude = .git,__pycache__,docs/source/conf.py,old,build,dist,dist,.eggs,integration_tests/notebooks/*/*.py,demo/notebooks/*/*.py,.venv
 builtins = dlt,dbutils,spark,display,log_integration_test,pyspark.dbutils
 max-line-length = 120
 per-file-ignores =

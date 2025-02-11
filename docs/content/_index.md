@@ -4,7 +4,6 @@ date: 2021-08-04T14:50:11-04:00
 draft: false
 ---
 
-# DLT-META 
 
 ## Project Overview
 DLT-META is a metadata-driven framework designed to work with Databricks Delta Live Tables (DLT). This framework enables the automation of bronze and silver data pipelines by leveraging metadata recorded in an onboarding JSON file. This file, known as the Dataflowspec, serves as the data flow specification, detailing the source and target metadata required for the pipelines.
@@ -40,7 +39,19 @@ In practice, a single generic DLT pipeline reads the Dataflowspec and uses it to
     - Option#1: [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/#dataflow-dlt-pipeline)
     - Option#2: [DLT-META MANUAL](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_manual/#dataflow-dlt-pipeline)
 
-
+## DLT-META DLT Features support
+| Features  | DLT-META Support |
+| ------------- | ------------- |
+| Input data sources  | Autoloader, Delta, Eventhub, Kafka  |
+| Medallion architecture layers | Bronze, Silver  |
+| Custom transformations | Bronze, Silver layer accepts custom functions|
+| Data Quality Expecations Support | Bronze, Silver layer |
+| Quarantine table support | Bronze layer |
+| [apply_changes](https://docs.databricks.com/en/delta-live-tables/python-ref.html#cdc) API support | Bronze, Silver layer | 
+| [apply_changes_from_snapshot](https://docs.databricks.com/en/delta-live-tables/python-ref.html#change-data-capture-from-database-snapshots-with-python-in-delta-live-tables) API support | Bronze layer|
+| Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
+| [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/) |  ```databricks labs dlt-meta onboard```, ```databricks labs dlt-meta deploy``` |
+| Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using Direct publishing mode |
 ## How much does it cost ?
 DLT-META does not have any **direct cost** associated with it other than the cost to run the Databricks Delta Live Tables 
 on your environment.The overall cost will be determined primarily by the [Databricks Delta Live Tables Pricing] (https://databricks.com/product/delta-live-tables-pricing-azure)

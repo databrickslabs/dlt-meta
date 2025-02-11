@@ -16,7 +16,7 @@
         <img src="https://img.shields.io/badge/DOCS-PASSING-green?style=for-the-badge" alt="Documentation Status"/>
     </a>
     <a href="https://pypi.org/project/dlt-meta/">
-        <img src="https://img.shields.io/badge/PYPI-v%200.0.8-green?style=for-the-badge" alt="Latest Python Release"/>
+        <img src="https://img.shields.io/badge/PYPI-v%200.0.9-green?style=for-the-badge" alt="Latest Python Release"/>
     </a>
     <a href="https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml">
         <img src="https://img.shields.io/github/workflow/status/databrickslabs/dlt-meta/build/main?style=for-the-badge"
@@ -67,6 +67,20 @@ In practice, a single generic DLT pipeline reads the Dataflowspec and uses it to
 ## Steps
 
 ![DLT-META Stages](./docs/static/images/dlt-meta_stages.png)
+
+## DLT-META DLT Features support
+| Features  | DLT-META Support |
+| ------------- | ------------- |
+| Input data sources  | Autoloader, Delta, Eventhub, Kafka  |
+| Medallion architecture layers | Bronze, Silver  |
+| Custom transformations | Bronze, Silver layer accepts custom functions|
+| Data Quality Expecations Support | Bronze, Silver layer |
+| Quarantine table support | Bronze layer |
+| [apply_changes](https://docs.databricks.com/en/delta-live-tables/python-ref.html#cdc) API support | Bronze, Silver layer | 
+| [apply_changes_from_snapshot](https://docs.databricks.com/en/delta-live-tables/python-ref.html#change-data-capture-from-database-snapshots-with-python-in-delta-live-tables) API support | Bronze layer|
+| Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
+| [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/) |  ```databricks labs dlt-meta onboard```, ```databricks labs dlt-meta deploy``` |
+| Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using Direct publishing mode |
 
 ## Getting Started
 
