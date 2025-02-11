@@ -9,9 +9,9 @@ defaults:
     working-directory: ./docs
 jobs:
   deploy:
-    runs-on: ubuntu-20.04
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
+    runs-on:
+      group: databrickslabs-protected-runner-group
+      labels: linux-ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
