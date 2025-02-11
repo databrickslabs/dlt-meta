@@ -4,12 +4,12 @@ title = 'DLT-META'
 theme= "hugo-theme-relearn"
 pluralizeListTitles = false
 canonifyURLs = true
+description = "DLT-META Documentation"
 
 [params]
     themeVariant = 'learn'
     themeVariantAuto = 'learn'
     disableShortcutsTitle = true
     disableLandingPageButton = false
-    description = "DLT-META Documentation"
     author.name = "Ravi Gawai (Databricks)"
     disableNextPrev = false
