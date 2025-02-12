@@ -69,6 +69,6 @@ jobs:
           fail_ci_if_error: true
           flags: unittests
           name: codecov-umbrella
-          file: ./coverage/codecov_report.txt
+          path_to_write_report: ./coverage/codecov_report.txt
           verbose: true
  
