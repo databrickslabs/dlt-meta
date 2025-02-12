@@ -290,7 +290,12 @@ class DLTMeta:
                         package_name="dlt_meta",
                         entry_point="run",
                         named_parameters=named_parameters,
-                    )
+                    ),
+                    libraries=[
+                        jobs.compute.Library(
+                            pypi=compute.PythonPyPiLibrary(package=f"dlt-meta=={self.version}")
+                        )
+                    ] if not cmd.serverless else None,
                 ),
             ]
         )
