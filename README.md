@@ -71,13 +71,14 @@ In practice, a single generic DLT pipeline reads the Dataflowspec and uses it to
 ## DLT-META DLT Features support
 | Features  | DLT-META Support |
 | ------------- | ------------- |
-| Input data sources  | Autoloader, Delta, Eventhub, Kafka  |
+| Input data sources  | Autoloader, Delta, Eventhub, Kafka, snapshot  |
 | Medallion architecture layers | Bronze, Silver  |
 | Custom transformations | Bronze, Silver layer accepts custom functions|
 | Data Quality Expecations Support | Bronze, Silver layer |
 | Quarantine table support | Bronze layer |
 | [apply_changes](https://docs.databricks.com/en/delta-live-tables/python-ref.html#cdc) API support | Bronze, Silver layer | 
 | [apply_changes_from_snapshot](https://docs.databricks.com/en/delta-live-tables/python-ref.html#change-data-capture-from-database-snapshots-with-python-in-delta-live-tables) API support | Bronze layer|
+| [append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#use-append-flow-to-write-to-a-streaming-table-from-multiple-source-streams) API support | Bronze layer|
 | Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
 | [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/) |  ```databricks labs dlt-meta onboard```, ```databricks labs dlt-meta deploy``` |
 | Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using Direct publishing mode |
