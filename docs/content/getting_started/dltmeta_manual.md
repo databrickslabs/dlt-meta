@@ -167,8 +167,8 @@ OnboardDataflowspec(spark, onboarding_params_map, uc_enabled=True).onboard_dataf
 5. Enter Configuration parameters e.g.
     ```
     "layer": "silver",
-    "bronze.dataflowspecTable": "dataflowspec table name",
-    "bronze.group": "enter group name from metadata e.g. G1",
+    "silver.dataflowspecTable": "dataflowspec table name",
+    "silver.group": "enter group name from metadata e.g. G1",
     ```
 
 6. Enter target schema where you wants your silver tables to be created

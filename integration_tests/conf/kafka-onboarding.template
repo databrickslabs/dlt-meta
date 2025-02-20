@@ -5,9 +5,9 @@
         "source_system": "Sensor Device",
         "source_format": "kafka",
         "source_details": {
-            "source_schema_path": "{dbfs_path}/integration_tests/resources/eventhub_iot_schema.ddl",
-            "subscribe": "{kafka_source_topic}",
-            "kafka.bootstrap.servers": "{kafka_bootstrap_servers}"
+            "source_schema_path": "{uc_volume_path}/integration_tests/resources/eventhub_iot_schema.ddl",
+            "subscribe": "{kafka_topic}",
+            "kafka.bootstrap.servers": "{kafka_broker}"
         },
         "bronze_reader_options": {
             "startingOffsets": "earliest",
@@ -17,31 +17,10 @@
         "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",
         "bronze_table": "bronze_{run_id}_iot",
         "bronze_partition_columns": "date",
-        "bronze_table_path_it": "{dbfs_path}/data/bronze/iot",
-        "bronze_data_quality_expectations_json_it": "{dbfs_path}/integration_tests/conf/dqe/iot/bronze_data_quality_expectations.json",
+        "bronze_table_path_it": "{uc_volume_path}/data/bronze/iot",
+        "bronze_data_quality_expectations_json_it": "{uc_volume_path}/integration_tests/conf/dqe/iot/bronze_data_quality_expectations.json",
         "bronze_database_quarantine_it": "{uc_catalog_name}.{bronze_schema}",
         "bronze_quarantine_table": "bronze_{run_id}_iot_quarantine",
-        "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/iot_quarantine",
-        "bronze_sinks": [{
-            "name": "bronze_customer_kafka_sink1",
-            "format": "kafka",
-            "options": {
-                "kafka_bootstrap_servers_secrets_scope":"oetrta",
-                "kafka_bootstrap_servers_secrets_key":"kafka-bootstrap-servers-plaintext",
-                "kafka.security.protocol":"PLAINTEXT",
-                "startingOffsets":"earliest",
-                "topic":"{kafka_sink_topic}_1"
-            }
-        },
-        {
-            "name": "bronze_customer_kafka_sink2",
-            "format": "kafka",
-            "options": {
-                "kafka_bootstrap_servers_secrets_scope":"oetrta",
-                "kafka_bootstrap_servers_secrets_key":"kafka-bootstrap-servers-plaintext",
-                "kafka.security.protocol":"PLAINTEXT",
-                "topic":"{kafka_sink_topic}_2"
-            }
-        }]
+        "bronze_quarantine_table_path_it": "{uc_volume_path}/data/bronze/iot_quarantine"
     }
 ]

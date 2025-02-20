@@ -9,7 +9,7 @@ draft: false
 - Read from different eventhub topics and write to same target tables using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows) API
 
 ### Steps:
-1. Launch Terminal/Command prompt 
+1. Launch Command Prompt
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
     - Once you install Databricks CLI, authenticate your current machine to a Databricks Workspace:
@@ -51,7 +51,7 @@ draft: false
 - Following are the mandatory arguments for running EventHubs demo
     - cloud_provider_name: Cloud provider name e.g. aws or azure 
     - dbr_version:  Databricks Runtime Version e.g. 15.3.x-scala2.12
-    - uc_catalog_name : unity catalog name e.g. ravi_dlt_meta_uc
+    - uc_catalog_name : unity catalog name e.g. dlt_meta_uc
     - dbfs_path: Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines e.g. dbfs:/tmp/DLT-META/demo/ 
     - eventhub_namespace: Eventhub namespace e.g. dltmeta
     - eventhub_name : Primary Eventhubname e.g. dltmeta_demo
@@ -62,7 +62,7 @@ draft: false
     - eventhub_port: Eventhub port
 
 7. ```commandline 
-    python3 demo/launch_af_eventhub_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=ravi_dlt_meta_uc --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey --uc_catalog_name=ravi_dlt_meta_uc
+    python demo/launch_af_eventhub_demo.py --cloud_provider_name=aws --uc_catalog_name=dlt_meta_uc --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey
     ```
 
 ![af_eh_demo.png](/images/af_eh_demo.png)

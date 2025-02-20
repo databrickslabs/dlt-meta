@@ -41,6 +41,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "schema": None,
         "partitionColumns": [""],
         "cdcApplyChanges": None,
+        "applyChangesFromSnapshot": None,
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
         "quarantineTableProperties": None,
@@ -51,7 +52,8 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "dlt-meta-unittest"
+        "updatedBy": "dlt-meta-unittest",
+        "clusterBy": [""],
     }
 
     bronze_eventhub_dataflow_spec_map = {
@@ -82,6 +84,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "schema": None,
         "partitionColumns": [""],
         "cdcApplyChanges": None,
+        "applyChangesFromSnapshot": None,
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
         "quarantineTableProperties": None,
@@ -92,7 +95,8 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "dlt-meta-unittest"
+        "updatedBy": "dlt-meta-unittest",
+        "clusterBy": [""],
     }
 
     bronze_eventhub_dataflow_spec_omit_secret_map = {
@@ -122,6 +126,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "schema": None,
         "partitionColumns": [""],
         "cdcApplyChanges": None,
+        "applyChangesFromSnapshot": None,
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
         "quarantineTableProperties": None,
@@ -132,7 +137,8 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "dlt-meta-unittest"
+        "updatedBy": "dlt-meta-unittest",
+        "clusterBy": [""],
     }
 
     bronze_kafka_dataflow_spec_map = {
@@ -154,6 +160,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "schema": None,
         "partitionColumns": [""],
         "cdcApplyChanges": None,
+        "applyChangesFromSnapshot": None,
         "dataQualityExpectations": None,
         "quarantineTargetDetails": None,
         "quarantineTableProperties": None,
@@ -164,9 +171,11 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "dlt-meta-unittest"
+        "updatedBy": "dlt-meta-unittest",
+        "clusterBy": [""],
     }
 
+    @classmethod
     def setUp(self):
         """Set initial resources."""
         super().setUp()

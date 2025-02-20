@@ -2,10 +2,13 @@
 import copy
 import sys
 from unittest.mock import MagicMock, patch
+import copy
+import json
 from tests.utils import DLTFrameworkTestCase
 from src.dataflow_spec import (
     DataflowSpecUtils,
     CDCApplyChanges,
+    ApplyChangesFromSnapshot,
     BronzeDataflowSpec,
     SilverDataflowSpec,
 )
@@ -151,6 +154,25 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
         self.assertEqual(
             DataflowSpecUtils.get_partition_cols(partition_cols_with_empty_col_value),
             ["col1", "col2"],
+        )
+
+    def test_get_cluster_by_cols_positive_values(self):
+        """Test partitions cols with negative values."""
+        partition_cols_list_of_possible_values = [["col1"], ["col1", "col2"]]
+        for partition_cols in partition_cols_list_of_possible_values:
+            self.assertEqual(DataflowSpecUtils.get_partition_cols(partition_cols), partition_cols)
+        partition_cols_with_empty_col_value = ["col1", "", "", "col2", "", ""]
+        self.assertEqual(
+            DataflowSpecUtils.get_partition_cols(partition_cols_with_empty_col_value),
+            ["col1", "col2"],
+        )
+
+    def test_get_quarantine_cluster_by_cols_positive_values(self):
+        """Test partitions cols with negative values."""
+        cluster_by = "col1,col2"
+        self.assertEqual(
+            DataflowSpecUtils.get_partition_cols(cluster_by),
+            ['col1', 'col2'],
         )
 
     def test_getCdcApplyChanges_negative(self):
@@ -471,3 +493,52 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
             df_obj = SilverDataflowSpec(**dfs.asDict())
             sink_lists = DataflowSpecUtils.get_sinks(df_obj.sinks, self.spark)
             self.assertEqual(len(sink_lists), 2)
+
+    def test_get_apply_changes_from_snapshot_positive(self):
+        """Test get_apply_changes_from_snapshot with positive values."""
+        apply_changes_from_snapshot = """{
+            "keys": ["id"],
+            "scd_type": "1",
+            "track_history_column_list": ["col1"],
+            "track_history_except_column_list": ["col2"]
+        }"""
+        result = DataflowSpecUtils.get_apply_changes_from_snapshot(apply_changes_from_snapshot)
+        self.assertEqual(type(result), ApplyChangesFromSnapshot)
+        self.assertEqual(result.keys, ["id"])
+        self.assertEqual(result.scd_type, "1")
+        self.assertEqual(result.track_history_column_list, ["col1"])
+        self.assertEqual(result.track_history_except_column_list, ["col2"])
+
+    def test_get_apply_changes_from_snapshot_missing_mandatory_keys(self):
+        """Test get_apply_changes_from_snapshot with missing mandatory keys."""
+        apply_changes_from_snapshot = """{
+            "scd_type": "1",
+            "track_history_column_list": ["col1"],
+            "track_history_except_column_list": ["col2"]
+        }"""
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_apply_changes_from_snapshot(apply_changes_from_snapshot)
+
+    def test_get_apply_changes_from_snapshot_missing_optional_keys(self):
+        """Test get_apply_changes_from_snapshot with missing optional keys."""
+        apply_changes_from_snapshot = """{
+            "keys": ["id"],
+            "scd_type": "1"
+        }"""
+        result = DataflowSpecUtils.get_apply_changes_from_snapshot(apply_changes_from_snapshot)
+        self.assertEqual(type(result), ApplyChangesFromSnapshot)
+        self.assertEqual(result.keys, ["id"])
+        self.assertEqual(result.scd_type, "1")
+        self.assertEqual(result.track_history_column_list, None)
+        self.assertEqual(result.track_history_except_column_list, None)
+
+    def test_get_apply_changes_from_snapshot_invalid_json(self):
+        """Test get_apply_changes_from_snapshot with invalid JSON."""
+        apply_changes_from_snapshot = """{
+            "keys": ["id"],
+            "scd_type": "1",
+            "track_history_column_list": ["col1",
+            "track_history_except_column_list": ["col2"]
+        }"""  # Missing closing bracket for track_history_column_list
+        with self.assertRaises(json.JSONDecodeError):
+            DataflowSpecUtils.get_apply_changes_from_snapshot(apply_changes_from_snapshot)

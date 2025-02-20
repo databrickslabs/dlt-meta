@@ -12,6 +12,7 @@ from src.metastore_ops import DeltaPipelinesMetaStoreOps, DeltaPipelinesInternal
 class DLTFrameworkTestCase(unittest.TestCase):
     """Test class base that sets up a correctly configured SparkSession for querying Delta tables."""
 
+    @classmethod
     def setUp(self):
         """Set inputs."""
         # Configurations to speed up tests and reduce memory footprint
@@ -24,6 +25,14 @@ class DLTFrameworkTestCase(unittest.TestCase):
             )
         )
         self.spark = configure_spark_with_delta_pip(builder).getOrCreate()
+        self.spark.conf.set("spark.sql.shuffle.partitions", "4")
+        self.spark.conf.set("spark.app.name", "dlt-meta-unit-tests")
+        self.spark.conf.set("spark.master", "local[4]")
+        self.spark.conf.set("spark.databricks.delta.snapshotPartitions", "2")
+        self.spark.conf.set("spark.sql.shuffle.partitions", "5")
+        self.spark.conf.set("delta.log.cacheSize", "3")
+        self.spark.conf.set("spark.databricks.delta.delta.log.cacheSize", "3")
+        self.spark.conf.set("spark.sql.sources.parallelPartitionDiscovery.parallelism", "5")
         self.deltaPipelinesMetaStoreOps = DeltaPipelinesMetaStoreOps(self.spark)
         self.deltaPipelinesInternalTableOps = DeltaPipelinesInternalTableOps(self.spark)
         self.sc = self.spark.sparkContext
@@ -31,6 +40,8 @@ class DLTFrameworkTestCase(unittest.TestCase):
         self.temp_delta_tables_path = tempfile.mkdtemp()
         self.onboarding_json_file = "tests/resources/onboarding.json"
         self.onboarding_json_v7_file = "tests/resources/onboarding_v0.0.7.json"
+        self.onboarding_json_v8_file = "tests/resources/onboarding_v0.0.8.json"
+        self.onboarding_json_v9_file = "tests/resources/onboarding_v0.0.9.json"
         self.onboarding_unsupported_file = "tests/resources/schema.ddl"
         self.onboarding_v2_json_file = "tests/resources/onboarding_v2.json"
         self.onboarding_without_ids_json_file = "tests/resources/onboarding_without_ids.json"
@@ -42,6 +53,13 @@ class DLTFrameworkTestCase(unittest.TestCase):
         self.onboarding_append_flow_json_file = "tests/resources/onboarding_append_flow.json"
         self.onboarding_silver_fanout_json_file = "tests/resources/onboarding_silverfanout.json"
         self.onboarding_sink_json_file = "tests/resources/onboarding_sink.json"
+        self.onboarding_multiple_partitions_file = "tests/resources/onboarding_multiple_partitions.json"
+        self.onboarding_apply_changes_from_snapshot_json_file = (
+            "tests/resources/onboarding_applychanges_from_snapshot.json"
+        )
+        self.onboarding_apply_changes_from_snapshot_json__error_file = (
+            "tests/resources/onboarding_applychanges_from_snapshot_error.json"
+        )
         self.deltaPipelinesMetaStoreOps.drop_database("ravi_dlt_demo")
         self.deltaPipelinesMetaStoreOps.create_database("ravi_dlt_demo", "Unittest")
         self.onboarding_bronze_silver_params_map = {
@@ -70,6 +88,7 @@ class DLTFrameworkTestCase(unittest.TestCase):
             "uc_enabled": "True"
         }
 
+    @classmethod
     def tearDown(self):
         """Tear down."""
         self.deltaPipelinesMetaStoreOps.drop_database("ravi_dlt_demo")

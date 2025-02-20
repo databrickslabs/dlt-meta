@@ -1,12 +1,15 @@
 baseURL = 'https://databrickslabs.github.io/dlt-meta/'
 languageCode = 'en-us'
 title = 'DLT-META'
-theme= "hugo-theme-learn"
+theme= "hugo-theme-relearn"
 pluralizeListTitles = false
 canonifyURLs = true
+description = "DLT-META Documentation"
 
 [params]
-    description = "DLT-META Documentation"
-    author = "Ravi Gawai (Databricks)"
+    themeVariant = 'learn'
+    themeVariantAuto = 'learn'
     disableShortcutsTitle = true
     disableLandingPageButton = false
+    author.name = "Ravi Gawai (Databricks)"
+    disableNextPrev = false

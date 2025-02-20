@@ -12,7 +12,7 @@ This demo will perform following tasks:
 - Add file_name and file_path to target bronze table for autoloader source using [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
 ## Append flow with autoloader
 
-1. Launch Terminal/Command prompt 
+1. Launch Command Prompt
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
     - Once you install Databricks CLI, authenticate your current machine to a Databricks Workspace:
@@ -39,7 +39,7 @@ This demo will perform following tasks:
     ```
 
 6. ```commandline
-    python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=ravi_dlt_meta_uc
+    python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=dlt_meta_uc
     ```
 
 - cloud_provider_name : aws or azure or gcp
