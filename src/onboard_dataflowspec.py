@@ -985,8 +985,8 @@ class OnboardDataflowspec:
             "dataQualityExpectations",
             "appendFlows",
             "appendFlowsSchemas",
-            "sinks",
-            "clusterBy"
+            "clusterBy",
+            "sinks"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -1122,8 +1122,8 @@ class OnboardDataflowspec:
                 data_quality_expectations,
                 append_flows,
                 append_flow_schemas,
-                dlt_sinks,
-                silver_cluster_by
+                silver_cluster_by,
+                dlt_sinks
             )
             data.append(silver_row)
             logger.info(f"silver_data ==== {data}")

@@ -135,6 +135,8 @@ class DLTMetaRunnerConf:
     kafka_template: str = "integration_tests/conf/kafka-onboarding.template"
     kafka_topic: str = None
     kafka_broker: str = None
+    kafka_sink_topic: str = None
+    kafka_sink_secret_scope: str = None
 
     # snapshot info
     snapshot_template: str = "integration_tests/conf/snapshot-onboarding.template"
@@ -176,6 +178,9 @@ class DLTMETARunner:
             # kafka provided args
             kafka_topic=self.args["kafka_topic"],
             kafka_broker=self.args["kafka_broker"],
+            kafka_sink_topic=self.args["karfka_sink_topic"],
+            kafka_sink_secret_scope=self.args["kafka_sink_secret_scope"],
+
             # eventhub provided args
             eventhub_name=self.args["eventhub_name"],
             eventhub_name_append_flow=self.args["eventhub_name_append_flow"],
@@ -558,6 +563,8 @@ class DLTMETARunner:
                     "{run_id}": runner_conf.run_id,
                     "{kafka_topic}": runner_conf.kafka_topic,
                     "{kafka_broker}": runner_conf.kafka_broker,
+                    "{kafka_sink_topic}": runner_conf.kafka_sink_topic,
+                    "{kafka_sink_secret_scope}": runner_conf.kafka_sink_secret_scope
                 }
             )
 
@@ -869,6 +876,20 @@ def process_arguments() -> dict[str:str]:
             False,
             [],
         ],
+        [
+            "karfka_sink_topic",
+            "Provide kafka sink topic e.g: iot_sink",
+            str.lower,
+            False,
+            [],
+        ],
+        [
+            "kafka_sink_secret_scope",
+            "Provide kafka sink secret scope e.g: kafka_sink",
+            str.lower,
+            False,
+            [],
+        ],
     ]
 
     # Build cli parser
@@ -907,7 +928,7 @@ def process_arguments() -> dict[str:str]:
     elif args["source"] == "kafka":
         check_cond_mandatory_arg(
             args,
-            ["kafka_topic", "kafka_broker"],
+            ["kafka_topic", "kafka_broker", "karfka_sink_topic", "kafka_sink_secret_scope"],
         )
 
     print(f"Processing comand line arguments Complete: {args}")

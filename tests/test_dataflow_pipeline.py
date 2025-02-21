@@ -57,6 +57,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "updateDate": datetime.now,
         "updatedBy": "dlt-meta-unittest",
         "clusterBy": [""],
+        "sinks": []
     }
 
     bronze_dataflow_spec_map = {

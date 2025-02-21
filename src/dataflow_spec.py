@@ -35,13 +35,13 @@ class BronzeDataflowSpec:
     quarantineTableProperties: map
     appendFlows: str
     appendFlowsSchemas: map
-    sinks: str
     version: str
     createDate: datetime
     createdBy: str
     updateDate: datetime
     updatedBy: str
     clusterBy: list
+    sinks: str
 
 
 @dataclass
@@ -63,13 +63,13 @@ class SilverDataflowSpec:
     dataQualityExpectations: str
     appendFlows: str
     appendFlowsSchemas: map
-    sinks: str
     version: str
     createDate: datetime
     createdBy: str
     updateDate: datetime
     updatedBy: str
     clusterBy: list
+    sinks: str
 
 
 @dataclass
