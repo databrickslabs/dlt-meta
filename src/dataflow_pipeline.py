@@ -70,6 +70,10 @@ class DLTSinkWriter:
         input_df = dlt.read_stream(self.source_view_name)
         if self.dlt_sink.format == "kafka":
             input_df = input_df.select(to_json(struct("*")).alias("value"))
+        if self.dlt_sink.select_exp:
+            input_df = input_df.selectExpr(*self.dlt_sink.select_exp)
+        if self.dlt_sink.where_clause:
+            input_df = input_df.where(self.dlt_sink.where_clause)
         return input_df
 
     def write_to_sink(self):

@@ -79,16 +79,18 @@
             }
         } ,
         {
-            "name": "bronze_customer_sink",
+            "name": "silver_customer_sink",
             "format": "kafka",
             "options": {
-                "kafka_bootstrap_servers_secrets_scope":"oetrta",
-                "kafka_bootstrap_servers_secrets_key":"kafka-bootstrap-servers-plaintext",
+                "kafka_sink_servers_secret_scope_name":"kafka_sink_servers_secret_scope_name",
+                "kafka_sink_servers_secret_scope_key":"kafka_sink_servers_secret_scope_key",
                 "kafka.security.protocol":"PLAINTEXT",
                 "startingOffsets":"earliest",
                 "checkpointLocation":"{dbfs_path}/integration_tests/kafka_test_checkpoint/",
                 "topic":"{kafka_sink_topic}"
-            }
+            },
+            "select_exp":["value","topic","timestamp"],
+            "where_clause":["value is not null"]                       
         }           
     ]
 

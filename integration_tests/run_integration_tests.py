@@ -133,10 +133,13 @@ class DLTMetaRunnerConf:
 
     # kafka info
     kafka_template: str = "integration_tests/conf/kafka-onboarding.template"
-    kafka_topic: str = None
-    kafka_broker: str = None
+    kafka_source_topic: str = None
+    kafka_source_broker: str = None
+    kafka_source_servers_secrets_scope_name: str = None
+    kafka_source_servers_secrets_scope_key: str = None
     kafka_sink_topic: str = None
-    kafka_sink_secret_scope: str = None
+    kafka_sink_servers_secret_scope_name: str = None
+    kafka_sink_servers_secret_scope_key: str = None
 
     # snapshot info
     snapshot_template: str = "integration_tests/conf/snapshot-onboarding.template"
@@ -176,10 +179,29 @@ class DLTMETARunner:
                 f"{run_id}/integration-test-output.csv"
             ),
             # kafka provided args
-            kafka_topic=self.args["kafka_topic"],
-            kafka_broker=self.args["kafka_broker"],
-            kafka_sink_topic=self.args["karfka_sink_topic"],
-            kafka_sink_secret_scope=self.args["kafka_sink_secret_scope"],
+            kafka_source_topic=self.args["kafka_source_topic"],
+            kafka_source_broker=self.args["kafka_source_broker"] if "kafka_source_broker" in self.args else None,
+            kafka_source_servers_secrets_scope_name=(
+                self.args["kafka_source_servers_secrets_scope_name"]
+                if "kafka_source_servers_secrets_scope_name" in self.args
+                else None
+            ),
+            kafka_source_servers_secrets_scope_key=(
+                self.args["kafka_source_servers_secrets_scope_key"]
+                if "kafka_source_servers_secrets_scope_key" in self.args
+                else None
+            ),
+            kafka_sink_topic=self.args["kafka_sink_topic"] if "kafka_sink_topic" in self.args else None,
+            kafka_sink_servers_secret_scope_name=(
+                self.args["kafka_sink_servers_secret_scope_name"]
+                if "kafka_sink_servers_secret_scope_name" in self.args
+                else None
+            ),
+            kafka_sink_servers_secret_scope_key=(
+                self.args["kafka_sink_servers_secret_scope_key"]
+                if "kafka_sink_servers_secret_scope_key" in self.args
+                else None
+            ),
 
             # eventhub provided args
             eventhub_name=self.args["eventhub_name"],
@@ -470,8 +492,9 @@ class DLTMETARunner:
                 }
             elif runner_conf.source == "kafka":
                 base_parameters = {
-                    "kafka_topic": runner_conf.kafka_topic,
-                    "kafka_broker": runner_conf.kafka_broker,
+                    "kafka_source_topic": runner_conf.kafka_source_topic,
+                    "kafka_source_servers_secrets_scope_name": runner_conf.kafka_source_servers_secrets_scope_name,
+                    "kafka_source_servers_secrets_scope_key": runner_conf.kafka_source_servers_secrets_scope_key,
                     "kafka_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
                 }
 
@@ -561,10 +584,13 @@ class DLTMETARunner:
             string_subs.update(
                 {
                     "{run_id}": runner_conf.run_id,
-                    "{kafka_topic}": runner_conf.kafka_topic,
-                    "{kafka_broker}": runner_conf.kafka_broker,
+                    "{kafka_source_topic}": runner_conf.kafka_source_topic,
+                    "{kafka_source_broker}": runner_conf.kafka_source_broker,
+                    "{kafka_source_servers_secrets_scope_name}": runner_conf.kafka_source_servers_secrets_scope_name,
+                    "{kafka_source_servers_secrets_scope_key}": runner_conf.kafka_source_servers_secrets_scope_key,
                     "{kafka_sink_topic}": runner_conf.kafka_sink_topic,
-                    "{kafka_sink_secret_scope}": runner_conf.kafka_sink_secret_scope
+                    "{kafka_sink_servers_secret_scope_name}": runner_conf.kafka_sink_servers_secret_scope_name,
+                    "{kafka_sink_servers_secret_scope_key}": runner_conf.kafka_sink_servers_secret_scope_key,
                 }
             )
 
@@ -771,8 +797,8 @@ class DLTMETARunner:
         except Exception as e:
             print(e)
             traceback.print_exc()
-        finally:
-            self.clean_up(runner_conf)
+        # finally:
+        #     self.clean_up(runner_conf)
 
 
 def process_arguments() -> dict[str:str]:
@@ -863,8 +889,22 @@ def process_arguments() -> dict[str:str]:
         ],
         # Kafka arguments
         [
-            "kafka_topic",
-            "Provide kafka topic name e.g: iot",
+            "kafka_source_topic",
+            "Provide kafka source topic name e.g: iot",
+            str.lower,
+            False,
+            [],
+        ],
+        [
+            "kafka_source_servers_secrets_scope_name",
+            "Provide kafka broker secret scope name e.g: abc",
+            str.lower,
+            False,
+            [],
+        ],
+        [
+            "kafka_source_servers_secrets_scope_key",
+            "Provide kafka broker secret scope key e.g: xyz",
             str.lower,
             False,
             [],
@@ -877,15 +917,22 @@ def process_arguments() -> dict[str:str]:
             [],
         ],
         [
-            "karfka_sink_topic",
+            "kafka_sink_topic",
             "Provide kafka sink topic e.g: iot_sink",
             str.lower,
             False,
             [],
         ],
         [
-            "kafka_sink_secret_scope",
-            "Provide kafka sink secret scope e.g: kafka_sink",
+            "kafka_sink_servers_secret_scope_name",
+            "Provide kafka server for sink secret scope name e.g: abc",
+            str.lower,
+            False,
+            [],
+        ],
+        [
+            "kafka_sink_servers_secret_scope_key",
+            "Provide kafka server for sink secret scope key e.g: xyz",
             str.lower,
             False,
             [],
@@ -928,7 +975,10 @@ def process_arguments() -> dict[str:str]:
     elif args["source"] == "kafka":
         check_cond_mandatory_arg(
             args,
-            ["kafka_topic", "kafka_broker", "karfka_sink_topic", "kafka_sink_secret_scope"],
+            [
+                "kafka_source_topic",
+                "kafka_sink_topic"
+            ],
         )
 
     print(f"Processing comand line arguments Complete: {args}")

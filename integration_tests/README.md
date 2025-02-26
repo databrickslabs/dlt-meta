@@ -61,7 +61,7 @@
 
     - 9c. Run the command for **kafka**
         ```commandline
-        python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>>  --source=kafka --kafka_topic=dlt-meta-integration-test --kafka_broker=host:9092 --profile=<<DEFAULT>>
+        python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>>  --source=kafka --kafka_source_topic=dlt-meta-integration-test --kafka_source_broker=host:9092 --profile=<<DEFAULT>>
         ```
 
     - - For kafka integration tests, the following are the prerequisites:

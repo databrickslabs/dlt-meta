@@ -6,8 +6,10 @@
         "source_format": "kafka",
         "source_details": {
             "source_schema_path": "{uc_volume_path}/integration_tests/resources/eventhub_iot_schema.ddl",
-            "subscribe": "{kafka_topic}",
-            "kafka.bootstrap.servers": "{kafka_broker}"
+            "subscribe": "{kafka_source_topic}",
+            "kafka.security.protocol": "PLAINTEXT",            
+            "kafka_source_servers_secrets_scope_name":"{kafka_source_servers_secrets_scope_name}",
+            "kafka_source_servers_secrets_scope_key":"{kafka_source_servers_secrets_scope_key}"
         },
         "bronze_reader_options": {
             "startingOffsets": "earliest",
@@ -27,22 +29,26 @@
                     "name": "bronze_customer_kafka_sink1",
                     "format": "kafka",
                     "options": {
-                        "kafka_bootstrap_servers_secrets_scope":"{kafka_sink_secret_scope}",
-                        "kafka_bootstrap_servers_secrets_key":"kafka-bootstrap-servers-plaintext",
+                        "kafka_sink_servers_secret_scope_name":"{kafka_sink_servers_secret_scope_name}",
+                        "kafka_sink_servers_secret_scope_key":"{kafka_sink_servers_secret_scope_key}",
                         "kafka.security.protocol":"PLAINTEXT",
-                        "startingOffsets":"earliest",
                         "topic":"{kafka_sink_topic}_1"
-                    }
+                    },
+                    "select_exp":["value"],
+                    "where_clause":"value is not null"  
                 },
                 {
                     "name": "bronze_customer_kafka_sink2",
                     "format": "kafka",
                     "options": {
-                        "kafka_bootstrap_servers_secrets_scope":"{kafka_sink_secret_scope}",
-                        "kafka_bootstrap_servers_secrets_key":"kafka-bootstrap-servers-plaintext",
+                        "kafka_sink_servers_secret_scope_name":"{kafka_sink_servers_secret_scope_name}",
+                        "kafka_sink_servers_secret_scope_key":"{kafka_sink_servers_secret_scope_key}",
+                                               "kafka.security.protocol":"PLAINTEXT",
                         "kafka.security.protocol":"PLAINTEXT",
                         "topic":"{kafka_sink_topic}_2"
-                    }
+                    },
+                    "select_exp":["value"],
+                    "where_clause":"value is not null"                    
                 }
         ]        
     }

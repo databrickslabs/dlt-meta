@@ -120,6 +120,8 @@ class DLTSink:
     name: str
     format: str
     options: map
+    select_exp: list
+    where_clause: str
 
 
 class DataflowSpecUtils:
@@ -169,6 +171,11 @@ class DataflowSpecUtils:
         "reader_options": None,
         "spark_conf": None,
         "once": False
+    }
+
+    sink_attributes_defaults = {
+        "select_exp": None,
+        "where_clause": None
     }
 
     additional_bronze_df_columns = ["appendFlows", "appendFlowsSchemas", "applyChangesFromSnapshot", "clusterBy"]
@@ -446,14 +453,23 @@ class DataflowSpecUtils:
             if format == "kafka" and 'options' in json_sink.keys():
                 kafka_options_json = json_sink['options']
                 dbutils = DataflowSpecUtils.get_db_utils(spark)
-                if "kafka_bootstrap_servers_secrets_scope" in kafka_options_json.keys() and \
-                   "kafka_bootstrap_servers_secrets_key" in kafka_options_json.keys():
-                    kbs_secrets_scope = kafka_options_json["kafka_bootstrap_servers_secrets_scope"]
-                    kbs_secrets_key = kafka_options_json["kafka_bootstrap_servers_secrets_key"]
+                if "kafka_sink_servers_secret_scope_name" in kafka_options_json.keys() and \
+                   "kafka_sink_servers_secret_scope_key" in kafka_options_json.keys():
+                    kbs_secrets_scope = kafka_options_json["kafka_sink_servers_secret_scope_name"]
+                    kbs_secrets_key = kafka_options_json["kafka_sink_servers_secret_scope_key"]
                     json_sink['options']["kafka.bootstrap.servers"] = \
                         dbutils.secrets.get(kbs_secrets_scope, kbs_secrets_key)
-                    del json_sink['options']['kafka_bootstrap_servers_secrets_scope']
-                    del json_sink['options']['kafka_bootstrap_servers_secrets_key']
+                    del json_sink['options']['kafka_sink_servers_secret_scope_name']
+                    del json_sink['options']['kafka_sink_servers_secret_scope_key']
+                    print(f"final sink={json_sink}")
+            if 'select_exp' in json_sink.keys():
+                json_sink['select_exp'] = json_sink['select_exp']
+            if 'where_clause' in json_sink.keys():
+                json_sink['where_clause'] = json_sink['where_clause']
+            for missing_sink_payload_key in missing_sink_payload_keys:
+                json_sink[
+                    missing_sink_payload_key
+                ] = DataflowSpecUtils.sink_attributes_defaults[missing_sink_payload_key]
             logger.info(f"final sink={json_sink}")
             dlt_sinks.append(DLTSink(**json_sink))
         return dlt_sinks

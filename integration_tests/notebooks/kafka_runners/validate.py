@@ -3,7 +3,7 @@ import pandas as pd
 
 run_id = dbutils.widgets.get("run_id")
 uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
-uc_volume_path = dbutils.widgets.get("uc_volume_path")
+output_file_path = dbutils.widgets.get("output_file_path")
 bronze_schema = dbutils.widgets.get("bronze_schema")
 log_list = []
 
@@ -28,5 +28,4 @@ for table, counts in TABLES.items():
         log_list.append(f"Expected {counts} Actual: {cnt}. Failed!")
 
 pd_df = pd.DataFrame(log_list)
-log_file = f"{uc_volume_path}/integration-test-output.csv"
-pd_df.to_csv(log_file)
+pd_df.to_csv(output_file_path)
