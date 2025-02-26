@@ -775,10 +775,8 @@ class OnboardDataflowspec:
                         logger.info("Validated delta sink options")
                     else:
                         raise Exception(f"Missing delta sink options: {delta_format_options}")
-            if sink_details.get("select_exp", None):
-                sink["select_exp"] = sink_details["select_exp"]
-            if sink_details.get("where_clause", None):
-                sink["where_clause"] = sink_details["where_clause"]
+            sink["select_exp"] = sink_details.get("select_exp", None)
+            sink["where_clause"] = sink_details.get("where_clause", None)
             sink_list.append(sink)
         sinks_json = json.dumps(sink_list)
         print(f"Validated sinks details: {sinks_json}")
