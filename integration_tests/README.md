@@ -67,7 +67,7 @@
     - - For kafka integration tests, the following are the prerequisites:
         1. Needs kafka instance running
 
-    - - Following are the mandatory arguments for running EventHubs integration test
+    - - Following are the mandatory arguments for running kafka integration test
         1. Provide your kafka topic name : --kafka_topic
         2. Provide kafka_broker : --kafka_broker
     
