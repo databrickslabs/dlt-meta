@@ -760,7 +760,7 @@ class OnboardDataflowspec:
             if sink_details.get("name", None):
                 sink["name"] = sink_details["name"].lower()
             if sink_details.get("format", None):
-                sink_format_options = ["delta", "kafka"]
+                sink_format_options = ["delta", "kafka", "eventhub"]
                 if sink_details["format"].lower() not in sink_format_options:
                     raise Exception(f"Sink format {sink_details['format']} not supported in DLT-META!")
                 sink["format"] = sink_details["format"].lower()

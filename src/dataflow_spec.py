@@ -461,7 +461,70 @@ class DataflowSpecUtils:
                         dbutils.secrets.get(kbs_secrets_scope, kbs_secrets_key)
                     del json_sink['options']['kafka_sink_servers_secret_scope_name']
                     del json_sink['options']['kafka_sink_servers_secret_scope_key']
-                    print(f"final sink={json_sink}")
+                    ssl_truststore_location = kafka_options_json.get("kafka.ssl.truststore.location", None)
+                    ssl_keystore_location = kafka_options_json.get("kafka.ssl.keystore.location", None)
+                    if ssl_truststore_location and ssl_keystore_location:
+                        truststore_scope = kafka_options_json.get("kafka.ssl.truststore.secrets.scope", None)
+                        truststore_key = kafka_options_json.get("kafka.ssl.truststore.secrets.key", None)
+                        keystore_scope = kafka_options_json.get("kafka.ssl.keystore.secrets.scope", None)
+                        keystore_key = kafka_options_json.get("kafka.ssl.keystore.secrets.key", None)
+                        if (truststore_scope and truststore_key and keystore_scope and keystore_key):
+                            dbutils = DataflowSpecUtils.get_db_utils(spark)
+                            json_sink['options']['kafka.ssl.truststore.location'] = ssl_truststore_location
+                            json_sink['options']['kafka.ssl.keystore.location'] = ssl_keystore_location
+                            json_sink['options']['kafka.ssl.keystore.password'] = dbutils.secrets.get(
+                                keystore_scope, keystore_key
+                            )
+                            json_sink['options']['kafka.ssl.truststore.password'] = dbutils.secrets.get(
+                                truststore_scope, truststore_key)
+                            del json_sink['options']['kafka.ssl.truststore.secrets.scope']
+                            del json_sink['options']['kafka.ssl.truststore.secrets.key']
+                            del json_sink['options']['kafka.ssl.keystore.secrets.scope']
+                            del json_sink['options']['kafka.ssl.keystore.secrets.key']
+                        else:
+                            params = ["kafka.ssl.truststore.secrets.scope",
+                                      "kafka.ssl.truststore.secrets.key",
+                                      "kafka.ssl.keystore.secrets.scope",
+                                      "kafka.ssl.keystore.secrets.key"
+                                      ]
+                            raise Exception(
+                                f"Kafka ssl required params are: {params}! provided options are :{kafka_options_json}"
+                            )
+            if format == "eventhub" and 'options' in json_sink.keys():
+                dbutils = DataflowSpecUtils.get_db_utils(spark)
+                eh_namespace = kafka_options_json["eventhub.namespace"]
+                eh_port = kafka_options_json["eventhub.port"]
+                eh_name = kafka_options_json["eventhub.name"]
+                eh_shared_key_name = kafka_options_json["eventhub.accessKeyName"]
+                secret_name = kafka_options_json["eventhub.accessKeySecretName"]
+                if not secret_name:
+                    # set default value if "eventhub.accessKeySecretName" is not specified
+                    secret_name = eh_shared_key_name
+                secret_scope = kafka_options_json.get("eventhub.secretsScopeName")
+                eh_shared_key_value = dbutils.secrets.get(secret_scope, secret_name)
+                eh_shared_key_value = f"SharedAccessKeyName={eh_shared_key_name};SharedAccessKey={eh_shared_key_value}"
+                eh_conn_str = f"Endpoint=sb://{eh_namespace}.servicebus.windows.net/;{eh_shared_key_value}"
+                eh_kafka_str = "kafkashaded.org.apache.kafka.common.security.plain.PlainLoginModule"
+                sasl_config = f"{eh_kafka_str} required username=\"$ConnectionString\" password=\"{eh_conn_str}\";"
+
+                eh_conn_options = {
+                    "kafka.bootstrap.servers": f"{eh_namespace}.servicebus.windows.net:{eh_port}",
+                    "subscribe": eh_name,
+                    "kafka.sasl.mechanism": "PLAIN",
+                    "kafka.security.protocol": "SASL_SSL",
+                    "kafka.sasl.jaas.config": sasl_config
+                }
+                json_sink['options']['kafka.bootstrap.servers'] = eh_conn_options['kafka.bootstrap.servers']
+                json_sink['options']['subscribe'] = eh_conn_options['subscribe']
+                json_sink['options']['kafka.sasl.mechanism'] = eh_conn_options['kafka.sasl.mechanism']
+                json_sink['options']['kafka.security.protocol'] = eh_conn_options['kafka.security.protocol']
+                json_sink['options']['kafka.sasl.jaas.config'] = eh_conn_options['kafka.sasl.jaas.config']
+                del json_sink['options']['eventhub.namespace']
+                del json_sink['options']['eventhub.port']
+                del json_sink['options']['eventhub.name']
+                del json_sink['options']['eventhub.accessKeyName']
+                del json_sink['options']['eventhub.accessKeySecretName']
+                del json_sink['options']['eventhub.secretsScopeName']
             if 'select_exp' in json_sink.keys():
                 json_sink['select_exp'] = json_sink['select_exp']
             if 'where_clause' in json_sink.keys():
