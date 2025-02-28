@@ -25,7 +25,7 @@ class TestAppendFlowWriter(DLTFrameworkTestCase):
         appendflow_writer = AppendFlowWriter(
             self.spark, MagicMock(), "test_target", "test_schema",
             {"property": "value"}, ["col1"], ["col2"]
-        )        
+        )
         appendflow_writer.write_flow()
         mock_create_streaming_table.assert_called_once()
         mock_append_flow.assert_called_once()
@@ -42,7 +42,7 @@ class TestDLTSinkWriter(DLTFrameworkTestCase):
             select_exp=["col1", "col2"],
             where_clause="col1 > 0"
         )
-        sink_writer = DLTSinkWriter(dlt_sink, "test_view")        
+        sink_writer = DLTSinkWriter(dlt_sink, "test_view")
         sink_writer.read_input_view()
         mock_read_stream.assert_called_once_with("test_view")
 

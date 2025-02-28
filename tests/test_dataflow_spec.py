@@ -2,7 +2,6 @@
 import copy
 import sys
 from unittest.mock import MagicMock, patch
-import copy
 import json
 from tests.utils import DLTFrameworkTestCase
 from src.dataflow_spec import (
