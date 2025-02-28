@@ -7,7 +7,6 @@ Classes:
     DLTSinkWriter: A class for writing data to various sinks using Delta Live Tables.
 
 """
-from pyspark.sql.functions import to_json, struct
 from src.dataflow_spec import DataflowSpecUtils, DLTSink
 import dlt
 
