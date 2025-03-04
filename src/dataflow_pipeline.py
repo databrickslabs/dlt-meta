@@ -427,16 +427,20 @@ class DataflowPipeline:
                                                                         quarantineTargetDetails['cluster_by'])
 
                 target_path = None if self.uc_enabled else bronzeDataflowSpec.quarantineTargetDetails["path"]
+                target_table = (
+                    f"{bronzeDataflowSpec.quarantineTargetDetails['database']}.{bronzeDataflowSpec.quarantineTargetDetails['table']}"
+                    if self.uc_enabled and self.dpm_enabled
+                    else bronzeDataflowSpec.quarantineTargetDetails['table']
+                )
                 dlt.expect_all_or_drop(expect_or_quarantine_dict)(
                     dlt.table(
                         self.write_to_delta,
-                        name=f"{bronzeDataflowSpec.quarantineTargetDetails['table']}",
+                        name=f"{target_table}",
                         table_properties=bronzeDataflowSpec.quarantineTableProperties,
                         partition_cols=q_partition_cols,
                         cluster_by=q_cluster_by,
                         path=target_path,
-                        comment=f"""bronze dlt quarantine_path table
-                        {bronzeDataflowSpec.quarantineTargetDetails['table']}""",
+                        comment=f"""bronze dlt quarantine_path table{target_table}""",
                     )
                 )
 
