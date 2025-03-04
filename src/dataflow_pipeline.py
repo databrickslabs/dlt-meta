@@ -206,14 +206,19 @@ class DataflowPipeline:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else bronze_dataflow_spec.targetDetails["path"]
+            target_table = (
+                f"{bronze_dataflow_spec.targetDetails['database']}.{bronze_dataflow_spec.targetDetails['table']}"
+                if self.uc_enabled and self.dpm_enabled
+                else bronze_dataflow_spec.targetDetails['table']
+            )
             dlt.table(
                 self.write_to_delta,
-                name=f"{bronze_dataflow_spec.targetDetails['table']}",
+                name=f"{target_table}",
                 partition_cols=DataflowSpecUtils.get_partition_cols(bronze_dataflow_spec.partitionColumns),
                 cluster_by=DataflowSpecUtils.get_partition_cols(bronze_dataflow_spec.clusterBy),
                 table_properties=bronze_dataflow_spec.tableProperties,
                 path=target_path,
-                comment=f"bronze dlt table{bronze_dataflow_spec.targetDetails['table']}",
+                comment=f"bronze dlt table{target_table}",
             )
         if bronze_dataflow_spec.appendFlows:
             self.write_append_flows()
@@ -225,14 +230,19 @@ class DataflowPipeline:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else silver_dataflow_spec.targetDetails["path"]
+            target_table = (
+                f"{silver_dataflow_spec.targetDetails['database']}.{silver_dataflow_spec.targetDetails['table']}"
+                if self.uc_enabled and self.dpm_enabled
+                else silver_dataflow_spec.targetDetails['table']
+            )
             dlt.table(
                 self.write_to_delta,
-                name=f"{silver_dataflow_spec.targetDetails['table']}",
+                name=f"{target_table}",
                 partition_cols=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.partitionColumns),
                 cluster_by=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.clusterBy),
                 table_properties=silver_dataflow_spec.tableProperties,
                 path=target_path,
-                comment=f"silver dlt table{silver_dataflow_spec.targetDetails['table']}",
+                comment=f"silver dlt table{target_table}",
             )
         if silver_dataflow_spec.appendFlows:
             self.write_append_flows()
@@ -351,16 +361,21 @@ class DataflowPipeline:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else bronzeDataflowSpec.targetDetails["path"]
+            target_table = (
+                f"{bronzeDataflowSpec.targetDetails['database']}.{bronzeDataflowSpec.targetDetails['table']}"
+                if self.uc_enabled and self.dpm_enabled
+                else bronzeDataflowSpec.targetDetails['table']
+            )
             if expect_all_dict:
                 dlt_table_with_expectation = dlt.expect_all(expect_all_dict)(
                     dlt.table(
                         self.write_to_delta,
-                        name=f"{bronzeDataflowSpec.targetDetails['table']}",
+                        name=f"{target_table}",
                         table_properties=bronzeDataflowSpec.tableProperties,
                         partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                         cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
                         path=target_path,
-                        comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
+                        comment=f"bronze dlt table{target_table}",
                     )
                 )
             if expect_all_or_fail_dict:
@@ -368,12 +383,12 @@ class DataflowPipeline:
                     dlt_table_with_expectation = dlt.expect_all_or_fail(expect_all_or_fail_dict)(
                         dlt.table(
                             self.write_to_delta,
-                            name=f"{bronzeDataflowSpec.targetDetails['table']}",
+                            name=f"{target_table}",
                             table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                             cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
                             path=target_path,
-                            comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
+                            comment=f"bronze dlt table{target_table}",
                         )
                     )
                 else:
@@ -384,12 +399,12 @@ class DataflowPipeline:
                     dlt_table_with_expectation = dlt.expect_all_or_drop(expect_all_or_drop_dict)(
                         dlt.table(
                             self.write_to_delta,
-                            name=f"{bronzeDataflowSpec.targetDetails['table']}",
+                            name=f"{target_table}",
                             table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                             cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
                             path=target_path,
-                            comment=f"bronze dlt table{bronzeDataflowSpec.targetDetails['table']}",
+                            comment=f"bronze dlt table{target_table}",
                         )
                     )
                 else:
@@ -630,7 +645,7 @@ class DataflowPipeline:
             if isinstance(dataflowSpec, BronzeDataflowSpec) and dataflowSpec.quarantineTargetDetails is not None \
                     and dataflowSpec.quarantineTargetDetails != {}:
                 quarantine_input_view_name = (
-                    f"{dataflowSpec.quarantineTargetDetails['table']}"
+                    f"{dataflowSpec.quarantineTargetDetails['table'].replace('.','_')}"
                     f"_{layer}_quarantine_inputView"
                 )
             else:
