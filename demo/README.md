@@ -287,20 +287,21 @@ This demo will perform following tasks:
     ```
     ```commandline
     export PYTHONPATH=$dlt_meta_home
+    ```
 
-6. Run the command 
+6. Optional: if you are using secrets for kafka. Create databricks secrets scope for source and sink kafka using below command
+     ```commandline 
+    databricks secrets create-scope <<name>>
+     ```
+     ```commandline
+    databricks secrets put-secret --json '{
+        "scope": "<<name>>",
+        "key": "<<keyname>>",
+        "string_value": "<<value>>"
+        }'
+     ```
+
+7. Run the command 
     ```commandline
     python demo/launch_acfs_demo.py --uc_catalog_name=<<uc_catalog_name>> --source=kafka --kafka_source_topic=<<source_kafka_topic>> --kafka_sink_topic=<<kafka_sink_topic name>> --kafka_source_servers_secrets_scope_name=<<scope name>> --kafka_source_servers_secrets_scope_key=<<scope key>> --kafka_sink_servers_secret_scope_name=<<scope name>> --kafka_sink_servers_secret_scope_key=<<scope key>> --profile=<<DEFAULT>>
     ```
-
-    - Create databricks secrets scope for source and sink kafka using below command
-    - ```
-            commandline databricks secrets create-scope <<name>>
-        ```
-    - ```commandline
-            databricks secrets put-secret --json '{
-                "scope": "<<name>>",
-                "key": "<<keyname>>",
-                "string_value": "<<value>>"
-                }'
-        ```
