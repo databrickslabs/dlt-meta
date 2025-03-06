@@ -163,7 +163,7 @@ class DataflowSpecUtils:
 
     append_flow_mandatory_attributes = ["name", "source_format", "create_streaming_table", "source_details"]
     sink_mandatory_attributes = ["name", "format", "options"]
-    supported_sink_formats = ["delta", "kafka"]
+    supported_sink_formats = ["delta", "kafka", "eventhub"]
 
     append_flow_api_attributes_defaults = {
         "comment": None,

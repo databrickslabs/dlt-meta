@@ -797,8 +797,8 @@ class DLTMETARunner:
         except Exception as e:
             print(e)
             traceback.print_exc()
-        finally:
-            self.clean_up(runner_conf)
+        # finally:
+        #     self.clean_up(runner_conf)
 
 
 def process_arguments() -> dict[str:str]:
