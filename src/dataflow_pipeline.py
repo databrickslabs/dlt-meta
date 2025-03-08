@@ -657,7 +657,7 @@ class DataflowPipeline:
             dlt_data_flow = DataflowPipeline(
                 spark,
                 dataflowSpec,
-                f"{dataflowSpec.quarantineTargetDetails['database']}_{dataflowSpec.targetDetails['table']}_{layer}_inputView",
+                f"{dataflowSpec.targetDetails['database']}_{dataflowSpec.targetDetails['table']}_{layer}_inputView",
                 quarantine_input_view_name,
                 custom_transform_func,
                 next_snapshot_and_version
