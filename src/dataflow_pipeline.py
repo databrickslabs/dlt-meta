@@ -651,7 +651,6 @@ class DataflowPipeline:
             quarantine_input_view_name = None
             if isinstance(dataflowSpec, BronzeDataflowSpec) and dataflowSpec.quarantineTargetDetails is not None \
                     and dataflowSpec.quarantineTargetDetails != {}:
-                
                 qrt_db = dataflowSpec.quarantineTargetDetails['database']
                 qrt_table = dataflowSpec.quarantineTargetDetails['table']
                 quarantine_input_view_name = (
