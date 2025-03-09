@@ -427,10 +427,13 @@ class DataflowPipeline:
                                                                         quarantineTargetDetails['cluster_by'])
 
                 target_path = None if self.uc_enabled else bronzeDataflowSpec.quarantineTargetDetails["path"]
+                bronze_db = bronzeDataflowSpec.quarantineTargetDetails['database']
+                bronze_table = bronzeDataflowSpec.quarantineTargetDetails['table']
+
                 target_table = (
-                    f"{bronzeDataflowSpec.quarantineTargetDetails['database']}.{bronzeDataflowSpec.quarantineTargetDetails['table']}"
+                    f"{bronze_db}.{bronze_table}"
                     if self.uc_enabled and self.dpm_enabled
-                    else bronzeDataflowSpec.quarantineTargetDetails['table']
+                    else bronze_table
                 )
                 dlt.expect_all_or_drop(expect_or_quarantine_dict)(
                     dlt.table(
@@ -648,16 +651,23 @@ class DataflowPipeline:
             quarantine_input_view_name = None
             if isinstance(dataflowSpec, BronzeDataflowSpec) and dataflowSpec.quarantineTargetDetails is not None \
                     and dataflowSpec.quarantineTargetDetails != {}:
+                
+                qrt_db = dataflowSpec.quarantineTargetDetails['database']
+                qrt_table = dataflowSpec.quarantineTargetDetails['table']
                 quarantine_input_view_name = (
-                    f"{dataflowSpec.quarantineTargetDetails['database']}_{dataflowSpec.quarantineTargetDetails['table']}"
+                    f"{qrt_db}_{qrt_table}"
                     f"_{layer}_quarantine_inputView"
                 )
             else:
                 logger.info("quarantine_input_view_name set to None")
+
+            target_db = dataflowSpec.targetDetails['database']
+            target_table = dataflowSpec.targetDetails['table']
+
             dlt_data_flow = DataflowPipeline(
                 spark,
                 dataflowSpec,
-                f"{dataflowSpec.targetDetails['database']}_{dataflowSpec.targetDetails['table']}_{layer}_inputView",
+                f"{target_db}_{target_table}_{layer}_inputView",
                 quarantine_input_view_name,
                 custom_transform_func,
                 next_snapshot_and_version
