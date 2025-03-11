@@ -468,7 +468,7 @@ class DLTMeta:
                     "Provide silver dataflow spec path", default=f'{self._install_folder()}/silver_dataflow_specs')
         onboard_cmd_dict["overwrite"] = self._wsi._choice(
             "Overwrite dataflow spec?", ['True', 'False'])
-        onboard_cmd_dict["overwrite"] = True if onboard_cmd_dict["overwrite"] == 'True' else False        
+        onboard_cmd_dict["overwrite"] = True if onboard_cmd_dict["overwrite"] == 'True' else False
         onboard_cmd_dict["version"] = self._wsi._question(
             "Provide dataflow spec version", default='v1')
         onboard_cmd_dict["env"] = self._wsi._question(
