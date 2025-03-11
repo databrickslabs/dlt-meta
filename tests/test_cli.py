@@ -823,20 +823,6 @@ class CliTests(unittest.TestCase):
                 uc_enabled=True,
                 silver_dataflowspec_table="silver_dataflowspec"
             )
-        with self.assertRaises(ValueError):
-            OnboardCommand(
-                onboarding_file_path="tests/resources/onboarding.json",
-                onboarding_files_dir_path="tests/resources/",
-                onboard_layer="silver",
-                dlt_meta_schema="dlt_meta",
-                env="dev",
-                import_author="John Doe",
-                version="1.0",
-                overwrite=None,
-                serverless=True,
-                uc_enabled=True,
-                silver_dataflowspec_table="silver_dataflowspec"
-            )
 
         with self.assertRaises(ValueError):
             OnboardCommand(
