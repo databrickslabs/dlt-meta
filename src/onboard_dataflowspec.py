@@ -771,7 +771,7 @@ class OnboardDataflowspec:
                 delta_format_options = ["path", "tablename"]
                 dlt_sink_options_keys = set(options_dict.keys())
                 if sink["format"] == "delta":
-                    if "path" in dlt_sink_options_keys or "tablename":
+                    if "path" in dlt_sink_options_keys or "tablename" in dlt_sink_options_keys:
                         logger.info("Validated delta sink options")
                     else:
                         raise Exception(f"Missing delta sink options: {delta_format_options}")
