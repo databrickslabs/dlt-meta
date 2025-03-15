@@ -207,9 +207,11 @@ class DataflowPipeline:
         else:
             target_path = None if self.uc_enabled else bronze_dataflow_spec.targetDetails["path"]
             target_table = (
-                (f"{bronze_dataflow_spec.targetDetails['catalog']}."
-                f"{bronze_dataflow_spec.targetDetails['database']}."
-                f"{bronze_dataflow_spec.targetDetails['table']}")
+                (
+                    f"{bronze_dataflow_spec.targetDetails['catalog']}."
+                    f"{bronze_dataflow_spec.targetDetails['database']}."
+                    f"{bronze_dataflow_spec.targetDetails['table']}"
+                )
                 if self.uc_enabled and self.dpm_enabled
                 else bronze_dataflow_spec.targetDetails['table']
             )
@@ -233,9 +235,11 @@ class DataflowPipeline:
         else:
             target_path = None if self.uc_enabled else silver_dataflow_spec.targetDetails["path"]
             target_table = (
-                (f"{silver_dataflow_spec.targetDetails['catalog']}."
-                f"{silver_dataflow_spec.targetDetails['database']}."
-                f"{silver_dataflow_spec.targetDetails['table']}")
+                (
+                    f"{silver_dataflow_spec.targetDetails['catalog']}."
+                    f"{silver_dataflow_spec.targetDetails['database']}."
+                    f"{silver_dataflow_spec.targetDetails['table']}"
+                )
                 if self.uc_enabled and self.dpm_enabled
                 else silver_dataflow_spec.targetDetails['table']
             )
@@ -366,9 +370,11 @@ class DataflowPipeline:
         else:
             target_path = None if self.uc_enabled else bronzeDataflowSpec.targetDetails["path"]
             target_table = (
-                (f"{bronzeDataflowSpec.targetDetails['catalog']}."
-                f"{bronzeDataflowSpec.targetDetails['database']}."
-                f"{bronzeDataflowSpec.targetDetails['table']}")
+                (
+                    f"{bronzeDataflowSpec.targetDetails['catalog']}."
+                    f"{bronzeDataflowSpec.targetDetails['database']}."
+                    f"{bronzeDataflowSpec.targetDetails['table']}"
+                )
                 if self.uc_enabled and self.dpm_enabled
                 else bronzeDataflowSpec.targetDetails['table']
             )
@@ -506,9 +512,11 @@ class DataflowPipeline:
         if cdc_apply_changes.apply_as_truncates:
             apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
         target_table = (
-            (f"{self.dataflowSpec.targetDetails['catalog']}."
-            f"{self.dataflowSpec.targetDetails['database']}."
-            f"{self.dataflowSpec.targetDetails['table']}")
+            (
+                f"{self.dataflowSpec.targetDetails['catalog']}."
+                f"{self.dataflowSpec.targetDetails['database']}."
+                f"{self.dataflowSpec.targetDetails['table']}"
+            )
             if self.uc_enabled and self.dpm_enabled
             else self.dataflowSpec.targetDetails['table']
         )
