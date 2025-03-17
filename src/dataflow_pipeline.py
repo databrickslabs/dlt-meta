@@ -206,7 +206,7 @@ class DataflowPipeline:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else bronze_dataflow_spec.targetDetails["path"]
-            target_cl = bronze_dataflow_spec.targetDetails.get('catalog', None) 
+            target_cl = bronze_dataflow_spec.targetDetails.get('catalog', None)
             target_cl_name = f"{target_cl}." if target_cl is not None else ''
             target_db_name = bronze_dataflow_spec.targetDetails['database']
             target_table_name = bronze_dataflow_spec.targetDetails['table']
@@ -323,7 +323,7 @@ class DataflowPipeline:
     def read_silver(self) -> DataFrame:
         """Read Silver tables."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
-        
+
         source_cl = silver_dataflow_spec.sourceDetails.get('catalog', None)
         source_cl_name = f"{source_cl}." if source_cl is not None else ''
         source_database = silver_dataflow_spec.sourceDetails["database"]
@@ -524,7 +524,7 @@ class DataflowPipeline:
         if cdc_apply_changes.apply_as_truncates:
             apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
 
-        target_cl = self.dataflowSpec.targetDetails.get('catalog', None) 
+        target_cl = self.dataflowSpec.targetDetails.get('catalog', None)
         target_cl_name = f"{target_cl}." if target_cl is not None else ''
         target_db_name = self.dataflowSpec.targetDetails['database']
         target_table_name = self.dataflowSpec.targetDetails['table']
@@ -592,7 +592,7 @@ class DataflowPipeline:
         target_cl_name = f"{target_cl}." if target_cl is not None else ''
         target_db_name = self.dataflowSpec.targetDetails['database']
         target_table_name = self.dataflowSpec.targetDetails['table']
-        
+
         target_table = (
             f"{target_cl_name}{target_db_name}.{target_table_name}"
             if self.uc_enabled and self.dpm_enabled
@@ -688,7 +688,7 @@ class DataflowPipeline:
             quarantine_input_view_name = None
             if isinstance(dataflowSpec, BronzeDataflowSpec) and dataflowSpec.quarantineTargetDetails is not None \
                     and dataflowSpec.quarantineTargetDetails != {}:
-                
+
                 qrt_cl = dataflowSpec.quarantineTargetDetails.get('catalog', None)
                 qrt_cl_str = f"{qrt_cl}_" if qrt_cl is not None else ''
                 qrt_db = dataflowSpec.quarantineTargetDetails['database'].replace('.', '_')
