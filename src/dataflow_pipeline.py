@@ -207,7 +207,7 @@ class DataflowPipeline:
         else:
             target_path = None if self.uc_enabled else bronze_dataflow_spec.targetDetails["path"]
             target_cl = bronze_dataflow_spec.targetDetails.get('catalog', None) 
-            target_cl_name = f"{target_cl}." if target_cl != None else ''
+            target_cl_name = f"{target_cl}." if target_cl is not None else ''
             target_db_name = bronze_dataflow_spec.targetDetails['database']
             target_table_name = bronze_dataflow_spec.targetDetails['table']
 
@@ -237,7 +237,7 @@ class DataflowPipeline:
             target_path = None if self.uc_enabled else silver_dataflow_spec.targetDetails["path"]
 
             target_cl = silver_dataflow_spec.targetDetails.get('catalog', None)
-            target_cl_name = f"{target_cl}." if target_cl != None else ''
+            target_cl_name = f"{target_cl}." if target_cl is not None else ''
             target_db_name = silver_dataflow_spec.targetDetails['database']
             target_table_name = silver_dataflow_spec.targetDetails['table']
 
@@ -289,7 +289,7 @@ class DataflowPipeline:
         """Get Silver table Schema."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
         source_cl = silver_dataflow_spec.sourceDetails.get('catalog', None)
-        source_cl_name = f"{source_cl}." if source_cl != None else ''
+        source_cl_name = f"{source_cl}." if source_cl is not None else ''
         source_database = silver_dataflow_spec.sourceDetails["database"]
         source_table = silver_dataflow_spec.sourceDetails["table"]
         select_exp = silver_dataflow_spec.selectExp
@@ -325,7 +325,7 @@ class DataflowPipeline:
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
         
         source_cl = silver_dataflow_spec.sourceDetails.get('catalog', None)
-        source_cl_name = f"{source_cl}." if source_cl != None else ''
+        source_cl_name = f"{source_cl}." if source_cl is not None else ''
         source_database = silver_dataflow_spec.sourceDetails["database"]
         source_table = silver_dataflow_spec.sourceDetails["table"]
         select_exp = silver_dataflow_spec.selectExp
@@ -378,7 +378,7 @@ class DataflowPipeline:
         else:
             target_path = None if self.uc_enabled else bronzeDataflowSpec.targetDetails["path"]
             target_cl = bronzeDataflowSpec.targetDetails.get('catalog', None)
-            target_cl_name = f"{target_cl}." if target_cl != None else ''
+            target_cl_name = f"{target_cl}." if target_cl is not None else ''
             target_db_name = bronzeDataflowSpec.targetDetails['database']
             target_table_name = bronzeDataflowSpec.targetDetails['table']
 
@@ -450,7 +450,7 @@ class DataflowPipeline:
                 target_path = None if self.uc_enabled else bronzeDataflowSpec.quarantineTargetDetails["path"]
 
                 bronze_cl = bronzeDataflowSpec.quarantineTargetDetails.get('catalog', None)
-                bronze_cl_name = f"{bronze_cl}." if bronze_cl != None else ''
+                bronze_cl_name = f"{bronze_cl}." if bronze_cl is not None else ''
 
                 bronze_db = bronzeDataflowSpec.quarantineTargetDetails['database']
                 bronze_table = bronzeDataflowSpec.quarantineTargetDetails['table']
@@ -525,7 +525,7 @@ class DataflowPipeline:
             apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
 
         target_cl = self.dataflowSpec.targetDetails.get('catalog', None) 
-        target_cl_name = f"{target_cl}." if target_cl != None else ''
+        target_cl_name = f"{target_cl}." if target_cl is not None else ''
         target_db_name = self.dataflowSpec.targetDetails['database']
         target_table_name = self.dataflowSpec.targetDetails['table']
 
@@ -589,7 +589,7 @@ class DataflowPipeline:
         expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = self.get_dq_expectations()
 
         target_cl = self.dataflowSpec.targetDetails.get('catalog', None)
-        target_cl_name = f"{target_cl}." if target_cl != None else ''
+        target_cl_name = f"{target_cl}." if target_cl is not None else ''
         target_db_name = self.dataflowSpec.targetDetails['database']
         target_table_name = self.dataflowSpec.targetDetails['table']
         
@@ -690,7 +690,7 @@ class DataflowPipeline:
                     and dataflowSpec.quarantineTargetDetails != {}:
                 
                 qrt_cl = dataflowSpec.quarantineTargetDetails.get('catalog', None)
-                qrt_cl_str = f"{qrt_cl}_" if qrt_cl != None else ''
+                qrt_cl_str = f"{qrt_cl}_" if qrt_cl is not None else ''
                 qrt_db = dataflowSpec.quarantineTargetDetails['database'].replace('.', '_')
                 qrt_table = dataflowSpec.quarantineTargetDetails['table']
                 quarantine_input_view_name = (
@@ -701,7 +701,7 @@ class DataflowPipeline:
                 logger.info("quarantine_input_view_name set to None")
 
             target_cl = dataflowSpec.targetDetails.get('catalog', None)
-            target_cl_str = f"{target_cl}_" if target_cl != None else ''
+            target_cl_str = f"{target_cl}_" if target_cl is not None else ''
             target_db = dataflowSpec.targetDetails['database'].replace('.', '_')
             target_table = dataflowSpec.targetDetails['table']
 
