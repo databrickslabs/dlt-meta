@@ -234,7 +234,7 @@ class CliTests(unittest.TestCase):
             volume_path,
             f"/Volumes/{mock_volumes_create.return_value.catalog_name}/"
             f"{mock_volumes_create.return_value.schema_name}/"
-            f"{mock_volumes_create.return_value.name}/"
+            f"{mock_volumes_create.return_value.schema_name}/"
         )
         mock_volumes_create.assert_called_once_with(
             catalog_name="uc_catalog",
