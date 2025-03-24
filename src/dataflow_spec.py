@@ -516,7 +516,6 @@ class DataflowSpecUtils:
                     "kafka.sasl.jaas.config": sasl_config
                 }
                 json_sink['options']['kafka.bootstrap.servers'] = eh_conn_options['kafka.bootstrap.servers']
-                # json_sink['options']['subscribe'] = eh_conn_options['subscribe']
                 json_sink['options']['kafka.sasl.mechanism'] = eh_conn_options['kafka.sasl.mechanism']
                 json_sink['options']['kafka.security.protocol'] = eh_conn_options['kafka.security.protocol']
                 json_sink['options']['kafka.sasl.jaas.config'] = eh_conn_options['kafka.sasl.jaas.config']
