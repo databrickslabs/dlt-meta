@@ -15,7 +15,6 @@ from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType
 from databricks.sdk.service.pipelines import NotebookLibrary, PipelineLibrary
 from databricks.sdk.service.workspace import ImportFormat, Language
 
-from src.__about__ import __version__
 from src.install import WorkspaceInstaller
 
 # Dictionary mapping cloud providers to node types
@@ -278,7 +277,7 @@ class DLTMETARunner:
             jobs.JobEnvironment(
                 environment_key="dl_meta_int_env",
                 spec=compute.Environment(
-                    client=f"dlt_meta_int_test_{__version__}",
+                    client="1",
                     dependencies=[runner_conf.remote_whl_path],
                 ),
             )
@@ -346,7 +345,7 @@ class DLTMETARunner:
                         "silver_schema": (
                             f"{runner_conf.silver_schema}"
                             if runner_conf.source == "cloudfiles"
-                            else None
+                            else ""
                         ),
                         "output_file_path": f"/Workspace{runner_conf.test_output_file_path}",
                         "run_id": runner_conf.run_id,
@@ -743,14 +742,14 @@ class DLTMETARunner:
                         schema_name=schema.name,
                     )
                     for vol in vol_list:
-                        print(f"Deleting volume:{vol.full_name}")
+                        print(f"Deleting volume: {vol.full_name}")
                         self.ws.volumes.delete(vol.full_name)
                     tables_list = self.ws.tables.list(
                         catalog_name=runner_conf.uc_catalog_name,
                         schema_name=schema.name,
                     )
                     for table in tables_list:
-                        print(f"Deleting table:{table.full_name}")
+                        print(f"Deleting table: {table.full_name}")
                         self.ws.tables.delete(table.full_name)
                     self.ws.schemas.delete(schema.full_name)
         print("Cleaning up complete!!!")

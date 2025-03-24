@@ -8,7 +8,7 @@ INSTALL_REQUIRES = ["setuptools", "databricks-sdk"]
 
 DEV_REQUIREMENTS = [
     "flake8==6.0",
-    "delta-spark==2.0.2"
+    "delta-spark==3.2.1"
 ]
 
 IT_REQUIREMENTS = ["typer[all]==0.6.1"]

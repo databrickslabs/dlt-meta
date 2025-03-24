@@ -2,7 +2,7 @@
 import copy
 from tests.utils import DLTFrameworkTestCase
 from src.onboard_dataflowspec import OnboardDataflowspec
-from src.dataflow_spec import BronzeDataflowSpec
+from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec
 from unittest.mock import MagicMock, patch
 from pyspark.sql import DataFrame
 
@@ -168,6 +168,35 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
                 self.assertIsNone(bronze_row.readerConfigOptions.get("cloudFiles.rescuedDataColumn"))
             if bronze_row.dataFlowId == "103":
                 self.assertEqual(bronze_row.readerConfigOptions.get("maxOffsetsPerTrigger"), "60000")
+
+    def test_onboardDataflowSpec_with_multiple_partitions(self):
+        """Test for onboardDataflowspec with multiple partitions for bronze layer."""
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_uc_map)
+        del onboarding_params_map["uc_enabled"]
+        onboarding_params_map["onboarding_file_path"] = self.onboarding_multiple_partitions_file
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map, uc_enabled=True)
+        onboardDataFlowSpecs.onboard_dataflow_specs()
+
+        # Assert Bronze DataflowSpec for multiple partition, and quarantine partition columns.
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_uc_map['database'],
+            self.onboarding_bronze_silver_params_uc_map['bronze_dataflowspec_table'])
+        bronze_df_rows = bronze_dataflowSpec_df.collect()
+        for bronze_df_row in bronze_df_rows:
+            bronze_row = BronzeDataflowSpec(**bronze_df_row.asDict())
+            self.assertEqual(len(bronze_row.partitionColumns), 2)
+            quarantine_partitions = [
+                col for col in bronze_row.quarantineTargetDetails.get('partition_columns').strip('[]').split(',')
+            ]
+            self.assertEqual(len(quarantine_partitions), 2)
+        # Assert Silver DataflowSpec for multiple partition columns.
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
+        silver_df_rows = silver_dataflowSpec_df.collect()
+        for silver_df_row in silver_df_rows:
+            silver_row = SilverDataflowSpec(**silver_df_row.asDict())
+            self.assertEqual(len(silver_row.partitionColumns), 2)
 
     def test_onboardBronzeDataflowSpec_positive(self):
         """Test for onboardDataflowspec."""
@@ -360,6 +389,22 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
 
+    def test_onboard_bronze_silver_with_v9(self):
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = self.onboarding_json_v9_file
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        onboardDataFlowSpecs.onboard_dataflow_specs()
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
+        bronze_dataflowSpec_df.show(truncate=False)
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
+        silver_dataflowSpec_df.show(truncate=False)
+        self.assertEqual(bronze_dataflowSpec_df.count(), 3)
+        self.assertEqual(silver_dataflowSpec_df.count(), 3)
+
     def test_onboard_apply_changes_from_snapshot_positive(self):
         """Test for onboardDataflowspec."""
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
@@ -422,3 +467,121 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         )
         self.assertEqual(quarantine_target_details["path"], "quarantine_path")
         self.assertEqual(quarantine_table_properties, {})
+
+    def test_get_quarantine_details_with_uc_enabled(self):
+        """Test get_quarantine_details with UC enabled."""
+        onboarding_row = {
+            "bronze_database_quarantine_it": "quarantine_db",
+            "bronze_quarantine_table": "quarantine_table",
+            "bronze_quarantine_table_properties": MagicMock(
+                asDict=MagicMock(return_value={"property_key": "property_value"})
+            )
+        }
+        onboardDataFlowSpecs = OnboardDataflowspec(
+            self.spark, self.onboarding_bronze_silver_params_map, uc_enabled=True
+        )
+        quarantine_target_details, quarantine_table_properties = (
+            onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
+                "it", onboarding_row
+            )
+        )
+        self.assertEqual(quarantine_target_details["database"], "quarantine_db")
+        self.assertEqual(quarantine_target_details["table"], "quarantine_table")
+        self.assertNotIn("path", quarantine_target_details)
+        self.assertEqual(quarantine_table_properties, {"property_key": "property_value"})
+
+    def test_get_quarantine_details_with_cluster_by_and_properties(self):
+        """Test get_quarantine_details with partitions and properties."""
+        onboarding_row = {
+            "bronze_quarantine_table_cluster_by": 'col1,col2',
+            "bronze_database_quarantine_it": "quarantine_db",
+            "bronze_quarantine_table": "quarantine_table",
+            "bronze_quarantine_table_path_it": "quarantine_path",
+            "bronze_quarantine_table_properties": MagicMock(
+                asDict=MagicMock(return_value={"key": "value"})
+            )
+        }
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
+        quarantine_target_details, quarantine_table_properties = (
+            onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
+                "it", onboarding_row)
+        )
+        self.assertEqual(quarantine_target_details["database"], "quarantine_db")
+        self.assertEqual(quarantine_target_details["table"], "quarantine_table")
+        self.assertEqual(quarantine_target_details["cluster_by"], 'col1,col2')
+        self.assertEqual(quarantine_target_details["path"], "quarantine_path")
+
+    def test_set_quarantine_details_with_cluster_by_and_zOrder_properties(self):
+        """Test get_quarantine_details with partitions and properties."""
+        onboarding_row = {
+            "bronze_quarantine_table_cluster_by": 'col1,col2',
+            "bronze_database_quarantine_it": "quarantine_db",
+            "bronze_quarantine_table": "quarantine_table",
+            "bronze_quarantine_table_path_it": "quarantine_path",
+            "bronze_quarantine_table_properties": MagicMock(
+                asDict=MagicMock(return_value={"pipelines.autoOptimize.zOrderCols": "col1,col2"})
+            )
+        }
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
+
+        with self.assertRaises(Exception) as context:
+            onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
+                "it", onboarding_row)
+        print(str(context.exception))
+        self.assertEqual(str(context.exception),
+                         "Can not support zOrder and cluster_by together at bronze_quarantine_table_cluster_by")
+
+    def test_set_bronze_table_cluster_by_properties(self):
+        """Test get_quarantine_details with partitions and properties."""
+        onboarding_row = {
+            "bronze_cluster_by": ['col1', 'col2'],
+            "bronze_table_properties": {"pipelines.autoOptimize.managed": "true"}
+        }
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
+        cluster_by = onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
+            onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
+        self.assertEqual(cluster_by, ['col1', 'col2'])
+
+    def test_set_bronze_table_cluster_by_and_zOrder_properties(self):
+        """Test get_quarantine_details with partitions and properties."""
+        onboarding_row = {
+            "bronze_cluster_by": ['col1', 'col2'],
+            "bronze_table_properties": MagicMock(
+                asDict=MagicMock(return_value={"pipelines.autoOptimize.zOrderCols": "col1,col2"})
+            )
+        }
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
+
+        with self.assertRaises(Exception) as context:
+            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
+                onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
+        self.assertEqual(
+            str(context.exception),
+            "Can not support zOrder and cluster_by together at bronze_cluster_by")
+
+    def test_set_silver_table_cluster_by_properties(self):
+        """Test get_quarantine_details with partitions and properties."""
+        onboarding_row = {
+            "silver_cluster_by": ['col1', 'col2'],
+            "silver_table_properties": {"pipelines.autoOptimize.managed": "true"}
+        }
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
+        cluster_by = onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
+            onboarding_row, onboarding_row['silver_table_properties'], "silver_cluster_by")
+        self.assertEqual(cluster_by, ['col1', 'col2'])
+
+    def test_set_silver_table_cluster_by_and_zOrder_properties(self):
+        """Test get_quarantine_details with partitions and properties."""
+        onboarding_row = {
+            "silver_cluster_by": ['col1', 'col2'],
+            "silver_table_properties": MagicMock(
+                asDict=MagicMock(return_value={"pipelines.autoOptimize.zOrderCols": "col1,col2"})
+            )
+        }
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
+
+        with self.assertRaises(Exception) as context:
+            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
+                onboarding_row, onboarding_row['silver_table_properties'], "silver_cluster_by")
+        self.assertEqual(
+            str(context.exception), "Can not support zOrder and cluster_by together at silver_cluster_by")

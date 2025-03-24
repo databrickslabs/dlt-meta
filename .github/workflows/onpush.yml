@@ -33,10 +33,30 @@ jobs:
 
       - name: Install coverage
         run: pip install coverage
-      
-      - name: Lint
-        run: flake8
 
+      - name: Install psutil
+        run: pip install psutil      
+
+      - name: Lint
+        run: flake8        
+
+      - name: set spark local
+        run: export SPARK_LOCAL_IP=127.0.0.1
+
+      - name: set spark executor memory
+        run: export SPARK_EXECUTOR_MEMORY=8g  
+      
+      - name: set spark driver memory
+        run: export SPARK_DRIVER_MEMORY=8g
+
+      - name: set javaopts
+        run: export JAVA_OPTS="-Xmx10g -XX:+UseG1GC"
+
+      - name: Print System Information
+        run: | 
+               python -c "import psutil; import os;
+               print(f'Physical Memory: {psutil.virtual_memory().total / 1e9:.2f} GB'); print(f'CPU Cores: {os.cpu_count()}')"
+ 
       - name: Run Unit Tests
         run: python -m coverage run
 

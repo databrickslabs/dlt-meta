@@ -1,6 +1,7 @@
 import unittest
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
+import json
 from databricks.sdk.service.catalog import VolumeType
 from src.__about__ import __version__
 from src.cli import DLT_META_RUNNER_NOTEBOOK, DeployCommand, DLTMeta, OnboardCommand, main
@@ -48,19 +49,36 @@ class CliTests(unittest.TestCase):
     )
 
     deploy_cmd = DeployCommand(
-        layer="bronze",
-        onboard_group="A1",
-        dlt_meta_schema="dlt_meta",
-        pipeline_name="unittest_dlt_pipeline",
-        dataflowspec_table="dataflowspec_table",
-        dlt_target_schema="dlt_target_schema",
+        layer="bronze_silver",
+        onboard_bronze_group="A1",
+        onboard_silver_group="A1",
+        dlt_meta_bronze_schema="dlt_bronze_schema",
+        dlt_meta_silver_schema="dlt_silver_schema",
+        dataflowspec_bronze_table="bronze_dataflowspec_table",
+        dataflowspec_silver_table="silver_dataflowspec_table",
         num_workers=1,
         uc_catalog_name="uc_catalog",
-        dataflowspec_path="tests/resources/dataflowspec",
+        pipeline_name="unittest_dlt_pipeline",
+        dlt_target_schema="dlt_target_schema",
         uc_enabled=True,
         serverless=False,
         dbfs_path="/dbfs",
     )
+
+    def test_copy_to_dbfs(self):
+        mock_ws = MagicMock()
+        dltmeta = DLTMeta(mock_ws)
+        with patch("os.walk") as mock_walk:
+            mock_walk.return_value = [
+                ("/path/to/src", [], ["file1.txt", "file2.txt"]),
+                ("/path/to/src/subdir", [], ["file3.txt"]),
+            ]
+            with patch("builtins.open") as mock_open:
+                mock_open.return_value = MagicMock()
+                mock_dbfs_upload = MagicMock()
+                mock_ws.dbfs.upload = mock_dbfs_upload
+                dltmeta.copy_to_dbfs("file:/path/to/src", "/dbfs/path/to/dst")
+                self.assertEqual(mock_dbfs_upload.call_count, 3)
 
     @patch("src.cli.WorkspaceClient")
     @patch("builtins.open", new_callable=MagicMock)
@@ -168,9 +186,9 @@ class CliTests(unittest.TestCase):
         cmd = OnboardCommand(
             onboarding_file_path="tests/resources/onboarding.json",
             onboarding_files_dir_path="tests/resources/",
-            onboard_layer="bronze",
+            onboard_layer="bronze_silver",
             env="dev",
-            import_author="John Doe",
+            import_author="Ravi Gawai",
             version="1.0",
             dlt_meta_schema="dlt_meta",
             bronze_dataflowspec_path="tests/resources/bronze_dataflowspec",
@@ -185,51 +203,21 @@ class CliTests(unittest.TestCase):
         )
         dltmeta = DLTMeta(None)
         named_parameters = dltmeta._get_onboarding_named_parameters(
-            cmd, "onboarding.json"
+            cmd
         )
         expected_named_parameters = {
-            "onboard_layer": "bronze",
+            "onboard_layer": "bronze_silver",
             "database": "uc_catalog.dlt_meta" if cmd.uc_enabled else "dlt_meta",
-            "onboarding_file_path": "uc_catalog/dlt_meta/files/dltmeta_conf/onboarding.json",
-            "import_author": "John Doe",
-            # "import_author": "Ravi Gawai",
+            "onboarding_file_path": "uc_catalog/dlt_meta/files/dltmeta_conf/tests/resources/onboarding.json",
+            "import_author": "Ravi Gawai",
             "version": "1.0",
             "overwrite": "True",
             "env": "dev",
             "uc_enabled": "True",
             "bronze_dataflowspec_table": "bronze_dataflowspec",
+            "silver_dataflowspec_table": "silver_dataflowspec",
         }
         self.assertEqual(named_parameters, expected_named_parameters)
-
-    def test_copy_to_uc_volume(self):
-        mock_ws = MagicMock()
-        dltmeta = DLTMeta(mock_ws)
-        with patch("os.walk") as mock_walk:
-            mock_walk.return_value = [
-                ("/path/to/src", [], ["file1.txt", "file2.txt"]),
-                ("/path/to/src/subdir", [], ["file3.txt"]),
-            ]
-            with patch("builtins.open", new_callable=MagicMock) as mock_open:
-                mock_open.return_value = MagicMock()
-                mock_files_upload = MagicMock()
-                mock_ws.files.upload = mock_files_upload
-                dltmeta.copy_to_uc_volume("file:/path/to/src", "/uc/path/to/dst")
-                self.assertEqual(mock_files_upload.call_count, 3)
-
-    def test_copy_to_dbfs(self):
-        mock_ws = MagicMock()
-        dltmeta = DLTMeta(mock_ws)
-        with patch("os.walk") as mock_walk:
-            mock_walk.return_value = [
-                ("/path/to/src", [], ["file1.txt", "file2.txt"]),
-                ("/path/to/src/subdir", [], ["file3.txt"]),
-            ]
-            with patch("builtins.open", new_callable=MagicMock) as mock_open:
-                mock_open.return_value = MagicMock()
-                mock_dbfs_upload = MagicMock()
-                mock_ws.dbfs.upload = mock_dbfs_upload
-                dltmeta.copy_to_dbfs("file:/path/to/src", "/dbfs/path/to/dst")
-                self.assertEqual(mock_dbfs_upload.call_count, 3)
 
     @patch("src.cli.WorkspaceClient")
     def test_create_uc_volume(self, mock_workspace_client):
@@ -246,7 +234,7 @@ class CliTests(unittest.TestCase):
             volume_path,
             f"/Volumes/{mock_volumes_create.return_value.catalog_name}/"
             f"{mock_volumes_create.return_value.schema_name}/"
-            f"{mock_volumes_create.return_value.name}/"
+            f"{mock_volumes_create.return_value.schema_name}/"
         )
         mock_volumes_create.assert_called_once_with(
             catalog_name="uc_catalog",
@@ -302,14 +290,14 @@ class CliTests(unittest.TestCase):
 
         deploy_cmd = DeployCommand(
             layer="bronze",
-            onboard_group="A1",
-            dlt_meta_schema="dlt_meta",
+            onboard_bronze_group="A1",
+            dlt_meta_bronze_schema="dlt_meta",
             pipeline_name="unittest_dlt_pipeline",
-            dataflowspec_table="dataflowspec_table",
+            dataflowspec_bronze_table="dataflowspec_table",
             dlt_target_schema="dlt_target_schema",
             num_workers=1,
             uc_catalog_name="uc_catalog",
-            dataflowspec_path="tests/resources/dataflowspec",
+            dataflowspec_bronze_path="tests/resources/dataflowspec",
             uc_enabled=True,
             serverless=False,
             dbfs_path="/dbfs",
@@ -353,10 +341,45 @@ class CliTests(unittest.TestCase):
 
     @patch("src.cli.WorkspaceInstaller")
     @patch("src.cli.WorkspaceClient")
+    def test_load_onboard_config_without_uc(self, mock_workspace_client, mock_workspace_installer):
+        mock_ws_installer = mock_workspace_installer.return_value
+        mock_ws_installer._choice.side_effect = ['False', 'False', 'aws',
+                                                 'bronze_silver', 'False', 'True', 'False']
+        mock_ws_installer._question.side_effect = [
+            'dbfs_path', "dbrx", "demo/conf/onboarding.template",
+            "file:/demo/", "dlt_meta_dataflowspecs", "dltmeta_bronze",
+            "dltmeta_silver", "bronze_dataflowspec_table",
+            "bronze_dataflowspec_path", "silver_dataflowspec_table",
+            "silver_dataflowspec_path", "v1", "prod", "author", "True"
+        ]
+        dltmeta = DLTMeta(mock_workspace_client)
+        cmd = dltmeta._load_onboard_config()
+
+        self.assertFalse(cmd.uc_enabled)
+        self.assertFalse(cmd.serverless)
+        self.assertEqual(cmd.dbfs_path, "dbfs_path")
+        self.assertEqual(cmd.onboarding_file_path, "demo/conf/onboarding.template")
+        self.assertEqual(cmd.onboarding_files_dir_path, "file:/file:/demo/")
+        self.assertEqual(cmd.dlt_meta_schema, "dlt_meta_dataflowspecs")
+        self.assertEqual(cmd.bronze_schema, "dltmeta_bronze")
+        self.assertEqual(cmd.silver_schema, "dltmeta_silver")
+        self.assertEqual(cmd.onboard_layer, "bronze_silver")
+        self.assertEqual(cmd.bronze_dataflowspec_table, "bronze_dataflowspec_table")
+        self.assertEqual(cmd.silver_dataflowspec_table, "silver_dataflowspec_table")
+        self.assertEqual(cmd.bronze_dataflowspec_path, "bronze_dataflowspec_path")
+        self.assertEqual(cmd.silver_dataflowspec_path, "silver_dataflowspec_path")
+        self.assertEqual(cmd.version, "v1")
+        self.assertEqual(cmd.env, "prod")
+        self.assertEqual(cmd.import_author, "author")
+        self.assertTrue(cmd.update_paths)
+
+    @patch("src.cli.WorkspaceInstaller")
+    @patch("src.cli.WorkspaceClient")
     def test_load_deploy_config_with_uc_enabled(self, mock_workspace_client, mock_workspace_installer):
-        mock_workspace_installer._choice.side_effect = ["True", "True", "bronze"]
+        mock_workspace_installer._choice.side_effect = ["No", "True", "True", "bronze_silver"]
         mock_workspace_installer._question.side_effect = [
             "uc_catalog", "group", "dlt_meta_schema", "bronze_dataflowspec",
+            "group", "dlt_meta_schema", "silver_dataflowspec",
             "pipeline_name", "dlt_target_schema"
         ]
         dltmeta = DLTMeta(mock_workspace_client)
@@ -366,10 +389,12 @@ class CliTests(unittest.TestCase):
         self.assertTrue(deploy_cmd.uc_enabled)
         self.assertTrue(deploy_cmd.serverless)
         self.assertEqual(deploy_cmd.uc_catalog_name, "uc_catalog")
-        self.assertEqual(deploy_cmd.layer, "bronze")
-        self.assertEqual(deploy_cmd.onboard_group, "group")
-        self.assertEqual(deploy_cmd.dlt_meta_schema, "dlt_meta_schema")
-        self.assertEqual(deploy_cmd.dataflowspec_table, "bronze_dataflowspec")
+        self.assertEqual(deploy_cmd.layer, "bronze_silver")
+        self.assertEqual(deploy_cmd.onboard_bronze_group, "group")
+        self.assertEqual(deploy_cmd.dlt_meta_bronze_schema, "dlt_meta_schema")
+        self.assertEqual(deploy_cmd.dataflowspec_bronze_table, "bronze_dataflowspec")
+        self.assertEqual(deploy_cmd.dlt_meta_silver_schema, "dlt_meta_schema")
+        self.assertEqual(deploy_cmd.dataflowspec_silver_table, "silver_dataflowspec")
         self.assertEqual(deploy_cmd.num_workers, None)
         self.assertEqual(deploy_cmd.pipeline_name, "pipeline_name")
         self.assertEqual(deploy_cmd.dlt_target_schema, "dlt_target_schema")
@@ -377,10 +402,10 @@ class CliTests(unittest.TestCase):
     @patch("src.cli.WorkspaceInstaller")
     @patch("src.cli.WorkspaceClient")
     def test_load_deploy_config_without_uc_enabled(self, mock_workspace_client, mock_workspace_installer):
-        mock_workspace_installer._choice.side_effect = ["False", "bronze", "False"]
+        mock_workspace_installer._choice.side_effect = ["No", "False", "bronze"]
         mock_workspace_installer._question.side_effect = [
             "group", "dlt_meta_schema", "bronze_dataflowspec",
-            "dataflowspec_path", "4", "pipeline_name", "dlt_target_schema"
+            "dataflowspec_path", 4, "pipeline_name", "dlt_target_schema"
         ]
         dltmeta = DLTMeta(mock_workspace_client)
         dltmeta._install_folder = MagicMock(return_value="/Users/name/dlt-meta")
@@ -389,12 +414,11 @@ class CliTests(unittest.TestCase):
 
         self.assertFalse(deploy_cmd.uc_enabled)
         self.assertFalse(deploy_cmd.serverless)
-        self.assertIsNone(deploy_cmd.uc_catalog_name)
         self.assertEqual(deploy_cmd.layer, "bronze")
-        self.assertEqual(deploy_cmd.onboard_group, "group")
-        self.assertEqual(deploy_cmd.dlt_meta_schema, "dlt_meta_schema")
-        self.assertEqual(deploy_cmd.dataflowspec_table, "bronze_dataflowspec")
-        self.assertEqual(deploy_cmd.dataflowspec_path, "dataflowspec_path")
+        self.assertEqual(deploy_cmd.onboard_bronze_group, "group")
+        self.assertEqual(deploy_cmd.dlt_meta_bronze_schema, "dlt_meta_schema")
+        self.assertEqual(deploy_cmd.dataflowspec_bronze_table, "bronze_dataflowspec")
+        self.assertEqual(deploy_cmd.dataflowspec_bronze_path, "dataflowspec_path")
         self.assertEqual(deploy_cmd.num_workers, 4)
         self.assertEqual(deploy_cmd.pipeline_name, "pipeline_name")
         self.assertEqual(deploy_cmd.dlt_target_schema, "dlt_target_schema")
@@ -799,20 +823,6 @@ class CliTests(unittest.TestCase):
                 uc_enabled=True,
                 silver_dataflowspec_table="silver_dataflowspec"
             )
-        with self.assertRaises(ValueError):
-            OnboardCommand(
-                onboarding_file_path="tests/resources/onboarding.json",
-                onboarding_files_dir_path="tests/resources/",
-                onboard_layer="silver",
-                dlt_meta_schema="dlt_meta",
-                env="dev",
-                import_author="John Doe",
-                version="1.0",
-                overwrite=None,
-                serverless=True,
-                uc_enabled=True,
-                silver_dataflowspec_table="silver_dataflowspec"
-            )
 
         with self.assertRaises(ValueError):
             OnboardCommand(
@@ -848,9 +858,9 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeployCommand(
                 layer="bronze",
-                onboard_group="A1",
-                dlt_meta_schema="dlt_meta",
-                dataflowspec_table="dataflowspec_table",
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="dlt_meta",
+                dataflowspec_bronze_table="dataflowspec_table",
                 pipeline_name="unittest_dlt_pipeline",
                 dlt_target_schema="dlt_target_schema",
                 uc_enabled=True,
@@ -860,9 +870,9 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeployCommand(
                 layer="bronze",
-                onboard_group="A1",
-                dlt_meta_schema="dlt_meta",
-                dataflowspec_table="dataflowspec_table",
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="dlt_meta",
+                dataflowspec_bronze_table="dataflowspec_table",
                 pipeline_name="unittest_dlt_pipeline",
                 dlt_target_schema="dlt_target_schema",
                 serverless=False,
@@ -872,9 +882,9 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeployCommand(
                 layer=None,
-                onboard_group="A1",
-                dlt_meta_schema="dlt_meta",
-                dataflowspec_table="dataflowspec_table",
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="dlt_meta",
+                dataflowspec_bronze_table="dataflowspec_table",
                 pipeline_name="unittest_dlt_pipeline",
                 dlt_target_schema="dlt_target_schema",
             )
@@ -882,9 +892,9 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeployCommand(
                 layer="bronze",
-                onboard_group=None,
-                dlt_meta_schema="dlt_meta",
-                dataflowspec_table="dataflowspec_table",
+                onboard_bronze_group=None,
+                dlt_meta_bronze_schema="dlt_meta",
+                dataflowspec_bronze_table="dataflowspec_table",
                 pipeline_name="unittest_dlt_pipeline",
                 dlt_target_schema="dlt_target_schema",
             )
@@ -892,9 +902,9 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeployCommand(
                 layer="bronze",
-                onboard_group="A1",
-                dlt_meta_schema="dlt_meta",
-                dataflowspec_table=None,
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="dlt_meta",
+                dataflowspec_bronze_table=None,
                 pipeline_name="unittest_dlt_pipeline",
                 dlt_target_schema="dlt_target_schema",
             )
@@ -902,9 +912,9 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeployCommand(
                 layer="bronze",
-                onboard_group="A1",
-                dlt_meta_schema="dlt_meta",
-                dataflowspec_table="dataflowspec_table",
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="dlt_meta",
+                dataflowspec_bronze_table="dataflowspec_table",
                 pipeline_name=None,
                 dlt_target_schema="dlt_target_schema",
             )
@@ -912,9 +922,9 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeployCommand(
                 layer="bronze",
-                onboard_group="A1",
-                dlt_meta_schema="dlt_meta",
-                dataflowspec_table="dataflowspec_table",
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="dlt_meta",
+                dataflowspec_bronze_table="dataflowspec_table",
                 pipeline_name="unittest_dlt_pipeline",
                 dlt_target_schema=None,
             )
@@ -923,9 +933,9 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeployCommand(
                 layer="",
-                onboard_group="A1",
-                dlt_meta_schema="dlt_meta",
-                dataflowspec_table="dataflowspec_table",
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="dlt_meta",
+                dataflowspec_bronze_table="dataflowspec_table",
                 pipeline_name="unittest_dlt_pipeline",
                 dlt_target_schema="dlt_target_schema",
                 num_workers=1,
@@ -934,9 +944,9 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeployCommand(
                 layer="bronze",
-                onboard_group="",
-                dlt_meta_schema="dlt_meta",
-                dataflowspec_table="dataflowspec_table",
+                onboard_bronze_group="",
+                dlt_meta_bronze_schema="dlt_meta",
+                dataflowspec_bronze_table="dataflowspec_table",
                 pipeline_name="unittest_dlt_pipeline",
                 dlt_target_schema="dlt_target_schema",
                 num_workers=1,
@@ -945,9 +955,9 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeployCommand(
                 layer="bronze",
-                onboard_group="A1",
-                dlt_meta_schema="dlt_meta",
-                dataflowspec_table="",
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="dlt_meta",
+                dataflowspec_bronze_table="",
                 pipeline_name="unittest_dlt_pipeline",
                 dlt_target_schema="dlt_target_schema",
                 num_workers=1,
@@ -956,9 +966,9 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeployCommand(
                 layer="bronze",
-                onboard_group="A1",
-                dlt_meta_schema="dlt_meta",
-                dataflowspec_table="dataflowspec_table",
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="dlt_meta",
+                dataflowspec_bronze_table="dataflowspec_table",
                 pipeline_name="",
                 dlt_target_schema="dlt_target_schema",
                 num_workers=1,
@@ -967,10 +977,272 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DeployCommand(
                 layer="bronze",
-                onboard_group="A1",
-                dlt_meta_schema="dlt_meta",
-                dataflowspec_table="dataflowspec_table",
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="dlt_meta",
+                dataflowspec_bronze_table="dataflowspec_table",
                 pipeline_name="unittest_dlt_pipeline",
                 dlt_target_schema="",
                 num_workers=1,
             )
+
+    @patch("src.cli.DLTMeta._install_folder", return_value="/Users/test/dlt-meta")
+    @patch("src.cli.WorkspaceClient")
+    def test_create_dlt_meta_pipeline_with_uc_enabled(self, mock_workspace_client, mock_install_folder):
+        dltmeta = DLTMeta(mock_workspace_client)
+        dltmeta.version = "1.2.3"
+        cmd = DeployCommand(
+            layer="bronze",
+            onboard_bronze_group="groupA",
+            dlt_meta_bronze_schema="schemaA",
+            dataflowspec_bronze_table="tableA",
+            pipeline_name="my_pipeline",
+            dlt_target_schema="my_dlt_schema",
+            uc_enabled=True,
+            uc_catalog_name="my_catalog",
+            serverless=True,
+            num_workers=None,
+        )
+        mock_created = MagicMock()
+        mock_created.pipeline_id = "12345"
+        mock_workspace_client.pipelines.create.return_value = mock_created
+
+        pipeline_id = dltmeta._create_dlt_meta_pipeline(cmd)
+        self.assertEqual(pipeline_id, "12345")
+        mock_workspace_client.pipelines.create.assert_called_once()
+
+    @patch("src.cli.DLTMeta._install_folder", return_value="/Users/test/dlt-meta")
+    @patch("src.cli.WorkspaceClient")
+    def test_create_dlt_meta_pipeline_without_uc_enabled(self, mock_workspace_client, mock_install_folder):
+        dltmeta = DLTMeta(mock_workspace_client)
+        dltmeta.version = "0.9.1"
+        cmd = DeployCommand(
+            layer="silver",
+            onboard_silver_group="groupB",
+            dlt_meta_silver_schema="schemaB",
+            dataflowspec_silver_table="tableB",
+            pipeline_name="silver_pipeline",
+            dlt_target_schema="silver_target_schema",
+            dataflowspec_silver_path="tests/resources/silver_dataflowspec",
+            uc_enabled=False,
+            uc_catalog_name=None,
+            serverless=False,
+            num_workers=5,
+        )
+        mock_created = MagicMock()
+        mock_created.pipeline_id = "98765"
+        mock_workspace_client.pipelines.create.return_value = mock_created
+
+        pipeline_id = dltmeta._create_dlt_meta_pipeline(cmd)
+        self.assertEqual(pipeline_id, "98765")
+        mock_workspace_client.pipelines.create.assert_called_once()
+
+    @patch("src.cli.DLTMeta._install_folder", return_value="/Users/test/dlt-meta")
+    @patch("src.cli.WorkspaceClient")
+    def test_create_dlt_meta_pipeline_invalid_layer_raises_value_error(
+        self, mock_workspace_client, mock_install_folder
+    ):
+        dltmeta = DLTMeta(mock_workspace_client)
+        cmd = DeployCommand(
+            layer="invalid",
+            serverless=True,
+            onboard_bronze_group="group",
+            dlt_meta_bronze_schema="schema",
+            dataflowspec_bronze_table="table",
+            pipeline_name="test_pipeline",
+            dlt_target_schema="target_schema",
+        )
+        with self.assertRaises(ValueError):
+            dltmeta._create_dlt_meta_pipeline(cmd)
+
+    @patch("src.cli.DLTMeta._install_folder", return_value="/Users/test/dlt-meta")
+    @patch("src.cli.WorkspaceClient")
+    def test_create_dlt_meta_pipeline_raise_exception_on_no_creation(self, mock_workspace_client, mock_install_folder):
+        dltmeta = DLTMeta(mock_workspace_client)
+        cmd = DeployCommand(
+            layer="bronze",
+            serverless=True,
+            uc_enabled=True,
+            uc_catalog_name="catalog",
+            onboard_bronze_group="group",
+            dlt_meta_bronze_schema="schema",
+            dataflowspec_bronze_table="table",
+            pipeline_name="test_pipeline",
+            dlt_target_schema="target_schema",
+        )
+        mock_workspace_client.pipelines.create.return_value = None
+        with self.assertRaises(Exception):
+            dltmeta._create_dlt_meta_pipeline(cmd)
+
+    @patch("src.cli.WorkspaceInstaller")
+    @patch("src.cli.WorkspaceClient")
+    def test_load_deploy_config_with_json(self, mock_workspace_client, mock_workspace_installer):
+        mock_workspace_installer._choice.side_effect = ["Yes", "True", "True", "bronze"]
+        mock_workspace_installer._question.side_effect = [
+            "uc_catalog", "group", "pipeline_name", "dlt_target_schema"
+        ]
+        oc_job_details_json = {
+            "dlt_meta_schema": "dlt_meta_schema",
+            "bronze_dataflowspec_table": "bronze_dataflowspec_table",
+            "bronze_dataflowspec_path": "bronze_dataflowspec_path"
+        }
+        with patch("builtins.open", mock_open(read_data=json.dumps(oc_job_details_json))):
+            dltmeta = DLTMeta(mock_workspace_client)
+            dltmeta._wsi = mock_workspace_installer
+            deploy_cmd = dltmeta._load_deploy_config()
+        self.assertTrue(deploy_cmd.uc_enabled)
+        self.assertTrue(deploy_cmd.serverless)
+        self.assertEqual(deploy_cmd.uc_catalog_name, "uc_catalog")
+        self.assertEqual(deploy_cmd.layer, "bronze")
+        self.assertEqual(deploy_cmd.onboard_bronze_group, "group")
+        self.assertEqual(deploy_cmd.dlt_meta_bronze_schema, "dlt_meta_schema")
+        self.assertEqual(deploy_cmd.dataflowspec_bronze_table, "bronze_dataflowspec_table")
+        self.assertEqual(deploy_cmd.pipeline_name, "pipeline_name")
+        self.assertEqual(deploy_cmd.dlt_target_schema, "dlt_target_schema")
+
+    @patch("src.cli.WorkspaceInstaller")
+    @patch("src.cli.WorkspaceClient")
+    def test_load_deploy_config_nouc_json(self, mock_workspace_client, mock_workspace_installer):
+        mock_workspace_installer._choice.side_effect = ["Yes", "False", "bronze_silver"]
+        mock_workspace_installer._question.side_effect = [
+            "bronze_group", "silver_group", "4", "pipeline_name",
+            "dlt_target_schema"
+        ]
+        oc_job_details_json = {
+            "dlt_meta_schema": "dlt_meta_schema",
+            "bronze_dataflowspec_path": "bronze_dataflowspec_path",
+            "silver_dataflowspec_path": "silver_dataflowspec_path"
+        }
+        with patch("builtins.open", mock_open(read_data=json.dumps(oc_job_details_json))):
+            dltmeta = DLTMeta(mock_workspace_client)
+            dltmeta._wsi = mock_workspace_installer
+            deploy_cmd = dltmeta._load_deploy_config()
+        self.assertFalse(deploy_cmd.uc_enabled)
+        self.assertFalse(deploy_cmd.serverless)
+        self.assertEqual(deploy_cmd.layer, "bronze_silver")
+        self.assertEqual(deploy_cmd.onboard_bronze_group, "bronze_group")
+        self.assertEqual(deploy_cmd.dataflowspec_bronze_path, "bronze_dataflowspec_path")
+        self.assertEqual(deploy_cmd.dataflowspec_silver_path, "silver_dataflowspec_path")
+        self.assertEqual(deploy_cmd.onboard_silver_group, "silver_group")
+        self.assertEqual(deploy_cmd.pipeline_name, "pipeline_name")
+        self.assertEqual(deploy_cmd.dlt_target_schema, "dlt_target_schema")
+
+    @patch("src.cli.WorkspaceInstaller")
+    @patch("src.cli.WorkspaceClient")
+    def test_load_deploy_config_without_json(self, mock_workspace_client, mock_workspace_installer):
+        mock_workspace_installer._choice.side_effect = ["No", "True", "True", "bronze"]
+        mock_workspace_installer._question.side_effect = [
+            "uc_catalog", "group", "dlt_meta_schema", "bronze_dataflowspec",
+            "pipeline_name", "dlt_target_schema"
+        ]
+        dltmeta = DLTMeta(mock_workspace_client)
+        dltmeta._wsi = mock_workspace_installer
+        deploy_cmd = dltmeta._load_deploy_config()
+
+        self.assertTrue(deploy_cmd.uc_enabled)
+        self.assertTrue(deploy_cmd.serverless)
+        self.assertEqual(deploy_cmd.uc_catalog_name, "uc_catalog")
+        self.assertEqual(deploy_cmd.layer, "bronze")
+        self.assertEqual(deploy_cmd.onboard_bronze_group, "group")
+        self.assertEqual(deploy_cmd.dlt_meta_bronze_schema, "dlt_meta_schema")
+        self.assertEqual(deploy_cmd.dataflowspec_bronze_table, "bronze_dataflowspec")
+        self.assertEqual(deploy_cmd.pipeline_name, "pipeline_name")
+        self.assertEqual(deploy_cmd.dlt_target_schema, "dlt_target_schema")
+
+    @patch("src.cli.WorkspaceInstaller")
+    @patch("src.cli.WorkspaceClient")
+    def test_load_deploy_config_with_silver_layer(self, mock_workspace_client, mock_workspace_installer):
+        mock_workspace_installer._choice.side_effect = ["No", "True", "True", "silver"]
+        mock_workspace_installer._question.side_effect = [
+            "uc_catalog", "group", "dlt_meta_schema", "silver_dataflowspec",
+            "pipeline_name", "dlt_target_schema"
+        ]
+        dltmeta = DLTMeta(mock_workspace_client)
+        dltmeta._wsi = mock_workspace_installer
+        deploy_cmd = dltmeta._load_deploy_config()
+
+        self.assertTrue(deploy_cmd.uc_enabled)
+        self.assertTrue(deploy_cmd.serverless)
+        self.assertEqual(deploy_cmd.uc_catalog_name, "uc_catalog")
+        self.assertEqual(deploy_cmd.layer, "silver")
+        self.assertEqual(deploy_cmd.onboard_silver_group, "group")
+        self.assertEqual(deploy_cmd.dlt_meta_silver_schema, "dlt_meta_schema")
+        self.assertEqual(deploy_cmd.dataflowspec_silver_table, "silver_dataflowspec")
+        self.assertEqual(deploy_cmd.pipeline_name, "pipeline_name")
+        self.assertEqual(deploy_cmd.dlt_target_schema, "dlt_target_schema")
+
+    @patch("src.cli.WorkspaceInstaller")
+    @patch("src.cli.WorkspaceClient")
+    def test_load_deploy_config_with_bronze_silver_layer(self, mock_workspace_client, mock_workspace_installer):
+        mock_workspace_installer._choice.side_effect = ["No", "True", "True", "bronze_silver"]
+        mock_workspace_installer._question.side_effect = [
+            "uc_catalog", "bronze_group", "dlt_meta_bronze_schema", "bronze_dataflowspec",
+            "silver_group", "dlt_meta_silver_schema", "silver_dataflowspec",
+            "pipeline_name", "dlt_target_schema"
+        ]
+        dltmeta = DLTMeta(mock_workspace_client)
+        dltmeta._wsi = mock_workspace_installer
+        deploy_cmd = dltmeta._load_deploy_config()
+
+        self.assertTrue(deploy_cmd.uc_enabled)
+        self.assertTrue(deploy_cmd.serverless)
+        self.assertEqual(deploy_cmd.uc_catalog_name, "uc_catalog")
+        self.assertEqual(deploy_cmd.layer, "bronze_silver")
+        self.assertEqual(deploy_cmd.onboard_bronze_group, "bronze_group")
+        self.assertEqual(deploy_cmd.dlt_meta_bronze_schema, "dlt_meta_bronze_schema")
+        self.assertEqual(deploy_cmd.dataflowspec_bronze_table, "bronze_dataflowspec")
+        self.assertEqual(deploy_cmd.onboard_silver_group, "silver_group")
+        self.assertEqual(deploy_cmd.dlt_meta_silver_schema, "dlt_meta_silver_schema")
+        self.assertEqual(deploy_cmd.dataflowspec_silver_table, "silver_dataflowspec")
+        self.assertEqual(deploy_cmd.pipeline_name, "pipeline_name")
+        self.assertEqual(deploy_cmd.dlt_target_schema, "dlt_target_schema")
+
+    @patch("src.cli.WorkspaceInstaller")
+    @patch("src.cli.WorkspaceClient")
+    def test_load_deploy_config_from_json_file(self, mock_workspace_client, mock_workspace_installer):
+        mock_workspace_installer._choice.side_effect = ["Yes", "True", "True", "bronze_silver"]
+        oc_job_details_json = "tests/resources/onboarding_job_details.json"
+        import shutil
+        shutil.copyfile(oc_job_details_json, "onboarding_job_details.json")
+        mock_workspace_installer._question.side_effect = [
+            "uc_catalog", "bronze_group", "silver_group",
+            "pipeline_name", "dlt_target_schema"
+        ]
+        dltmeta = DLTMeta(mock_workspace_client)
+        dltmeta._wsi = mock_workspace_installer
+        deploy_cmd = dltmeta._load_deploy_config()
+        self.assertTrue(deploy_cmd.uc_enabled)
+        self.assertTrue(deploy_cmd.serverless)
+        self.assertEqual(deploy_cmd.uc_catalog_name, "uc_catalog")
+        self.assertEqual(deploy_cmd.layer, "bronze_silver")
+        self.assertEqual(deploy_cmd.onboard_bronze_group, "bronze_group")
+        self.assertEqual(deploy_cmd.onboard_silver_group, "silver_group")
+        self.assertEqual(deploy_cmd.dlt_meta_bronze_schema, "dlt_meta_dataflowspecs")
+        self.assertEqual(deploy_cmd.dataflowspec_bronze_table, "bronze_dataflowspec")
+        self.assertEqual(deploy_cmd.dlt_meta_silver_schema, "dlt_meta_dataflowspecs")
+        self.assertEqual(deploy_cmd.dataflowspec_silver_table, "silver_dataflowspec")
+        self.assertEqual(deploy_cmd.pipeline_name, "pipeline_name")
+        self.assertEqual(deploy_cmd.dlt_target_schema, "dlt_target_schema")
+
+    @patch("os.walk")
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("src.cli.DLTMeta._my_username", return_value="test_user")
+    def test_copy_to_uc_volume(self, mock_my_username, mock_open, mock_os_walk):
+        mock_ws = MagicMock()
+        dltmeta = DLTMeta(mock_ws)
+        mock_os_walk.return_value = [
+            ("/path/to/src", [], ["file1.txt", "file2.txt"]),
+            ("/path/to/src/subdir", [], ["file3.txt"]),
+        ]
+        mock_ws.files.upload = MagicMock()
+        dltmeta.copy_to_uc_volume("file:/path/to/src", "/uc_volume/path/to/dst")
+        expected_calls = [
+            ("/uc_volume/path/to/dst/src/file1.txt", mock_open.return_value, True),
+            ("/uc_volume/path/to/dst/src/file2.txt", mock_open.return_value, True),
+            ("/uc_volume/path/to/dst/src/subdir/file3.txt", mock_open.return_value, True),
+        ]
+        actual_calls = [
+            (call[1]["file_path"], call[1]["contents"], call[1]["overwrite"])
+            for call in mock_ws.files.upload.call_args_list
+        ]
+        self.assertEqual(expected_calls, actual_calls)
+        self.assertEqual(mock_ws.files.upload.call_count, 3)

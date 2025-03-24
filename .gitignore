@@ -155,8 +155,7 @@ deployment-merged.yaml
 demo/conf/onboarding.json
 integration_tests/conf/onboarding*.json
 demo/conf/onboarding*.json
-databricks.yaml
 integration_test_output*.csv
 databricks.yml
+oboarding_job_details.json
 
-.databricks
