@@ -36,13 +36,13 @@
             "name": "bronze_sink1",
             "format": "delta",
             "options": {
-                "tableName": "bronze.customers_cdc"
+                "tablename": "bronze.customers_cdc"
             }
         },
         {"name": "bronze_sink2",
         "format": "delta",
         "options": {
-            "tableName": "bronze.customers_cdc"
+            "tablename": "bronze.customers_cdc"
         }
         }
         ],
@@ -75,7 +75,7 @@
             "name": "silver_sink",
             "format": "delta",
             "options": {
-                "tableName": "silver.customers_cdc"
+                "tablename": "silver.customers_cdc"
             }
         } ,
         {

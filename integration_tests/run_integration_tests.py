@@ -123,6 +123,7 @@ class DLTMetaRunnerConf:
     eventhub_input_data: str = None
     eventhub_append_flow_input_data: str = None
     eventhub_name: str = None
+    eventhub_sink_name: str = None
     eventhub_name_append_flow: str = None
     eventhub_producer_accesskey_name: str = None
     eventhub_consumer_accesskey_name: str = None
@@ -207,11 +208,12 @@ class DLTMETARunner:
             eventhub_name=self.args["eventhub_name"],
             eventhub_name_append_flow=self.args["eventhub_name_append_flow"],
             eventhub_producer_accesskey_name=self.args[
-                "eventhub_consumer_accesskey_name"
+                "eventhub_producer_accesskey_name"
             ],
             eventhub_consumer_accesskey_name=self.args[
                 "eventhub_consumer_accesskey_name"
             ],
+            eventhub_sink_name=self.args["eventhub_sink_name"],
             eventhub_accesskey_secret_name=self.args["eventhub_accesskey_secret_name"],
             eventhub_secrets_scope_name=self.args["eventhub_secrets_scope_name"],
             eventhub_namespace=self.args["eventhub_namespace"],
@@ -574,6 +576,8 @@ class DLTMETARunner:
                     "{eventhub_name}": runner_conf.eventhub_name,
                     "{eventhub_name_append_flow}": runner_conf.eventhub_name_append_flow,
                     "{eventhub_consumer_accesskey_name}": runner_conf.eventhub_consumer_accesskey_name,
+                    "{eventhub_producer_accesskey_name}": runner_conf.eventhub_producer_accesskey_name,
+                    "{eventhub_sink_name}": runner_conf.eventhub_sink_name,
                     "{eventhub_accesskey_secret_name}": runner_conf.eventhub_accesskey_secret_name,
                     "{eventhub_secrets_scope_name}": runner_conf.eventhub_secrets_scope_name,
                     "{eventhub_namespace}": runner_conf.eventhub_namespace,
@@ -887,6 +891,13 @@ def process_arguments() -> dict[str:str]:
             False,
             [],
         ],
+        [
+            "eventhub_sink_name",
+            "Provide an eventhub sink name to write data",
+            str.lower,
+            False,
+            []
+        ],
         # Kafka arguments
         [
             "kafka_source_topic",
@@ -964,11 +975,11 @@ def process_arguments() -> dict[str:str]:
             args,
             [
                 "eventhub_name",
-                "eventhub_name_append_flow",
                 "eventhub_producer_accesskey_name",
                 "eventhub_consumer_accesskey_name",
                 "eventhub_secrets_scope_name",
                 "eventhub_namespace",
+                "eventhub_sink_name",
                 "eventhub_port",
             ],
         )

@@ -492,6 +492,7 @@ class DataflowSpecUtils:
                             )
             if format == "eventhub" and 'options' in json_sink.keys():
                 dbutils = DataflowSpecUtils.get_db_utils(spark)
+                kafka_options_json = json_sink['options']
                 eh_namespace = kafka_options_json["eventhub.namespace"]
                 eh_port = kafka_options_json["eventhub.port"]
                 eh_name = kafka_options_json["eventhub.name"]
@@ -509,22 +510,24 @@ class DataflowSpecUtils:
 
                 eh_conn_options = {
                     "kafka.bootstrap.servers": f"{eh_namespace}.servicebus.windows.net:{eh_port}",
-                    "subscribe": eh_name,
+                    "topic": eh_name,
                     "kafka.sasl.mechanism": "PLAIN",
                     "kafka.security.protocol": "SASL_SSL",
                     "kafka.sasl.jaas.config": sasl_config
                 }
                 json_sink['options']['kafka.bootstrap.servers'] = eh_conn_options['kafka.bootstrap.servers']
-                json_sink['options']['subscribe'] = eh_conn_options['subscribe']
                 json_sink['options']['kafka.sasl.mechanism'] = eh_conn_options['kafka.sasl.mechanism']
                 json_sink['options']['kafka.security.protocol'] = eh_conn_options['kafka.security.protocol']
                 json_sink['options']['kafka.sasl.jaas.config'] = eh_conn_options['kafka.sasl.jaas.config']
+                json_sink['options']['topic'] = eh_conn_options['topic']
                 del json_sink['options']['eventhub.namespace']
                 del json_sink['options']['eventhub.port']
                 del json_sink['options']['eventhub.name']
                 del json_sink['options']['eventhub.accessKeyName']
                 del json_sink['options']['eventhub.accessKeySecretName']
                 del json_sink['options']['eventhub.secretsScopeName']
+                #DLT interacts with EventHub API as Kafka, change format before invoking sink.
+                json_sink['format'] = 'kafka'
             if 'select_exp' in json_sink.keys():
                 json_sink['select_exp'] = json_sink['select_exp']
             if 'where_clause' in json_sink.keys():
