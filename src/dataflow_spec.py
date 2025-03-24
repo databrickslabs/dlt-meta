@@ -526,7 +526,7 @@ class DataflowSpecUtils:
                 del json_sink['options']['eventhub.accessKeyName']
                 del json_sink['options']['eventhub.accessKeySecretName']
                 del json_sink['options']['eventhub.secretsScopeName']
-                #DLT interacts with EventHub API as Kafka, change format before invoking sink.
+                # DLT interacts with EventHub API as Kafka, change format before invoking sink.
                 json_sink['format'] = 'kafka'
             if 'select_exp' in json_sink.keys():
                 json_sink['select_exp'] = json_sink['select_exp']
