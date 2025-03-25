@@ -233,6 +233,7 @@ class DLTMeta:
             "launched with run_id={}, Please check the job status in databricks workspace jobs tab"
         ).format(created_job.job_id, run.run_id)
         logger.info(msg)
+        print(f"Job created successfully. job_id={created_job.job_id}, url={self._ws.config.host}/jobs/{created_job.job_id}?o={self._ws.get_workspace_id()}")
         webbrowser.open(f"{self._ws.config.host}/jobs/{created_job.job_id}?o={self._ws.get_workspace_id()}")
 
     def create_uc_schema(self, uc_catalog_name, dlt_meta_schema):
@@ -417,6 +418,7 @@ class DLTMeta:
             "Please check the pipeline status in databricks workspace under workflows -> Delta Live Tables tab"
         )
         logger.info(msg)
+        print(f"dlt-meta pipeline={pipeline_id} created and launched with update_id={update_response.update_id}, url={self._ws.config.host}/#joblist/pipelines/{pipeline_id}?o={self._ws.get_workspace_id()}/")
         webbrowser.open(f"{self._ws.config.host}/#joblist/pipelines/{pipeline_id}?o={self._ws.get_workspace_id()}/")
 
     def _load_onboard_config(self) -> OnboardCommand:
@@ -577,6 +579,140 @@ class DLTMeta:
             "Provide dlt target schema name")
         return DeployCommand(**deploy_cmd_dict)
 
+
+    def _load_onboard_config_ui(self, form_data) -> OnboardCommand:
+        onboard_cmd_dict = {}
+
+        # Get unity catalog settings
+        onboard_cmd_dict["uc_enabled"] = True if form_data.get('unity_catalog_enabled') == "1" else False
+        if onboard_cmd_dict["uc_enabled"]:
+            onboard_cmd_dict["dbfs_path"] = None
+            onboard_cmd_dict["uc_catalog_name"] = form_data.get('unity_catalog_name')
+        else:
+            onboard_cmd_dict["dbfs_path"] = f"dbfs:/dlt-meta_cli_demo_{uuid.uuid4().hex}"
+
+        # Get serverless setting
+        onboard_cmd_dict["serverless"] = True if form_data.get('serverless') == "1" else False
+        if onboard_cmd_dict["serverless"]:
+            onboard_cmd_dict["cloud"] = None
+            onboard_cmd_dict["dbr_version"] = None
+        else:
+            # These fields are not in the form, so using defaults
+            onboard_cmd_dict["cloud"] = "aws"  # Default value
+            onboard_cmd_dict["dbr_version"] = self._ws.clusters.select_spark_version(latest=True)
+
+        # Get file paths
+        onboard_cmd_dict["onboarding_file_path"] = form_data.get('onboarding_file_path', 'demo/conf/onboarding.template')
+        onboarding_files_dir_path = form_data.get('local_directory', f'{os.getcwd()}/demo/')
+        onboard_cmd_dict["onboarding_files_dir_path"] = f"file:/{onboarding_files_dir_path}"
+
+        # Get schema names
+        onboard_cmd_dict["dlt_meta_schema"] = form_data.get('dlt_meta_schema', f'dlt_meta_dataflowspecs_{uuid.uuid4().hex}')
+        onboard_cmd_dict["bronze_schema"] = form_data.get('bronze_schema', f'dltmeta_bronze_{uuid.uuid4().hex}')
+        onboard_cmd_dict["silver_schema"] = form_data.get('silver_schema', f'dltmeta_silver_{uuid.uuid4().hex}')
+
+        # Map dlt_meta_layer value from form to expected values
+        layer_map = {
+            "0": "bronze",
+            "1": "bronze_silver",
+            "2": "silver"
+        }
+        onboard_cmd_dict["onboard_layer"] = layer_map.get(form_data.get('dlt_meta_layer'), 'bronze_silver')
+
+        # Handle layer-specific settings
+        if onboard_cmd_dict["onboard_layer"] == "bronze" or onboard_cmd_dict["onboard_layer"] == "bronze_silver":
+            onboard_cmd_dict["bronze_dataflowspec_table"] = form_data.get('bronze_table', 'bronze_dataflowspec')
+            if not onboard_cmd_dict["uc_enabled"]:
+                onboard_cmd_dict["bronze_dataflowspec_path"] = f'{self._install_folder()}/bronze_dataflow_specs'
+
+        if onboard_cmd_dict["onboard_layer"] == "silver" or onboard_cmd_dict["onboard_layer"] == "bronze_silver":
+            onboard_cmd_dict["silver_dataflowspec_table"] = 'silver_dataflowspec'  # Not in form, using default
+            if not onboard_cmd_dict["uc_enabled"]:
+                onboard_cmd_dict["silver_dataflowspec_path"] = f'{self._install_folder()}/silver_dataflow_specs'
+
+        # Get other settings
+        onboard_cmd_dict["overwrite"] = True if form_data.get('overwrite') == "1" else False
+        onboard_cmd_dict["version"] = form_data.get('version', 'v1')
+        onboard_cmd_dict["env"] = form_data.get('environment', 'prod')
+        onboard_cmd_dict["import_author"] = form_data.get('author', self._wsi._short_name)
+        onboard_cmd_dict["update_paths"] = True if form_data.get('update_paths') == "1" else False
+
+
+        # Save to file
+        with open("onboarding_job_details.json", "w") as oc_file:
+            json.dump(onboard_cmd_dict, oc_file, indent=4)
+
+        cmd = OnboardCommand(**onboard_cmd_dict)
+        return cmd
+
+    def _load_deploy_config_ui(self, input_params) -> DeployCommand:
+        oc_job_details_json = None
+        if os.path.isfile("onboarding_job_details.json"):
+            with open("onboarding_job_details.json") as f:
+                oc_job_details_json = f.read()
+
+        load_from_ojd_json = input_params.get("load_from_ojd_json", False)
+        deploy_cmd_dict = {}
+
+        if load_from_ojd_json and oc_job_details_json:
+            oc_job_details_json = json.loads(oc_job_details_json)
+            deploy_cmd_dict["uc_enabled"] = input_params.get("uc_enabled", False)
+            if deploy_cmd_dict["uc_enabled"]:
+                deploy_cmd_dict["uc_catalog_name"] = input_params.get("uc_catalog_name")
+                deploy_cmd_dict["serverless"] = input_params.get("serverless", False)
+            else:
+                deploy_cmd_dict["serverless"] = False
+            deploy_cmd_dict["layer"] = input_params.get("layer")
+            if deploy_cmd_dict["layer"] in ["bronze", "bronze_silver"]:
+                if deploy_cmd_dict["uc_enabled"]:
+                    deploy_cmd_dict["dlt_meta_bronze_schema"] = oc_job_details_json["dlt_meta_schema"]
+                    deploy_cmd_dict["dataflowspec_bronze_table"] = oc_job_details_json["bronze_dataflowspec_table"]
+                else:
+                    deploy_cmd_dict["dataflowspec_bronze_path"] = oc_job_details_json["bronze_dataflowspec_path"]
+                deploy_cmd_dict["onboard_bronze_group"] = input_params.get("onboard_bronze_group")
+            if deploy_cmd_dict["layer"] in ["silver", "bronze_silver"]:
+                if deploy_cmd_dict["uc_enabled"]:
+                    deploy_cmd_dict["dlt_meta_silver_schema"] = oc_job_details_json["dlt_meta_schema"]
+                    deploy_cmd_dict["dataflowspec_silver_table"] = oc_job_details_json["silver_dataflowspec_table"]
+                else:
+                    deploy_cmd_dict["dataflowspec_silver_path"] = oc_job_details_json["silver_dataflowspec_path"]
+                deploy_cmd_dict["onboard_silver_group"] = input_params.get("onboard_silver_group")
+            if not deploy_cmd_dict["serverless"]:
+                deploy_cmd_dict["num_workers"] = input_params.get("num_workers", 4)
+        else:
+            deploy_cmd_dict["uc_enabled"] = input_params.get("uc_enabled", False)
+            if deploy_cmd_dict["uc_enabled"]:
+                deploy_cmd_dict["uc_catalog_name"] = input_params.get("uc_catalog_name")
+                deploy_cmd_dict["serverless"] = input_params.get("serverless", False)
+            else:
+                deploy_cmd_dict["serverless"] = False
+            deploy_cmd_dict["layer"] = input_params.get("layer")
+            if deploy_cmd_dict["layer"] in ["bronze", "bronze_silver"]:
+                deploy_cmd_dict["onboard_bronze_group"] = input_params.get("onboard_bronze_group")
+                deploy_cmd_dict["dlt_meta_bronze_schema"] = input_params.get("dlt_meta_bronze_schema")
+                deploy_cmd_dict["dataflowspec_bronze_table"] = input_params.get("dataflowspec_bronze_table",
+                                                                                "bronze_dataflowspec")
+                if not deploy_cmd_dict["uc_enabled"]:
+                    deploy_cmd_dict["dataflowspec_bronze_path"] = input_params.get("dataflowspec_bronze_path",
+                                                                                   f'{self._install_folder()}/bronze_dataflow_specs')
+            if deploy_cmd_dict["layer"] in ["silver", "bronze_silver"]:
+                deploy_cmd_dict["onboard_silver_group"] = input_params.get("onboard_silver_group")
+                deploy_cmd_dict["dlt_meta_silver_schema"] = input_params.get("dlt_meta_silver_schema")
+                deploy_cmd_dict["dataflowspec_silver_table"] = input_params.get("dataflowspec_silver_table",
+                                                                                "silver_dataflowspec")
+                if not deploy_cmd_dict["uc_enabled"]:
+                    deploy_cmd_dict["dataflowspec_silver_path"] = input_params.get("dataflowspec_silver_path",
+                                                                                   f'{self._install_folder()}/silver_dataflow_specs')
+            if not deploy_cmd_dict["serverless"]:
+                deploy_cmd_dict["num_workers"] = input_params.get("num_workers", 4)
+
+        layer = deploy_cmd_dict["layer"]
+        deploy_cmd_dict["pipeline_name"] = input_params.get("pipeline_name",
+                                                            f"dlt_meta_{layer}_pipeline_{uuid.uuid4().hex}")
+        deploy_cmd_dict["dlt_target_schema"] = input_params.get("dlt_target_schema")
+
+        return DeployCommand(**deploy_cmd_dict)
+
     def update_ws_onboarding_paths(self, cmd: OnboardCommand):
         """Create onboarding file for cloudfiles as source."""
         string_subs = {
@@ -602,16 +738,28 @@ def onboard(dltmeta: DLTMeta):
     cmd = dltmeta._load_onboard_config()
     dltmeta.onboard(cmd)
 
+def onboard_ui(dltmeta: DLTMeta, form_data):
+    logger.info("Please answer a couple of questions to for launching DLT META onboarding job")
+    cmd = dltmeta._load_onboard_config_ui(form_data)
+    dltmeta.onboard(cmd)
+
 
 def deploy(dltmeta: DLTMeta):
     logger.info("Please answer a couple of questions to for launching DLT META deployment job")
     cmd = dltmeta._load_deploy_config()
     dltmeta.deploy(cmd)
 
+def deploy_ui(dltmeta: DLTMeta, form_data):
+    logger.info("Please answer a couple of questions to for launching DLT META deployment job")
+    cmd = dltmeta._load_deploy_config_ui(form_data)
+    dltmeta.deploy(cmd)
+
 
 MAPPING = {
     "onboard": onboard,
     "deploy": deploy,
+    "onboard_ui": onboard_ui,
+    "deploy_ui": deploy_ui,
 }
 
 
@@ -629,7 +777,10 @@ def main(raw):
     version = __about__.__version__
     ws = WorkspaceClient(product='dlt-meta', product_version=version)
     dltmeta = DLTMeta(ws)
-    MAPPING[command](dltmeta)
+    if command in[ "onboard_ui", "deploy_ui"]:
+        MAPPING[command](dltmeta, payload)
+    else:
+        MAPPING[command](dltmeta)
 
 
 if __name__ == "__main__":
