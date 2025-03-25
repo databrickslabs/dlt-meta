@@ -198,7 +198,7 @@ This demo will perform following tasks:
 
 6. Run the command 
     ```commandline
-        python demo/launch_silver_fanout_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>>
+        python demo/launch_silver_fanout_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
 
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.

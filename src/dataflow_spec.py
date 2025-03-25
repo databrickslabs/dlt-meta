@@ -68,6 +68,7 @@ class BronzeDataflowSpec:
     createdBy: str
     updateDate: datetime
     updatedBy: str
+    clusterBy: list
 
 
 @dataclass
@@ -95,6 +96,7 @@ class SilverDataflowSpec:
     createdBy: str
     updateDate: datetime
     updatedBy: str
+    clusterBy: list
 
 
 @dataclass
@@ -291,8 +293,8 @@ class DataflowSpecUtils:
         "once": False
     }
 
-    additional_bronze_df_columns = ["appendFlows", "appendFlowsSchemas", "applyChangesFromSnapshot"]
-    additional_silver_df_columns = ["dataQualityExpectations", "appendFlows", "appendFlowsSchemas"]
+    additional_bronze_df_columns = ["appendFlows", "appendFlowsSchemas", "applyChangesFromSnapshot", "clusterBy"]
+    additional_silver_df_columns = ["dataQualityExpectations", "appendFlows", "appendFlowsSchemas", "clusterBy"]
     additional_cdc_apply_changes_columns = ["flow_name", "once"]
     apply_changes_from_snapshot_api_attributes = [
         "keys",
@@ -384,22 +386,22 @@ class DataflowSpecUtils:
                 f"""parameter {layer_arg} is missing in spark.conf.
                  Please set spark.conf.set({layer_arg},'silver') """
             )
-        dataflow_spec_table = spark.conf.get(f"{layer}.dataflowspecTable", None)
+        dataflow_spec_table = spark.conf.get(f"{layer_arg}.dataflowspecTable", None)
         if dataflow_spec_table is None:
             raise Exception(
                 f"""parameter {layer_arg}.dataflowspecTable is missing in sparkConf
                 Please set spark.conf.set('{layer_arg}.dataflowspecTable'='database.dataflowSpecTableName')"""
             )
 
-        group = spark.conf.get(f"{layer}.group", None)
-        dataflow_ids = spark.conf.get(f"{layer}.dataflowIds", None)
+        group = spark.conf.get(f"{layer_arg}.group", None)
+        dataflow_ids = spark.conf.get(f"{layer_arg}.dataflowIds", None)
 
         if group is None and dataflow_ids is None:
             raise Exception(
-                f"""please provide {layer}.group or {layer}.dataflowIds in spark.conf
+                f"""please provide {layer_arg}.group or {layer}.dataflowIds in spark.conf
                  Please set spark.conf.set('{layer}.group'='groupName')
                  OR
-                 spark.conf.set('{layer}.dataflowIds'='comma seperated dataflowIds')
+                 spark.conf.set('{layer_arg}.dataflowIds'='comma seperated dataflowIds')
                  """
             )
 
@@ -408,13 +410,18 @@ class DataflowSpecUtils:
         """Get partition columns."""
         partition_cols = None
         if partition_columns:
-            if len(partition_columns) == 1:
-                if partition_columns[0] == "" or partition_columns[0].strip() == "":
-                    partition_cols = None
-                else:
-                    partition_cols = partition_columns
+            if isinstance(partition_columns, str):
+                # quarantineTableProperties cluster by
+                partition_cols = partition_columns.split(',')
+
             else:
-                partition_cols = list(filter(None, partition_columns))
+                if len(partition_columns) == 1:
+                    if partition_columns[0] == "" or partition_columns[0].strip() == "":
+                        partition_cols = None
+                    else:
+                        partition_cols = partition_columns
+                else:
+                    partition_cols = list(filter(None, partition_columns))
         return partition_cols
 
     @staticmethod

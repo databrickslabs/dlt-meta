@@ -148,6 +148,25 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
             ["col1", "col2"],
         )
 
+    def test_get_cluster_by_cols_positive_values(self):
+        """Test partitions cols with negative values."""
+        partition_cols_list_of_possible_values = [["col1"], ["col1", "col2"]]
+        for partition_cols in partition_cols_list_of_possible_values:
+            self.assertEqual(DataflowSpecUtils.get_partition_cols(partition_cols), partition_cols)
+        partition_cols_with_empty_col_value = ["col1", "", "", "col2", "", ""]
+        self.assertEqual(
+            DataflowSpecUtils.get_partition_cols(partition_cols_with_empty_col_value),
+            ["col1", "col2"],
+        )
+
+    def test_get_quarantine_cluster_by_cols_positive_values(self):
+        """Test partitions cols with negative values."""
+        cluster_by = "col1,col2"
+        self.assertEqual(
+            DataflowSpecUtils.get_partition_cols(cluster_by),
+            ['col1', 'col2'],
+        )
+
     def test_getCdcApplyChanges_negative(self):
         """Test cdcApplychanges dlt api with negative values."""
         silver_cdc_apply_changes = """{"sequence_by" : "sequenceNum", "scd_type" : "1"}"""

@@ -39,7 +39,7 @@ This demo will perform following tasks:
     ```
 
 6. ```commandline
-    python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=ravi_dlt_meta_uc
+    python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=dlt_meta_uc
     ```
 
 - cloud_provider_name : aws or azure or gcp
