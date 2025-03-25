@@ -233,7 +233,10 @@ class DLTMeta:
             "launched with run_id={}, Please check the job status in databricks workspace jobs tab"
         ).format(created_job.job_id, run.run_id)
         logger.info(msg)
-        print(f"Job created successfully. job_id={created_job.job_id}, url={self._ws.config.host}/jobs/{created_job.job_id}?o={self._ws.get_workspace_id()}")
+        job_url = f"{self._ws.config.host}/jobs/{created_job.job_id}?o={self._ws.get_workspace_id()}"
+        print(
+            f"Job created successfully. job_id={created_job.job_id}, url={job_url}"
+        )
         webbrowser.open(f"{self._ws.config.host}/jobs/{created_job.job_id}?o={self._ws.get_workspace_id()}")
 
     def create_uc_schema(self, uc_catalog_name, dlt_meta_schema):
@@ -414,11 +417,15 @@ class DLTMeta:
         pipeline_id = self._create_dlt_meta_pipeline(cmd)
         update_response = self._ws.pipelines.start_update(pipeline_id=pipeline_id)
         msg = (
-            f"dlt-meta pipeline={pipeline_id} created and launched with update_id={update_response.update_id}, "
-            "Please check the pipeline status in databricks workspace under workflows -> Delta Live Tables tab"
+            f"dlt-meta pipeline={pipeline_id} created and launched with "
+            f"update_id={update_response.update_id}, Please check the pipeline status in "
+            "databricks workspace under workflows -> Delta Live Tables tab"
         )
         logger.info(msg)
-        print(f"dlt-meta pipeline={pipeline_id} created and launched with update_id={update_response.update_id}, url={self._ws.config.host}/#joblist/pipelines/{pipeline_id}?o={self._ws.get_workspace_id()}/")
+        print(
+            f"dlt-meta pipeline={pipeline_id} created and launched with update_id={update_response.update_id}, "
+            f"url={self._ws.config.host}/#joblist/pipelines/{pipeline_id}?o={self._ws.get_workspace_id()}/"
+        )
         webbrowser.open(f"{self._ws.config.host}/#joblist/pipelines/{pipeline_id}?o={self._ws.get_workspace_id()}/")
 
     def _load_onboard_config(self) -> OnboardCommand:
@@ -579,7 +586,6 @@ class DLTMeta:
             "Provide dlt target schema name")
         return DeployCommand(**deploy_cmd_dict)
 
-
     def _load_onboard_config_ui(self, form_data) -> OnboardCommand:
         onboard_cmd_dict = {}
 
@@ -602,12 +608,16 @@ class DLTMeta:
             onboard_cmd_dict["dbr_version"] = self._ws.clusters.select_spark_version(latest=True)
 
         # Get file paths
-        onboard_cmd_dict["onboarding_file_path"] = form_data.get('onboarding_file_path', 'demo/conf/onboarding.template')
+        onboard_cmd_dict["onboarding_file_path"] = form_data.get(
+            'onboarding_file_path', 'demo/conf/onboarding.template'
+        )
         onboarding_files_dir_path = form_data.get('local_directory', f'{os.getcwd()}/demo/')
         onboard_cmd_dict["onboarding_files_dir_path"] = f"file:/{onboarding_files_dir_path}"
 
         # Get schema names
-        onboard_cmd_dict["dlt_meta_schema"] = form_data.get('dlt_meta_schema', f'dlt_meta_dataflowspecs_{uuid.uuid4().hex}')
+        onboard_cmd_dict["dlt_meta_schema"] = form_data.get(
+            'dlt_meta_schema', f'dlt_meta_dataflowspecs_{uuid.uuid4().hex}'
+        )
         onboard_cmd_dict["bronze_schema"] = form_data.get('bronze_schema', f'dltmeta_bronze_{uuid.uuid4().hex}')
         onboard_cmd_dict["silver_schema"] = form_data.get('silver_schema', f'dltmeta_silver_{uuid.uuid4().hex}')
 
@@ -636,7 +646,6 @@ class DLTMeta:
         onboard_cmd_dict["env"] = form_data.get('environment', 'prod')
         onboard_cmd_dict["import_author"] = form_data.get('author', self._wsi._short_name)
         onboard_cmd_dict["update_paths"] = True if form_data.get('update_paths') == "1" else False
-
 
         # Save to file
         with open("onboarding_job_details.json", "w") as oc_file:
@@ -693,16 +702,20 @@ class DLTMeta:
                 deploy_cmd_dict["dataflowspec_bronze_table"] = input_params.get("dataflowspec_bronze_table",
                                                                                 "bronze_dataflowspec")
                 if not deploy_cmd_dict["uc_enabled"]:
-                    deploy_cmd_dict["dataflowspec_bronze_path"] = input_params.get("dataflowspec_bronze_path",
-                                                                                   f'{self._install_folder()}/bronze_dataflow_specs')
+                    deploy_cmd_dict["dataflowspec_bronze_path"] = input_params.get(
+                        "dataflowspec_bronze_path",
+                        f'{self._install_folder()}/bronze_dataflow_specs'
+                    )
             if deploy_cmd_dict["layer"] in ["silver", "bronze_silver"]:
                 deploy_cmd_dict["onboard_silver_group"] = input_params.get("onboard_silver_group")
                 deploy_cmd_dict["dlt_meta_silver_schema"] = input_params.get("dlt_meta_silver_schema")
                 deploy_cmd_dict["dataflowspec_silver_table"] = input_params.get("dataflowspec_silver_table",
                                                                                 "silver_dataflowspec")
                 if not deploy_cmd_dict["uc_enabled"]:
-                    deploy_cmd_dict["dataflowspec_silver_path"] = input_params.get("dataflowspec_silver_path",
-                                                                                   f'{self._install_folder()}/silver_dataflow_specs')
+                    deploy_cmd_dict["dataflowspec_silver_path"] = input_params.get(
+                        "dataflowspec_silver_path",
+                        f'{self._install_folder()}/silver_dataflow_specs'
+                    )
             if not deploy_cmd_dict["serverless"]:
                 deploy_cmd_dict["num_workers"] = input_params.get("num_workers", 4)
 
@@ -738,6 +751,7 @@ def onboard(dltmeta: DLTMeta):
     cmd = dltmeta._load_onboard_config()
     dltmeta.onboard(cmd)
 
+
 def onboard_ui(dltmeta: DLTMeta, form_data):
     logger.info("Please answer a couple of questions to for launching DLT META onboarding job")
     cmd = dltmeta._load_onboard_config_ui(form_data)
@@ -748,6 +762,7 @@ def deploy(dltmeta: DLTMeta):
     logger.info("Please answer a couple of questions to for launching DLT META deployment job")
     cmd = dltmeta._load_deploy_config()
     dltmeta.deploy(cmd)
+
 
 def deploy_ui(dltmeta: DLTMeta, form_data):
     logger.info("Please answer a couple of questions to for launching DLT META deployment job")
@@ -777,7 +792,7 @@ def main(raw):
     version = __about__.__version__
     ws = WorkspaceClient(product='dlt-meta', product_version=version)
     dltmeta = DLTMeta(ws)
-    if command in[ "onboard_ui", "deploy_ui"]:
+    if command in ["onboard_ui", "deploy_ui"]:
         MAPPING[command](dltmeta, payload)
     else:
         MAPPING[command](dltmeta)
