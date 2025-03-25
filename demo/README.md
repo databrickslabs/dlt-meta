@@ -303,5 +303,8 @@ This demo will perform following tasks:
 
 7. Run the command 
     ```commandline
-    python demo/launch_acfs_demo.py --uc_catalog_name=<<uc_catalog_name>> --source=kafka --kafka_source_topic=<<source_kafka_topic>> --kafka_sink_topic=<<kafka_sink_topic name>> --kafka_source_servers_secrets_scope_name=<<scope name>> --kafka_source_servers_secrets_scope_key=<<scope key>> --kafka_sink_servers_secret_scope_name=<<scope name>> --kafka_sink_servers_secret_scope_key=<<scope key>> --profile=<<DEFAULT>>
+    python demo/launch_dlt_sink_demo.py --uc_catalog_name=<<uc_catalog_name>> --source=kafka --kafka_source_topic=<<kafka source topic name>>>> --kafka_sink_topic=<<kafka sink topic name>> --kafka_source_servers_secrets_scope_name=<<kafka source servers secret name>> --kafka_source_servers_secrets_scope_key=<<kafka source server secret scope key name>> --kafka_sink_servers_secret_scope_name=<<kafka sink server secret scope key name>> --kafka_sink_servers_secret_scope_key=<<kafka sink servers secret scope key name>> --profile=<<DEFAULT>>
     ```
+    ![dlt_demo_sink.png](../docs/static/images/dlt_demo_sink.png)
+    ![dlt_delta_sink.png](../docs/static/images/dlt_delta_sink.png)
+    ![dlt_kafka_sink.png](../docs/static/images/dlt_kafka_sink.png)
