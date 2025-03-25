@@ -45,8 +45,8 @@ class WorkspaceInstaller:
                     raise OSError(f"DLT_META_ROOT={self.__project_root} path does not exist in file system.")
             # Step 2: Assume we're in the right place
             elif (
-                all(map(os.path.exists, ('setup.py', 'LICENSE.txt'))) and
-                "Databricks License" in open('LICENSE.txt', encoding="utf-8").readline().strip()
+                all(map(os.path.exists, ('setup.py', 'LICENSE.txt')))
+                and "Databricks License" in open('LICENSE.txt', encoding="utf-8").readline().strip()
             ):
                 self.__project_root = os.getcwd()
             if not self.__project_root:

@@ -2,7 +2,7 @@
 import json
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime
 from json import JSONDecodeError
 from typing import List, Optional, Dict
@@ -473,8 +473,7 @@ class DataflowSpecUtils:
             logger.info(f"missing append flow payload keys:{missing_append_flow_payload_keys}")
             if set(DataflowSpecUtils.append_flow_mandatory_attributes) - set(payload_keys):
                 missing_mandatory_attr = (
-                        set(DataflowSpecUtils.append_flow_mandatory_attributes)
-                        - set(payload_keys)
+                    set(DataflowSpecUtils.append_flow_mandatory_attributes) - set(payload_keys)
                 )
                 logger.info(f"mandatory missing keys= {missing_mandatory_attr}")
                 raise Exception(f"mandatory missing keys= {missing_mandatory_attr} for append flow")

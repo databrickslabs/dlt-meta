@@ -80,7 +80,7 @@ class DataflowPipeline:
             view_name_quarantine=None,
             custom_transform_func=None,
             next_snapshot_and_version: Optional[
-                Callable[[Any, Union[BronzeDataflowSpec, SilverDataflowSpec]],  Optional[Tuple[DataFrame, Any]]]
+                Callable[[Any, Union[BronzeDataflowSpec, SilverDataflowSpec]], Optional[Tuple[DataFrame, Any]]]
             ] = None
     ):
         """Initialize Constructor."""
@@ -98,7 +98,13 @@ class DataflowPipeline:
             raise Exception("Dataflow not supported!")
 
     def __initialize_dataflow_pipeline(
-            self, spark, dataflow_spec, view_name, view_name_quarantine, custom_transform_func, next_snapshot_and_version
+            self,
+            spark,
+            dataflow_spec,
+            view_name,
+            view_name_quarantine,
+            custom_transform_func,
+            next_snapshot_and_version
     ):
         """Initialize dataflow pipeline state."""
         self.spark = spark
@@ -528,18 +534,17 @@ class DataflowPipeline:
         if include_columns and except_columns:
             raise ValueError("Cannot set both include and except columns - pick to either exclude or include.")
         if not include_columns and not except_columns:
-            raise ValueError ("Must set either include or except columns.")
+            raise ValueError("Must set either include or except columns.")
 
         if include_columns:
             query = F.concat_ws("", *(
                 F.col(f"`{c}`").cast("string") for c in df.columns if c in include_columns
             )
-                                )
+            )
         else:
             query = F.concat_ws("", *(
                 F.col(f"`{c}`").cast("string") for c in df.columns if c not in except_columns
-            )
-                                )
+            ))
 
         return df.withColumn(
             "__DLT_HASH__",
@@ -577,9 +582,6 @@ class DataflowPipeline:
         if struct_schema and int(scd_type) == 2:
             struct_schema.add(StructField("__START_AT", sequenced_by_data_type))
             struct_schema.add(StructField("__END_AT", sequenced_by_data_type))
-        struct_schema = None
-        if self.schema_json:
-            struct_schema = self.modify_schema_for_cdc_changes(cdc_apply_changes)
 
         if no_keys is True:
             struct_schema.add(StructField("__DLT_HASH__", StringType()))
