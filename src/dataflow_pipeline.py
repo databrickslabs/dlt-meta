@@ -613,22 +613,19 @@ class DataflowPipeline:
             quarantine_input_view_name = None
             if isinstance(dataflowSpec, BronzeDataflowSpec) and dataflowSpec.quarantineTargetDetails is not None \
                     and dataflowSpec.quarantineTargetDetails != {}:
-                qrt_db = dataflowSpec.quarantineTargetDetails['database']
-                qrt_table = dataflowSpec.quarantineTargetDetails['table']
                 quarantine_input_view_name = (
-                    f"{qrt_db}_{qrt_table}"
+                    f"{dataflowSpec.quarantineTargetDetails['table']}"
                     f"_{layer}_quarantine_inputView"
                 )
+                quarantine_input_view_name = quarantine_input_view_name.replace(".", "")
             else:
                 logger.info("quarantine_input_view_name set to None")
-
-            target_db = dataflowSpec.targetDetails['database']
-            target_table = dataflowSpec.targetDetails['table']
-
+            target_view_name = f"{dataflowSpec.targetDetails['table']}_{layer}_inputView"
+            target_view_name = target_view_name.replace(".", "")
             dlt_data_flow = DataflowPipeline(
                 spark,
                 dataflowSpec,
-                f"{target_db}_{target_table}_{layer}_inputView",
+                target_view_name,
                 quarantine_input_view_name,
                 custom_transform_func,
                 next_snapshot_and_version
