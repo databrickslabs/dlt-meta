@@ -55,6 +55,22 @@
             "once": false
       }
    ],
+   "bronze_sinks": [{
+            "name": "bronze_customer_sink",
+            "format": "delta",
+            "options": {
+                "tableName": "ravi_dlt_meta_uc.dlt_meta_bronze_it_e33f69c0b2824f62b651a3d047e30c31.customer_sink_cdc"
+            }
+            },
+            {
+            "name": "bronze_customer_kafka_sink1",
+            "format": "kafka",
+            "options": {
+                "kafka_bootstrap_servers_secrets_scope":"oetrta",
+                "kafka_bootstrap_servers_secrets_key":"kafka-bootstrap-servers-plaintext",
+                "topic":"{kafka_sink_topic_name}"               
+            }
+   }],
    "silver_database_it": "{uc_catalog_name}.{silver_schema}",
    "silver_table": "customers",
    "silver_table_path_it": "{uc_volume_path}/data/silver/customers",

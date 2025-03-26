@@ -1,5 +1,7 @@
 """Test DataflowSpec script."""
 import copy
+import sys
+from unittest.mock import MagicMock, patch
 import json
 from tests.utils import DLTFrameworkTestCase
 from src.dataflow_spec import (
@@ -10,6 +12,11 @@ from src.dataflow_spec import (
     SilverDataflowSpec,
 )
 from src.onboard_dataflowspec import OnboardDataflowspec
+
+sys.modules["pyspark.dbutils"] = MagicMock()
+dbutils = MagicMock()
+DBUtils = MagicMock()
+spark = MagicMock()
 
 
 class DataFlowSpecTests(DLTFrameworkTestCase):
@@ -439,6 +446,52 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
         }
         result = DataflowSpecUtils.populate_additional_df_cols(row_dict, additional_columns)
         self.assertEqual(result, expected_result)
+
+    def test_get_bronze_sinks(self):
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = self.onboarding_sink_json_file
+        local_params["bronze_dataflowspec_table"] = "bronze_dataflowspec_sink"
+        del local_params["silver_dataflowspec_table"]
+        del local_params["silver_dataflowspec_path"]
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
+        bronze_dataflowSpec_df = self.spark.read.table(
+            f"{self.onboarding_bronze_silver_params_map['database']}.bronze_dataflowspec_sink")
+        bronze_dataflowSpec_df.show(truncate=False)
+        self.assertEqual(bronze_dataflowSpec_df.count(), 1)
+        bdfc = DataflowSpecUtils._get_dataflow_spec(
+            spark=self.spark,
+            dataflow_spec_df=bronze_dataflowSpec_df,
+            layer="bronze"
+        )
+        bdfs = bdfc.collect()
+        for dfs in bdfs:
+            df_ob = BronzeDataflowSpec(**dfs.asDict())
+            sink_lists = DataflowSpecUtils.get_sinks(df_ob.sinks, self.spark)
+            self.assertEqual(len(sink_lists), 2)
+
+    @patch.object(dbutils, "secrets.get", return_value={"called"})
+    def test_get_silver_sinks(self, dbutilsmock):
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = self.onboarding_sink_json_file
+        local_params["silver_dataflowspec_table"] = "silver_dataflowspec_sink"
+        del local_params["bronze_dataflowspec_table"]
+        del local_params["bronze_dataflowspec_path"]
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        onboardDataFlowSpecs.onboard_silver_dataflow_spec()
+        silver_dataflowSpec_df = self.spark.read.table(
+            f"{self.onboarding_bronze_silver_params_map['database']}.silver_dataflowspec_sink")
+        silver_dataflowSpec_df.show(truncate=False)
+        self.assertEqual(silver_dataflowSpec_df.count(), 1)
+        sds = DataflowSpecUtils._get_dataflow_spec(
+            spark=self.spark,
+            dataflow_spec_df=silver_dataflowSpec_df,
+            layer="silver"
+        ).collect()
+        for dfs in sds:
+            df_obj = SilverDataflowSpec(**dfs.asDict())
+            sink_lists = DataflowSpecUtils.get_sinks(df_obj.sinks, self.spark)
+            self.assertEqual(len(sink_lists), 2)
 
     def test_get_apply_changes_from_snapshot_positive(self):
         """Test get_apply_changes_from_snapshot with positive values."""
