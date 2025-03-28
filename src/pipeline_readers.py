@@ -173,8 +173,27 @@ class PipelineReaders:
 
     def get_kafka_options(self):
         """Get kafka options from dataflowspec."""
+        kafka_broker = self.source_details.get("kafka.bootstrap.servers", None)
+        if not kafka_broker:
+            kafka_source_servers_secrets_scope_key = self.source_details.get(
+                "kafka_source_servers_secrets_scope_key",
+                None
+            )
+            kafka_source_servers_secrets_scope_name = self.source_details.get(
+                "kafka_source_servers_secrets_scope_name", None)
+            if kafka_source_servers_secrets_scope_key and kafka_source_servers_secrets_scope_name:
+                dbutils = self.get_db_utils()
+                kafka_broker = dbutils.secrets.get(
+                    kafka_source_servers_secrets_scope_name, kafka_source_servers_secrets_scope_key)
+            else:
+                raise Exception(
+                    f"Kafka broker details not found for source_details={self.source_details}!"
+                )
+        topic = self.source_details.get("subscribe", None)
+        if not topic:
+            raise Exception(f"Kafka topic details not found for source_details={self.source_details}!")
         kafka_base_ops = {
-            "kafka.bootstrap.servers": self.source_details.get("kafka.bootstrap.servers"),
+            "kafka.bootstrap.servers": kafka_broker,
             "subscribe": self.source_details.get("subscribe")
         }
         ssl_truststore_location = self.source_details.get("kafka.ssl.truststore.location", None)

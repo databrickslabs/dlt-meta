@@ -234,7 +234,7 @@ class CliTests(unittest.TestCase):
             volume_path,
             f"/Volumes/{mock_volumes_create.return_value.catalog_name}/"
             f"{mock_volumes_create.return_value.schema_name}/"
-            f"{mock_volumes_create.return_value.name}/"
+            f"{mock_volumes_create.return_value.schema_name}/"
         )
         mock_volumes_create.assert_called_once_with(
             catalog_name="uc_catalog",
@@ -819,20 +819,6 @@ class CliTests(unittest.TestCase):
                 import_author="John Doe",
                 version="1.0",
                 overwrite=True,
-                serverless=True,
-                uc_enabled=True,
-                silver_dataflowspec_table="silver_dataflowspec"
-            )
-        with self.assertRaises(ValueError):
-            OnboardCommand(
-                onboarding_file_path="tests/resources/onboarding.json",
-                onboarding_files_dir_path="tests/resources/",
-                onboard_layer="silver",
-                dlt_meta_schema="dlt_meta",
-                env="dev",
-                import_author="John Doe",
-                version="1.0",
-                overwrite=None,
                 serverless=True,
                 uc_enabled=True,
                 silver_dataflowspec_table="silver_dataflowspec"

@@ -6,55 +6,13 @@ from typing import Callable
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import expr
 from pyspark.sql.types import StructType, StructField
-from src.__about__ import __version__
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
+from src.pipeline_writers import AppendFlowWriter, DLTSinkWriter
+from src.__about__ import __version__
 from src.pipeline_readers import PipelineReaders
 
 logger = logging.getLogger('databricks.labs.dltmeta')
 logger.setLevel(logging.INFO)
-
-
-class AppendFlowWriter:
-    """Append Flow Writer class."""
-
-    def __init__(self, spark, append_flow, target, struct_schema, table_properties=None, partition_cols=None,
-                 cluster_by=None):
-        """Init."""
-        self.spark = spark
-        self.target = target
-        self.append_flow = append_flow
-        self.struct_schema = struct_schema
-        self.table_properties = table_properties
-        self.partition_cols = partition_cols
-        self.cluster_by = cluster_by
-
-    def write_af_to_delta(self):
-        """Write to Delta."""
-        return dlt.read_stream(f"{self.append_flow.name}_view")
-
-    def write_flow(self):
-        """Write Append Flow."""
-        if self.append_flow.create_streaming_table:
-            dlt.create_streaming_table(
-                name=self.target,
-                table_properties=self.table_properties,
-                partition_cols=DataflowSpecUtils.get_partition_cols(self.partition_cols),
-                cluster_by=DataflowSpecUtils.get_partition_cols(self.cluster_by),
-                schema=self.struct_schema,
-                expect_all=None,
-                expect_all_or_drop=None,
-                expect_all_or_fail=None,
-            )
-        if self.append_flow.comment:
-            comment = self.append_flow.comment
-        else:
-            comment = f"append_flow={self.append_flow.name} for target={self.target}"
-        dlt.append_flow(name=self.append_flow.name,
-                        target=self.target,
-                        comment=comment,
-                        spark_conf=self.append_flow.spark_conf,
-                        once=self.append_flow.once,
-                        )(self.write_af_to_delta)
 
 
 class DataflowPipeline:
@@ -185,6 +143,10 @@ class DataflowPipeline:
 
     def write(self):
         """Write DLT."""
+        if self.dataflowSpec.sinks:
+            dlt_sinks = DataflowSpecUtils.get_sinks(self.dataflowSpec.sinks, self.spark)
+            for dlt_sink in dlt_sinks:
+                DLTSinkWriter(dlt_sink, self.view_name).write_to_sink()
         if isinstance(self.dataflowSpec, BronzeDataflowSpec):
             self.write_bronze()
         elif isinstance(self.dataflowSpec, SilverDataflowSpec):
@@ -235,12 +197,10 @@ class DataflowPipeline:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else silver_dataflow_spec.targetDetails["path"]
-
             target_cl = silver_dataflow_spec.targetDetails.get('catalog', None)
             target_cl_name = f"{target_cl}." if target_cl is not None else ''
             target_db_name = silver_dataflow_spec.targetDetails['database']
             target_table_name = silver_dataflow_spec.targetDetails['table']
-
             target_table = (
                 f"{target_cl_name}{target_db_name}.{target_table_name}"
                 if self.uc_enabled and self.dpm_enabled
@@ -381,7 +341,6 @@ class DataflowPipeline:
             target_cl_name = f"{target_cl}." if target_cl is not None else ''
             target_db_name = bronzeDataflowSpec.targetDetails['database']
             target_table_name = bronzeDataflowSpec.targetDetails['table']
-
             target_table = (
                 f"{target_cl_name}{target_db_name}.{target_table_name}"
                 if self.uc_enabled and self.dpm_enabled
@@ -448,13 +407,8 @@ class DataflowPipeline:
                                                                         quarantineTargetDetails['cluster_by'])
 
                 target_path = None if self.uc_enabled else bronzeDataflowSpec.quarantineTargetDetails["path"]
-
                 bronze_cl = bronzeDataflowSpec.quarantineTargetDetails.get('catalog', None)
                 bronze_cl_name = f"{bronze_cl}." if bronze_cl is not None else ''
-
-                bronze_db = bronzeDataflowSpec.quarantineTargetDetails['database']
-                bronze_table = bronzeDataflowSpec.quarantineTargetDetails['table']
-
                 target_table = (
                     f"{bronze_cl_name}{bronze_db}.{bronze_table}"
                     if self.uc_enabled and self.dpm_enabled
@@ -697,18 +651,19 @@ class DataflowPipeline:
                     f"{qrt_cl_str}{qrt_db}_{qrt_table}"
                     f"_{layer}_quarantine_inputView"
                 )
+                quarantine_input_view_name = quarantine_input_view_name.replace(".", "")
             else:
                 logger.info("quarantine_input_view_name set to None")
-
             target_cl = dataflowSpec.targetDetails.get('catalog', None)
             target_cl_str = f"{target_cl}_" if target_cl is not None else ''
             target_db = dataflowSpec.targetDetails['database'].replace('.', '_')
             target_table = dataflowSpec.targetDetails['table']
-
+            target_view_name = f"{target_cl_str}{target_db}_{target_table}_{layer}_inputView"
+            target_view_name = target_view_name.replace(".", "")
             dlt_data_flow = DataflowPipeline(
                 spark,
                 dataflowSpec,
-                f"{target_cl_str}{target_db}_{target_table}_{layer}_inputView",
+                target_view_name,
                 quarantine_input_view_name,
                 custom_transform_func,
                 next_snapshot_and_version

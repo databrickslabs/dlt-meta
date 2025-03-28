@@ -38,6 +38,7 @@ The `onboarding.json` file contains links to [silver_transformations.json](https
 | bronze_apply_changes_from_snapshot | Bronze apply changes from snapshot Json e.g. Mandatory fields: keys=["userId"], scd_type=`1` or `2` optional fields: track_history_column_list=`[col1]`, track_history_except_column_list=`[col2]` | 
 | bronze_table_path_{env} | Bronze table storage path.|
 | bronze_table_properties | DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false" }` |
+| bronze_sink | DLT Sink API properties: e.g Delta: `{"name": "bronze_sink","format": "delta","options": {"tableName": "my_catalog.my_schema.my_table"}}`, Kafka:`{"name": "bronze_sink","format": "kafka","options": { "kafka.bootstrap.servers": "host:port","subscribe": "my_topic"}}` |
 | bronze_data_quality_expectations_json | Bronze table data quality expectations |
 | bronze_database_quarantine_{env} | Bronze database for quarantine data which fails expectations. |
 | bronze_quarantine_table	Bronze | Table for quarantine data which fails expectations |
@@ -53,9 +54,12 @@ The `onboarding.json` file contains links to [silver_transformations.json](https
 | silver_cdc_apply_changes | Silver cdc apply changes Json |
 | silver_table_path_{env} | Silver table storage path. |
 | silver_table_properties | DLT table properties map. e.g. `{"pipelines.autoOptimize.managed": "false" , "pipelines.autoOptimize.zOrderCols": "year,month", "pipelines.reset.allowed": "false"}` |
+| silver_sink | DLT Sink API properties: e.g Delta:`{"name": "silver_sink","format": "delta","options": {"tableName": "my_catalog.my_schema.my_table"}}`, Kafka:`{"name": "silver_sink","format": "kafka","options": { "kafka.bootstrap.servers": "host:port","subscribe": "my_topic"}}`|
 | silver_transformation_json | Silver table sql transformation json path |
 | silver_data_quality_expectations_json_{env} | Silver table data quality expectations json file path
-| silver_append_flows | Silver table append flows json. e.g.`"silver_append_flows":[{"name":"customer_bronze_flow", "create_streaming_table": false,"source_format": "cloudFiles", "source_details": {"source_database": "APP","source_table":"CUSTOMERS", "source_path_dev": "tests/resources/data/customers", "source_schema_path": "tests/resources/schema/customer_schema.ddl"},"reader_options": {"cloudFiles.format": "json","cloudFiles.inferColumnTypes": "true","cloudFiles.rescuedDataColumn": "_rescued_data"},"once": true}]` 
+| silver_append_flows | Silver table append flows json. e.g.`"silver_append_flows":[{"name":"customer_bronze_flow", 
+"create_streaming_table": false,"source_format": "cloudFiles", "source_details": {"source_database": "APP","source_table":"CUSTOMERS", "source_path_dev": "tests/resources/data/customers", "source_schema_path": "tests/resources/schema/customer_schema.ddl"},"reader_options": {"cloudFiles.format": "json","cloudFiles.inferColumnTypes": "true","cloudFiles.rescuedDataColumn": "_rescued_data"},"once": true}]`|
+
 
 
 ### Data Quality Rules File Structure([Examples](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe))

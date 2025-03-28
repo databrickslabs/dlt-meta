@@ -82,6 +82,7 @@ In practice, a single generic DLT pipeline reads the Dataflowspec and uses it to
 | Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
 | [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/) |  ```databricks labs dlt-meta onboard```, ```databricks labs dlt-meta deploy``` |
 | Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using Direct publishing mode |
+| [DLT Sinks](https://docs.databricks.com/aws/en/delta-live-tables/dlt-sinks) |Supported formats:external ```delta table```, ```kafka```.Bronze, Silver layers|
 
 ## Getting Started
 

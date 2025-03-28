@@ -94,8 +94,6 @@ class OnboardCommand:
                     raise ValueError("silver_dataflowspec_path is required")
         if not self.dlt_meta_schema:
             raise ValueError("dlt_meta_schema is required")
-        if not self.overwrite:
-            raise ValueError("overwrite is required")
         if not self.import_author:
             raise ValueError("import_author is required")
         if not self.version:
@@ -199,13 +197,16 @@ class DLTMeta:
                 self._ws.dbfs.upload(dbfs_path, contents, overwrite=True)
 
     def create_uc_volume(self, uc_catalog_name, dlt_meta_schema):
-        volume_info = self._ws.volumes.create(
-            catalog_name=uc_catalog_name,
-            schema_name=dlt_meta_schema,
-            name=dlt_meta_schema,
-            volume_type=VolumeType.MANAGED,
-        )
-        return f"/Volumes/{volume_info.catalog_name}/{volume_info.schema_name}/{volume_info.name}/"
+        try:
+            self._ws.volumes.create(
+                catalog_name=uc_catalog_name,
+                schema_name=dlt_meta_schema,
+                name=dlt_meta_schema,
+                volume_type=VolumeType.MANAGED,
+            )
+        except Exception:
+            logger.info(f"Volume {dlt_meta_schema} already exists")
+        return f"/Volumes/{uc_catalog_name}/{dlt_meta_schema}/{dlt_meta_schema}/"
 
     def onboard(self, cmd: OnboardCommand):
         """launch the onboarding job."""
@@ -470,6 +471,7 @@ class DLTMeta:
                     "Provide silver dataflow spec path", default=f'{self._install_folder()}/silver_dataflow_specs')
         onboard_cmd_dict["overwrite"] = self._wsi._choice(
             "Overwrite dataflow spec?", ['True', 'False'])
+        onboard_cmd_dict["overwrite"] = True if onboard_cmd_dict["overwrite"] == 'True' else False
         onboard_cmd_dict["version"] = self._wsi._question(
             "Provide dataflow spec version", default='v1')
         onboard_cmd_dict["env"] = self._wsi._question(

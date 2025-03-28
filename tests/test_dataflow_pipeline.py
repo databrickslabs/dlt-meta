@@ -57,6 +57,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "updateDate": datetime.now,
         "updatedBy": "dlt-meta-unittest",
         "clusterBy": [""],
+        "sinks": []
     }
 
     bronze_dataflow_spec_map = {
@@ -86,6 +87,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "quarantineTableProperties": {},
         "appendFlows": [],
         "appendFlowsSchemas": {},
+        "sinks": {},
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
@@ -142,6 +144,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         }""",
         "appendFlows": [],
         "appendFlowsSchemas": {},
+        "sinks": {},
         "version": "v1",
         "createDate": datetime.now,
         "createdBy": "dlt-meta-unittest",
