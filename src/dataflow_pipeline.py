@@ -409,6 +409,8 @@ class DataflowPipeline:
                 target_path = None if self.uc_enabled else bronzeDataflowSpec.quarantineTargetDetails["path"]
                 bronze_cl = bronzeDataflowSpec.quarantineTargetDetails.get('catalog', None)
                 bronze_cl_name = f"{bronze_cl}." if bronze_cl is not None else ''
+                bronze_db = bronzeDataflowSpec.quarantineTargetDetails['database']
+                bronze_table = bronzeDataflowSpec.quarantineTargetDetails['table']
                 target_table = (
                     f"{bronze_cl_name}{bronze_db}.{bronze_table}"
                     if self.uc_enabled and self.dpm_enabled
