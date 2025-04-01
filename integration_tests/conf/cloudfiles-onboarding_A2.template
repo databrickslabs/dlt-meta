@@ -16,7 +16,8 @@
       },
       "source_schema_path": "{uc_volume_path}/integration_tests/resources/customers.ddl"
    },
-   "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",
+   "bronze_catalog_it": "{uc_catalog_name}",
+   "bronze_database_it": "{bronze_schema}",
    "bronze_table": "customers_delta",
    "bronze_reader_options": {
       "cloudFiles.format": "json",
@@ -29,7 +30,8 @@
          "pipelines.autoOptimize.zOrderCols": "id, email"
    },    
    "bronze_data_quality_expectations_json_it": "{uc_volume_path}/integration_tests/conf/dqe/customers/bronze_data_quality_expectations.json",
-   "bronze_database_quarantine_it": "{uc_catalog_name}.{bronze_schema}",
+   "bronze_catalog_quarantine_it": "{uc_catalog_name}",
+   "bronze_database_quarantine_it": "{bronze_schema}",
    "bronze_quarantine_table": "customers_delta_quarantine",
    "bronze_quarantine_table_path_it": "{uc_volume_path}/data/bronze/customers_quarantine_delta",  
    "bronze_quarantine_table_properties": {

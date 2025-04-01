@@ -559,6 +559,13 @@ class OnboardDataflowspec:
                 "database": onboarding_row["bronze_database_{}".format(env)],
                 "table": onboarding_row["bronze_table"],
             }
+            bronze_cl = (
+                onboarding_row["bronze_catalog_{}".format(env)]
+                if "bronze_catalog_{}".format(env) in onboarding_row
+                else None
+            )
+            if bronze_cl:
+                bronze_target_details["catalog"] = bronze_cl
             if not self.uc_enabled:
                 if f"bronze_table_path_{env}" in onboarding_row:
                     bronze_target_details["path"] = onboarding_row[f"bronze_table_path_{env}"]
@@ -698,6 +705,13 @@ class OnboardDataflowspec:
                                          "partition_columns": quarantine_table_partition_columns,
                                          "cluster_by": quarantine_table_cluster_by
                                          }
+            quarantine_catalog = (
+                onboarding_row[f"bronze_catalog_quarantine_{env}"]
+                if f"bronze_catalog_quarantine_{env}" in onboarding_row
+                else None
+            )
+            if quarantine_catalog:
+                quarantine_target_details["catalog"] = quarantine_catalog
         if not self.uc_enabled and f"bronze_quarantine_table_path_{env}" in onboarding_row:
             quarantine_target_details["path"] = onboarding_row[f"bronze_quarantine_table_path_{env}"]
 
@@ -870,6 +884,8 @@ class OnboardDataflowspec:
                     or source_format.lower() == "snapshot"):
                 if f"source_path_{env}" in source_details_file:
                     source_details["path"] = source_details_file[f"source_path_{env}"]
+                if f"source_catalog_{env}" in source_details_file:
+                    source_details["catalog"] = source_details_file[f"source_catalog_{env}"]
                 if "source_database" in source_details_file:
                     source_details["source_database"] = source_details_file[
                         "source_database"
@@ -1048,11 +1064,24 @@ class OnboardDataflowspec:
                 "database": onboarding_row["bronze_database_{}".format(env)],
                 "table": onboarding_row["bronze_table"],
             }
+            bronze_cl = (
+                onboarding_row["bronze_catalog_{}".format(env)]
+                if "bronze_catalog_{}".format(env) in onboarding_row
+                else None
+            )
+            if bronze_cl:
+                bronze_target_details["catalog"] = bronze_cl
             silver_target_details = {
                 "database": onboarding_row["silver_database_{}".format(env)],
                 "table": onboarding_row["silver_table"],
             }
-
+            silver_cl = (
+                onboarding_row["silver_catalog_{}".format(env)]
+                if "silver_catalog_{}".format(env) in onboarding_row
+                else None
+            )
+            if silver_cl:
+                silver_target_details["catalog"] = silver_cl
             if not self.uc_enabled:
                 bronze_target_details["path"] = onboarding_row[
                     f"bronze_table_path_{env}"
