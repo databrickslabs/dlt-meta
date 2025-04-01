@@ -564,6 +564,9 @@ class OnboardDataflowspec:
                 if "bronze_catalog_{}".format(env) in onboarding_row
                 else None
             )
+            if "bronze_table_comment" in onboarding_row:
+                bronze_target_details["comment"] = onboarding_row["bronze_table_comment"]
+
             if bronze_cl:
                 bronze_target_details["catalog"] = bronze_cl
             if not self.uc_enabled:
@@ -712,6 +715,8 @@ class OnboardDataflowspec:
             )
             if quarantine_catalog:
                 quarantine_target_details["catalog"] = quarantine_catalog
+            if "bronze_quarantine_table_comment" in onboarding_row:
+                quarantine_target_details["comment"] = onboarding_row["bronze_quarantine_table_comment"]
         if not self.uc_enabled and f"bronze_quarantine_table_path_{env}" in onboarding_row:
             quarantine_target_details["path"] = onboarding_row[f"bronze_quarantine_table_path_{env}"]
 
@@ -1080,6 +1085,8 @@ class OnboardDataflowspec:
                 if "silver_catalog_{}".format(env) in onboarding_row
                 else None
             )
+            if "silver_table_comment" in onboarding_row:
+                silver_target_details["comment"] = onboarding_row["silver_table_comment"]
             if silver_cl:
                 silver_target_details["catalog"] = silver_cl
             if not self.uc_enabled:

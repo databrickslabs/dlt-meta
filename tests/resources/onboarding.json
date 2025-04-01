@@ -25,6 +25,7 @@
         "bronze_database_staging": "bronze",
         "bronze_database_prd": "bronze",
         "bronze_table": "customers_cdc",
+        "bronze_table_comment": "Bronze table for customers",
         "bronze_reader_options": {
             "cloudFiles.format": "json",
             "cloudFiles.inferColumnTypes": "true",
@@ -51,6 +52,7 @@
         "silver_database_staging": "silver",
         "silver_database_prd": "silver",
         "silver_table": "customers",
+        "silver_table_comment": "Silver table for customers",
         "silver_cdc_apply_changes": {
             "keys": [
                 "id"
@@ -94,6 +96,7 @@
         "bronze_database_staging": "bronze",
         "bronze_database_prd": "bronze",
         "bronze_table": "transactions_cdc",
+        "bronze_table_comment": "Bronze table for transactions",
         "bronze_reader_options": {
             "cloudFiles.format": "json",
             "cloudFiles.inferColumnTypes": "true",
@@ -121,6 +124,7 @@
         "silver_database_preprd": "silver",
         "silver_database_prd": "silver",
         "silver_table": "transactions",
+        "silver_table_comment": "Silver table for transactions",
         "silver_cdc_apply_changes": {
             "keys": [
                 "id"
@@ -164,6 +168,7 @@
         "bronze_database_staging": "bronze",
         "bronze_database_prd": "bronze",
         "bronze_table": "iot_cdc",
+        "bronze_table_comment": "Bronze table for IoT data",
         "bronze_reader_options": {
             "maxOffsetsPerTrigger": "50000",
             "startingOffsets": "latest",
@@ -180,6 +185,7 @@
         "silver_catalog_prd": "silver_cl",     
         "silver_database_dev": "silver",
         "silver_table": "iot_cdc",
+        "silver_table_comment": "Silver table for IoT data",
         "silver_cdc_apply_changes": {
             "keys": [
                 "device_id"
