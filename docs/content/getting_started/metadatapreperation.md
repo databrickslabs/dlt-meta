@@ -32,6 +32,7 @@ The `onboarding.json` file contains links to [silver_transformations.json](https
 | bronze_catalog_{env} | Unity catalog name |         
 | bronze_database_{env} | Delta lake bronze database name. |
 | bronze_table | Delta lake bronze table name |
+| bronze_table_comment | Bronze table comment |
 | bronze_reader_options | Reader options which can be provided to spark reader <br> e.g multiline=true,header=true in json format |
 | bronze_parition_columns | Bronze table partition cols list |
 | bronze_cluster_by | Bronze tables cluster by cols list |
@@ -43,7 +44,8 @@ The `onboarding.json` file contains links to [silver_transformations.json](https
 | bronze_data_quality_expectations_json | Bronze table data quality expectations |
 | bronze_catalog_quarantine_{env} | Unity catalog name | 
 | bronze_database_quarantine_{env} | Bronze database for quarantine data which fails expectations. |
-| bronze_quarantine_table	Bronze | Table for quarantine data which fails expectations |
+| bronze_quarantine_table	| Bronze Table for quarantine data which fails expectations |
+| bronze_quarantine_table_comment | Bronze quarantine table comment |
 | bronze_quarantine_table_path_{env} | Bronze database for quarantine data which fails expectations. |
 | bronze_quarantine_table_partitions | Bronze quarantine tables partition cols |
 | bronze_quarantine_table_cluster_by | Bronze quarantine tables cluster cols |
@@ -52,6 +54,7 @@ The `onboarding.json` file contains links to [silver_transformations.json](https
 | silver_catalog_{env} | Unit Catalog name. |
 | silver_database_{env} | Silver database name. |
 | silver_table | Silver table name |
+| silver_table_comment | Silver table comments |
 | silver_partition_columns | Silver table partition columns list |
 | silver_cluster_by | Silver tables cluster by cols list |
 | silver_cdc_apply_changes | Silver cdc apply changes Json |

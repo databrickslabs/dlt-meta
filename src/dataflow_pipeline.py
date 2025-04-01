@@ -206,6 +206,11 @@ class DataflowPipeline:
                 if self.uc_enabled and self.dpm_enabled
                 else silver_dataflow_spec.targetDetails['table']
             )
+            target_comment = (
+                silver_dataflow_spec.targetDetails.get('comment')
+                if "comment" in silver_dataflow_spec.targetDetails
+                else f"silver dlt table{target_table}"
+            )
             dlt.table(
                 self.write_to_delta,
                 name=f"{target_table}",
@@ -213,7 +218,7 @@ class DataflowPipeline:
                 cluster_by=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.clusterBy),
                 table_properties=silver_dataflow_spec.tableProperties,
                 path=target_path,
-                comment=f"silver dlt table{target_table}",
+                comment=target_comment,
             )
         if silver_dataflow_spec.appendFlows:
             self.write_append_flows()
@@ -346,6 +351,11 @@ class DataflowPipeline:
                 if self.uc_enabled and self.dpm_enabled
                 else bronzeDataflowSpec.targetDetails['table']
             )
+            target_comment = (
+                bronzeDataflowSpec.targetDetails.get('comment')
+                if "comment" in bronzeDataflowSpec.targetDetails
+                else f"bronze dlt table{target_table}"
+            )
             if expect_all_dict:
                 dlt_table_with_expectation = dlt.expect_all(expect_all_dict)(
                     dlt.table(
@@ -355,7 +365,7 @@ class DataflowPipeline:
                         partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                         cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
                         path=target_path,
-                        comment=f"bronze dlt table{target_table}",
+                        comment=target_comment,
                     )
                 )
             if expect_all_or_fail_dict:
@@ -368,7 +378,7 @@ class DataflowPipeline:
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                             cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
                             path=target_path,
-                            comment=f"bronze dlt table{target_table}",
+                            comment=target_comment,
                         )
                     )
                 else:
@@ -384,7 +394,7 @@ class DataflowPipeline:
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                             cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
                             path=target_path,
-                            comment=f"bronze dlt table{target_table}",
+                            comment=target_comment,
                         )
                     )
                 else:
@@ -416,6 +426,11 @@ class DataflowPipeline:
                     if self.uc_enabled and self.dpm_enabled
                     else bronze_table
                 )
+                target_comment = (
+                    bronzeDataflowSpec.quarantineTargetDetails.get('comment')
+                    if "comment" in bronzeDataflowSpec.quarantineTargetDetails
+                    else f"bronze dlt quarantine_path table{target_table}"
+                )
                 dlt.expect_all_or_drop(expect_or_quarantine_dict)(
                     dlt.table(
                         self.write_to_delta,
@@ -424,7 +439,7 @@ class DataflowPipeline:
                         partition_cols=q_partition_cols,
                         cluster_by=q_cluster_by,
                         path=target_path,
-                        comment=f"""bronze dlt quarantine_path table{target_table}""",
+                        comment=target_comment,
                     )
                 )
 
