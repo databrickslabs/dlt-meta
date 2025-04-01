@@ -10,8 +10,9 @@
         },
          "bronze_reader_options": {
             "header": "true"
-         },        
-        "bronze_database_demo": "{uc_catalog_name}.{bronze_schema}",
+         },
+        "bronze_catalog_demo": "{uc_catalog_name}",        
+        "bronze_database_demo": "{bronze_schema}",
         "bronze_table": "products",
         "bronze_apply_changes_from_snapshot": {
          "keys": [
@@ -31,8 +32,9 @@
         },
          "bronze_reader_options": {
             "header": "true"
-         },          
-        "bronze_database_demo": "{uc_catalog_name}.{bronze_schema}",
+         },
+        "bronze_catalog_demo": "{uc_catalog_name}",          
+        "bronze_database_demo": "{bronze_schema}",
         "bronze_table": "stores",
         "bronze_apply_changes_from_snapshot": {
          "keys": [

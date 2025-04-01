@@ -16,12 +16,14 @@
             "kafka.request.timeout.ms": "60000",
             "kafka.session.timeout.ms": "60000"
         },
-        "bronze_database_demo": "{uc_catalog_name}.{bronze_schema}",
+        "bronze_catalog_demo": "{uc_catalog_name}",
+        "bronze_database_demo": "{bronze_schema}",
         "bronze_table": "bronze_{run_id}_iot",
         "bronze_partition_columns": "date",
         "bronze_table_path_demo": "{uc_volume_path}/data/bronze/iot",
         "bronze_data_quality_expectations_json_demo": "{uc_volume_path}/demo/conf/dqe/iot/bronze_data_quality_expectations.json",
-        "bronze_database_quarantine_demo": "{uc_catalog_name}.{bronze_schema}",
+        "bronze_catalog_quarantine_demo": "{uc_catalog_name}",
+        "bronze_database_quarantine_demo": "{bronze_schema}",
         "bronze_quarantine_table": "bronze_{run_id}_iot_quarantine",
         "bronze_quarantine_table_path_demo": "{uc_volume_path}/data/bronze/iot_quarantine",
         "bronze_sinks": [

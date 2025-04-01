@@ -17,6 +17,7 @@
             }
         }         
       },
+      "bronze_catalog_it": "bronze_catalog",
       "bronze_database_it": "bronze_it_{run_id}",
       "bronze_table": "customers_cdc",
       "bronze_reader_options": {
@@ -26,6 +27,7 @@
       },
       "bronze_table_path_it": "{dbfs_path}/data/bronze/customers",
       "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/customers/bronze_data_quality_expectations.json",
+      "silver_catalog_it": "silver_catalog",
       "silver_database_it": "silver",
       "silver_table": "customers",
       "silver_cdc_apply_changes": {
@@ -64,6 +66,7 @@
       "bronze_partition_columns": "",
       "bronze_table_path_it": "{dbfs_path}/data/bronze/transactions",
       "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/transactions/bronze_data_quality_expectations.json",
+      "bronze_catalog_quarantine_it": "bronze_catalog",
       "bronze_database_quarantine_it": "bronze_it_{run_id}",
       "bronze_quarantine_table": "transactions_cdc_quarantine",
       "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/transactions_quarantine",
@@ -110,14 +113,17 @@
          "kafka.request.timeout.ms": "60000",
          "kafka.session.timeout.ms": "60000"
       },
+      "bronze_catalog_it": "bronze_catalog",
       "bronze_database_it": "bronze_it_{run_id}",
       "bronze_table": "bronze_{run_id}_iot",
       "bronze_partition_columns": "date",
       "bronze_table_path_it": "{dbfs_path}/data/bronze/iot",
       "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dlt-meta/dqe/iot/bronze_data_quality_expectations.json",
+      "bronze_catalog_quarantine_it": "bronze_catalog",
       "bronze_database_quarantine_it": "bronze_it_{run_id}",
       "bronze_quarantine_table": "bronze_{run_id}_iot_quarantine",
       "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/iot_quarantine",
+      "silver_catalog_it": "",
       "silver_database_it": "",
       "silver_database_staging": "",
       "silver_database_prd": "",

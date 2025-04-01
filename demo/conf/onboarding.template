@@ -10,7 +10,8 @@
          "source_path_prod": "{uc_volume_path}/demo/resources/data/customers",
          "source_schema_path": "{uc_volume_path}/demo/resources/ddl/customers.ddl"
       },
-      "bronze_database_prod": "{uc_catalog_name}.{bronze_schema}",
+      "bronze_catalog_prod": "{uc_catalog_name}",
+      "bronze_database_prod": "{bronze_schema}",
       "bronze_table": "customers",
       "bronze_table_path_prod": "{uc_volume_path}/data/bronze/customers",
       "bronze_reader_options": {
@@ -20,10 +21,12 @@
       },
       "bronze_cluster_by":["customer_id"],
       "bronze_data_quality_expectations_json_prod": "{uc_volume_path}/demo/conf/dqe/customers.json",
-      "bronze_database_quarantine_prod": "{uc_catalog_name}.{bronze_schema}",
+      "bronze_catalog_quarantine_prod": "{uc_catalog_name}",
+      "bronze_database_quarantine_prod": "{bronze_schema}",
       "bronze_quarantine_table": "customers_quarantine",
       "bronze_quarantine_table_path_prod": "{uc_volume_path}/data/bronze/customers_quarantine",
-      "silver_database_prod": "{uc_catalog_name}.{silver_schema}",
+      "silver_catalog_prod": "{uc_catalog_name}",
+      "silver_database_prod": "{silver_schema}",
       "silver_table": "customers",
       "silver_table_path_prod": "{uc_volume_path}/data/silver/customers",
       "silver_cdc_apply_changes": {
@@ -55,7 +58,8 @@
          "source_path_prod": "{uc_volume_path}/demo/resources/data/transactions",
          "source_schema_path": "{uc_volume_path}/demo/resources/ddl/transactions.ddl"
       },
-      "bronze_database_prod": "{uc_catalog_name}.{bronze_schema}",
+      "bronze_catalog_prod": "{uc_catalog_name}",
+      "bronze_database_prod": "{bronze_schema}",
       "bronze_table": "transactions",
       "bronze_table_path_prod": "{uc_volume_path}/data/bronze/transactions",     
       "bronze_reader_options": {
@@ -67,7 +71,8 @@
       "bronze_database_quarantine_prod": "{uc_catalog_name}.{bronze_schema}",
       "bronze_quarantine_table": "transactions_quarantine",
       "bronze_quarantine_table_path_prod": "{uc_volume_path}/demo/resources/data/bronze/transactions_quarantine",
-      "silver_database_prod": "{uc_catalog_name}.{silver_schema}",
+      "silver_catalog_prod": "{uc_catalog_name}",
+      "silver_database_prod": "{silver_schema}",
       "silver_table": "transactions",
       "silver_table_path_prod": "{uc_volume_path}/data/silver/transactions",
       "silver_cdc_apply_changes": {
@@ -98,7 +103,8 @@
          "source_path_prod": "{uc_volume_path}/demo/resources/data/products",
          "source_schema_path": "{uc_volume_path}/demo/resources/ddl/products.ddl"
       },
-      "bronze_database_prod": "{uc_catalog_name}.{bronze_schema}",
+      "bronze_catalog_prod": "{uc_catalog_name}",
+      "bronze_database_prod": "{bronze_schema}",
       "bronze_table": "products",
       "bronze_table_path_prod": "{uc_volume_path}/data/bronze/products",
       "bronze_reader_options": {
@@ -111,7 +117,8 @@
       "bronze_database_quarantine_prod": "{uc_catalog_name}.{bronze_schema}",
       "bronze_quarantine_table": "products_quarantine",
       "bronze_quarantine_table_path_prod": "{uc_volume_path}/demo/resources/data/bronze/products_quarantine",
-      "silver_database_prod": "{uc_catalog_name}.{silver_schema}",
+      "silver_catalog_prod": "{uc_catalog_name}",
+      "silver_database_prod": "{silver_schema}",
       "silver_table": "products",
       "silver_table_path_prod": "{uc_volume_path}/data/silver/products",
       "silver_cdc_apply_changes": {
@@ -142,7 +149,8 @@
          "source_path_prod": "{uc_volume_path}/demo/resources/data/stores",
          "source_schema_path": "{uc_volume_path}/demo/resources/ddl/stores.ddl"
       },
-      "bronze_database_prod": "{uc_catalog_name}.{bronze_schema}",
+      "bronze_catalog_prod": "{uc_catalog_name}",
+      "bronze_database_prod": "{bronze_schema}",
       "bronze_table": "stores",
       "bronze_table_path_prod": "{uc_volume_path}/data/bronze/stores",
       "bronze_reader_options": {
@@ -152,10 +160,12 @@
       },
       "bronze_table_path_prod": "{uc_volume_path}/demo/resources/data/bronze/stores",
       "bronze_data_quality_expectations_json_prod": "{uc_volume_path}/demo/conf/dqe/stores.json",
-      "bronze_database_quarantine_prod": "{uc_catalog_name}.{bronze_schema}",
+      "bronze_catalog_quarantine_prod": "{uc_catalog_name}",
+      "bronze_database_quarantine_prod": "{bronze_schema}",
       "bronze_quarantine_table": "stores_quarantine",
       "bronze_quarantine_table_path_prod": "{uc_volume_path}/demo/resources/data/bronze/stores_quarantine",
-      "silver_database_prod": "{uc_catalog_name}.{silver_schema}",
+      "silver_catalog_prod": "{uc_catalog_name}",
+      "silver_database_prod": "{silver_schema}",
       "silver_table": "stores",
       "silver_table_path_prod": "{uc_volume_path}/data/silver/stores",
       "silver_cdc_apply_changes": {
