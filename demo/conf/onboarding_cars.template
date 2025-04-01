@@ -10,6 +10,7 @@
       "bronze_catalog_demo": "{uc_catalog_name}",
       "bronze_database_demo": "{bronze_schema}",
       "bronze_table": "cars",
+      "bronze_table_comment": "bronze cars table",
       "bronze_reader_options": {
          "cloudFiles.format": "csv",
          "cloudFiles.rescuedDataColumn": "_rescued_data",
@@ -18,6 +19,7 @@
       "silver_catalog_demo": "{uc_catalog_name}",
       "silver_database_demo": "{silver_schema}",
       "silver_table": "cars_usa",
+      "silver_table_comment": "cars_usa silver table",
       "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/silver_transformations_cars.json"
    }
 ]
