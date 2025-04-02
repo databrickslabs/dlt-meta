@@ -33,6 +33,26 @@ class WorkspaceInstaller:
         self._this_file = Path(__file__)
         self._override_clusters = {}
         self._dashboards = {}
+        self.__project_root = None
+
+    @property
+    def project_root(self) -> Path:
+        if self.__project_root is None:
+            # Step 1: set root to directory specified by env variable DLT_META_ROOT
+            if "DLT_META_ROOT" in os.environ:
+                self.__project_root = os.environ["DLT_META_ROOT"]
+                if not os.path.exists(self.__project_root):
+                    raise OSError(f"DLT_META_ROOT={self.__project_root} path does not exist in file system.")
+            # Step 2: Assume we're in the right place
+            elif (
+                all(map(os.path.exists, ('setup.py', 'LICENSE.txt')))
+                and "Databricks License" in open('LICENSE.txt', encoding="utf-8").readline().strip()
+            ):
+                self.__project_root = os.getcwd()
+            if not self.__project_root:
+                raise ValueError("Project root directory is not set. Either pass it as DLT_META_ROOT environment "
+                                 "variable, or run from the DLT META project root folder.")
+        return Path(self.__project_root)
 
     def run(self):
         logger.info(f"Installing DLT-META v{self._version}")
@@ -140,7 +160,7 @@ class WorkspaceInstaller:
                 "stdout": subprocess.DEVNULL,
                 "stderr": subprocess.DEVNULL,
             }
-        project_root = self._find_project_root()
+        project_root = self.project_root
         is_non_released_version = "+" in self._version
         if (project_root / ".git" / "config").exists() and is_non_released_version:
             tmp_dir_path = Path(tmp_dir) / "working-copy"
@@ -169,23 +189,6 @@ class WorkspaceInstaller:
         )
         # get wheel name as first file in the temp directory
         return next(Path(tmp_dir).glob("*.whl"))
-
-    def _find_project_root(self) -> Path:
-        for leaf in ["pyproject.toml", "setup.py"]:
-            root = WorkspaceInstaller._find_dir_with_leaf(self._this_file, leaf)
-            if root is not None:
-                return root
-        msg = "Cannot find project root"
-        raise NotADirectoryError(msg)
-
-    @staticmethod
-    def _find_dir_with_leaf(folder: Path, leaf: str) -> Path:
-        root = folder.root
-        while str(folder.absolute()) != root:
-            if (folder / leaf).exists():
-                return folder
-            folder = folder.parent
-        return None
 
     def _cluster_node_type(self, spec: compute.ClusterSpec) -> compute.ClusterSpec:
         cfg = self._current_config
