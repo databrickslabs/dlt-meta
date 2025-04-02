@@ -47,11 +47,9 @@ class DataflowPipeline:
         """Initialize dataflow pipeline state."""
         self.spark = spark
         uc_enabled_str = spark.conf.get("spark.databricks.unityCatalog.enabled", "False")
-        dbp_enabled_str = spark.conf.get("pipelines.schema", None)
         spark.conf.set("databrickslab.dlt-meta.version", f"{__version__}")
         uc_enabled_str = uc_enabled_str.lower()
         self.uc_enabled = True if uc_enabled_str == "true" else False
-        self.dpm_enabled = True if dbp_enabled_str else False
         self.dataflowSpec = dataflow_spec
         self.view_name = view_name
         if view_name_quarantine:
@@ -175,8 +173,6 @@ class DataflowPipeline:
 
             target_table = (
                 f"{target_cl_name}{target_db_name}.{target_table_name}"
-                if self.uc_enabled and self.dpm_enabled
-                else bronze_dataflow_spec.targetDetails['table']
             )
             dlt.table(
                 self.write_to_delta,
@@ -203,8 +199,6 @@ class DataflowPipeline:
             target_table_name = silver_dataflow_spec.targetDetails['table']
             target_table = (
                 f"{target_cl_name}{target_db_name}.{target_table_name}"
-                if self.uc_enabled and self.dpm_enabled
-                else silver_dataflow_spec.targetDetails['table']
             )
             target_comment = (
                 silver_dataflow_spec.targetDetails.get('comment')
@@ -348,8 +342,6 @@ class DataflowPipeline:
             target_table_name = bronzeDataflowSpec.targetDetails['table']
             target_table = (
                 f"{target_cl_name}{target_db_name}.{target_table_name}"
-                if self.uc_enabled and self.dpm_enabled
-                else bronzeDataflowSpec.targetDetails['table']
             )
             target_comment = (
                 bronzeDataflowSpec.targetDetails.get('comment')
@@ -423,8 +415,6 @@ class DataflowPipeline:
                 bronze_table = bronzeDataflowSpec.quarantineTargetDetails['table']
                 target_table = (
                     f"{bronze_cl_name}{bronze_db}.{bronze_table}"
-                    if self.uc_enabled and self.dpm_enabled
-                    else bronze_table
                 )
                 target_comment = (
                     bronzeDataflowSpec.quarantineTargetDetails.get('comment')
@@ -502,8 +492,6 @@ class DataflowPipeline:
 
         target_table = (
             f"{target_cl_name}{target_db_name}.{target_table_name}"
-            if self.uc_enabled and self.dpm_enabled
-            else self.dataflowSpec.targetDetails['table']
         )
         dlt.apply_changes(
             target=target_table,
@@ -566,8 +554,6 @@ class DataflowPipeline:
 
         target_table = (
             f"{target_cl_name}{target_db_name}.{target_table_name}"
-            if self.uc_enabled and self.dpm_enabled
-            else target_table_name
         )
         dlt.create_streaming_table(
             name=target_table,
