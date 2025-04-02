@@ -474,7 +474,8 @@ class OnboardDataflowspec:
             "quarantineTableProperties",
             "appendFlows",
             "appendFlowsSchemas",
-            "clusterBy",
+            "sinks",
+            "clusterBy"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -513,6 +514,7 @@ class OnboardDataflowspec:
                 ),
                 StructField("appendFlows", StringType(), True),
                 StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True),
+                StructField("sinks", StringType(), True),
                 StructField("clusterBy", ArrayType(StringType(), True), True),
             ]
         )
@@ -558,6 +560,16 @@ class OnboardDataflowspec:
                 "database": onboarding_row["bronze_database_{}".format(env)],
                 "table": onboarding_row["bronze_table"],
             }
+            bronze_cl = (
+                onboarding_row["bronze_catalog_{}".format(env)]
+                if "bronze_catalog_{}".format(env) in onboarding_row
+                else None
+            )
+            if "bronze_table_comment" in onboarding_row:
+                bronze_target_details["comment"] = onboarding_row["bronze_table_comment"]
+
+            if bronze_cl:
+                bronze_target_details["catalog"] = bronze_cl
             if not self.uc_enabled:
                 if f"bronze_table_path_{env}" in onboarding_row:
                     bronze_target_details["path"] = onboarding_row[f"bronze_table_path_{env}"]
@@ -583,6 +595,9 @@ class OnboardDataflowspec:
                 else:
                     partition_columns = [onboarding_row["bronze_partition_columns"]]
 
+            dlt_sinks = None
+            if "bronze_sinks" in onboarding_row and onboarding_row["bronze_sinks"]:
+                dlt_sinks = self.get_sink_details(onboarding_row, "bronze")
             cluster_by = self.__get_cluster_by_properties(onboarding_row, bronze_table_properties,
                                                           "bronze_cluster_by")
 
@@ -641,6 +656,7 @@ class OnboardDataflowspec:
                 quarantine_table_properties,
                 append_flows,
                 append_flows_schemas,
+                dlt_sinks,
                 cluster_by
             )
             data.append(bronze_row)
@@ -693,6 +709,15 @@ class OnboardDataflowspec:
                                          "partition_columns": quarantine_table_partition_columns,
                                          "cluster_by": quarantine_table_cluster_by
                                          }
+            quarantine_catalog = (
+                onboarding_row[f"bronze_catalog_quarantine_{env}"]
+                if f"bronze_catalog_quarantine_{env}" in onboarding_row
+                else None
+            )
+            if quarantine_catalog:
+                quarantine_target_details["catalog"] = quarantine_catalog
+            if "bronze_quarantine_table_comment" in onboarding_row:
+                quarantine_target_details["comment"] = onboarding_row["bronze_quarantine_table_comment"]
         if not self.uc_enabled and f"bronze_quarantine_table_path_{env}" in onboarding_row:
             quarantine_target_details["path"] = onboarding_row[f"bronze_quarantine_table_path_{env}"]
 
@@ -737,6 +762,46 @@ class OnboardDataflowspec:
                 af_list.append(self.__delete_none(append_flow_map))
             append_flows = json.dumps(af_list)
         return append_flows, append_flows_schema
+
+    def get_sink_details(self, onboarding_row, layer):
+        sink_details_json = onboarding_row[f"{layer}_sinks"]
+        sinks_json = self.get_validated_sinks_details(sink_details_json)
+        return sinks_json
+
+    def get_validated_sinks_details(self, sinks_details_json):
+        sink_list = []
+        for sink_details_json in sinks_details_json:
+            sink = {}
+            sink_details = sink_details_json.asDict()
+            sink_details_keys = set(sink_details.keys())
+            missing_sink_details_keys = set(DataflowSpecUtils.sink_mandatory_attributes).difference(sink_details_keys)
+            if missing_sink_details_keys:
+                raise Exception(f"Missing sink details keys: {missing_sink_details_keys}")
+            if sink_details.get("name", None):
+                sink["name"] = sink_details["name"].lower()
+            if sink_details.get("format", None):
+                sink_format_options = ["delta", "kafka", "eventhub"]
+                if sink_details["format"].lower() not in sink_format_options:
+                    raise Exception(f"Sink format {sink_details['format']} not supported in DLT-META!")
+                sink["format"] = sink_details["format"].lower()
+            if sink_details.get("options", None):
+                options_dict = self.__delete_none(sink_details["options"].asDict())
+                options_json = json.dumps(self.__delete_none(options_dict))
+                sink["options"] = options_json
+                delta_format_options = ["path", "tablename"]
+                dlt_sink_options_keys = set(options_dict.keys())
+                if sink["format"] == "delta":
+                    if "path" in dlt_sink_options_keys or "tablename" in dlt_sink_options_keys:
+                        logger.info("Validated delta sink options")
+                    else:
+                        raise Exception(f"Missing delta sink options: {delta_format_options}")
+            sink["select_exp"] = sink_details.get("select_exp", None)
+            sink["where_clause"] = sink_details.get("where_clause", None)
+            sink_list.append(sink)
+        sinks_json = json.dumps(sink_list)
+        print(f"Validated sinks details: {sinks_json}")
+        logger.info(f"Validated sinks details: {sinks_json}")
+        return sinks_json
 
     def __validate_apply_changes(self, onboarding_row, layer):
         cdc_apply_changes = onboarding_row[f"{layer}_cdc_apply_changes"]
@@ -825,6 +890,8 @@ class OnboardDataflowspec:
                     or source_format.lower() == "snapshot"):
                 if f"source_path_{env}" in source_details_file:
                     source_details["path"] = source_details_file[f"source_path_{env}"]
+                if f"source_catalog_{env}" in source_details_file:
+                    source_details["catalog"] = source_details_file[f"source_catalog_{env}"]
                 if "source_database" in source_details_file:
                     source_details["source_database"] = source_details_file[
                         "source_database"
@@ -872,7 +939,7 @@ class OnboardDataflowspec:
                         schema = self.__get_bronze_schema(source_schema_path)
                 else:
                     logger.info(f"no input schema provided for row={onboarding_row}")
-                logger.info("spark_schmea={}".format(schema))
+                logger.info("spark_schema={}".format(schema))
 
         return source_details, bronze_reader_config_options, schema
 
@@ -944,8 +1011,9 @@ class OnboardDataflowspec:
             "cdcApplyChangesFromSnapshot",
             "dataQualityExpectations",
             "appendFlows",
-            "appendFlowsSchemas"
-            "clusterBy"
+            "appendFlowsSchemas",
+            "clusterBy",
+            "sinks"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -973,7 +1041,8 @@ class OnboardDataflowspec:
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField("appendFlows", StringType(), True),
                 StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True),
-                StructField("clusterBy", ArrayType(StringType(), True), True)
+                StructField("clusterBy", ArrayType(StringType(), True), True),
+                StructField("sinks", StringType(), True)
             ]
         )
         data = []
@@ -1003,11 +1072,26 @@ class OnboardDataflowspec:
                 "database": onboarding_row["bronze_database_{}".format(env)],
                 "table": onboarding_row["bronze_table"],
             }
+            bronze_cl = (
+                onboarding_row["bronze_catalog_{}".format(env)]
+                if "bronze_catalog_{}".format(env) in onboarding_row
+                else None
+            )
+            if bronze_cl:
+                bronze_target_details["catalog"] = bronze_cl
             silver_target_details = {
                 "database": onboarding_row["silver_database_{}".format(env)],
                 "table": onboarding_row["silver_table"],
             }
-
+            silver_cl = (
+                onboarding_row["silver_catalog_{}".format(env)]
+                if "silver_catalog_{}".format(env) in onboarding_row
+                else None
+            )
+            if "silver_table_comment" in onboarding_row:
+                silver_target_details["comment"] = onboarding_row["silver_table_comment"]
+            if silver_cl:
+                silver_target_details["catalog"] = silver_cl
             if not self.uc_enabled:
                 bronze_target_details["path"] = onboarding_row[
                     f"bronze_table_path_{env}"
@@ -1036,6 +1120,9 @@ class OnboardDataflowspec:
                 else:
                     silver_parition_columns = [onboarding_row["silver_partition_columns"]]
 
+            dlt_sinks = None
+            if "silver_sinks" in onboarding_row and onboarding_row["silver_sinks"]:
+                dlt_sinks = self.get_sink_details(onboarding_row, "silver")
             silver_cluster_by = self.__get_cluster_by_properties(onboarding_row, silver_table_properties,
                                                                  "silver_cluster_by")
 
@@ -1087,7 +1174,8 @@ class OnboardDataflowspec:
                 data_quality_expectations,
                 append_flows,
                 append_flow_schemas,
-                silver_cluster_by
+                silver_cluster_by,
+                dlt_sinks
             )
             data.append(silver_row)
             logger.info(f"silver_data ==== {data}")

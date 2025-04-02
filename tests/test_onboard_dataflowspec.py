@@ -373,6 +373,34 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
 
+    def test_onboard_bronze_create_sink(self):
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = self.onboarding_sink_json_file
+        local_params["bronze_dataflowspec_table"] = "bronze_dataflowspec_sink"
+        del local_params["silver_dataflowspec_table"]
+        del local_params["silver_dataflowspec_path"]
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            "bronze_dataflowspec_sink")
+        bronze_dataflowSpec_df.show(truncate=False)
+        self.assertEqual(bronze_dataflowSpec_df.count(), 1)
+
+    def test_silver_bronze_create_sink(self):
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = self.onboarding_sink_json_file
+        local_params["silver_dataflowspec_table"] = "silver_dataflowspec_sink"
+        del local_params["bronze_dataflowspec_table"]
+        del local_params["bronze_dataflowspec_path"]
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        onboardDataFlowSpecs.onboard_silver_dataflow_spec()
+        silver_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            "silver_dataflowspec_sink")
+        silver_dataflowSpec_df.show(truncate=False)
+        self.assertEqual(silver_dataflowSpec_df.count(), 1)
+
     def test_onboard_bronze_silver_with_v8(self):
         local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         local_params["onboarding_file_path"] = self.onboarding_json_v8_file
