@@ -5,6 +5,7 @@
  4. [Append FLOW Eventhub Demo](#append-flow-eventhub-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  5. [Silver Fanout Demo](#silver-fanout-demo): This demo showcases the implementation of fanout architecture in the silver layer.
  6. [Apply Changes From Snapshot Demo](#Apply-changes-from-snapshot-demo): This demo showcases the implementation of ingesting from snapshots in bronze layer
+ 7. [DLT Sink Demo](#dlt-sink-demo): This demo showcases the implementation of write to external sinks like delta and kafka
 
 The source argument is optional for the demos.
 
@@ -257,3 +258,53 @@ This demo will perform following tasks:
     python demo/launch_acfs_demo.py --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
     ![acfs.png](../docs/static/images/acfs.png)
+
+# DLT Sink Demo
+  - This demo will perform following steps
+    - Showcase onboarding process for dlt writing to external sink pattern
+    - Run onboarding for the bronze iot events.
+    - Publish test events to kafka topic
+    - Run Bronze DLT which will read from kafka source topic and write to
+        - events delta table into uc
+        - create quarantine table as per data quality expectations
+        - writes to external kafka topics
+        - writes to external dbfs location as external delta sink
+### Steps:
+1. Launch Command Prompt
+
+2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
+
+3. ```commandline
+    git clone https://github.com/databrickslabs/dlt-meta.git 
+    ```
+
+4. ```commandline
+    cd dlt-meta
+    ```
+5. Set python environment variable into terminal
+    ```commandline
+    dlt_meta_home=$(pwd)
+    ```
+    ```commandline
+    export PYTHONPATH=$dlt_meta_home
+    ```
+
+6. Optional: if you are using secrets for kafka. Create databricks secrets scope for source and sink kafka using below command
+     ```commandline 
+    databricks secrets create-scope <<name>>
+     ```
+     ```commandline
+    databricks secrets put-secret --json '{
+        "scope": "<<name>>",
+        "key": "<<keyname>>",
+        "string_value": "<<value>>"
+        }'
+     ```
+
+7. Run the command 
+    ```commandline
+    python demo/launch_dlt_sink_demo.py --uc_catalog_name=<<uc_catalog_name>> --source=kafka --kafka_source_topic=<<kafka source topic name>>>> --kafka_sink_topic=<<kafka sink topic name>> --kafka_source_servers_secrets_scope_name=<<kafka source servers secret name>> --kafka_source_servers_secrets_scope_key=<<kafka source server secret scope key name>> --kafka_sink_servers_secret_scope_name=<<kafka sink server secret scope key name>> --kafka_sink_servers_secret_scope_key=<<kafka sink servers secret scope key name>> --profile=<<DEFAULT>>
+    ```
+    ![dlt_demo_sink.png](../docs/static/images/dlt_demo_sink.png)
+    ![dlt_delta_sink.png](../docs/static/images/dlt_delta_sink.png)
+    ![dlt_kafka_sink.png](../docs/static/images/dlt_kafka_sink.png)

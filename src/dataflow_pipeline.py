@@ -6,55 +6,13 @@ from typing import Callable
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import expr
 from pyspark.sql.types import StructType, StructField
-from src.__about__ import __version__
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
+from src.pipeline_writers import AppendFlowWriter, DLTSinkWriter
+from src.__about__ import __version__
 from src.pipeline_readers import PipelineReaders
 
 logger = logging.getLogger('databricks.labs.dltmeta')
 logger.setLevel(logging.INFO)
-
-
-class AppendFlowWriter:
-    """Append Flow Writer class."""
-
-    def __init__(self, spark, append_flow, target, struct_schema, table_properties=None, partition_cols=None,
-                 cluster_by=None):
-        """Init."""
-        self.spark = spark
-        self.target = target
-        self.append_flow = append_flow
-        self.struct_schema = struct_schema
-        self.table_properties = table_properties
-        self.partition_cols = partition_cols
-        self.cluster_by = cluster_by
-
-    def write_af_to_delta(self):
-        """Write to Delta."""
-        return dlt.read_stream(f"{self.append_flow.name}_view")
-
-    def write_flow(self):
-        """Write Append Flow."""
-        if self.append_flow.create_streaming_table:
-            dlt.create_streaming_table(
-                name=self.target,
-                table_properties=self.table_properties,
-                partition_cols=DataflowSpecUtils.get_partition_cols(self.partition_cols),
-                cluster_by=DataflowSpecUtils.get_partition_cols(self.cluster_by),
-                schema=self.struct_schema,
-                expect_all=None,
-                expect_all_or_drop=None,
-                expect_all_or_fail=None,
-            )
-        if self.append_flow.comment:
-            comment = self.append_flow.comment
-        else:
-            comment = f"append_flow={self.append_flow.name} for target={self.target}"
-        dlt.append_flow(name=self.append_flow.name,
-                        target=self.target,
-                        comment=comment,
-                        spark_conf=self.append_flow.spark_conf,
-                        once=self.append_flow.once,
-                        )(self.write_af_to_delta)
 
 
 class DataflowPipeline:
@@ -89,11 +47,9 @@ class DataflowPipeline:
         """Initialize dataflow pipeline state."""
         self.spark = spark
         uc_enabled_str = spark.conf.get("spark.databricks.unityCatalog.enabled", "False")
-        dbp_enabled_str = spark.conf.get("pipelines.schema", None)
         spark.conf.set("databrickslab.dlt-meta.version", f"{__version__}")
         uc_enabled_str = uc_enabled_str.lower()
         self.uc_enabled = True if uc_enabled_str == "true" else False
-        self.dpm_enabled = True if dbp_enabled_str else False
         self.dataflowSpec = dataflow_spec
         self.view_name = view_name
         if view_name_quarantine:
@@ -185,6 +141,10 @@ class DataflowPipeline:
 
     def write(self):
         """Write DLT."""
+        if self.dataflowSpec.sinks:
+            dlt_sinks = DataflowSpecUtils.get_sinks(self.dataflowSpec.sinks, self.spark)
+            for dlt_sink in dlt_sinks:
+                DLTSinkWriter(dlt_sink, self.view_name).write_to_sink()
         if isinstance(self.dataflowSpec, BronzeDataflowSpec):
             self.write_bronze()
         elif isinstance(self.dataflowSpec, SilverDataflowSpec):
@@ -206,10 +166,13 @@ class DataflowPipeline:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else bronze_dataflow_spec.targetDetails["path"]
+            target_cl = bronze_dataflow_spec.targetDetails.get('catalog', None)
+            target_cl_name = f"{target_cl}." if target_cl is not None else ''
+            target_db_name = bronze_dataflow_spec.targetDetails['database']
+            target_table_name = bronze_dataflow_spec.targetDetails['table']
+
             target_table = (
-                f"{bronze_dataflow_spec.targetDetails['database']}.{bronze_dataflow_spec.targetDetails['table']}"
-                if self.uc_enabled and self.dpm_enabled
-                else bronze_dataflow_spec.targetDetails['table']
+                f"{target_cl_name}{target_db_name}.{target_table_name}"
             )
             dlt.table(
                 self.write_to_delta,
@@ -230,10 +193,17 @@ class DataflowPipeline:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else silver_dataflow_spec.targetDetails["path"]
+            target_cl = silver_dataflow_spec.targetDetails.get('catalog', None)
+            target_cl_name = f"{target_cl}." if target_cl is not None else ''
+            target_db_name = silver_dataflow_spec.targetDetails['database']
+            target_table_name = silver_dataflow_spec.targetDetails['table']
             target_table = (
-                f"{silver_dataflow_spec.targetDetails['database']}.{silver_dataflow_spec.targetDetails['table']}"
-                if self.uc_enabled and self.dpm_enabled
-                else silver_dataflow_spec.targetDetails['table']
+                f"{target_cl_name}{target_db_name}.{target_table_name}"
+            )
+            target_comment = (
+                silver_dataflow_spec.targetDetails.get('comment')
+                if "comment" in silver_dataflow_spec.targetDetails
+                else f"silver dlt table{target_table}"
             )
             dlt.table(
                 self.write_to_delta,
@@ -242,7 +212,7 @@ class DataflowPipeline:
                 cluster_by=DataflowSpecUtils.get_partition_cols(silver_dataflow_spec.clusterBy),
                 table_properties=silver_dataflow_spec.tableProperties,
                 path=target_path,
-                comment=f"silver dlt table{target_table}",
+                comment=target_comment,
             )
         if silver_dataflow_spec.appendFlows:
             self.write_append_flows()
@@ -277,12 +247,14 @@ class DataflowPipeline:
     def get_silver_schema(self):
         """Get Silver table Schema."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
+        source_cl = silver_dataflow_spec.sourceDetails.get('catalog', None)
+        source_cl_name = f"{source_cl}." if source_cl is not None else ''
         source_database = silver_dataflow_spec.sourceDetails["database"]
         source_table = silver_dataflow_spec.sourceDetails["table"]
         select_exp = silver_dataflow_spec.selectExp
         where_clause = silver_dataflow_spec.whereClause
         raw_delta_table_stream = self.spark.readStream.table(
-            f"{source_database}.{source_table}"
+            f"{source_cl_name}{source_database}.{source_table}"
         ).selectExpr(*select_exp) if self.uc_enabled else self.spark.readStream.load(
             path=silver_dataflow_spec.sourceDetails["path"],
             format="delta"
@@ -310,12 +282,15 @@ class DataflowPipeline:
     def read_silver(self) -> DataFrame:
         """Read Silver tables."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
+
+        source_cl = silver_dataflow_spec.sourceDetails.get('catalog', None)
+        source_cl_name = f"{source_cl}." if source_cl is not None else ''
         source_database = silver_dataflow_spec.sourceDetails["database"]
         source_table = silver_dataflow_spec.sourceDetails["table"]
         select_exp = silver_dataflow_spec.selectExp
         where_clause = silver_dataflow_spec.whereClause
         raw_delta_table_stream = self.spark.readStream.table(
-            f"{source_database}.{source_table}"
+            f"{source_cl_name}{source_database}.{source_table}"
         ).selectExpr(*select_exp) if self.uc_enabled else self.spark.readStream.load(
             path=silver_dataflow_spec.sourceDetails["path"],
             format="delta"
@@ -361,10 +336,17 @@ class DataflowPipeline:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else bronzeDataflowSpec.targetDetails["path"]
+            target_cl = bronzeDataflowSpec.targetDetails.get('catalog', None)
+            target_cl_name = f"{target_cl}." if target_cl is not None else ''
+            target_db_name = bronzeDataflowSpec.targetDetails['database']
+            target_table_name = bronzeDataflowSpec.targetDetails['table']
             target_table = (
-                f"{bronzeDataflowSpec.targetDetails['database']}.{bronzeDataflowSpec.targetDetails['table']}"
-                if self.uc_enabled and self.dpm_enabled
-                else bronzeDataflowSpec.targetDetails['table']
+                f"{target_cl_name}{target_db_name}.{target_table_name}"
+            )
+            target_comment = (
+                bronzeDataflowSpec.targetDetails.get('comment')
+                if "comment" in bronzeDataflowSpec.targetDetails
+                else f"bronze dlt table{target_table}"
             )
             if expect_all_dict:
                 dlt_table_with_expectation = dlt.expect_all(expect_all_dict)(
@@ -375,7 +357,7 @@ class DataflowPipeline:
                         partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                         cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
                         path=target_path,
-                        comment=f"bronze dlt table{target_table}",
+                        comment=target_comment,
                     )
                 )
             if expect_all_or_fail_dict:
@@ -388,7 +370,7 @@ class DataflowPipeline:
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                             cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
                             path=target_path,
-                            comment=f"bronze dlt table{target_table}",
+                            comment=target_comment,
                         )
                     )
                 else:
@@ -404,7 +386,7 @@ class DataflowPipeline:
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                             cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
                             path=target_path,
-                            comment=f"bronze dlt table{target_table}",
+                            comment=target_comment,
                         )
                     )
                 else:
@@ -427,13 +409,17 @@ class DataflowPipeline:
                                                                         quarantineTargetDetails['cluster_by'])
 
                 target_path = None if self.uc_enabled else bronzeDataflowSpec.quarantineTargetDetails["path"]
+                bronze_cl = bronzeDataflowSpec.quarantineTargetDetails.get('catalog', None)
+                bronze_cl_name = f"{bronze_cl}." if bronze_cl is not None else ''
                 bronze_db = bronzeDataflowSpec.quarantineTargetDetails['database']
                 bronze_table = bronzeDataflowSpec.quarantineTargetDetails['table']
-
                 target_table = (
-                    f"{bronze_db}.{bronze_table}"
-                    if self.uc_enabled and self.dpm_enabled
-                    else bronze_table
+                    f"{bronze_cl_name}{bronze_db}.{bronze_table}"
+                )
+                target_comment = (
+                    bronzeDataflowSpec.quarantineTargetDetails.get('comment')
+                    if "comment" in bronzeDataflowSpec.quarantineTargetDetails
+                    else f"bronze dlt quarantine_path table{target_table}"
                 )
                 dlt.expect_all_or_drop(expect_or_quarantine_dict)(
                     dlt.table(
@@ -443,7 +429,7 @@ class DataflowPipeline:
                         partition_cols=q_partition_cols,
                         cluster_by=q_cluster_by,
                         path=target_path,
-                        comment=f"""bronze dlt quarantine_path table{target_table}""",
+                        comment=target_comment,
                     )
                 )
 
@@ -498,10 +484,14 @@ class DataflowPipeline:
         apply_as_truncates = None
         if cdc_apply_changes.apply_as_truncates:
             apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
+
+        target_cl = self.dataflowSpec.targetDetails.get('catalog', None)
+        target_cl_name = f"{target_cl}." if target_cl is not None else ''
+        target_db_name = self.dataflowSpec.targetDetails['database']
+        target_table_name = self.dataflowSpec.targetDetails['table']
+
         target_table = (
-            f"{self.dataflowSpec.targetDetails['database']}.{self.dataflowSpec.targetDetails['table']}"
-            if self.uc_enabled and self.dpm_enabled
-            else self.dataflowSpec.targetDetails['table']
+            f"{target_cl_name}{target_db_name}.{target_table_name}"
         )
         dlt.apply_changes(
             target=target_table,
@@ -556,10 +546,14 @@ class DataflowPipeline:
 
     def create_streaming_table(self, struct_schema, target_path=None):
         expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = self.get_dq_expectations()
+
+        target_cl = self.dataflowSpec.targetDetails.get('catalog', None)
+        target_cl_name = f"{target_cl}." if target_cl is not None else ''
+        target_db_name = self.dataflowSpec.targetDetails['database']
+        target_table_name = self.dataflowSpec.targetDetails['table']
+
         target_table = (
-            f"{self.dataflowSpec.targetDetails['database']}.{self.dataflowSpec.targetDetails['table']}"
-            if self.uc_enabled and self.dpm_enabled
-            else self.dataflowSpec.targetDetails['table']
+            f"{target_cl_name}{target_db_name}.{target_table_name}"
         )
         dlt.create_streaming_table(
             name=target_table,
@@ -651,22 +645,28 @@ class DataflowPipeline:
             quarantine_input_view_name = None
             if isinstance(dataflowSpec, BronzeDataflowSpec) and dataflowSpec.quarantineTargetDetails is not None \
                     and dataflowSpec.quarantineTargetDetails != {}:
-                qrt_db = dataflowSpec.quarantineTargetDetails['database']
+
+                qrt_cl = dataflowSpec.quarantineTargetDetails.get('catalog', None)
+                qrt_cl_str = f"{qrt_cl}_" if qrt_cl is not None else ''
+                qrt_db = dataflowSpec.quarantineTargetDetails['database'].replace('.', '_')
                 qrt_table = dataflowSpec.quarantineTargetDetails['table']
                 quarantine_input_view_name = (
-                    f"{qrt_db}_{qrt_table}"
+                    f"{qrt_cl_str}{qrt_db}_{qrt_table}"
                     f"_{layer}_quarantine_inputView"
                 )
+                quarantine_input_view_name = quarantine_input_view_name.replace(".", "")
             else:
                 logger.info("quarantine_input_view_name set to None")
-
-            target_db = dataflowSpec.targetDetails['database']
+            target_cl = dataflowSpec.targetDetails.get('catalog', None)
+            target_cl_str = f"{target_cl}_" if target_cl is not None else ''
+            target_db = dataflowSpec.targetDetails['database'].replace('.', '_')
             target_table = dataflowSpec.targetDetails['table']
-
+            target_view_name = f"{target_cl_str}{target_db}_{target_table}_{layer}_inputView"
+            target_view_name = target_view_name.replace(".", "")
             dlt_data_flow = DataflowPipeline(
                 spark,
                 dataflowSpec,
-                f"{target_db}_{target_table}_{layer}_inputView",
+                target_view_name,
                 quarantine_input_view_name,
                 custom_transform_func,
                 next_snapshot_and_version
