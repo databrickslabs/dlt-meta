@@ -64,22 +64,35 @@ class DataflowPipeline:
         else:
             self.appendFlows = None
         if isinstance(dataflow_spec, BronzeDataflowSpec):
-            self.next_snapshot_and_version = next_snapshot_and_version
-            if self.next_snapshot_and_version:
-                self.appy_changes_from_snapshot = DataflowSpecUtils.get_apply_changes_from_snapshot(
-                    self.dataflowSpec.applyChangesFromSnapshot
-                )
-            else:
-                if dataflow_spec.sourceFormat == "snapshot":
-                    raise Exception(f"Snapshot reader function not provided for dataflowspec={dataflow_spec}!")
+            # self.next_snapshot_and_version = next_snapshot_and_version
+            # if self.next_snapshot_and_version:
+            #     if dataflow_spec.applyChangesFromSnapshot:
+            #         self.appy_changes_from_snapshot = DataflowSpecUtils.get_apply_changes_from_snapshot(
+            #             self.dataflowSpec.applyChangesFromSnapshot
+            #         )
+            #     else:
+            #         if dataflow_spec.sourceFormat == "snapshot":
+            #             raise Exception(f"Snapshot reader function not provided for dataflowspec={dataflow_spec}!")
             if dataflow_spec.schema is not None:
                 self.schema_json = json.loads(dataflow_spec.schema)
             else:
                 self.schema_json = None
-        else:
+        elif isinstance(dataflow_spec, SilverDataflowSpec):
+            if dataflow_spec.applyChangesFromSnapshot:
+                self.appy_changes_from_snapshot = DataflowSpecUtils.get_apply_changes_from_snapshot(
+                    self.dataflowSpec.applyChangesFromSnapshot
+                )
             self.schema_json = None
-            self.next_snapshot_and_version = None
-            self.appy_changes_from_snapshot = None
+        self.next_snapshot_and_version = None
+        self.next_snapshot_and_version = next_snapshot_and_version
+        if self.next_snapshot_and_version:
+            if dataflow_spec.applyChangesFromSnapshot:
+                self.appy_changes_from_snapshot = DataflowSpecUtils.get_apply_changes_from_snapshot(
+                    self.dataflowSpec.applyChangesFromSnapshot
+                )
+            else:
+                if dataflow_spec.sourceFormat == "snapshot" and isinstance(dataflow_spec, BronzeDataflowSpec):
+                    raise Exception(f"Snapshot reader function not provided for dataflowspec={dataflow_spec}!")
         self.silver_schema = None
 
     def table_has_expectations(self):
@@ -95,12 +108,13 @@ class DataflowPipeline:
                 name=self.view_name,
                 comment=f"input dataset view for {self.view_name}",
             )
-        elif isinstance(self.dataflowSpec, SilverDataflowSpec) and not self.next_snapshot_and_version:
-            dlt.view(
-                self.read_silver,
-                name=self.view_name,
-                comment=f"input dataset view for {self.view_name}",
-            )
+        elif isinstance(self.dataflowSpec, SilverDataflowSpec):
+            if self.dataflowSpec.sourceFormat not in ["snapshot"]:
+                dlt.view(
+                    self.read_silver,
+                    name=self.view_name,
+                    comment=f"input dataset view for {self.view_name}",
+                )
         else:
             if not self.next_snapshot_and_version:
                 raise Exception("Dataflow read not supported for {}".format(type(self.dataflowSpec)))
@@ -189,7 +203,9 @@ class DataflowPipeline:
     def write_silver(self):
         """Write silver tables."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
-        if silver_dataflow_spec.cdcApplyChanges:
+        if silver_dataflow_spec.applyChangesFromSnapshot:
+            self.apply_changes_from_snapshot()
+        elif silver_dataflow_spec.cdcApplyChanges:
             self.cdc_apply_changes()
         else:
             target_path = None if self.uc_enabled else silver_dataflow_spec.targetDetails["path"]
@@ -242,6 +258,7 @@ class DataflowPipeline:
     def apply_custom_transform_fun(self, input_df):
         if self.custom_transform_func:
             input_df = self.custom_transform_func(input_df, self.dataflowSpec)
+            input_df.show(5)
         return input_df
 
     def get_silver_schema(self):
@@ -282,26 +299,32 @@ class DataflowPipeline:
     def read_silver(self) -> DataFrame:
         """Read Silver tables."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
-
         source_cl = silver_dataflow_spec.sourceDetails.get('catalog', None)
         source_cl_name = f"{source_cl}." if source_cl is not None else ''
         source_database = silver_dataflow_spec.sourceDetails["database"]
         source_table = silver_dataflow_spec.sourceDetails["table"]
         select_exp = silver_dataflow_spec.selectExp
         where_clause = silver_dataflow_spec.whereClause
-        raw_delta_table_stream = self.spark.readStream.table(
-            f"{source_cl_name}{source_database}.{source_table}"
-        ).selectExpr(*select_exp) if self.uc_enabled else self.spark.readStream.load(
-            path=silver_dataflow_spec.sourceDetails["path"],
-            format="delta"
-        ).selectExpr(*select_exp)
-
+        if silver_dataflow_spec.sourceFormat == "snapshot":
+            bronze_df = self.spark.read.table(
+                f"{source_cl_name}{source_database}.{source_table}"
+            ).selectExpr(*select_exp)
+        else:
+            bronze_df = self.spark.readStream.table(
+                f"{source_cl_name}{source_database}.{source_table}"
+            ).selectExpr(*select_exp) if self.uc_enabled else self.spark.readStream.load(
+                path=silver_dataflow_spec.sourceDetails["path"],
+                format="delta"
+            ).selectExpr(*select_exp)
         if where_clause:
             where_clause_str = " ".join(where_clause)
             if len(where_clause_str.strip()) > 0:
                 for where_clause in where_clause:
-                    raw_delta_table_stream = raw_delta_table_stream.where(where_clause)
-        return self.apply_custom_transform_fun(raw_delta_table_stream)
+                    bronze_df = bronze_df.where(where_clause)
+                    bronze_df.show(5)
+        bronze_df = self.apply_custom_transform_fun(bronze_df)
+        bronze_df.show(5)
+        return bronze_df
 
     def write_to_delta(self):
         """Write to Delta."""
@@ -310,17 +333,43 @@ class DataflowPipeline:
     def apply_changes_from_snapshot(self):
         target_path = None if self.uc_enabled else self.dataflowSpec.targetDetails["path"]
         self.create_streaming_table(None, target_path)
-        dlt.apply_changes_from_snapshot(
-            target=f"{self.dataflowSpec.targetDetails['table']}",
-            source=lambda latest_snapshot_version:
-            self.next_snapshot_and_version(latest_snapshot_version,
-                                           self.dataflowSpec
-                                           ),
-            keys=self.appy_changes_from_snapshot.keys,
-            stored_as_scd_type=self.appy_changes_from_snapshot.scd_type,
-            track_history_column_list=self.appy_changes_from_snapshot.track_history_column_list,
-            track_history_except_column_list=self.appy_changes_from_snapshot.track_history_except_column_list,
+        target_cl = self.dataflowSpec.targetDetails.get('catalog', None)
+        target_cl_name = f"{target_cl}." if target_cl is not None else ''
+        target_db_name = self.dataflowSpec.targetDetails['database']
+        target_table_name = self.dataflowSpec.targetDetails['table']
+        target_table = (
+            f"{target_cl_name}{target_db_name}.{target_table_name}"
         )
+        if self.next_snapshot_and_version:
+            dlt.apply_changes_from_snapshot(
+                target=target_table,
+                source=lambda latest_snapshot_version:
+                self.next_snapshot_and_version(latest_snapshot_version,
+                                               self.dataflowSpec
+                                               ),
+                keys=self.appy_changes_from_snapshot.keys,
+                stored_as_scd_type=self.appy_changes_from_snapshot.scd_type,
+                track_history_column_list=self.appy_changes_from_snapshot.track_history_column_list,
+                track_history_except_column_list=self.appy_changes_from_snapshot.track_history_except_column_list,
+            )
+        elif self.next_snapshot_and_version is None and isinstance(self.dataflowSpec, SilverDataflowSpec):
+            # source_name = self.dataflowSpec.sourceDetails.get('catalog', None)
+            # source_cl_name = f"{source_name}." if source_name is not None else ''
+            # source_db_name = self.dataflowSpec.sourceDetails['database']
+            # source_table_name = self.dataflowSpec.sourceDetails['table']
+            # source_table = (
+            #     f"{source_cl_name}{source_db_name}.{source_table_name}"
+            # )
+            dlt.apply_changes_from_snapshot(
+                target=target_table,
+                source=self.view_name,  # source_table
+                keys=self.appy_changes_from_snapshot.keys,
+                stored_as_scd_type=self.appy_changes_from_snapshot.scd_type,
+                track_history_column_list=self.appy_changes_from_snapshot.track_history_column_list,
+                track_history_except_column_list=self.appy_changes_from_snapshot.track_history_except_column_list,
+            )
+        else:
+            raise Exception("apply_changes_from_snapshot not supported for {}".format(type(self.dataflowSpec)))
 
     def write_bronze_with_dqe(self):
         """Write Bronze table with data quality expectations."""
@@ -352,7 +401,7 @@ class DataflowPipeline:
                 dlt_table_with_expectation = dlt.expect_all(expect_all_dict)(
                     dlt.table(
                         self.write_to_delta,
-                        name=f"{target_table}",
+                        name=f"{target_table_name}",
                         table_properties=bronzeDataflowSpec.tableProperties,
                         partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                         cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
@@ -365,7 +414,7 @@ class DataflowPipeline:
                     dlt_table_with_expectation = dlt.expect_all_or_fail(expect_all_or_fail_dict)(
                         dlt.table(
                             self.write_to_delta,
-                            name=f"{target_table}",
+                            name=f"{target_table_name}",
                             table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                             cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
@@ -381,7 +430,7 @@ class DataflowPipeline:
                     dlt_table_with_expectation = dlt.expect_all_or_drop(expect_all_or_drop_dict)(
                         dlt.table(
                             self.write_to_delta,
-                            name=f"{target_table}",
+                            name=f"{target_table_name}",
                             table_properties=bronzeDataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.partitionColumns),
                             cluster_by=DataflowSpecUtils.get_partition_cols(bronzeDataflowSpec.clusterBy),
@@ -424,7 +473,7 @@ class DataflowPipeline:
                 dlt.expect_all_or_drop(expect_or_quarantine_dict)(
                     dlt.table(
                         self.write_to_delta,
-                        name=f"{target_table}",
+                        name=f"{bronze_table}",
                         table_properties=bronzeDataflowSpec.quarantineTableProperties,
                         partition_cols=q_partition_cols,
                         cluster_by=q_cluster_by,
@@ -607,7 +656,8 @@ class DataflowPipeline:
                             layer,
                             bronze_custom_transform_func: Callable = None,
                             silver_custom_transform_func: Callable = None,
-                            next_snapshot_and_version: Callable = None):
+                            bronze_next_snapshot_and_version: Callable = None,
+                            silver_next_snapshot_and_version: Callable = None):
         """Invoke dlt pipeline will launch dlt with given dataflowspec.
 
         Args:
@@ -618,21 +668,23 @@ class DataflowPipeline:
         if "bronze" == layer.lower():
             dataflowspec_list = DataflowSpecUtils.get_bronze_dataflow_spec(spark)
             DataflowPipeline._launch_dlt_flow(
-                spark, "bronze", dataflowspec_list, bronze_custom_transform_func, next_snapshot_and_version
+                spark, "bronze", dataflowspec_list, bronze_custom_transform_func, bronze_next_snapshot_and_version
             )
         elif "silver" == layer.lower():
             dataflowspec_list = DataflowSpecUtils.get_silver_dataflow_spec(spark)
             DataflowPipeline._launch_dlt_flow(
-                spark, "silver", dataflowspec_list, silver_custom_transform_func, next_snapshot_and_version
+                spark, "silver", dataflowspec_list, silver_custom_transform_func, silver_next_snapshot_and_version
             )
         elif "bronze_silver" == layer.lower():
             bronze_dataflowspec_list = DataflowSpecUtils.get_bronze_dataflow_spec(spark)
             DataflowPipeline._launch_dlt_flow(
-                spark, "bronze", bronze_dataflowspec_list, bronze_custom_transform_func
+                spark, "bronze", bronze_dataflowspec_list, bronze_custom_transform_func,
+                bronze_next_snapshot_and_version
             )
             silver_dataflowspec_list = DataflowSpecUtils.get_silver_dataflow_spec(spark)
             DataflowPipeline._launch_dlt_flow(
-                spark, "silver", silver_dataflowspec_list, silver_custom_transform_func
+                spark, "silver", silver_dataflowspec_list, silver_custom_transform_func,
+                silver_next_snapshot_and_version
             )
 
     @staticmethod

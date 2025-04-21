@@ -60,6 +60,7 @@ class SilverDataflowSpec:
     whereClause: list
     partitionColumns: list
     cdcApplyChanges: str
+    applyChangesFromSnapshot: str
     dataQualityExpectations: str
     appendFlows: str
     appendFlowsSchemas: map

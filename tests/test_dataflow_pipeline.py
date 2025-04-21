@@ -135,6 +135,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "whereClause": ["id IS NOT NULL", "email is not NULL"],
         "partitionColumns": ["operation_date"],
         "cdcApplyChanges": json.dumps(silver_cdc_apply_changes),
+        "applyChangesFromSnapshot": None,
         "dataQualityExpectations": """{
             "expect_or_drop": {
                 "no_rescued_data": "_rescued_data IS NULL",
@@ -152,7 +153,50 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "updatedBy": "dlt-meta-unittest",
         "clusterBy": [""],
     }
-
+    silver_acfs_dataflow_spec_map = {
+        "dataFlowId": "1",
+        "dataFlowGroup": "A1",
+        "sourceFormat": "delta",
+        "sourceDetails": {
+            "database": "bronze",
+            "table": "customer",
+            "path": bronze_dataflow_spec_map["targetDetails"]["path"],
+        },
+        "readerConfigOptions": {},
+        "targetFormat": "delta",
+        "targetDetails": {"database": "silver", "table": "customer", "path": tempfile.mkdtemp()},
+        "tableProperties": {},
+        "selectExp": [
+            "address",
+            "email",
+            "firstname",
+            "id",
+            "lastname",
+            "operation_date",
+            "operation",
+            "_rescued_data",
+        ],
+        "whereClause": ["id IS NOT NULL", "email is not NULL"],
+        "partitionColumns": ["operation_date"],
+        "cdcApplyChanges": None,
+        "applyChangesFromSnapshot": """{"keys": ["id"], "scd_type": "2"}""",
+        "dataQualityExpectations": """{
+            "expect_or_drop": {
+                "no_rescued_data": "_rescued_data IS NULL",
+                "valid_id": "id IS NOT NULL",
+                "valid_operation": "operation IN ('APPEND', 'DELETE', 'UPDATE')"
+            }
+        }""",
+        "appendFlows": [],
+        "appendFlowsSchemas": {},
+        "sinks": {},
+        "version": "v1",
+        "createDate": datetime.now,
+        "createdBy": "dlt-meta-unittest",
+        "updateDate": datetime.now,
+        "updatedBy": "dlt-meta-unittest",
+        "clusterBy": [""],
+    }
     # @classmethod
     # def setUp(self):
     #     """Set up initial resources for unit tests."""
@@ -1157,6 +1201,20 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name,
                                     next_snapshot_and_version=next_snapshot_and_version)
+        pipeline.apply_changes_from_snapshot()
+        dlt.called
+
+    @patch.object(dlt, 'create_streaming_table', return_value={"called"})
+    @patch.object(dlt, 'apply_changes_from_snapshot', return_value={"called"})
+    def test_silver_apply_changes_from_snapshot_uc_enabled(self,
+                                                           mock_apply_changes_from_snapshot,
+                                                           mock_create_streaming_table):
+        mock_create_streaming_table.return_value = None
+        mock_apply_changes_from_snapshot.return_value = None
+        silver_dataflow_spec = SilverDataflowSpec(**self.silver_acfs_dataflow_spec_map)
+        view_name = f"{silver_dataflow_spec.targetDetails['table']}_inputView"
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, view_name)
         pipeline.apply_changes_from_snapshot()
         dlt.called
 

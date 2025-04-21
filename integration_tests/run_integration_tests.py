@@ -324,7 +324,7 @@ class DLTMETARunner:
                     named_parameters={
                         "onboard_layer": (
                             "bronze_silver"
-                            if runner_conf.source == "cloudfiles"
+                            if runner_conf.source in ["cloudfiles", "snapshot"]
                             else "bronze"
                         ),
                         "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
@@ -445,10 +445,19 @@ class DLTMETARunner:
             tasks.extend(
                 [
                     jobs.Task(
+                        task_key="silver_dlt_pipeline",
+                        depends_on=[
+                            jobs.TaskDependency(task_key="bronze_dlt_pipeline")
+                        ],
+                        pipeline_task=jobs.PipelineTask(
+                            pipeline_id=runner_conf.silver_pipeline_id
+                        ),
+                    ),
+                    jobs.Task(
                         task_key="upload_v2_snapshots",
                         description="test",
                         depends_on=[
-                            jobs.TaskDependency(task_key="bronze_dlt_pipeline")
+                            jobs.TaskDependency(task_key="silver_dlt_pipeline")
                         ],
                         notebook_task=jobs.NotebookTask(
                             notebook_path=f"{runner_conf.runners_nb_path}/runners/upload_snapshots.py",
@@ -540,7 +549,7 @@ class DLTMETARunner:
             name=runner_conf.bronze_schema,
             comment="bronze_schema",
         )
-        if runner_conf.source == "cloudfiles":
+        if runner_conf.source in ["cloudfiles", "snapshot"]:
             SchemasAPI(self.ws.api_client).create(
                 catalog_name=runner_conf.uc_catalog_name,
                 name=runner_conf.silver_schema,
@@ -567,7 +576,7 @@ class DLTMETARunner:
             "{bronze_schema}": runner_conf.bronze_schema,
         }
 
-        if runner_conf.source == "cloudfiles":
+        if runner_conf.source in ["cloudfiles", "snapshot"]:
             string_subs.update({"{silver_schema}": runner_conf.silver_schema})
         elif runner_conf.source == "eventhub":
             string_subs.update(
@@ -719,6 +728,7 @@ class DLTMETARunner:
                 runner_conf,
             )
 
+        if runner_conf.source in ["cloudfiles", "snapshot"]:
             runner_conf.silver_pipeline_id = self.create_dlt_meta_pipeline(
                 f"dlt-meta-silver-{runner_conf.run_id}",
                 "silver",

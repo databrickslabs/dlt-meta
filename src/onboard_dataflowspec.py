@@ -1007,6 +1007,7 @@ class OnboardDataflowspec:
             "tableProperties",
             "partitionColumns",
             "cdcApplyChanges",
+            "applyChangesFromSnapshot",
             "dataQualityExpectations",
             "appendFlows",
             "appendFlowsSchemas",
@@ -1035,6 +1036,7 @@ class OnboardDataflowspec:
                 ),
                 StructField("partitionColumns", ArrayType(StringType(), True), True),
                 StructField("cdcApplyChanges", StringType(), True),
+                StructField("applyChangesFromSnapshot", StringType(), True),
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField("appendFlows", StringType(), True),
                 StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True),
@@ -1148,10 +1150,19 @@ class OnboardDataflowspec:
             append_flows, append_flow_schemas = self.get_append_flows_json(
                 onboarding_row, layer="silver", env=env
             )
+            apply_changes_from_snapshot = None
+            source_format = "delta"
+            if ("silver_apply_changes_from_snapshot" in onboarding_row
+                    and onboarding_row["silver_apply_changes_from_snapshot"]):
+                self.__validate_apply_changes_from_snapshot(onboarding_row, "silver")
+                apply_changes_from_snapshot = json.dumps(
+                    self.__delete_none(onboarding_row["silver_apply_changes_from_snapshot"].asDict())
+                )
+                source_format = "snapshot"
             silver_row = (
                 silver_data_flow_spec_id,
                 silver_data_flow_spec_group,
-                "delta",
+                source_format,
                 bronze_target_details,
                 silver_reader_config_options,
                 silver_target_format,
@@ -1159,6 +1170,7 @@ class OnboardDataflowspec:
                 silver_table_properties,
                 silver_parition_columns,
                 silver_cdc_apply_changes,
+                apply_changes_from_snapshot,
                 data_quality_expectations,
                 append_flows,
                 append_flow_schemas,

@@ -39,4 +39,5 @@ def next_snapshot_and_version(latest_snapshot_version, dataflow_spec):
 
 layer = spark.conf.get("layer", None)
 from src.dataflow_pipeline import DataflowPipeline
-DataflowPipeline.invoke_dlt_pipeline(spark, layer, next_snapshot_and_version=next_snapshot_and_version)
+DataflowPipeline.invoke_dlt_pipeline(spark, layer, bronze_next_snapshot_and_version=next_snapshot_and_version, silver_next_snapshot_and_version=None)
+# DataflowPipeline.invoke_dlt_pipeline(spark, layer)
