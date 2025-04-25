@@ -1098,7 +1098,15 @@ class OnboardDataflowspec:
                 silver_target_details["path"] = onboarding_row[
                     f"silver_table_path_{env}"
                 ]
-
+            silver_reader_options_json = (
+                onboarding_row["silver_reader_options"]
+                if "silver_reader_options" in onboarding_row
+                else {}
+            )
+            if silver_reader_options_json:
+                silver_reader_config_options = self.__delete_none(
+                    silver_reader_options_json.asDict()
+                )
             silver_table_properties = {}
             if (
                 "silver_table_properties" in onboarding_row

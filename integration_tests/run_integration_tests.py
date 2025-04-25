@@ -294,7 +294,7 @@ class DLTMETARunner:
                     )
                 )
             ],
-            target=target_schema,
+            schema=target_schema,
         )
 
         if created is None:
@@ -472,9 +472,18 @@ class DLTMETARunner:
                         ),
                     ),
                     jobs.Task(
-                        task_key="upload_v3_snapshots",
+                        task_key="silver_v2_dlt_pipeline",
                         depends_on=[
                             jobs.TaskDependency(task_key="bronze_v2_dlt_pipeline")
+                        ],
+                        pipeline_task=jobs.PipelineTask(
+                            pipeline_id=runner_conf.silver_pipeline_id
+                        ),
+                    ),
+                    jobs.Task(
+                        task_key="upload_v3_snapshots",
+                        depends_on=[
+                            jobs.TaskDependency(task_key="silver_v2_dlt_pipeline")
                         ],
                         notebook_task=jobs.NotebookTask(
                             notebook_path=f"{runner_conf.runners_nb_path}/runners/upload_snapshots.py",
@@ -488,6 +497,15 @@ class DLTMETARunner:
                             pipeline_id=runner_conf.bronze_pipeline_id
                         ),
                     ),
+                    jobs.Task(
+                        task_key="silver_v3_dlt_pipeline",
+                        depends_on=[
+                            jobs.TaskDependency(task_key="bronze_v3_dlt_pipeline")
+                        ],
+                        pipeline_task=jobs.PipelineTask(
+                            pipeline_id=runner_conf.silver_pipeline_id
+                        ),
+                    )
                 ]
             )
         else:
@@ -533,7 +551,7 @@ class DLTMETARunner:
         if source == "cloudfiles":
             return "silver_dlt_pipeline"
         elif source == "snapshot":
-            return "bronze_v3_dlt_pipeline"
+            return "silver_v3_dlt_pipeline"
         else:
             return "bronze_dlt_pipeline"
 
