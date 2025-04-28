@@ -664,7 +664,7 @@ class DataflowPipeline:
     def run_dlt(self):
         """Run DLT."""
         logger.info("in run_dlt function")
-        # self.read()
+        self.read()
         self.write()
 
     @staticmethod
@@ -735,7 +735,7 @@ class DataflowPipeline:
             target_cl_str = f"{target_cl}_" if target_cl is not None else ''
             target_db = dataflowSpec.targetDetails['database'].replace('.', '_')
             target_table = dataflowSpec.targetDetails['table']
-            target_view_name = f"{target_cl_str}{target_db}_{target_table}_{layer}_inputView"
+            target_view_name = f"{target_cl_str}{target_db}_{target_table}_{layer}_inputview"
             target_view_name = target_view_name.replace(".", "")
             dlt_data_flow = DataflowPipeline(
                 spark,
