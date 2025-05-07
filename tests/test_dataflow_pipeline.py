@@ -4,19 +4,23 @@ import json
 import sys
 import tempfile
 import copy
-from unittest.mock import MagicMock, patch
-
+from pyspark.sql.functions import lit, expr
 import pyspark.sql.types as T
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import lit, expr
-
 from tests.utils import DLTFrameworkTestCase
-from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
-from src.dataflow_pipeline import DataflowPipeline
-from src.onboard_dataflowspec import OnboardDataflowspec
-from src.pipeline_readers import PipelineReaders
-
+from unittest.mock import MagicMock, patch
+from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec
 sys.modules["dlt"] = MagicMock()
+from src.dataflow_pipeline import DataflowPipeline  # noqa: E402
+from src.onboard_dataflowspec import OnboardDataflowspec  # noqa: E402
+from src.dataflow_spec import DataflowSpecUtils  # noqa: E402
+from src.pipeline_readers import PipelineReaders  # noqa: E402
+
+dlt = MagicMock()
+dlt.expect_all_or_drop = MagicMock()
+dlt.apply_changes_from_snapshot = MagicMock()
+raw_delta_table_stream = MagicMock()
+
 dlt = MagicMock()
 dlt.expect_all_or_drop = MagicMock()
 dlt.apply_changes_from_snapshot = MagicMock()
@@ -966,15 +970,19 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
     @patch.object(DataflowPipeline, "write_to_delta", new_callable=MagicMock)
     @patch('dlt.create_streaming_live_table', new_callable=MagicMock)
     @patch('dlt.append_flow', new_callable=MagicMock)
+    @patch('dlt.read_stream', new_callable=MagicMock)
     def test_bronze_append_flow_positive(self,
-                                         mock_create_streaming_table,
-                                         mock_write_to_delta,
+                                         mock_read_stream,
+                                         mock_append_flow,
                                          mock_create_streaming_live_table,
-                                         mock_append_flow):
+                                         mock_write_to_delta,
+                                         mock_create_streaming_table,
+                                         ):
         mock_create_streaming_table.return_value = None
         mock_write_to_delta.return_value = None
         mock_create_streaming_live_table.return_value = None
         mock_append_flow.return_value = None
+        mock_read_stream.return_value = None
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         onboarding_params_map['onboarding_file_path'] = self.onboarding_append_flow_json_file
         o_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
@@ -1230,18 +1238,21 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         spark = MagicMock()
         bronze_custom_transform_func = MagicMock()
         silver_custom_transform_func = MagicMock()
+        bronze_next_snapshot_and_version = MagicMock()
+        silver_next_snapshot_and_version = MagicMock()
 
         DataflowPipeline.invoke_dlt_pipeline(
-            spark, "bronze_silver", bronze_custom_transform_func, silver_custom_transform_func
+            spark, "bronze_silver", bronze_custom_transform_func, silver_custom_transform_func,
+            bronze_next_snapshot_and_version, silver_next_snapshot_and_version
         )
 
         mock_get_bronze_dataflow_spec.assert_called_once_with(spark)
         mock_get_silver_dataflow_spec.assert_called_once_with(spark)
         mock_launch_dlt_flow.assert_any_call(
-            spark, "bronze", mock_get_bronze_dataflow_spec.return_value, bronze_custom_transform_func
+            spark, "bronze", mock_get_bronze_dataflow_spec.return_value, bronze_custom_transform_func, bronze_next_snapshot_and_version
         )
         mock_launch_dlt_flow.assert_any_call(
-            spark, "silver", mock_get_silver_dataflow_spec.return_value, silver_custom_transform_func
+            spark, "silver", mock_get_silver_dataflow_spec.return_value, silver_custom_transform_func, silver_next_snapshot_and_version
         )
 
     @patch.object(dlt, 'create_streaming_table', return_value={"called"})

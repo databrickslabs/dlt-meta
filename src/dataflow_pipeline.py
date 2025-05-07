@@ -327,7 +327,6 @@ class DataflowPipeline:
             if len(where_clause_str.strip()) > 0:
                 for where_clause in where_clause:
                     bronze_df = bronze_df.where(where_clause)
-                    bronze_df.show(5)
         bronze_df = self.apply_custom_transform_fun(bronze_df)
         return bronze_df
 
