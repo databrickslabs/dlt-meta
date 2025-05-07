@@ -227,7 +227,7 @@ class DataflowPipeline:
         input_df = None
         if bronze_dataflow_spec.sourceFormat == "cloudFiles":
             input_df = pipeline_reader.read_dlt_cloud_files()
-        elif bronze_dataflow_spec.sourceFormat == "delta":
+        elif bronze_dataflow_spec.sourceFormat == "delta" or bronze_dataflow_spec.sourceFormat == "snapshot":
             return pipeline_reader.read_dlt_delta()
         elif bronze_dataflow_spec.sourceFormat == "eventhub" or bronze_dataflow_spec.sourceFormat == "kafka":
             return pipeline_reader.read_kafka()
