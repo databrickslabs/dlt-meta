@@ -4,6 +4,8 @@ import json
 import sys
 import tempfile
 import copy
+import shutil
+import os
 from pyspark.sql.functions import lit, expr
 import pyspark.sql.types as T
 from pyspark.sql import DataFrame
@@ -18,6 +20,11 @@ from src.pipeline_readers import PipelineReaders
 dlt = MagicMock()
 dlt.expect_all_or_drop = MagicMock()
 dlt.apply_changes_from_snapshot = MagicMock()
+dlt.apply_changes = MagicMock()
+dlt.table = MagicMock()
+dlt.view = MagicMock()
+dlt.create_streaming_live_table = MagicMock()
+dlt.create_streaming_table = MagicMock()
 raw_delta_table_stream = MagicMock()
 
 
@@ -191,14 +198,20 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             f"{database}.{silver_dataflow_table}",
         )
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
+        self.spark.sql("DROP TABLE IF EXISTS bronze.customers_cdc")
+        self.spark.sql("DROP TABLE IF EXISTS bronze.transactions_cdc")
+        if os.path.exists(f"{self.temp_delta_tables_path}/tables/customers_cdc"):
+            shutil.rmtree(f"{self.temp_delta_tables_path}/tables/customers_cdc")
+        if os.path.exists(f"{self.temp_delta_tables_path}/tables/transactions_cdc"):
+            shutil.rmtree(f"{self.temp_delta_tables_path}/tables/transactions_cdc")
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
-            .mode("overwrite").saveAsTable("bronze.customers_cdc")
+            .mode("append").option("path", f"{self.temp_delta_tables_path}/tables/customers_cdc").saveAsTable("bronze.customers_cdc")
          )
         transactions_parquet_df = self.spark.read.options(**options).json("tests/resources/data/transactions")
         (transactions_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
-            .mode("overwrite").saveAsTable("bronze.transactions_cdc")
+            .mode("append").option("path", f"{self.temp_delta_tables_path}/tables/transactions_cdc").saveAsTable("bronze.transactions_cdc")
          )
 
         def custom_transform_func(input_df) -> DataFrame:
@@ -215,7 +228,8 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         }
         silver_spec_map.update(source_details)
         silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
-        self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
+        self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")  
+
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
@@ -277,10 +291,13 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         silver_spec_map.update(source_details)
         silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
+        self.spark.sql("DROP TABLE IF EXISTS bronze.customer")
+        if os.path.exists(f"{self.temp_delta_tables_path}/tables/customers"):
+            shutil.rmtree(f"{self.temp_delta_tables_path}/tables/customers")
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
-            .mode("overwrite").saveAsTable("bronze.customer")
+            .mode("append").option("path", f"{self.temp_delta_tables_path}/tables/customers").saveAsTable("bronze.customer")
          )
         dlt_data_flow = DataflowPipeline(
             self.spark,
@@ -301,10 +318,13 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
 
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
+        self.spark.sql("DROP TABLE IF EXISTS bronze.customer")
+        if os.path.exists(f"{self.temp_delta_tables_path}/tables/customers"):
+            shutil.rmtree(f"{self.temp_delta_tables_path}/tables/customers")
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
-            .mode("overwrite").saveAsTable("bronze.customer")
+            .mode("append").option("path", f"{self.temp_delta_tables_path}/tables/customers").saveAsTable("bronze.customer")
          )
 
         silver_dataflow_spec.whereClause = None
@@ -334,10 +354,13 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         }
         silver_spec_map.update(source_details)
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
+        self.spark.sql("DROP TABLE IF EXISTS bronze.customer")
+        if os.path.exists(f"{self.temp_delta_tables_path}/tables/customers"):
+            shutil.rmtree(f"{self.temp_delta_tables_path}/tables/customers")
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
-            .mode("overwrite").saveAsTable("bronze.customer")
+            .mode("append").option("path", f"{self.temp_delta_tables_path}/tables/customers").saveAsTable("bronze.customer")
          )
         silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
         dlt_data_flow = DataflowPipeline(
@@ -377,10 +400,13 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         }
         silver_spec_map.update(source_details)
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
+        self.spark.sql("DROP TABLE IF EXISTS bronze.customer")
+        if os.path.exists(f"{self.temp_delta_tables_path}/tables/customers"):
+            shutil.rmtree(f"{self.temp_delta_tables_path}/tables/customers")
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
-            .mode("overwrite").saveAsTable("bronze.customer")
+            .mode("append").option("path", f"{self.temp_delta_tables_path}/tables/customers").saveAsTable("bronze.customer")
          )
         silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
         dlt_data_flow = DataflowPipeline(
@@ -438,10 +464,11 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
         silver_dataflow_spec.cdcApplyChanges = json.dumps(self.silver_cdc_apply_changes_scd2)
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
+        self.spark.sql("DROP TABLE IF EXISTS bronze.customer")
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
-            .mode("overwrite").saveAsTable("bronze.customer")
+            .mode("append").option("path", f"{self.temp_delta_tables_path}/tables/customers").saveAsTable("bronze.customer")
          )
         dlt_data_flow = DataflowPipeline(
             self.spark,
