@@ -4,8 +4,6 @@ import json
 import sys
 import tempfile
 import copy
-
-
 from pyspark.sql.functions import lit, expr
 import pyspark.sql.types as T
 from pyspark.sql import DataFrame
@@ -20,11 +18,6 @@ from src.pipeline_readers import PipelineReaders
 dlt = MagicMock()
 dlt.expect_all_or_drop = MagicMock()
 dlt.apply_changes_from_snapshot = MagicMock()
-
-
-
-
-
 raw_delta_table_stream = MagicMock()
 
 
@@ -198,12 +191,6 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             f"{database}.{silver_dataflow_table}",
         )
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
-
-
-
-
-
-
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
@@ -229,7 +216,6 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         silver_spec_map.update(source_details)
         silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
-
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
@@ -291,9 +277,6 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         silver_spec_map.update(source_details)
         silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
-
-
-
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
@@ -318,9 +301,6 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
 
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
-
-
-
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
@@ -354,9 +334,6 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         }
         silver_spec_map.update(source_details)
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
-
-
-
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
@@ -400,9 +377,6 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         }
         silver_spec_map.update(source_details)
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
-
-
-
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
@@ -464,7 +438,6 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
         silver_dataflow_spec.cdcApplyChanges = json.dumps(self.silver_cdc_apply_changes_scd2)
         self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
-
         options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
         customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
         (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
@@ -1338,4 +1311,3 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         #     format="delta"
         # )
         # mock_read_stream.load.return_value.selectExpr.assert_called_once_with(*silver_dataflow_spec.selectExp)
-
