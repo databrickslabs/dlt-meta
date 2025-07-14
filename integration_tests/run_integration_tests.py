@@ -4,10 +4,15 @@
 import argparse
 import json
 import os
+import sys
 import traceback
 import uuid
 import webbrowser
 from dataclasses import dataclass
+
+# Add project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(project_root)
 
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import compute, jobs
@@ -242,8 +247,8 @@ class DLTMETARunner:
 
     def _my_username(self, ws):
         if not hasattr(ws, "_me"):
-            _me = ws.current_user.me()
-        return _me.user_name
+            ws._me = ws.current_user.me()
+        return ws._me.user_name
 
     def create_dlt_meta_pipeline(
         self,
@@ -374,7 +379,7 @@ class DLTMETARunner:
                         "bronze_schema": f"{runner_conf.bronze_schema}",
                         "silver_schema": (
                             f"{runner_conf.silver_schema}"
-                            if runner_conf.source == "cloudfiles"
+                            if runner_conf.source == "cloudfiles" or runner_conf.source == "snapshot"
                             else ""
                         ),
                         "output_file_path": f"/Workspace{runner_conf.test_output_file_path}",
@@ -430,20 +435,46 @@ class DLTMETARunner:
                 ]
             )
         elif runner_conf.source == "snapshot":
+            base_parameters_v1 = {
+                "base_path": (
+                    f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/snapshots"
+                ),
+                "version": "1",
+                "source_catalog": runner_conf.uc_catalog_name,
+                "source_database": runner_conf.dlt_meta_schema,
+                "source_table": "source_products_delta"
+            }            
             base_parameters_v2 = {
                 "base_path": (
                     f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/snapshots"
                 ),
-                "version": "2"
+                "version": "2",
+                "source_catalog": runner_conf.uc_catalog_name,
+                "source_database": runner_conf.dlt_meta_schema,
+                "source_table": "source_products_delta"
             }
             base_parameters_v3 = {
                 "base_path": (
                     f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/snapshots"
                 ),
-                "version": "3"
+                "version": "3",
+                "source_catalog": runner_conf.uc_catalog_name,
+                "source_database": runner_conf.dlt_meta_schema,
+                "source_table": "source_stores_delta"
             }
+            tasks[1].depends_on= [jobs.TaskDependency(task_key='create_source_tables')]
             tasks.extend(
                 [
+                    jobs.Task(
+                        task_key="create_source_tables",
+                        depends_on=[
+                            jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")
+                        ],
+                        notebook_task=jobs.NotebookTask(
+                            notebook_path=f"{runner_conf.runners_nb_path}/runners/upload_snapshots.py",
+                            base_parameters=base_parameters_v1,
+                        ),
+                    ),
                     jobs.Task(
                         task_key="silver_dlt_pipeline",
                         depends_on=[
@@ -595,7 +626,10 @@ class DLTMETARunner:
         }
 
         if runner_conf.source in ["cloudfiles", "snapshot"]:
-            string_subs.update({"{silver_schema}": runner_conf.silver_schema})
+            string_subs.update({
+                "{silver_schema}": runner_conf.silver_schema,
+                "{source_database}": runner_conf.dlt_meta_schema
+            })
         elif runner_conf.source == "eventhub":
             string_subs.update(
                 {

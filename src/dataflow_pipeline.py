@@ -76,22 +76,49 @@ class DataflowPipeline:
             self.schema_json = None
         self.next_snapshot_and_version = None
         self.next_snapshot_and_version = next_snapshot_and_version
+        self.next_snapshot_and_version_from_source_view = False
+        if self.dataflowSpec.sourceDetails and self.dataflowSpec.sourceDetails.get("snapshot_format", None):
+            self.snapshot_source_format = self.dataflowSpec.sourceDetails["snapshot_format"]
+        else:
+            self.snapshot_source_format = None
         self.silver_schema = None
 
     def table_has_expectations(self):
         """Table has expectations check."""
         return self.dataflowSpec.dataQualityExpectations is not None
 
+    def is_create_view(self):
+        """Determine if a view should be created based on source details and snapshot configuration.
+
+        Returns:
+            bool: True if a view should be created, False otherwise.
+        """
+        # if sourceDetails is provided and snapshot_format is delta, then create a view
+        # if next_snapshot_and_version is provided, then do not create a view
+        # otherwise create a view
+        print(f"self.dataflowSpec: {self.dataflowSpec}")
+        print(f"self.next_snapshot_and_version: {self.next_snapshot_and_version}")
+        print(f"self.dataflowSpec.sourceDetails: {self.dataflowSpec.sourceDetails}")
+        print(f"self.dataflowSpec.sourceDetails.get('snapshot_format'): {self.dataflowSpec.sourceDetails.get('snapshot_format')}")
+        if (self.dataflowSpec.sourceDetails and self.dataflowSpec.sourceDetails.get("snapshot_format") == "delta"):
+            print(f"{self.dataflowSpec.sourceDetails.get('catalog')}.{self.dataflowSpec.sourceDetails.get('source_database')}.{self.dataflowSpec.sourceDetails.get('source_table')} view will be created")
+            self.next_snapshot_and_version_from_source_view = True
+            return True
+        elif self.next_snapshot_and_version:
+            print(f"{self.dataflowSpec.sourceDetails.get('catalog')}.{self.dataflowSpec.sourceDetails.get('source_database')}.{self.dataflowSpec.sourceDetails.get('source_table')} view will not be created")
+            return False
+        return True
+
     def read(self):
         """Read DLT."""
         logger.info("In read function")
-        if isinstance(self.dataflowSpec, BronzeDataflowSpec) and not self.next_snapshot_and_version:
+        if isinstance(self.dataflowSpec, BronzeDataflowSpec) and self.is_create_view():
             dlt.view(
                 self.read_bronze,
                 name=self.view_name,
                 comment=f"input dataset view for {self.view_name}",
             )
-        elif isinstance(self.dataflowSpec, SilverDataflowSpec) and not self.next_snapshot_and_version:
+        elif isinstance(self.dataflowSpec, SilverDataflowSpec) and self.is_create_view():
             dlt.view(
                 self.read_silver,
                 name=self.view_name,
@@ -348,7 +375,7 @@ class DataflowPipeline:
             (lambda latest_snapshot_version: self.next_snapshot_and_version(
                 latest_snapshot_version, self.dataflowSpec
             ))
-            if self.next_snapshot_and_version
+            if self.next_snapshot_and_version and not self.next_snapshot_and_version_from_source_view
             else self.view_name
         )
 

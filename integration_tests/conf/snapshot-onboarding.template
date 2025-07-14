@@ -6,12 +6,11 @@
    "source_system": "delta",
    "source_format": "snapshot",
    "source_details": {
-      "source_path_it": "{uc_volume_path}/integration_tests/resources/data/snapshots/products/LOAD_",
-      "snapshot_format": "csv"
-   },
-   "bronze_reader_options": {
-      "header": "true"
-   },        
+      "snapshot_format": "delta",
+      "source_catalog_it": "{uc_catalog_name}",
+      "source_table": "source_products_delta",
+      "source_database":"{source_database}"
+   },      
    "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",
    "bronze_table": "products",
    "bronze_apply_changes_from_snapshot": {
