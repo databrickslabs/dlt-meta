@@ -64,7 +64,7 @@ class DataflowPipeline:
         else:
             self.appendFlows = None
         if dataflow_spec.applyChangesFromSnapshot:
-            self.appy_changes_from_snapshot = DataflowSpecUtils.get_apply_changes_from_snapshot(
+            self.applyChangesFromSnapshot = DataflowSpecUtils.get_apply_changes_from_snapshot(
                 self.dataflowSpec.applyChangesFromSnapshot
             )
         if isinstance(dataflow_spec, BronzeDataflowSpec):
@@ -376,10 +376,10 @@ class DataflowPipeline:
         dlt.apply_changes_from_snapshot(
             target=target_table,
             source=source,
-            keys=self.appy_changes_from_snapshot.keys,
-            stored_as_scd_type=self.appy_changes_from_snapshot.scd_type,
-            track_history_column_list=self.appy_changes_from_snapshot.track_history_column_list,
-            track_history_except_column_list=self.appy_changes_from_snapshot.track_history_except_column_list,
+            keys=self.applyChangesFromSnapshot.keys,
+            stored_as_scd_type=self.applyChangesFromSnapshot.scd_type,
+            track_history_column_list=self.applyChangesFromSnapshot.track_history_column_list,
+            track_history_except_column_list=self.applyChangesFromSnapshot.track_history_except_column_list,
         )
 
     def write_bronze_with_dqe(self):
