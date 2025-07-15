@@ -66,7 +66,7 @@ class DataflowPipeline:
         if dataflow_spec.applyChangesFromSnapshot:
             self.appy_changes_from_snapshot = DataflowSpecUtils.get_apply_changes_from_snapshot(
                 self.dataflowSpec.applyChangesFromSnapshot
-            )            
+            )
         if isinstance(dataflow_spec, BronzeDataflowSpec):
             if dataflow_spec.schema is not None:
                 self.schema_json = json.loads(dataflow_spec.schema)
@@ -96,16 +96,10 @@ class DataflowPipeline:
         # if sourceDetails is provided and snapshot_format is delta, then create a view
         # if next_snapshot_and_version is provided, then do not create a view
         # otherwise create a view
-        print(f"self.dataflowSpec: {self.dataflowSpec}")
-        print(f"self.next_snapshot_and_version: {self.next_snapshot_and_version}")
-        print(f"self.dataflowSpec.sourceDetails: {self.dataflowSpec.sourceDetails}")
-        print(f"self.dataflowSpec.sourceDetails.get('snapshot_format'): {self.dataflowSpec.sourceDetails.get('snapshot_format')}")
         if (self.dataflowSpec.sourceDetails and self.dataflowSpec.sourceDetails.get("snapshot_format") == "delta"):
-            print(f"{self.dataflowSpec.sourceDetails.get('catalog')}.{self.dataflowSpec.sourceDetails.get('source_database')}.{self.dataflowSpec.sourceDetails.get('source_table')} view will be created")
             self.next_snapshot_and_version_from_source_view = True
             return True
         elif self.next_snapshot_and_version:
-            print(f"{self.dataflowSpec.sourceDetails.get('catalog')}.{self.dataflowSpec.sourceDetails.get('source_database')}.{self.dataflowSpec.sourceDetails.get('source_table')} view will not be created")
             return False
         return True
 

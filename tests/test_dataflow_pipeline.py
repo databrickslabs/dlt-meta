@@ -279,7 +279,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             self.spark,
             silver_dataflow_spec,
             f"{silver_dataflow_spec.targetDetails['table']}_inputview"
-        )        
+        )
 
         self.assertIsNone(dlt_data_flow.silver_schema)
         dlt_data_flow.run_dlt()
@@ -1249,10 +1249,12 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         mock_get_bronze_dataflow_spec.assert_called_once_with(spark)
         mock_get_silver_dataflow_spec.assert_called_once_with(spark)
         mock_launch_dlt_flow.assert_any_call(
-            spark, "bronze", mock_get_bronze_dataflow_spec.return_value, bronze_custom_transform_func, bronze_next_snapshot_and_version
+            spark, "bronze", mock_get_bronze_dataflow_spec.return_value,
+            bronze_custom_transform_func, bronze_next_snapshot_and_version
         )
         mock_launch_dlt_flow.assert_any_call(
-            spark, "silver", mock_get_silver_dataflow_spec.return_value, silver_custom_transform_func, silver_next_snapshot_and_version
+            spark, "silver", mock_get_silver_dataflow_spec.return_value,
+            silver_custom_transform_func, silver_next_snapshot_and_version
         )
 
     @patch.object(dlt, 'create_streaming_table', return_value={"called"})

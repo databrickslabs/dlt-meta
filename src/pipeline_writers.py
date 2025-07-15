@@ -42,11 +42,15 @@ class AppendFlowWriter:
                 expect_all_or_drop=None,
                 expect_all_or_fail=None,
             )
-        comment = self.append_flow.comment if self.append_flow.comment else f"append_flow={self.append_flow.name} for target={self.target}"
+        comment = (
+            self.append_flow.comment
+            if self.append_flow.comment
+            else f"append_flow={self.append_flow.name} for target={self.target}"
+        )
         spark_conf = self.append_flow.spark_conf if self.append_flow.spark_conf else {}
         dlt.append_flow(
             name=self.append_flow.name,
-            target=self.target, 
+            target=self.target,
             comment=comment,
             spark_conf=spark_conf,
             once=self.append_flow.once

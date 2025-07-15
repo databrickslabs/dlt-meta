@@ -443,7 +443,7 @@ class DLTMETARunner:
                 "source_catalog": runner_conf.uc_catalog_name,
                 "source_database": runner_conf.dlt_meta_schema,
                 "source_table": "source_products_delta"
-            }            
+            }
             base_parameters_v2 = {
                 "base_path": (
                     f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/snapshots"
@@ -462,7 +462,7 @@ class DLTMETARunner:
                 "source_database": runner_conf.dlt_meta_schema,
                 "source_table": "source_stores_delta"
             }
-            tasks[1].depends_on= [jobs.TaskDependency(task_key='create_source_tables')]
+            tasks[1].depends_on = [jobs.TaskDependency(task_key='create_source_tables')]
             tasks.extend(
                 [
                     jobs.Task(

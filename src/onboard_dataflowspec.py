@@ -525,7 +525,7 @@ class OnboardDataflowspec:
             "source_details",
             f"bronze_database_{env}",
             "bronze_table"
-            #"bronze_reader_options",
+            # "bronze_reader_options",
         ]  # , f"bronze_table_path_{env}"
         for onboarding_row in onboarding_rows:
             try:
