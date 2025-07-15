@@ -1,0 +1,195 @@
+[
+    {
+        "data_flow_id": "100",
+        "data_flow_group": "A1",
+        "source_system": "MYSQL",
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_database": "APP",
+            "source_table": "CUSTOMERS",
+            "source_path_dev": "tests/resources/data/customers",
+            "source_schema_path": "tests/resources/schema/customer_schema.ddl",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True",
+                "autoloader_metadata_col_name": "source_metadata",
+                "select_metadata_cols": {
+                    "input_file_name": "_metadata.file_name",
+                    "input_file_path": "_metadata.file_path"
+                }
+            }
+        },
+        "bronze_catalog_dev": "bronze_cl",
+        "bronze_catalog_staging": "bronze_cl",
+        "bronze_catalog_prd": "bronze_cl",
+        "bronze_database_dev": "bronze",
+        "bronze_database_staging": "bronze",
+        "bronze_database_prd": "bronze",
+        "bronze_table": "customers_cdc",
+        "bronze_table_comment": "Bronze table for customers",
+        "bronze_reader_options": {
+            "cloudFiles.format": "json",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "bronze_table_path_dev": "tests/resources/delta/customers",
+        "bronze_table_properties": {
+            "pipelines.autoOptimize.managed": "false",
+            "pipelines.reset.allowed": "false"
+        },
+        "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/customers/bronze_data_quality_expectations.json",
+        "bronze_catalog_quarantine_dev": "bronze",
+        "bronze_catalog_quarantine_staging": "bronze",        
+        "bronze_catalog_quarantine_prd": "bronze",                
+        "bronze_database_quarantine_dev": "bronze",
+        "bronze_database_quarantine_staging": "bronze",
+        "bronze_database_quarantine_prd": "bronze",
+        "bronze_quarantine_table": "customers_cdc_quarantine",
+        "bronze_quarantine_table_path_dev": "tests/resources/data/bronze/customers_quarantine",
+        "silver_catalog_dev": "silver_cl",    
+        "silver_catalog_staging": "silver_cl",    
+        "silver_catalog_prd": "silver_cl",       
+        "silver_database_dev": "silver",
+        "silver_database_staging": "silver",
+        "silver_database_prd": "silver",
+        "silver_table": "customers",
+        "silver_table_comment": "Silver table for customers",
+        "silver_apply_changes_from_snapshot": {
+            "keys": [
+                "id"
+            ],
+            "sequence_by": "operation_date",
+            "scd_type": "1"
+        },
+        "silver_table_properties": {
+            "pipelines.autoOptimize.managed": "false",
+            "pipelines.reset.allowed": "false",
+            "pipelines.autoOptimize.zOrderCols": "id,email"
+        },
+        "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
+        "silver_data_quality_expectations_json_dev": "tests/resources/dqe/customers/silver_data_quality_expectations.json"
+    },
+    {
+        "data_flow_id": "101",
+        "data_flow_group": "A1",
+        "source_system": "MYSQL",
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_database": "APP",
+            "source_table": "TRANSACTIONS",
+            "source_path_prd": "tests/resources/data/transactions",
+            "source_path_dev": "tests/resources/data/transactions",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True"
+            }
+        },
+        "bronze_catalog_dev": "bronze_cl",
+        "bronze_catalog_staging": "bronze_cl",
+        "bronze_catalog_prd": "bronze_cl",        
+        "bronze_database_dev": "bronze",
+        "bronze_database_staging": "bronze",
+        "bronze_database_prd": "bronze",
+        "bronze_table": "transactions_cdc",
+        "bronze_table_comment": "Bronze table for transactions",
+        "bronze_reader_options": {
+            "cloudFiles.format": "json",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "bronze_table_path_dev": "tests/resources/delta/transactions",
+        "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/transactions",
+        "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/transactions",
+        "bronze_table_properties": {
+            "pipelines.reset.allowed": "false"
+        },
+        "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/transactions/bronze_data_quality_expectations.json",
+        "bronze_catalog_quarantine_dev": "bronze",
+        "bronze_catalog_quarantine_staging": "bronze",        
+        "bronze_catalog_quarantine_prd": "bronze",   
+        "bronze_database_quarantine_dev": "bronze",
+        "bronze_database_quarantine_staging": "bronze",
+        "bronze_database_quarantine_prd": "bronze",
+        "bronze_quarantine_table": "transactions_cdc_quarantine",
+        "bronze_quarantine_table_path_dev": "tests/resources/data/bronze/transactions_quarantine",
+        "silver_catalog_dev": "silver_cl",    
+        "silver_catalog_staging": "silver_cl",    
+        "silver_catalog_prd": "silver_cl",     
+        "silver_database_dev": "silver",
+        "silver_database_preprd": "silver",
+        "silver_database_prd": "silver",
+        "silver_table": "transactions",
+        "silver_table_comment": "Silver table for transactions",
+        "silver_apply_changes_from_snapshot": {
+            "keys": [
+                "id"
+            ],
+            "sequence_by": "operation_date",
+            "scd_type": "1",
+            "apply_as_deletes": "operation = 'DELETE'",
+            "except_column_list": [
+                "operation",
+                "operation_date",
+                "_rescued_data"
+            ]
+        },
+        "silver_partition_columns": "transaction_date",
+        "silver_table_path_dev": "tests/resources/data/silver/transactions",
+        "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
+        "silver_table_properties": {
+            "pipelines.reset.allowed": "false",
+            "pipelines.autoOptimize.zOrderCols": "id, customer_id"
+        },
+        "silver_data_quality_expectations_json_dev": "tests/resources/dqe/transactions/silver_data_quality_expectations.json"
+    },
+    {
+        "data_flow_id": "103",
+        "data_flow_group": "A2",
+        "source_system": "MYSQL",
+        "source_format": "eventhub",
+        "source_details": {
+            "source_schema_path": "tests/resources/schema/eventhub_iot_schema.ddl",
+            "eventhub.accessKeyName": "iotIngestionAccessKey",
+            "eventhub.name": "iot",
+            "eventhub.accessKeySecretName": "iotIngestionAccessKey",
+            "eventhub.secretsScopeName": "eventhubs_creds",
+            "kafka.sasl.mechanism": "PLAIN",
+            "kafka.security.protocol": "SASL_SSL",
+            "kafka.bootstrap.servers": "standard.servicebus.windows.net:9093"
+        },
+        "bronze_catalog_staging": "bronze_cl",
+        "bronze_catalog_prd": "bronze_cl",
+        "bronze_database_dev": "bronze",
+        "bronze_database_staging": "bronze",
+        "bronze_database_prd": "bronze",
+        "bronze_table": "iot_cdc",
+        "bronze_table_comment": "Bronze table for IoT data",
+        "bronze_reader_options": {
+            "maxOffsetsPerTrigger": "50000",
+            "startingOffsets": "latest",
+            "failOnDataLoss": "false",
+            "kafka.request.timeout.ms": "60000",
+            "kafka.session.timeout.ms": "60000"
+        },
+        "bronze_table_path_dev": "tests/resources/delta/iot_cdc",
+        "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/iot_cdc",
+        "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/iot_cdc",
+        "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/iot_cdc/bronze_data_quality_expectations.json",
+        "silver_catalog_dev": "silver_cl",    
+        "silver_catalog_staging": "silver_cl",    
+        "silver_catalog_prd": "silver_cl",     
+        "silver_database_dev": "silver",
+        "silver_table": "iot_cdc",
+        "silver_table_comment": "Silver table for IoT data",
+        "silver_apply_changes_from_snapshot": {
+            "keys": [
+                "device_id"
+            ],
+            "sequence_by": "timestamp",
+            "scd_type": "1",
+            "apply_as_deletes": "operation = 'DELETE'",
+            "except_column_list": []
+        },
+        "silver_table_path_dev": "tests/resources/data/silver/iot_cdc",
+        "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
+        "silver_data_quality_expectations_json_dev": "tests/resources/dqe/iot_cdc/silver_data_quality_expectations.json"
+    }
+]

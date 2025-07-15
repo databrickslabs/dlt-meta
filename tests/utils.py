@@ -57,6 +57,9 @@ class DLTFrameworkTestCase(unittest.TestCase):
         self.onboarding_apply_changes_from_snapshot_json_file = (
             "tests/resources/onboarding_applychanges_from_snapshot.json"
         )
+        self.onboarding_silver_apply_changes_from_snapshot_json_file = (
+            "tests/resources/onboarding_silver_acfs.json"
+        )
         self.onboarding_apply_changes_from_snapshot_json__error_file = (
             "tests/resources/onboarding_applychanges_from_snapshot_error.json"
         )

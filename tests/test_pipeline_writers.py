@@ -58,7 +58,7 @@ class TestDLTSinkWriter(DLTFrameworkTestCase):
         )
         sink_writer = DLTSinkWriter(dlt_sink, "test_view")
         sink_writer.write_to_sink()
-        mock_create_sink.assert_called_once_with("test_sink", "kafka", {})
+        mock_create_sink.assert_called_once_with(name='test_sink', format='kafka', options={})
         mock_append_flow.assert_called_once()
 
     @patch('dlt.create_sink', new_callable=MagicMock)

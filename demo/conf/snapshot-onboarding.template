@@ -1,28 +1,38 @@
 [
-    {
-        "data_flow_id": "201",
-        "data_flow_group": "A1",
-        "source_system": "delta",
-        "source_format": "snapshot",
-        "source_details": {
-           "source_path_demo": "{uc_volume_path}/demo/resources/data/snapshots/products/LOAD_",
-           "snapshot_format": "csv"
-        },
-         "bronze_reader_options": {
-            "header": "true"
-         },
-        "bronze_catalog_demo": "{uc_catalog_name}",        
-        "bronze_database_demo": "{bronze_schema}",
-        "bronze_table": "products",
-        "bronze_apply_changes_from_snapshot": {
-         "keys": [
-            "product_id"
-         ],
-         "scd_type": "2"
-      }        
-     },
      {
-        "data_flow_id": "202",
+
+   "data_flow_id": "201",
+   "data_flow_group": "A1",
+   "source_system": "delta",
+   "source_format": "snapshot",
+   "source_details": {
+      "snapshot_format": "delta",
+      "source_catalog_demo": "{uc_catalog_name}",
+      "source_table": "source_products_delta",
+      "source_database":"{source_database}"
+   },      
+   "bronze_database_demo": "{uc_catalog_name}.{bronze_schema}",
+   "bronze_table": "products",
+   "bronze_apply_changes_from_snapshot": {
+   "keys": [
+      "product_id"
+   ],
+   "scd_type": "2"
+   },
+   "silver_catalog_demo": "{uc_catalog_name}",
+   "silver_database_demo": "{silver_schema}",
+   "silver_table": "products",
+   "silver_table_comment": "products silver table",
+   "silver_apply_changes_from_snapshot":{
+       "keys": [
+         "product_id"
+      ],
+      "scd_type": "2"
+   },   
+   "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/silver_transformations_snapshot.json"
+},
+{
+         "data_flow_id": "202",
         "data_flow_group": "A1",
         "source_system": "delta",
         "source_format": "snapshot",
@@ -32,15 +42,24 @@
         },
          "bronze_reader_options": {
             "header": "true"
-         },
-        "bronze_catalog_demo": "{uc_catalog_name}",          
-        "bronze_database_demo": "{bronze_schema}",
+         },          
+        "bronze_database_demo": "{uc_catalog_name}.{bronze_schema}",
         "bronze_table": "stores",
         "bronze_apply_changes_from_snapshot": {
          "keys": [
             "store_id"
          ],
          "scd_type": "1"
-      }
-     }
+      },
+   "silver_catalog_demo": "{uc_catalog_name}",
+   "silver_database_demo": "{silver_schema}",
+   "silver_table": "stores",
+   "silver_apply_changes_from_snapshot":{
+       "keys": [
+         "store_id"
+      ],
+      "scd_type": "1"
+   },
+   "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/silver_transformations_snapshot.json"
+}
   ]

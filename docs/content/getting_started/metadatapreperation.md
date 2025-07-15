@@ -64,6 +64,7 @@ The `onboarding.json` file contains links to [silver_transformations.json](https
 | silver_transformation_json | Silver table sql transformation json path |
 | silver_data_quality_expectations_json_{env} | Silver table data quality expectations json file path
 | silver_append_flows | Silver table append flows json. e.g.`"silver_append_flows":[{"name":"customer_bronze_flow", 
+| silver_apply_changes_from_snapshot | Silver apply changes from snapshot Json e.g. Mandatory fields: keys=["userId"], scd_type=`1` or `2` optional fields: track_history_column_list=`[col1]`, track_history_except_column_list=`[col2]` | 
 "create_streaming_table": false,"source_format": "cloudFiles", "source_details": {"source_database": "APP","source_table":"CUSTOMERS", "source_path_dev": "tests/resources/data/customers", "source_schema_path": "tests/resources/schema/customer_schema.ddl"},"reader_options": {"cloudFiles.format": "json","cloudFiles.inferColumnTypes": "true","cloudFiles.rescuedDataColumn": "_rescued_data"},"once": true}]`|
 
 

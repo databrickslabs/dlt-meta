@@ -4,11 +4,12 @@ from setuptools import setup, find_packages
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-INSTALL_REQUIRES = ["setuptools", "databricks-sdk"]
+INSTALL_REQUIRES = ["setuptools", "databricks-sdk", "pyspark==3.5.5"]
 
 DEV_REQUIREMENTS = [
     "flake8==6.0",
-    "delta-spark==3.2.1"
+    "delta-spark==3.2.1",
+    "pyspark==3.5.5"
 ]
 
 IT_REQUIREMENTS = ["typer[all]==0.6.1"]
