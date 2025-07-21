@@ -1164,7 +1164,6 @@ class OnboardDataflowspec:
                 silver_quarantine_target_details, silver_quarantine_table_properties = self.__get_quarantine_details(
                     env, "silver", onboarding_row
                 )
-            
             append_flows, append_flow_schemas = self.get_append_flows_json(
                 onboarding_row, layer="silver", env=env
             )
