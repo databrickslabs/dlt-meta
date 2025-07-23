@@ -62,6 +62,8 @@ class SilverDataflowSpec:
     cdcApplyChanges: str
     applyChangesFromSnapshot: str
     dataQualityExpectations: str
+    quarantineTargetDetails: map
+    quarantineTableProperties: map
     appendFlows: str
     appendFlowsSchemas: map
     version: str
