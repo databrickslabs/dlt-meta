@@ -64,6 +64,7 @@ class SilverDataflowSpec:
     dataQualityExpectations: str
     quarantineTargetDetails: map
     quarantineTableProperties: map
+    quarantineClusterBy: list
     appendFlows: str
     appendFlowsSchemas: map
     version: str
