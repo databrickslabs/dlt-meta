@@ -191,6 +191,9 @@ class DataflowSpecUtils:
     ]
     additional_silver_df_columns = [
         "dataQualityExpectations",
+        "quarantineTargetDetails",
+        "quarantineTableProperties",
+        "quarantineClusterBy",
         "appendFlows",
         "appendFlowsSchemas",
         "clusterBy",
