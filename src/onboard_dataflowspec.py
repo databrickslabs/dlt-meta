@@ -682,7 +682,7 @@ class OnboardDataflowspec:
         quarantine_table_cluster_by = None
         if (
             f"{layer}_quarantine_table_partitions" in onboarding_row
-            and onboarding_row["bronze_quarantine_table_partitions"]
+            and onboarding_row[f"{layer}_quarantine_table_partitions"]
         ):
             # Split if this is a list separated by commas
             if "," in onboarding_row[f"{layer}_quarantine_table_partitions"]:
@@ -1011,6 +1011,7 @@ class OnboardDataflowspec:
             "dataQualityExpectations",
             "quarantineTargetDetails",
             "quarantineTableProperties",
+            "quarantineClusterBy",
             "appendFlows",
             "appendFlowsSchemas",
             "clusterBy",
@@ -1042,6 +1043,7 @@ class OnboardDataflowspec:
                 StructField("dataQualityExpectations", StringType(), True),
                 StructField("quarantineTargetDetails", MapType(StringType(), StringType(), True), True),
                 StructField("quarantineTableProperties", MapType(StringType(), StringType(), True), True),
+                StructField("quarantineClusterBy", ArrayType(StringType(), True), True),
                 StructField("appendFlows", StringType(), True),
                 StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True),
                 StructField("clusterBy", ArrayType(StringType(), True), True),
@@ -1153,6 +1155,7 @@ class OnboardDataflowspec:
             data_quality_expectations = None
             silver_quarantine_target_details = None
             silver_quarantine_table_properties = None
+            silver_quarantine_cluster_by = None
             if f"silver_data_quality_expectations_json_{env}" in onboarding_row:
                 silver_data_quality_expectations_json = onboarding_row[
                     f"silver_data_quality_expectations_json_{env}"
@@ -1163,6 +1166,11 @@ class OnboardDataflowspec:
                     )
                 silver_quarantine_target_details, silver_quarantine_table_properties = self.__get_quarantine_details(
                     env, "silver", onboarding_row
+                )
+                silver_quarantine_cluster_by = self.__get_cluster_by_properties(
+                    onboarding_row,
+                    silver_quarantine_table_properties,
+                    "silver_quarantine_cluster_by"
                 )
             append_flows, append_flow_schemas = self.get_append_flows_json(
                 onboarding_row, layer="silver", env=env
@@ -1191,6 +1199,7 @@ class OnboardDataflowspec:
                 data_quality_expectations,
                 silver_quarantine_target_details,
                 silver_quarantine_table_properties,
+                silver_quarantine_cluster_by,
                 append_flows,
                 append_flow_schemas,
                 silver_cluster_by,

@@ -277,7 +277,7 @@ class DataflowPipeline:
                 self._handle_append_flows()
                 return
         # Handle CDC apply changes (common to both)
-        if self.dataflowSpec.cdcApplyChanges:
+        if self.dataflowSpec.cdcApplyChanges and not self.dataflowSpec.dataQualityExpectations:
             self.cdc_apply_changes()
         else:
             # Write standard table
@@ -507,41 +507,41 @@ class DataflowPipeline:
                     dlt_table_with_expectation = dlt.expect_all_or_drop(expect_all_or_drop_dict)(
                         dlt_table_with_expectation)
             # Handle quarantine table (Bronze and Silver layers)
-            if expect_or_quarantine_dict:
-                q_partition_cols = None
-                q_cluster_by = None
-                quarantine_target_details = self._get_quarantine_target_details()
-                if quarantine_target_details.get("partition_columns"):
-                    q_partition_cols = [quarantine_target_details["partition_columns"]]
+        if expect_or_quarantine_dict:
+            q_partition_cols = None
+            q_cluster_by = None
+            quarantine_target_details = self._get_quarantine_target_details()
+            if quarantine_target_details.get("partition_columns"):
+                q_partition_cols = [quarantine_target_details["partition_columns"]]
 
-                if quarantine_target_details.get("cluster_by"):
-                    q_cluster_by = DataflowSpecUtils.get_partition_cols(quarantine_target_details['cluster_by'])
+            if quarantine_target_details.get("cluster_by"):
+                q_cluster_by = DataflowSpecUtils.get_partition_cols(quarantine_target_details['cluster_by'])
 
-                quarantine_path = None if self.uc_enabled else quarantine_target_details.get("path")
-                quarantine_cl = quarantine_target_details.get('catalog', None)
-                quarantine_cl_name = f"{quarantine_cl}." if quarantine_cl is not None else ''
-                quarantine_db = quarantine_target_details.get('database', '')
-                quarantine_table_name = quarantine_target_details.get('table', '')
-                quarantine_table = (
-                    f"{quarantine_cl_name}{quarantine_db}.{quarantine_table_name}"
+            quarantine_path = None if self.uc_enabled else quarantine_target_details.get("path")
+            quarantine_cl = quarantine_target_details.get('catalog', None)
+            quarantine_cl_name = f"{quarantine_cl}." if quarantine_cl is not None else ''
+            quarantine_db = quarantine_target_details.get('database', '')
+            quarantine_table_name = quarantine_target_details.get('table', '')
+            quarantine_table = (
+                f"{quarantine_cl_name}{quarantine_db}.{quarantine_table_name}"
+            )
+            layer_name = "bronze" if is_bronze else "silver"
+            quarantine_comment = (
+                quarantine_target_details.get('comment')
+                if 'comment' in quarantine_target_details
+                else f"{layer_name} dlt quarantine table {quarantine_table}"
+            )
+            dlt.expect_all_or_drop(expect_or_quarantine_dict)(
+                dlt.table(
+                    self.write_to_delta,
+                    name=f"{quarantine_table_name}",
+                    table_properties=self.dataflowSpec.quarantineTableProperties,
+                    partition_cols=q_partition_cols,
+                    cluster_by=q_cluster_by,
+                    path=quarantine_path,
+                    comment=quarantine_comment,
                 )
-                layer_name = "bronze" if is_bronze else "silver"
-                quarantine_comment = (
-                    quarantine_target_details.get('comment')
-                    if 'comment' in quarantine_target_details
-                    else f"{layer_name} dlt quarantine table {quarantine_table}"
-                )
-                dlt.expect_all_or_drop(expect_or_quarantine_dict)(
-                    dlt.table(
-                        self.write_to_delta,
-                        name=f"{quarantine_table_name}",
-                        table_properties=self.dataflowSpec.quarantineTableProperties,
-                        partition_cols=q_partition_cols,
-                        cluster_by=q_cluster_by,
-                        path=quarantine_path,
-                        comment=quarantine_comment,
-                    )
-                )
+            )
 
     def write_append_flows(self):
         """Creates an append flow for the target specified in the dataflowSpec.
