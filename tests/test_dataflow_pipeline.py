@@ -149,6 +149,9 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
                 "valid_operation": "operation IN ('APPEND', 'DELETE', 'UPDATE')"
             }
         }""",
+        "quarantineTargetDetails": {},
+        "quarantineTableProperties": {},
+        "quarantineClusterBy": [""],
         "appendFlows": [],
         "appendFlowsSchemas": {},
         "sinks": {},
@@ -193,6 +196,9 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
                 "valid_operation": "operation IN ('APPEND', 'DELETE', 'UPDATE')"
             }
         }""",
+        "quarantineTargetDetails": {},
+        "quarantineTableProperties": {},
+        "quarantineClusterBy": [""],
         "appendFlows": [],
         "appendFlowsSchemas": {},
         "sinks": {},
@@ -445,9 +451,9 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         silver_df = dlt_data_flow.read_silver()
         self.assertIsNotNone(silver_df)
 
-    @patch.object(DataflowPipeline, "write_bronze_with_dqe", return_value={"called"})
+    @patch.object(DataflowPipeline, "write_layer_with_dqe", return_value={"called"})
     @patch.object(dlt, "expect_all_or_drop", return_value={"called"})
-    def test_broze_write_dqe(self, expect_all_or_drop, write_bronze_with_dqe):
+    def test_broze_write_dqe(self, expect_all_or_drop, write_layer_with_dqe):
         bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
         dlt_data_flow = DataflowPipeline(
             self.spark,
@@ -456,7 +462,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             f"{bronze_dataflow_spec.targetDetails['table']}_inputQView",
         )
         dlt_data_flow.write_bronze()
-        assert write_bronze_with_dqe.called
+        assert write_layer_with_dqe.called
 
     @patch.object(DataflowPipeline, "cdc_apply_changes", return_value={"called"})
     @patch.object(dlt, "expect_all_or_drop", return_value={"called"})
@@ -1287,8 +1293,8 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         pipeline.write_bronze()
         assert mock_apply_changes_from_snapshot.called
 
-    @patch.object(DataflowPipeline, 'write_bronze_with_dqe', return_value=None)
-    def test_write_bronze_with_dqe(self, mock_write_bronze_with_dqe):
+    @patch.object(DataflowPipeline, 'write_layer_with_dqe', return_value=None)
+    def test_write_bronze_with_dqe(self, mock_write_layer_with_dqe):
         """Test write_bronze with data quality expectations."""
         bronze_dataflow_spec = BronzeDataflowSpec(**self.bronze_dataflow_spec_map)
         bronze_dataflow_spec.dataQualityExpectations = json.dumps({
@@ -1301,7 +1307,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputview"
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
         pipeline.write_bronze()
-        assert mock_write_bronze_with_dqe.called
+        assert mock_write_layer_with_dqe.called
 
     @patch.object(DataflowPipeline, 'cdc_apply_changes', return_value=None)
     def test_write_bronze_cdc_apply_changes(self, mock_cdc_apply_changes):
