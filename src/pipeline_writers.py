@@ -42,16 +42,19 @@ class AppendFlowWriter:
                 expect_all_or_drop=None,
                 expect_all_or_fail=None,
             )
-        if self.append_flow.comment:
-            comment = self.append_flow.comment
-        else:
-            comment = f"append_flow={self.append_flow.name} for target={self.target}"
-        dlt.append_flow(name=self.append_flow.name,
-                        target=self.target,
-                        comment=comment,
-                        spark_conf=self.append_flow.spark_conf,
-                        once=self.append_flow.once,
-                        )(self.read_af_view)
+        comment = (
+            self.append_flow.comment
+            if self.append_flow.comment
+            else f"append_flow={self.append_flow.name} for target={self.target}"
+        )
+        spark_conf = self.append_flow.spark_conf if self.append_flow.spark_conf else {}
+        dlt.append_flow(
+            name=self.append_flow.name,
+            target=self.target,
+            comment=comment,
+            spark_conf=spark_conf,
+            once=self.append_flow.once
+        )(self.read_af_view)
 
 
 class DLTSinkWriter:
@@ -73,5 +76,13 @@ class DLTSinkWriter:
 
     def write_to_sink(self):
         """Write to Sink."""
-        dlt.create_sink(self.dlt_sink.name, self.dlt_sink.format, self.dlt_sink.options)
-        dlt.append_flow(name=f"{self.dlt_sink.name}_flow", target=self.dlt_sink.name)(self.read_input_view)
+        dlt.create_sink(
+            name=self.dlt_sink.name,
+            format=self.dlt_sink.format,
+            options=self.dlt_sink.options
+        )
+        dlt.append_flow(
+            name=f"{self.dlt_sink.name}_flow",
+            target=self.dlt_sink.name,
+            comment=f"Sink flow for {self.dlt_sink.name}"
+        )(self.read_input_view)

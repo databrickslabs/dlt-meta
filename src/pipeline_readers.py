@@ -86,25 +86,19 @@ class PipelineReaders:
         """
         logger.info("In read_dlt_cloud_files func")
 
-        if self.reader_config_options and len(self.reader_config_options) > 0:
+        source_cl = self.source_details.get('source_catalog', None)
+        source_cl_name = f"{source_cl}." if source_cl is not None else ''
+        table_path = f"{source_cl_name}{self.source_details['source_database']}.{self.source_details['source_table']}"
 
-            source_cl = self.source_details.get('source_catalog', None)
-            source_cl_name = f"{source_cl}." if source_cl is not None else ''
-            return (
-                self.spark.readStream.options(**self.reader_config_options).table(
-                    f"""{source_cl_name}{self.source_details["source_database"]}
-                        .{self.source_details["source_table"]}"""
-                )
-            )
+        if self.source_format == "snapshot":
+            reader = self.spark.read
         else:
-            source_cl = self.source_details.get('source_catalog', None)
-            source_cl_name = f"{source_cl}." if source_cl is not None else ''
-            return (
-                self.spark.readStream.table(
-                    f"""{source_cl_name}{self.source_details["source_database"]}
-                        .{self.source_details["source_table"]}"""
-                )
-            )
+            reader = self.spark.readStream
+
+        if self.reader_config_options:
+            return reader.options(**self.reader_config_options).table(table_path)
+        else:
+            return reader.table(table_path)
 
     def get_db_utils(self):
         """Get databricks utils using DBUtils package."""

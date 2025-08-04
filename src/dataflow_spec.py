@@ -60,7 +60,11 @@ class SilverDataflowSpec:
     whereClause: list
     partitionColumns: list
     cdcApplyChanges: str
+    applyChangesFromSnapshot: str
     dataQualityExpectations: str
+    quarantineTargetDetails: map
+    quarantineTableProperties: map
+    quarantineClusterBy: list
     appendFlows: str
     appendFlowsSchemas: map
     version: str
@@ -187,6 +191,9 @@ class DataflowSpecUtils:
     ]
     additional_silver_df_columns = [
         "dataQualityExpectations",
+        "quarantineTargetDetails",
+        "quarantineTableProperties",
+        "quarantineClusterBy",
         "appendFlows",
         "appendFlowsSchemas",
         "clusterBy",

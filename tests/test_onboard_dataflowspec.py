@@ -93,7 +93,6 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
 
-
     def read_dataflowspec(self, database, table):
         return self.spark.read.table(f"{database}.{table}")
 
@@ -476,6 +475,21 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         with self.assertRaises(Exception):
             onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
 
+    def test_onboard_silver_apply_changes_from_snapshot_positive(self):
+        """Test for onboardDataflowspec."""
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        onboarding_params_map['env'] = 'dev'
+        onboarding_params_map["onboarding_file_path"] = self.onboarding_silver_apply_changes_from_snapshot_json_file
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map, uc_enabled=True)
+        onboardDataFlowSpecs.onboard_dataflow_specs()
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
+        self.assertEqual(bronze_dataflowSpec_df.count(), 3)
+        bronze_dataflowSpec_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
+        self.assertEqual(bronze_dataflowSpec_df.count(), 3)
 
     def test_get_quarantine_details_with_partitions_and_properties(self):
         """Test get_quarantine_details with partitions and properties."""
@@ -491,7 +505,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
         quarantine_target_details, quarantine_table_properties = (
             onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
-                "it", onboarding_row)
+                "it", "bronze", onboarding_row)
         )
         self.assertEqual(quarantine_target_details["database"], "quarantine_db")
         self.assertEqual(quarantine_target_details["table"], "quarantine_table")
@@ -509,7 +523,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
         quarantine_target_details, quarantine_table_properties = (
             onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
-                "it", onboarding_row
+                "it", "bronze", onboarding_row
             )
         )
         self.assertEqual(quarantine_target_details["path"], "quarantine_path")
@@ -529,7 +543,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         )
         quarantine_target_details, quarantine_table_properties = (
             onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
-                "it", onboarding_row
+                "it", "bronze", onboarding_row
             )
         )
         self.assertEqual(quarantine_target_details["database"], "quarantine_db")
@@ -551,7 +565,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
         quarantine_target_details, quarantine_table_properties = (
             onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
-                "it", onboarding_row)
+                "it", "bronze", onboarding_row)
         )
         self.assertEqual(quarantine_target_details["database"], "quarantine_db")
         self.assertEqual(quarantine_target_details["table"], "quarantine_table")
@@ -573,7 +587,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
 
         with self.assertRaises(Exception) as context:
             onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
-                "it", onboarding_row)
+                "it", "bronze", onboarding_row)
         print(str(context.exception))
         self.assertEqual(str(context.exception),
                          "Can not support zOrder and cluster_by together at bronze_quarantine_table_cluster_by")
