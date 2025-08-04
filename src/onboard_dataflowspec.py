@@ -409,7 +409,7 @@ class OnboardDataflowspec:
 
     def __get_onboarding_file_dataframe(self, onboarding_file_path):
         onboarding_df = None
-        if onboarding_file_path.lower().endswith(".yml"):
+        if onboarding_file_path.lower().endswith((".yml", ".yaml")):
             onboarding_file_path = self.convert_yml_to_json(onboarding_file_path)
         if onboarding_file_path.lower().endswith(".json"):
             onboarding_df = self.spark.read.option("multiline", "true").json(
