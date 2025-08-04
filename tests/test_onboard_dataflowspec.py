@@ -14,16 +14,13 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         """Test onboarding bronze dataflow spec from YAML file."""
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         onboarding_params_map["onboarding_file_path"] = "tests/resources/onboarding.yml"
-        
         onboard_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
         onboard_dfs.onboard_bronze_dataflow_spec()
-
         # Verify the onboarded data
         bronze_df = self.read_dataflowspec(
             onboarding_params_map["database"],
             onboarding_params_map["bronze_dataflowspec_table"]
         )
-
         # Check number of records matches YAML file
         self.assertEqual(bronze_df.count(), 3)  # Two dataflows in YAML
 

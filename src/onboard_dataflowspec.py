@@ -404,7 +404,6 @@ class OnboardDataflowspec:
 
         with open(onboarding_file_path, 'w') as json_file:
             json_file.write(json_data)
-        
         return onboarding_file_path
 
     def __get_onboarding_file_dataframe(self, onboarding_file_path):
