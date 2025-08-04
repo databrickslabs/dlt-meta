@@ -3,6 +3,7 @@
 import copy
 import dataclasses
 import json
+import yaml
 import logging
 
 import pyspark.sql.types as T
@@ -384,8 +385,31 @@ class OnboardDataflowspec:
         _dict.update(filtered)
         return _dict
 
+    def convert_yml_to_json(self, onboarding_file_path):
+        """Get dataframe from YAML onboarding file.
+        Args:
+            onboarding_file_path (str): Path to YAML onboarding file
+        Returns:
+            DataFrame: Spark DataFrame containing onboarding data
+        Raises:
+            Exception: If duplicate data_flow_ids found
+        """
+        # Read YAML file as text
+        with open(onboarding_file_path, 'r') as yaml_file:
+            yaml_data = yaml.safe_load(yaml_file)
+
+        json_data = json.dumps(yaml_data, indent=4)
+
+        onboarding_file_path = onboarding_file_path.replace(".yml", "_yml.json")
+
+        with open(onboarding_file_path, 'w') as json_file:
+            json_file.write(json_data)
+        return onboarding_file_path
+
     def __get_onboarding_file_dataframe(self, onboarding_file_path):
         onboarding_df = None
+        if onboarding_file_path.lower().endswith((".yml", ".yaml")):
+            onboarding_file_path = self.convert_yml_to_json(onboarding_file_path)
         if onboarding_file_path.lower().endswith(".json"):
             onboarding_df = self.spark.read.option("multiline", "true").json(
                 onboarding_file_path

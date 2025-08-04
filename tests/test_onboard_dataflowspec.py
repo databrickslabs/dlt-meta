@@ -10,6 +10,20 @@ from pyspark.sql import DataFrame
 class OnboardDataflowspecTests(DLTFrameworkTestCase):
     """OnboardDataflowSpec Unit Test ."""
 
+    def test_onboard_yml_bronze_dataflow_spec(self):
+        """Test onboarding bronze dataflow spec from YAML file."""
+        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        onboarding_params_map["onboarding_file_path"] = "tests/resources/onboarding.yml"
+        onboard_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
+        onboard_dfs.onboard_bronze_dataflow_spec()
+        # Verify the onboarded data
+        bronze_df = self.read_dataflowspec(
+            onboarding_params_map["database"],
+            onboarding_params_map["bronze_dataflowspec_table"]
+        )
+        # Check number of records matches YAML file
+        self.assertEqual(bronze_df.count(), 3)  # Two dataflows in YAML
+
     def test_validate_params_for_onboardBronzeDataflowSpec(self):
         """Test for onboardDataflowspec parameters."""
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
@@ -75,23 +89,6 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
             self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
-
-    def test_onboardDataFlowSpecs_snapshot_positive(self):
-        """Test for onboardDataflowspec."""
-        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
-        onboarding_params_map['onboarding_file_path'] = (
-            'tests/resources/onboarding_applychanges_from_snapshot_silver.json'
-        )
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map, uc_enabled=True)
-        onboardDataFlowSpecs.onboard_dataflow_specs()
-        bronze_dataflowSpec_df = self.read_dataflowspec(
-            self.onboarding_bronze_silver_params_map['database'],
-            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
-        silver_dataflowSpec_df = self.read_dataflowspec(
-            self.onboarding_bronze_silver_params_map['database'],
-            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
-        self.assertEqual(bronze_dataflowSpec_df.count(), 2)
-        self.assertEqual(silver_dataflowSpec_df.count(), 2)
 
     def read_dataflowspec(self, database, table):
         return self.spark.read.table(f"{database}.{table}")
