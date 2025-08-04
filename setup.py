@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-INSTALL_REQUIRES = ["setuptools", "databricks-sdk"]
+INSTALL_REQUIRES = ["setuptools", "databricks-sdk", "PyYAML>=6.0"]
 
 DEV_REQUIREMENTS = [
     "flake8==6.0",
