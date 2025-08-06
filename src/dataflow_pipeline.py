@@ -1,4 +1,4 @@
-"""DataflowPipeline provide generic DLT code using dataflowspec."""
+"""DataflowPipeline provide generic code using dataflowspec."""
 import json
 import logging
 from typing import Callable, Optional
@@ -16,7 +16,7 @@ logger.setLevel(logging.INFO)
 
 
 class DataflowPipeline:
-    """This class uses dataflowSpec to launch DLT.
+    """This class uses dataflowSpec to launch Lakeflow Declarative Pipelines.
 
     Raises:
         Exception: "Dataflow not supported!"
@@ -358,8 +358,8 @@ class DataflowPipeline:
         if where_clause:
             where_clause_str = " ".join(where_clause)
             if len(where_clause_str.strip()) > 0:
-                for where_clause in where_clause:
-                    raw_delta_table_stream = raw_delta_table_stream.where(where_clause)
+                for clause in where_clause:
+                    raw_delta_table_stream = raw_delta_table_stream.where(clause)
         return raw_delta_table_stream
 
     def read_silver(self) -> DataFrame:

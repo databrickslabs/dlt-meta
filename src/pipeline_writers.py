@@ -1,10 +1,10 @@
 
 """
-This module contains classes for writing data to Delta Live Tables (DLT) and other sinks.
+This module contains classes for writing data to Lakeflow Declarative Pipelines  and other sinks.
 
 Classes:
-    AppendFlowWriter: A class for writing append flows to Delta Live Tables.
-    DLTSinkWriter: A class for writing data to various sinks using Delta Live Tables.
+    AppendFlowWriter: A class for writing append flows to Lakeflow Declarative Pipelines.
+    DLTSinkWriter: A class for writing data to various sinks using Lakeflow Declarative Pipelines.
 
 """
 from src.dataflow_spec import DataflowSpecUtils, DLTSink

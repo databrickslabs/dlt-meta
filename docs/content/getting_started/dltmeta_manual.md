@@ -114,11 +114,11 @@ OnboardDataflowspec(spark, onboarding_params_map, uc_enabled=True).onboard_dataf
 
 ## Dataflow DLT Pipeline: 
 
-### Delta Live Tables launch notebook
+### Lakeflow Declarative Pipelines launch notebook
 
 1. Go to your Databricks landing page and select Create a notebook, or click New Icon New in the sidebar and select Notebook. The Create Notebook dialog appears.
 
-2. In the Create Notebook dialogue, give your notebook a name e.g ```dlt_meta_pipeline``` and select Python from the Default Language dropdown menu. You can leave Cluster set to the default value. The Delta Live Tables runtime creates a cluster before it runs your pipeline.
+2. In the Create Notebook dialogue, give your notebook a name e.g ```dlt_meta_pipeline``` and select Python from the Default Language dropdown menu. You can leave Cluster set to the default value. The Lakeflow Declarative Pipelines runtime creates a cluster before it runs your pipeline.
 
 3. Click Create.
 
@@ -133,7 +133,7 @@ OnboardDataflowspec(spark, onboarding_params_map, uc_enabled=True).onboard_dataf
     ```
 ### Create Bronze DLT pipeline
 
-1. Click Jobs Icon Workflows in the sidebar, click the Delta Live Tables tab, and click Create Pipeline.
+1. Click Jobs Icon Workflows in the sidebar, click the Lakeflow Declarative Pipelines tab, and click Create Pipeline.
 
 2. Give the pipeline a name e.g. DLT_META_BRONZE and click File Picker Icon to select a notebook ```dlt_meta_pipeline``` created in step: ```Create a dlt launch notebook```.
 
@@ -156,7 +156,7 @@ OnboardDataflowspec(spark, onboarding_params_map, uc_enabled=True).onboard_dataf
 
 ### Create Silver DLT pipeline
 
-1. Click Jobs Icon Workflows in the sidebar, click the Delta Live Tables tab, and click Create Pipeline.
+1. Click Jobs Icon Workflows in the sidebar, click the Lakeflow Declarative Pipelines tab, and click Create Pipeline.
 
 2. Give the pipeline a name e.g. DLT_META_SILVER and click File Picker Icon to select a notebook ```dlt_meta_pipeline``` created in step: ```Create a dlt launch notebook```.
 

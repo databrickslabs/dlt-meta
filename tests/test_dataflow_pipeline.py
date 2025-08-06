@@ -1364,3 +1364,365 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         )
         schema = dlt_data_flow.get_silver_schema()
         self.assertIsNotNone(schema)
+
+    def test_safe_dict_access_with_none(self):
+        """Test _safe_dict_access with None input."""
+        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        # Test with None dict_obj
+        result = pipeline._safe_dict_access(None, "test_key", "default_value")
+        self.assertEqual(result, "default_value")
+
+        # Test with None dict_obj and no default
+        result = pipeline._safe_dict_access(None, "test_key")
+        self.assertIsNone(result)
+
+    def test_safe_dict_access_with_valid_dict(self):
+        """Test _safe_dict_access with valid dictionary."""
+        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        test_dict = {"key1": "value1", "key2": "value2"}
+
+        # Test with existing key
+        result = pipeline._safe_dict_access(test_dict, "key1")
+        self.assertEqual(result, "value1")
+
+        # Test with non-existing key and default
+        result = pipeline._safe_dict_access(test_dict, "non_existing", "default")
+        self.assertEqual(result, "default")
+
+    def test_safe_dict_get_item_with_none(self):
+        """Test _safe_dict_get_item with None input."""
+        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        # Test with None dict_obj - should raise KeyError
+        with self.assertRaises(KeyError) as context:
+            pipeline._safe_dict_get_item(None, "test_key")
+        self.assertIn("Dictionary is None, cannot access key: test_key", str(context.exception))
+
+    def test_safe_dict_get_item_with_valid_dict(self):
+        """Test _safe_dict_get_item with valid dictionary."""
+        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        test_dict = {"key1": "value1", "key2": "value2"}
+
+        # Test with existing key
+        result = pipeline._safe_dict_get_item(test_dict, "key1")
+        self.assertEqual(result, "value1")
+
+    def test_get_dict_as_dict_with_none(self):
+        """Test _get_dict_as_dict with None input."""
+        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        # Test with None - should return empty dict
+        result = pipeline._get_dict_as_dict(None)
+        self.assertEqual(result, {})
+
+    def test_get_dict_as_dict_with_valid_dict(self):
+        """Test _get_dict_as_dict with valid dictionary."""
+        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        test_dict = {"key1": "value1", "key2": "value2"}
+        result = pipeline._get_dict_as_dict(test_dict)
+        self.assertEqual(result, test_dict)
+
+    def test_dataflow_pipeline_unsupported_dataflow_spec(self):
+        """Test DataflowPipeline constructor with unsupported dataflow spec."""
+        # Test with invalid dataflow spec type - should raise exception
+        with self.assertRaises(Exception) as context:
+            DataflowPipeline(self.spark, "invalid_spec", "test_view")
+        self.assertEqual(str(context.exception), "Dataflow not supported!")
+
+    def test_apply_custom_transform_fun_with_none(self):
+        """Test apply_custom_transform_fun with no custom function."""
+        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        # Create a mock DataFrame
+        mock_df = MagicMock()
+
+        # Test with no custom transform function
+        result = pipeline.apply_custom_transform_fun(mock_df)
+        self.assertEqual(result, mock_df)
+
+    def test_apply_custom_transform_fun_with_function(self):
+        """Test apply_custom_transform_fun with custom function."""
+        def custom_transform(df, spec):
+            # Mock transformation
+            return df
+
+        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view", None, custom_transform)
+
+        # Create a mock DataFrame
+        mock_df = MagicMock()
+        mock_df.show = MagicMock()
+
+        # Test with custom transform function
+        result = pipeline.apply_custom_transform_fun(mock_df)
+        self.assertEqual(result, mock_df)
+        mock_df.show.assert_called_once_with(5)
+
+    def test_quarantine_target_details_with_no_attribute(self):
+        """Test _get_quarantine_target_details when attribute doesn't exist."""
+        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        # Remove the quarantineTargetDetails attribute if it exists
+        if hasattr(pipeline.dataflowSpec, 'quarantineTargetDetails'):
+            delattr(pipeline.dataflowSpec, 'quarantineTargetDetails')
+
+        result = pipeline._get_quarantine_target_details()
+        self.assertEqual(result, {})
+
+    def test_silver_dataflow_with_schema_none(self):
+        """Test SilverDataflowSpec initialization with None schema."""
+        silver_spec_map = copy.deepcopy(DataflowPipelineTests.silver_dataflow_spec_map)
+        silver_dataflow_spec = SilverDataflowSpec(**silver_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, "test_view")
+
+        # For SilverDataflowSpec, schema_json should always be None
+        self.assertIsNone(pipeline.schema_json)
+
+    def test_bronze_dataflow_with_none_schema(self):
+        """Test BronzeDataflowSpec initialization with None schema."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_spec_map["schema"] = None
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        # For BronzeDataflowSpec with None schema, schema_json should be None
+        self.assertIsNone(pipeline.schema_json)
+
+    def test_snapshot_source_format_handling(self):
+        """Test snapshot source format handling."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+
+        # Test without snapshot_format
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+        self.assertIsNone(pipeline.snapshot_source_format)
+
+        # Test with snapshot_format
+        bronze_spec_map["sourceDetails"] = {"snapshot_format": "delta"}
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+        self.assertEqual(pipeline.snapshot_source_format, "delta")
+
+    def test_unsupported_source_format_exception(self):
+        """Test exception for unsupported source format."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_spec_map["sourceFormat"] = "unsupported_format"
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        with self.assertRaises(Exception) as context:
+            pipeline.read_bronze()
+        self.assertIn("unsupported_format source format not supported", str(context.exception))
+
+    def test_read_exception_for_unsupported_dataflow(self):
+        """Test read method exception for unsupported dataflow without next_snapshot_and_version."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        # Mock is_create_view to return False
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+        pipeline.is_create_view = MagicMock(return_value=False)
+        pipeline.next_snapshot_and_version = None
+
+        with self.assertRaises(Exception) as context:
+            pipeline.read()
+        self.assertIn("Dataflow read not supported", str(context.exception))
+
+    def test_snapshot_format_exception_without_reader_function(self):
+        """Test exception when snapshot format is used without reader function."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_spec_map["sourceFormat"] = "snapshot"
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+        pipeline.next_snapshot_and_version = None
+
+        with self.assertRaises(Exception) as context:
+            pipeline.run_dlt()
+        self.assertEqual(str(context.exception), "Snapshot reader function not provided!")
+
+    @patch('dlt.view')
+    def test_is_create_view_with_delta_snapshot_format(self, mock_dlt_view):
+        """Test is_create_view with delta snapshot format."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_spec_map["sourceDetails"] = {"snapshot_format": "delta"}
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        # Should return True for delta snapshot format
+        result = pipeline.is_create_view()
+        self.assertTrue(result)
+        self.assertTrue(pipeline.next_snapshot_and_version_from_source_view)
+
+    def test_is_create_view_with_next_snapshot_and_version(self):
+        """Test is_create_view when next_snapshot_and_version is provided."""
+        def mock_next_snapshot():
+            return {}
+
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view", None, None, mock_next_snapshot)
+
+        # Should return False when next_snapshot_and_version is provided
+        result = pipeline.is_create_view()
+        self.assertFalse(result)
+
+    def test_apply_where_clause_empty(self):
+        """Test __apply_where_clause with empty where clause."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        mock_stream = MagicMock()
+
+        # Test with None where clause
+        result = pipeline._DataflowPipeline__apply_where_clause(None, mock_stream)
+        self.assertEqual(result, mock_stream)
+
+        # Test with empty list
+        result = pipeline._DataflowPipeline__apply_where_clause([], mock_stream)
+        self.assertEqual(result, mock_stream)
+
+        # Test with empty string clause
+        result = pipeline._DataflowPipeline__apply_where_clause(["   "], mock_stream)
+        self.assertEqual(result, mock_stream)
+
+    def test_apply_where_clause_with_conditions(self):
+        """Test __apply_where_clause with actual conditions."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        # Create a chain of mocks that return each other
+        mock_stream = MagicMock()
+        mock_stream2 = MagicMock()
+        mock_stream.where.return_value = mock_stream2
+        mock_stream2.where.return_value = mock_stream2
+
+        where_clauses = ["id > 0", "name IS NOT NULL"]
+
+        result = pipeline._DataflowPipeline__apply_where_clause(where_clauses, mock_stream)
+
+        # Should call where() on the first mock and then on the returned mock
+        mock_stream.where.assert_called_once_with("id > 0")
+        mock_stream2.where.assert_called_once_with("name IS NOT NULL")
+        self.assertEqual(result, mock_stream2)
+
+    def test_build_table_name_with_catalog(self):
+        """Test _build_table_name with catalog."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        result = pipeline._build_table_name("my_catalog", "my_database", "my_table")
+        self.assertEqual(result, "my_catalog.my_database.my_table")
+
+    def test_build_table_name_without_catalog(self):
+        """Test _build_table_name without catalog."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        result = pipeline._build_table_name(None, "my_database", "my_table")
+        self.assertEqual(result, "my_database.my_table")
+
+        result = pipeline._build_table_name("", "my_database", "my_table")
+        self.assertEqual(result, "my_database.my_table")
+
+    @patch('pyspark.sql.SparkSession.readStream', new_callable=MagicMock)
+    def test_create_dataframe_reader_streaming(self, mock_read_stream_property):
+        """Test _create_dataframe_reader for streaming."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        # Configure the mock - the property returns a reader that has options method
+        mock_reader_with_options = MagicMock()
+        mock_read_stream_property.options.return_value = mock_reader_with_options
+
+        # Test with no options - should return the readStream property itself
+        result = pipeline._create_dataframe_reader(is_streaming=True, reader_options=None)
+        self.assertEqual(result, mock_read_stream_property)
+
+        # Test with options - should return result of options() call
+        options = {"option1": "value1"}
+        result = pipeline._create_dataframe_reader(is_streaming=True, reader_options=options)
+        mock_read_stream_property.options.assert_called_with(**options)
+        self.assertEqual(result, mock_reader_with_options)
+
+    @patch('pyspark.sql.SparkSession.read', new_callable=MagicMock)
+    def test_create_dataframe_reader_batch(self, mock_read_property):
+        """Test _create_dataframe_reader for batch."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        # Configure the mock - the property returns a reader that has options method
+        mock_reader_with_options = MagicMock()
+        mock_read_property.options.return_value = mock_reader_with_options
+
+        # Test batch reader with empty options (empty dict is falsy, so options() not called)
+        result = pipeline._create_dataframe_reader(is_streaming=False, reader_options={})
+        mock_read_property.options.assert_not_called()
+        self.assertEqual(result, mock_read_property)
+
+        # Test batch reader with actual options (should call options())
+        options = {"format": "parquet"}
+        result = pipeline._create_dataframe_reader(is_streaming=False, reader_options=options)
+        mock_read_property.options.assert_called_with(**options)
+        self.assertEqual(result, mock_reader_with_options)
+
+    def test_apply_transformations_with_none(self):
+        """Test _apply_transformations with None parameters."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        mock_df = MagicMock()
+
+        # Test with no transformations
+        result = pipeline._apply_transformations(mock_df, None, None)
+        self.assertEqual(result, mock_df)
+
+    def test_apply_transformations_with_select_and_where(self):
+        """Test _apply_transformations with select and where clauses."""
+        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
+
+        mock_df = MagicMock()
+        mock_df.selectExpr = MagicMock(return_value=mock_df)
+        mock_df.where = MagicMock(return_value=mock_df)
+
+        select_exp = ["col1", "col2"]
+        where_clause = ["id > 0"]
+
+        pipeline._apply_transformations(mock_df, select_exp, where_clause)
+
+        mock_df.selectExpr.assert_called_once_with(*select_exp)
+        mock_df.where.assert_called_once_with("id > 0")
