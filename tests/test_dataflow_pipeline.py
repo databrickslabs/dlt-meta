@@ -17,13 +17,21 @@ from src.dataflow_spec import DataflowSpecUtils  # noqa: E402
 from src.pipeline_readers import PipelineReaders  # noqa: E402
 
 dlt = MagicMock()
-dlt.expect_all_or_drop = MagicMock()
-dlt.apply_changes_from_snapshot = MagicMock()
+dlt.expect_all_or_drop = MagicMock(return_value=lambda func: func)
+dlt.expect_all_or_fail = MagicMock(return_value=lambda func: func)
+dlt.table = MagicMock(return_value=lambda func: func)
+dlt.create_auto_cdc_from_snapshot_flow = MagicMock()
+dlt.append_flow = MagicMock(return_value=lambda func: func)
+dlt.expect_all = MagicMock(return_value=lambda func: func)
 raw_delta_table_stream = MagicMock()
 
 dlt = MagicMock()
-dlt.expect_all_or_drop = MagicMock()
-dlt.apply_changes_from_snapshot = MagicMock()
+dlt.expect_all_or_drop = MagicMock(return_value=lambda func: func)
+dlt.expect_all_or_fail = MagicMock(return_value=lambda func: func)
+dlt.table = MagicMock(return_value=lambda func: func)
+dlt.create_auto_cdc_from_snapshot_flow = MagicMock()
+dlt.append_flow = MagicMock(return_value=lambda func: func)
+dlt.expect_all = MagicMock(return_value=lambda func: func)
 raw_delta_table_stream = MagicMock()
 
 
@@ -717,10 +725,10 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
                                          mock_dlt_expect_all,
                                          mock_dlt_expect_all_or_fail,
                                          mock_dlt_expect_all_or_drop):
-        mock_dlt_table.return_value = None
-        mock_dlt_expect_all.return_value = None
-        mock_dlt_expect_all_or_fail.return_value = None
-        mock_dlt_expect_all_or_drop.return_value = None
+        mock_dlt_table.return_value = lambda func: func
+        mock_dlt_expect_all.return_value = lambda func: func
+        mock_dlt_expect_all_or_fail.return_value = lambda func: func
+        mock_dlt_expect_all_or_drop.return_value = lambda func: func
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         onboarding_params_map['onboarding_file_path'] = self.onboarding_type2_json_file
         del onboarding_params_map["silver_dataflowspec_table"]
@@ -766,16 +774,16 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
 
     @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
     @patch('dlt.create_streaming_live_table', new_callable=MagicMock)
-    @patch('dlt.apply_changes', new_callable=MagicMock)
+    @patch('dlt.create_auto_cdc_flow', new_callable=MagicMock)
     @patch.object(DataflowPipeline, 'get_silver_schema', new_callable=MagicMock)
     def test_dataflowpipeline_silver_cdc_apply_changes(self,
                                                        mock_create_streaming_table,
                                                        mock_create_streaming_live_table,
-                                                       mock_apply_changes,
+                                                       mock_create_auto_cdc_flow,
                                                        mock_get_silver_schema):
         mock_create_streaming_table.return_value = None
         mock_create_streaming_live_table.return_value = None
-        mock_apply_changes.apply_changes.return_value = None
+        mock_create_auto_cdc_flow.create_auto_cdc_flow.return_value = None
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         onboarding_params_map['onboarding_file_path'] = self.onboarding_type2_json_file
         del onboarding_params_map["bronze_dataflowspec_table"]
@@ -832,7 +840,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             expect_all_or_drop=expect_or_drop_dict,
             expect_all_or_fail=expect_or_fail_dict
         )
-        assert mock_apply_changes.called_once_with(
+        assert mock_create_auto_cdc_flow.called_once_with(
             name=f"{silver_dataflowSpec_df.targetDetails['table']}",
             source=view_name,
             keys=cdc_apply_changes.keys,
@@ -850,13 +858,13 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
 
     @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
     @patch('dlt.create_streaming_live_table', new_callable=MagicMock)
-    @patch('dlt.apply_changes', new_callable=MagicMock)
+    @patch('dlt.create_auto_cdc_flow', new_callable=MagicMock)
     def test_bronze_cdc_apply_changes(self,
                                       mock_create_streaming_table,
                                       mock_create_streaming_live_table,
-                                      mock_apply_changes):
+                                      mock_create_auto_cdc_flow):
         mock_create_streaming_table.return_value = None
-        mock_apply_changes.apply_changes.return_value = None
+        mock_create_auto_cdc_flow.create_auto_cdc_flow.return_value = None
         mock_create_streaming_live_table.return_value = None
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         onboarding_params_map['onboarding_file_path'] = self.onboarding_bronze_type2_json_file
@@ -892,7 +900,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             expect_all_or_drop=None,
             expect_all_or_fail=None
         )
-        assert mock_apply_changes.called_once_with(
+        assert mock_create_auto_cdc_flow.called_once_with(
             name=f"{bronze_dataflowSpec_df.targetDetails['table']}",
             source=view_name,
             keys=cdc_apply_changes.keys,
@@ -910,13 +918,13 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
 
     @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
     @patch('dlt.create_streaming_live_table', new_callable=MagicMock)
-    @patch('dlt.apply_changes', new_callable=MagicMock)
+    @patch('dlt.create_auto_cdc_flow', new_callable=MagicMock)
     def test_bronze_cdc_apply_changes_v7(self,
                                          mock_create_streaming_table,
                                          mock_create_streaming_live_table,
-                                         mock_apply_changes):
+                                         mock_create_auto_cdc_flow):
         mock_create_streaming_table.return_value = None
-        mock_apply_changes.apply_changes.return_value = None
+        mock_create_auto_cdc_flow.create_auto_cdc_flow.return_value = None
         mock_create_streaming_live_table.return_value = None
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         onboarding_params_map['onboarding_file_path'] = self.onboarding_json_v7_file
@@ -956,7 +964,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             expect_all_or_drop=None,
             expect_all_or_fail=None
         )
-        assert mock_apply_changes.called_once_with(
+        assert mock_create_auto_cdc_flow.called_once_with(
             name=f"{bronze_dataflowSpec_df.targetDetails['table']}",
             source=view_name,
             keys=cdc_apply_changes.keys,
@@ -987,7 +995,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         mock_create_streaming_table.return_value = None
         mock_write_to_delta.return_value = None
         mock_create_streaming_live_table.return_value = None
-        mock_append_flow.return_value = None
+        mock_append_flow.return_value = lambda func: func
         mock_read_stream.return_value = None
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         onboarding_params_map['onboarding_file_path'] = self.onboarding_append_flow_json_file
@@ -1170,8 +1178,8 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         self.assertEqual(modified_schema, None)
 
     @patch.object(dlt, 'create_streaming_table', return_value={"called"})
-    @patch.object(dlt, 'apply_changes_from_snapshot', return_value={"called"})
-    def test_apply_changes_from_snapshot(self, mock_apply_changes_from_snapshot, mock_create_streaming_table):
+    @patch.object(dlt, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
+    def test_apply_changes_from_snapshot(self, mock_create_auto_cdc_from_snapshot_flow, mock_create_streaming_table):
         """Test apply_changes_from_snapshot method."""
 
         def next_snapshot_and_version(latest_snapshot_version, dataflow_spec):
@@ -1186,7 +1194,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             return (snapshot, next_version)
 
         mock_create_streaming_table.return_value = None
-        mock_apply_changes_from_snapshot.return_value = None
+        mock_create_auto_cdc_from_snapshot_flow.return_value = None
         bronze_dataflow_spec = BronzeDataflowSpec(**self.bronze_dataflow_spec_acs_map)
         view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputview"
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name,
@@ -1195,9 +1203,9 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         dlt.called
 
     @patch.object(dlt, 'create_streaming_table', return_value={"called"})
-    @patch.object(dlt, 'apply_changes_from_snapshot', return_value={"called"})
+    @patch.object(dlt, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
     def test_apply_changes_from_snapshot_uc_enabled(self,
-                                                    mock_apply_changes_from_snapshot,
+                                                    mock_create_auto_cdc_from_snapshot_flow,
                                                     mock_create_streaming_table):
         """Test apply_changes_from_snapshot method with Unity Catalog enabled."""
         def next_snapshot_and_version(latest_snapshot_version, dataflow_spec):
@@ -1211,7 +1219,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             snapshot = self.spark.read.format(snapshot_format).options(**options).load(snapshot_path)
             return (snapshot, next_version)
         mock_create_streaming_table.return_value = None
-        mock_apply_changes_from_snapshot.return_value = None
+        mock_create_auto_cdc_from_snapshot_flow.return_value = None
         bronze_dataflow_spec = BronzeDataflowSpec(**self.bronze_dataflow_spec_acs_map)
         view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputview"
         self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
@@ -1221,12 +1229,12 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         dlt.called
 
     @patch.object(dlt, 'create_streaming_table', return_value={"called"})
-    @patch.object(dlt, 'apply_changes_from_snapshot', return_value={"called"})
+    @patch.object(dlt, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
     def test_silver_apply_changes_from_snapshot_uc_enabled(self,
-                                                           mock_apply_changes_from_snapshot,
+                                                           mock_create_auto_cdc_from_snapshot_flow,
                                                            mock_create_streaming_table):
         mock_create_streaming_table.return_value = None
-        mock_apply_changes_from_snapshot.return_value = None
+        mock_create_auto_cdc_from_snapshot_flow.return_value = None
         silver_dataflow_spec = SilverDataflowSpec(**self.silver_acfs_dataflow_spec_map)
         view_name = f"{silver_dataflow_spec.targetDetails['table']}_inputview"
         self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
@@ -1264,11 +1272,11 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         )
 
     @patch.object(dlt, 'create_streaming_table', return_value={"called"})
-    @patch.object(dlt, 'apply_changes_from_snapshot', return_value={"called"})
-    def test_read_unsupported_dataflow(self, mock_apply_changes_from_snapshot, mock_create_streaming_table):
+    @patch.object(dlt, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
+    def test_read_unsupported_dataflow(self, mock_create_auto_cdc_from_snapshot_flow, mock_create_streaming_table):
         """Test apply_changes_from_snapshot method."""
         mock_create_streaming_table.return_value = None
-        mock_apply_changes_from_snapshot.return_value = None
+        mock_create_auto_cdc_from_snapshot_flow.return_value = None
         bronze_dataflow_spec = BronzeDataflowSpec(**self.bronze_dataflow_spec_acs_map)
         view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputview"
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name)
@@ -1282,7 +1290,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         self.assertTrue("Dataflow read not supported" in str(context.exception))
 
     @patch.object(DataflowPipeline, 'apply_changes_from_snapshot', return_value=None)
-    def test_write_bronze_snapshot(self, mock_apply_changes_from_snapshot):
+    def test_write_bronze_snapshot(self, mock_create_auto_cdc_from_snapshot_flow):
         """Test write_bronze with snapshot source format."""
         bronze_dataflow_spec = BronzeDataflowSpec(**self.bronze_dataflow_spec_acs_map)
         bronze_dataflow_spec.sourceFormat = "snapshot"
@@ -1291,7 +1299,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             self.spark, bronze_dataflow_spec, view_name, None, next_snapshot_and_version=MagicMock()
         )
         pipeline.write_bronze()
-        assert mock_apply_changes_from_snapshot.called
+        assert mock_create_auto_cdc_from_snapshot_flow.called
 
     @patch.object(DataflowPipeline, 'write_layer_with_dqe', return_value=None)
     def test_write_bronze_with_dqe(self, mock_write_layer_with_dqe):

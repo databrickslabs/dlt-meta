@@ -439,7 +439,7 @@ class DataflowPipeline:
             else self.view_name
         )
 
-        dlt.apply_changes_from_snapshot(
+        dlt.create_auto_cdc_from_snapshot_flow(
             target=target_table,
             source=source,
             keys=self.applyChangesFromSnapshot.keys,
@@ -606,7 +606,7 @@ class DataflowPipeline:
         target_table = (
             f"{target_cl_name}{target_db_name}.{target_table_name}"
         )
-        dlt.apply_changes(
+        dlt.create_auto_cdc_flow(
             target=target_table,
             source=self.view_name,
             keys=cdc_apply_changes.keys,
