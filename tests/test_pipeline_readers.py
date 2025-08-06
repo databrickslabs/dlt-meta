@@ -727,7 +727,7 @@ class PipelineReadersTests(DLTFrameworkTestCase):
             "kafka.ssl.keystore.location": "tests/resources/kafka/keystore.jks",
             "kafka.ssl.keystore.secrets.scope": "kafka_scope",
             "kafka.ssl.keystore.secrets.key": "kafka_key"
-            
+
         })
         bronze_map['sourceDetails'] = source_details
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
