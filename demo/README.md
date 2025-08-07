@@ -1,21 +1,21 @@
  # [DLT-META](https://github.com/databrickslabs/dlt-meta) DEMOs
- 1. [DAIS 2023 DEMO](#dais-2023-demo): Showcases DLT-META's capabilities of creating Bronze and Silver DLT pipelines with initial and incremental mode automatically.
- 2. [Databricks Techsummit Demo](#databricks-tech-summit-fy2024-demo): 100s of data sources ingestion in bronze and silver DLT pipelines automatically.
+ 1. [DAIS 2023 DEMO](#dais-2023-demo): Showcases DLT-META's capabilities of creating Bronze and Silver pipelines with initial and incremental mode automatically.
+ 2. [Databricks Techsummit Demo](#databricks-tech-summit-fy2024-demo): 100s of data sources ingestion in bronze and silver pipelines automatically.
  3. [Append FLOW Autoloader Demo](#append-flow-autoloader-file-metadata-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  4. [Append FLOW Eventhub Demo](#append-flow-eventhub-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  5. [Silver Fanout Demo](#silver-fanout-demo): This demo showcases the implementation of fanout architecture in the silver layer.
  6. [Apply Changes From Snapshot Demo](#Apply-changes-from-snapshot-demo): This demo showcases the implementation of ingesting from snapshots in bronze layer
- 7. [DLT Sink Demo](#dlt-sink-demo): This demo showcases the implementation of write to external sinks like delta and kafka
+ 7. [Lakeflow Declarative Pipelines Sink Demo](#dlt-sink-demo): This demo showcases the implementation of write to external sinks like delta and kafka
 
 The source argument is optional for the demos.
 
 
 # DAIS 2023 DEMO
 ## [DAIS 2023 Session Recording](https://www.youtube.com/watch?v=WYv5haxLlfA)
-This Demo launches Bronze and Silver DLT pipelines with following activities:
+This Demo launches Bronze and Silver pipelines with following activities:
 - Customer and Transactions feeds for initial load
 - Adds new feeds Product and Stores to existing Bronze and Silver DLT pipelines with metadata changes.
-- Runs Bronze and Silver DLT for incremental load for CDC events
+- Runs Bronze and Silver pipeline for incremental load for CDC events
 
 ### Steps:
 1. Launch Command Prompt
@@ -48,7 +48,7 @@ This Demo launches Bronze and Silver DLT pipelines with following activities:
     ![dais_demo.png](../docs/static/images/dais_demo.png)
 
 # Databricks Tech Summit FY2024 DEMO:
-This demo will launch auto generated tables(100s) inside single bronze and silver DLT pipeline using dlt-meta.
+This demo will launch auto generated tables(100s) inside single bronze and silver pipeline using dlt-meta.
 
 1. Launch Command Prompt
 
@@ -174,8 +174,8 @@ This demo will perform following tasks:
 - This demo will showcase the onboarding process for the silver fanout pattern.
     - Run the onboarding process for the bronze cars table, which contains data from various countries.
     - Run the onboarding process for the silver tables, which have a `where_clause` based on the country condition specified in [silver_transformations_cars.json](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/silver_transformations_cars.json).
-    - Run the Bronze DLT pipeline which will produce cars table.
-    - Run Silver DLT pipeline, fanning out from the bronze cars table to country-specific tables such as cars_usa, cars_uk, cars_germany, and cars_japan.
+    - Run the Bronze pipeline which will produce cars table.
+    - Run Silver pipeline, fanning out from the bronze cars table to country-specific tables such as cars_usa, cars_uk, cars_germany, and cars_japan.
 
 ### Steps:
 1. Launch Command Prompt
@@ -230,14 +230,14 @@ This demo will perform following tasks:
     - Showcase onboarding process for apply changes from snapshot pattern([snapshot-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/snapshot-onboarding.template))
     - Run onboarding for the bronze stores and products tables, which contains data snapshot data in csv files.
     - Create source delta table for products
-    - Run Bronze DLT to load initial snapshot for stores(LOAD_1.csv) and products delta table
-    - Run Silver DLT to ingest bronze data using apply_changes_from_snapshot API
+    - Run Bronze Pipeline to load initial snapshot for stores(LOAD_1.csv) and products delta table
+    - Run Silver Pipeline to ingest bronze data using apply_changes_from_snapshot API
     - Upload incremental snapshot LOAD_2.csv version=2 for stores and load products delta table for next snapshot
-    - Run Bronze DLT to load incremental snapshot (LOAD_2.csv). Products is scd_type=2 so updated records will expired and added new records with version_number. Stores is scd_type=1 so in case records missing for scd_type=1 will be deleted.
-    - Run Silver DLT to ingest bronze data using apply_changes_from_snapshot API
+    - Run Bronze Pipeline to load incremental snapshot (LOAD_2.csv). Products is scd_type=2 so updated records will expired and added new records with version_number. Stores is scd_type=1 so in case records missing for scd_type=1 will be deleted.
+    - Run Silver Pipeline to ingest bronze data using apply_changes_from_snapshot API
     -  Upload incremental snapshot LOAD_3.csv version=2 for stores and load products delta table for next snapshot
-    - Run Bronze DLT to load incremental snapshot (LOAD_2.csv). Products is scd_type=2 so updated records will expired and added new records with version_number. Stores is scd_type=1 so in case records missing for scd_type=1 will be deleted.
-    - Run Silver DLT to ingest bronze data using apply_changes_from_snapshot API
+    - Run Bronze Pipeline to load incremental snapshot (LOAD_2.csv). Products is scd_type=2 so updated records will expired and added new records with version_number. Stores is scd_type=1 so in case records missing for scd_type=1 will be deleted.
+    - Run Silver Pipeline to ingest bronze data using apply_changes_from_snapshot API
 ### Steps:
 1. Launch Command Prompt
 
@@ -263,12 +263,12 @@ This demo will perform following tasks:
     ```
     ![acfs.png](../docs/static/images/acfs.png)
 
-# DLT Sink Demo
+# Lakeflow Declarative Pipelines Sink Demo
   - This demo will perform following steps
     - Showcase onboarding process for dlt writing to external sink pattern
     - Run onboarding for the bronze iot events.
     - Publish test events to kafka topic
-    - Run Bronze DLT which will read from kafka source topic and write to
+    - Run Bronze Lakeflow Declarative Pipelines which will read from kafka source topic and write to
         - events delta table into uc
         - create quarantine table as per data quality expectations
         - writes to external kafka topics
