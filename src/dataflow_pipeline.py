@@ -522,6 +522,12 @@ class DataflowPipeline:
             quarantine_cl_name = f"{quarantine_cl}." if quarantine_cl is not None else ''
             quarantine_db = quarantine_target_details.get('database', '')
             quarantine_table_name = quarantine_target_details.get('table', '')
+
+            # Check if quarantine_table_name is not empty (handles both None and empty string)
+            if not quarantine_table_name or quarantine_table_name.strip() == '':
+                logger.warning("Quarantine table name is empty or None. Skipping quarantine table creation.")
+                return
+
             quarantine_table = (
                 f"{quarantine_cl_name}{quarantine_db}.{quarantine_table_name}"
             )
@@ -531,6 +537,7 @@ class DataflowPipeline:
                 if 'comment' in quarantine_target_details
                 else f"{layer_name} dlt quarantine table {quarantine_table}"
             )
+
             dlt.expect_all_or_drop(expect_or_quarantine_dict)(
                 dlt.table(
                     self.write_to_delta,
