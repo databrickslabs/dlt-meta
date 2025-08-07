@@ -58,7 +58,7 @@ jobs:
                print(f'Physical Memory: {psutil.virtual_memory().total / 1e9:.2f} GB'); print(f'CPU Cores: {os.cpu_count()}')"
  
       - name: Run Unit Tests
-        run: python -m coverage run
+        run: python -m coverage run -m pytest tests/ -v
 
       - name: Publish test coverage
         if: startsWith(matrix.os,'ubuntu')
