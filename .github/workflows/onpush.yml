@@ -18,6 +18,12 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
@@ -40,17 +46,12 @@ jobs:
       - name: Lint
         run: flake8        
 
-      - name: set spark local
-        run: export SPARK_LOCAL_IP=127.0.0.1
-
-      - name: set spark executor memory
-        run: export SPARK_EXECUTOR_MEMORY=8g  
-      
-      - name: set spark driver memory
-        run: export SPARK_DRIVER_MEMORY=8g
-
-      - name: set javaopts
-        run: export JAVA_OPTS="-Xmx10g -XX:+UseG1GC"
+      - name: Set environment variables
+        run: |
+          echo "SPARK_LOCAL_IP=127.0.0.1" >> $GITHUB_ENV
+          echo "SPARK_EXECUTOR_MEMORY=8g" >> $GITHUB_ENV
+          echo "SPARK_DRIVER_MEMORY=8g" >> $GITHUB_ENV
+          echo "JAVA_OPTS=-Xmx10g -XX:+UseG1GC" >> $GITHUB_ENV
 
       - name: Print System Information
         run: | 
