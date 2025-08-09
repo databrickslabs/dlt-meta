@@ -48,16 +48,16 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 | Custom transformations | Bronze, Silver layer accepts custom functions|
 | Data Quality Expecations Support | Bronze, Silver layer |
 | Quarantine table support | Bronze layer |
-| [apply_changes](https://docs.databricks.com/en/delta-live-tables/python-ref.html#cdc) API support | Bronze, Silver layer | 
-| [apply_changes_from_snapshot](https://docs.databricks.com/en/delta-live-tables/python-ref.html#change-data-capture-from-database-snapshots-with-python-in-delta-live-tables) API support | Bronze layer|
-| [append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#use-append-flow-to-write-to-a-streaming-table-from-multiple-source-streams) API support | Bronze layer|
-| Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
+| [create_auto_cdc_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) API support | Bronze, Silver layer | 
+| [create_auto_cdc_from_snapshot_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes-from-snapshot) API support | Bronze layer|
+| [append_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-append-flow) API support | Bronze layer|
+| Liquid cluster support | Bronze, Bronze Quarantine, Silver, Silver Quarantine tables|
 | [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/) |  ```databricks labs dlt-meta onboard```, ```databricks labs dlt-meta deploy``` |
 | Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using Direct publishing mode |
-| [DLT Sinks](https://docs.databricks.com/aws/en/delta-live-tables/dlt-sinks) | Supported formats:external ```delta table```, ```kafka```.Bronze, Silver layers|
+| [DLT Sinks](https://docs.databricks.com/aws/en/dlt/dlt-sinks) | Supported formats:external ```delta table```, ```kafka```.Bronze, Silver layers|
 ## How much does it cost ?
 DLT-META does not have any **direct cost** associated with it other than the cost to run the Databricks Lakeflow Declarative Pipelines 
-on your environment.The overall cost will be determined primarily by the [Databricks Lakeflow Declarative Pipelines Pricing] (https://databricks.com/product/delta-live-tables-pricing-azure)
+on your environment.The overall cost will be determined primarily by the [Databricks Lakeflow Declarative Pipelines Pricing] (https://www.databricks.com/product/pricing/lakeflow-declarative-pipelines)
 
 
 ## More questions

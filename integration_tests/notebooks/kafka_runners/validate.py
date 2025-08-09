@@ -8,14 +8,14 @@ bronze_schema = dbutils.widgets.get("bronze_schema")
 log_list = []
 
 # Assumption is that to get to this notebook Bronze and Silver completed successfully
-log_list.append("Completed Bronze Eventhub DLT Pipeline.")
+log_list.append("Completed Bronze Eventhub Lakeflow Declarative Pipeline.")
 
 TABLES = {
     f"{uc_catalog_name}.{bronze_schema}.bronze_{run_id}_iot": 20,
     f"{uc_catalog_name}.{bronze_schema}.bronze_{run_id}_iot_quarantine": 2,
 }
 
-log_list.append("Validating DLT EVenthub Bronze Table Counts...")
+log_list.append("Validating Lakeflow Declarative Pipeline for Eventhub Bronze Table Counts...")
 for table, counts in TABLES.items():
     query = spark.sql(f"SELECT count(*) as cnt FROM {table}")
     cnt = query.collect()[0].cnt

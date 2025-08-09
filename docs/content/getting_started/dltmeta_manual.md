@@ -112,7 +112,7 @@ OnboardDataflowspec(spark, onboarding_params_map, uc_enabled=True).onboard_dataf
 
 3. Run notebook cells
 
-## Dataflow DLT Pipeline: 
+## Lakeflow Declarative Pipeline: 
 
 ### Lakeflow Declarative Pipelines launch notebook
 
@@ -131,7 +131,7 @@ OnboardDataflowspec(spark, onboarding_params_map, uc_enabled=True).onboard_dataf
         from src.dataflow_pipeline import DataflowPipeline
         DataflowPipeline.invoke_dlt_pipeline(spark, layer)
     ```
-### Create Bronze DLT pipeline
+### Create Bronze Lakeflow Declarative Pipeline
 
 1. Click Jobs Icon Workflows in the sidebar, click the Lakeflow Declarative Pipelines tab, and click Create Pipeline.
 
@@ -154,7 +154,7 @@ OnboardDataflowspec(spark, onboarding_params_map, uc_enabled=True).onboard_dataf
 
 8. Start pipeline: click the Start button on in top panel. The system returns a message confirming that your pipeline is starting 
 
-### Create Silver DLT pipeline
+### Create Silver Lakeflow Declarative Pipelines
 
 1. Click Jobs Icon Workflows in the sidebar, click the Lakeflow Declarative Pipelines tab, and click Create Pipeline.
 
