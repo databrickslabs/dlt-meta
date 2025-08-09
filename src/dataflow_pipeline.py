@@ -1,4 +1,4 @@
-"""DataflowPipeline provide generic DLT code using dataflowspec."""
+"""DataflowPipeline provide generic code using dataflowspec."""
 import json
 import logging
 from typing import Callable, Optional
@@ -16,7 +16,7 @@ logger.setLevel(logging.INFO)
 
 
 class DataflowPipeline:
-    """This class uses dataflowSpec to launch DLT.
+    """This class uses dataflowSpec to launch Lakeflow Declarative Pipelines.
 
     Raises:
         Exception: "Dataflow not supported!"
@@ -358,8 +358,8 @@ class DataflowPipeline:
         if where_clause:
             where_clause_str = " ".join(where_clause)
             if len(where_clause_str.strip()) > 0:
-                for where_clause in where_clause:
-                    raw_delta_table_stream = raw_delta_table_stream.where(where_clause)
+                for clause in where_clause:
+                    raw_delta_table_stream = raw_delta_table_stream.where(clause)
         return raw_delta_table_stream
 
     def read_silver(self) -> DataFrame:
@@ -439,7 +439,7 @@ class DataflowPipeline:
             else self.view_name
         )
 
-        dlt.apply_changes_from_snapshot(
+        dlt.create_auto_cdc_from_snapshot_flow(
             target=target_table,
             source=source,
             keys=self.applyChangesFromSnapshot.keys,
@@ -522,6 +522,12 @@ class DataflowPipeline:
             quarantine_cl_name = f"{quarantine_cl}." if quarantine_cl is not None else ''
             quarantine_db = quarantine_target_details.get('database', '')
             quarantine_table_name = quarantine_target_details.get('table', '')
+
+            # Check if quarantine_table_name is not empty (handles both None and empty string)
+            if not quarantine_table_name or quarantine_table_name.strip() == '':
+                logger.warning("Quarantine table name is empty or None. Skipping quarantine table creation.")
+                return
+
             quarantine_table = (
                 f"{quarantine_cl_name}{quarantine_db}.{quarantine_table_name}"
             )
@@ -531,6 +537,7 @@ class DataflowPipeline:
                 if 'comment' in quarantine_target_details
                 else f"{layer_name} dlt quarantine table {quarantine_table}"
             )
+
             dlt.expect_all_or_drop(expect_or_quarantine_dict)(
                 dlt.table(
                     self.write_to_delta,
@@ -606,7 +613,7 @@ class DataflowPipeline:
         target_table = (
             f"{target_cl_name}{target_db_name}.{target_table_name}"
         )
-        dlt.apply_changes(
+        dlt.create_auto_cdc_flow(
             target=target_table,
             source=self.view_name,
             keys=cdc_apply_changes.keys,

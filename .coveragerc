@@ -1,6 +1,6 @@
 [run]
 branch = True
-command_line = -m unittest
+command_line = -m pytest tests/
 include = src/*.py
 omit =
     */site-packages/*

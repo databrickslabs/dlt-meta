@@ -69,8 +69,8 @@ draft: false
 4. Output of a successful run should have the following in the file 
 ```
 ,0
-0,Completed Bronze DLT Pipeline.
-1,Completed Silver DLT Pipeline.
+0,Completed Bronze Lakeflow Declarative Pipeline.
+1,Completed Silver Lakeflow Declarative Pipeline.
 2,Validating DLT Bronze and Silver Table Counts...
 3,Validating Counts for Table bronze_7d1d3ccc9e144a85b07c23110ea50133.transactions.
 4,Expected: 10002 Actual: 10002. Passed!

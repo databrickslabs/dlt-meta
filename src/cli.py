@@ -420,7 +420,7 @@ class DLTMeta:
         msg = (
             f"dlt-meta pipeline={pipeline_id} created and launched with "
             f"update_id={update_response.update_id}, Please check the pipeline status in "
-            "databricks workspace under workflows -> Delta Live Tables tab"
+            "databricks workspace under workflows -> Lakeflow Declarative Pipelines tab"
         )
         logger.info(msg)
         print(

@@ -31,7 +31,7 @@ NON_UC_TABLES = {
     f"{silver_schema}.customers": 73212,
 }
 
-log_list.append("Validating DLT Bronze and Silver Table Counts...")
+log_list.append("Validating Lakeflow Declarative Pipeline Bronze and Silver Table Counts...")
 tables = UC_TABLES if uc_enabled else NON_UC_TABLES
 for table, counts in tables.items():
     query = spark.sql(f"SELECT count(*) as cnt FROM {table}")

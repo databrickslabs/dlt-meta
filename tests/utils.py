@@ -42,6 +42,7 @@ class DLTFrameworkTestCase(unittest.TestCase):
         self.onboarding_json_v7_file = "tests/resources/onboarding_v0.0.7.json"
         self.onboarding_json_v8_file = "tests/resources/onboarding_v0.0.8.json"
         self.onboarding_json_v9_file = "tests/resources/onboarding_v0.0.9.json"
+        self.onboarding_json_v10_file = "tests/resources/onboarding_v0.0.10.json"
         self.onboarding_unsupported_file = "tests/resources/schema.ddl"
         self.onboarding_v2_json_file = "tests/resources/onboarding_v2.json"
         self.onboarding_without_ids_json_file = "tests/resources/onboarding_without_ids.json"

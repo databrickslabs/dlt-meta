@@ -196,6 +196,7 @@ class DataflowSpecUtils:
         "quarantineClusterBy",
         "appendFlows",
         "appendFlowsSchemas",
+        "applyChangesFromSnapshot",
         "clusterBy",
         "sinks"
     ]

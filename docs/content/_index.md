@@ -7,9 +7,9 @@ draft: false
 
 
 ## Project Overview
-DLT-META is a metadata-driven framework designed to work with Databricks Delta Live Tables (DLT). This framework enables the automation of bronze and silver data pipelines by leveraging metadata recorded in an onboarding JSON file. This file, known as the Dataflowspec, serves as the data flow specification, detailing the source and target metadata required for the pipelines.
+DLT-META is a metadata-driven framework designed to work with Databricks Lakeflow Declarative Pipelines . This framework enables the automation of bronze and silver data pipelines by leveraging metadata recorded in an onboarding JSON file. This file, known as the Dataflowspec, serves as the data flow specification, detailing the source and target metadata required for the pipelines.
 
-In practice, a single generic DLT pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads. This approach streamlines the development and management of data pipelines, allowing for a more efficient and scalable data processing workflow
+In practice, a single generic pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads. This approach streamlines the development and management of data pipelines, allowing for a more efficient and scalable data processing workflow
 
 ### DLT-META components:
 
@@ -18,12 +18,12 @@ In practice, a single generic DLT pipeline reads the Dataflowspec and uses it to
 - Capture [Data Quality Rules](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
 - Capture  processing logic as sql in [Silver transformation file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json)
 
-#### Generic DLT pipeline
+#### Generic Lakeflow Declarative pipeline
 - Apply appropriate readers based on input metadata
-- Apply data quality rules with DLT expectations 
+- Apply data quality rules with Lakeflow Declarative Pipelines expectations 
 - Apply CDC apply changes if specified in metadata
-- Builds DLT graph based on input/output metadata
-- Launch DLT pipeline
+- Builds Lakeflow Declarative Pipelines graph based on input/output metadata
+- Launch Lakeflow Declarative Pipelines pipeline
 
 ## High-Level Solution overview:
 ![High-Level Process Flow](/images/solutions_overview.png)
@@ -48,16 +48,16 @@ In practice, a single generic DLT pipeline reads the Dataflowspec and uses it to
 | Custom transformations | Bronze, Silver layer accepts custom functions|
 | Data Quality Expecations Support | Bronze, Silver layer |
 | Quarantine table support | Bronze layer |
-| [apply_changes](https://docs.databricks.com/en/delta-live-tables/python-ref.html#cdc) API support | Bronze, Silver layer | 
-| [apply_changes_from_snapshot](https://docs.databricks.com/en/delta-live-tables/python-ref.html#change-data-capture-from-database-snapshots-with-python-in-delta-live-tables) API support | Bronze layer|
-| [append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#use-append-flow-to-write-to-a-streaming-table-from-multiple-source-streams) API support | Bronze layer|
-| Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
+| [create_auto_cdc_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) API support | Bronze, Silver layer | 
+| [create_auto_cdc_from_snapshot_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes-from-snapshot) API support | Bronze layer|
+| [append_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-append-flow) API support | Bronze layer|
+| Liquid cluster support | Bronze, Bronze Quarantine, Silver, Silver Quarantine tables|
 | [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/) |  ```databricks labs dlt-meta onboard```, ```databricks labs dlt-meta deploy``` |
 | Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using Direct publishing mode |
-| [DLT Sinks](https://docs.databricks.com/aws/en/delta-live-tables/dlt-sinks) | Supported formats:external ```delta table```, ```kafka```.Bronze, Silver layers|
+| [DLT Sinks](https://docs.databricks.com/aws/en/dlt/dlt-sinks) | Supported formats:external ```delta table```, ```kafka```.Bronze, Silver layers|
 ## How much does it cost ?
-DLT-META does not have any **direct cost** associated with it other than the cost to run the Databricks Delta Live Tables 
-on your environment.The overall cost will be determined primarily by the [Databricks Delta Live Tables Pricing] (https://databricks.com/product/delta-live-tables-pricing-azure)
+DLT-META does not have any **direct cost** associated with it other than the cost to run the Databricks Lakeflow Declarative Pipelines 
+on your environment.The overall cost will be determined primarily by the [Databricks Lakeflow Declarative Pipelines Pricing] (https://www.databricks.com/product/pricing/lakeflow-declarative-pipelines)
 
 
 ## More questions
