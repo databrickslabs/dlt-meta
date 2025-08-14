@@ -192,7 +192,6 @@ class DataflowSpecUtils:
         "dataQualityExpectations",
         "quarantineTargetDetails",
         "quarantineTableProperties",
-        "quarantineClusterBy",
         "appendFlows",
         "appendFlowsSchemas",
         "applyChangesFromSnapshot",
