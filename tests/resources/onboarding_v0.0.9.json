@@ -27,6 +27,7 @@
             "cloudFiles.inferColumnTypes": "true",
             "cloudFiles.rescuedDataColumn": "_rescued_data"
         },
+        "bronze_cluster_by": ["customer_id"],
         "bronze_table_path_dev": "tests/resources/delta/customers",
         "bronze_cdc_apply_changes": {
             "keys": [
@@ -107,6 +108,7 @@
         "bronze_database_quarantine_prd": "bronze",
         "bronze_quarantine_table": "transactions_cdc_quarantine",
         "bronze_quarantine_table_path_dev": "tests/resources/data/bronze/transactions_quarantine",
+        "bronze_quarantine_table_cluster_by": ["transaction_id"],
         "silver_database_dev": "silver",
         "silver_database_preprd": "silver",
         "silver_database_prd": "silver",

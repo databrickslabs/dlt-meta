@@ -240,6 +240,7 @@ class DataflowPipeline:
             self.write_to_delta,
             name=f"{target_table}",
             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
+            cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
             table_properties=self.dataflowSpec.tableProperties,
             path=target_path,
             comment=comment,
@@ -464,6 +465,7 @@ class DataflowPipeline:
         else:
             target_path, target_table, target_table_name = self._get_target_table_info()
             target_comment = self._get_table_comment(target_table, is_bronze)
+            print(f"{target_table_name} cluster_by == {DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy)}")
             # Create base table with expectations
             if expect_all_dict:
                 dlt_table_with_expectation = dlt.expect_all(expect_all_dict)(
@@ -472,6 +474,7 @@ class DataflowPipeline:
                         name=f"{target_table_name}",
                         table_properties=self.dataflowSpec.tableProperties,
                         partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
+                        cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
                         path=target_path,
                         comment=target_comment,
                     )
@@ -484,6 +487,7 @@ class DataflowPipeline:
                             name=f"{target_table_name}",
                             table_properties=self.dataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
+                            cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
                             path=target_path,
                             comment=target_comment,
                         )
@@ -499,6 +503,7 @@ class DataflowPipeline:
                             name=f"{target_table_name}",
                             table_properties=self.dataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
+                            cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
                             path=target_path,
                             comment=target_comment,
                         )
@@ -515,7 +520,19 @@ class DataflowPipeline:
                 q_partition_cols = [quarantine_target_details["partition_columns"]]
 
             if quarantine_target_details.get("cluster_by"):
-                q_cluster_by = DataflowSpecUtils.get_partition_cols(quarantine_target_details['cluster_by'])
+                # Parse cluster_by if it's a string representation of a list
+                cluster_by_value = quarantine_target_details['cluster_by']
+                if isinstance(cluster_by_value, str) and cluster_by_value.strip().startswith(('[', "[")):
+                    # Handle string representations like "['id', 'email']" or '["id", "email"]'
+                    import ast
+                    try:
+                        parsed_cluster_by = ast.literal_eval(cluster_by_value)
+                        if isinstance(parsed_cluster_by, list):
+                            cluster_by_value = parsed_cluster_by
+                    except (ValueError, SyntaxError):
+                        # If parsing fails, keep as string and let get_partition_cols handle it
+                        pass
+                q_cluster_by = DataflowSpecUtils.get_partition_cols(cluster_by_value)
 
             quarantine_path = None if self.uc_enabled else quarantine_target_details.get("path")
             quarantine_cl = quarantine_target_details.get('catalog', None)
