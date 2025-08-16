@@ -880,7 +880,6 @@ class OnboardDataflowspec:
             sink["where_clause"] = sink_details.get("where_clause", None)
             sink_list.append(sink)
         sinks_json = json.dumps(sink_list)
-        print(f"Validated sinks details: {sinks_json}")
         logger.info(f"Validated sinks details: {sinks_json}")
         return sinks_json
 

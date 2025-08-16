@@ -465,7 +465,6 @@ class DataflowPipeline:
         else:
             target_path, target_table, target_table_name = self._get_target_table_info()
             target_comment = self._get_table_comment(target_table, is_bronze)
-            print(f"{target_table_name} cluster_by == {DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy)}")
             # Create base table with expectations
             if expect_all_dict:
                 dlt_table_with_expectation = dlt.expect_all(expect_all_dict)(
