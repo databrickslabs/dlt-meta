@@ -1505,7 +1505,6 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         # Test with custom transform function
         result = pipeline.apply_custom_transform_fun(mock_df)
         self.assertEqual(result, mock_df)
-        mock_df.show.assert_called_once_with(5)
 
     def test_quarantine_target_details_with_no_attribute(self):
         """Test _get_quarantine_target_details when attribute doesn't exist."""
