@@ -64,7 +64,6 @@ class SilverDataflowSpec:
     dataQualityExpectations: str
     quarantineTargetDetails: map
     quarantineTableProperties: map
-    quarantineClusterBy: list
     appendFlows: str
     appendFlowsSchemas: map
     version: str
@@ -193,7 +192,6 @@ class DataflowSpecUtils:
         "dataQualityExpectations",
         "quarantineTargetDetails",
         "quarantineTableProperties",
-        "quarantineClusterBy",
         "appendFlows",
         "appendFlowsSchemas",
         "applyChangesFromSnapshot",
@@ -324,7 +322,6 @@ class DataflowSpecUtils:
             if isinstance(partition_columns, str):
                 # quarantineTableProperties cluster by
                 partition_cols = partition_columns.split(',')
-
             else:
                 if len(partition_columns) == 1:
                     if partition_columns[0] == "" or partition_columns[0].strip() == "":

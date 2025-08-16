@@ -2,6 +2,7 @@
 import json
 import logging
 from typing import Callable, Optional
+import ast
 import dlt
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import expr
@@ -240,6 +241,7 @@ class DataflowPipeline:
             self.write_to_delta,
             name=f"{target_table}",
             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
+            cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
             table_properties=self.dataflowSpec.tableProperties,
             path=target_path,
             comment=comment,
@@ -323,7 +325,6 @@ class DataflowPipeline:
     def apply_custom_transform_fun(self, input_df):
         if self.custom_transform_func:
             input_df = self.custom_transform_func(input_df, self.dataflowSpec)
-            input_df.show(5)
         return input_df
 
     def get_silver_schema(self):
@@ -472,6 +473,7 @@ class DataflowPipeline:
                         name=f"{target_table_name}",
                         table_properties=self.dataflowSpec.tableProperties,
                         partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
+                        cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
                         path=target_path,
                         comment=target_comment,
                     )
@@ -484,6 +486,7 @@ class DataflowPipeline:
                             name=f"{target_table_name}",
                             table_properties=self.dataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
+                            cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
                             path=target_path,
                             comment=target_comment,
                         )
@@ -499,6 +502,7 @@ class DataflowPipeline:
                             name=f"{target_table_name}",
                             table_properties=self.dataflowSpec.tableProperties,
                             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
+                            cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
                             path=target_path,
                             comment=target_comment,
                         )
@@ -515,7 +519,20 @@ class DataflowPipeline:
                 q_partition_cols = [quarantine_target_details["partition_columns"]]
 
             if quarantine_target_details.get("cluster_by"):
-                q_cluster_by = DataflowSpecUtils.get_partition_cols(quarantine_target_details['cluster_by'])
+                # Parse cluster_by if it's a string representation of a list
+                cluster_by_value = quarantine_target_details['cluster_by']
+                if isinstance(cluster_by_value, str) and cluster_by_value.strip().startswith(('[', "[")):
+                    # Handle string representations like "['id', 'email']" or '["id", "email"]'
+                    try:
+                        parsed_cluster_by = ast.literal_eval(cluster_by_value)
+                        if isinstance(parsed_cluster_by, list):
+                            cluster_by_value = parsed_cluster_by
+                    except (ValueError, SyntaxError):
+                        # If parsing fails, keep as string and let get_partition_cols handle it
+                        quarantine_table_name = quarantine_target_details.get('table', '')
+                        msg = f"Invalid cluster_by {cluster_by_value} for {quarantine_table_name}"
+                        logger.error(msg)
+                q_cluster_by = DataflowSpecUtils.get_partition_cols(cluster_by_value)
 
             quarantine_path = None if self.uc_enabled else quarantine_target_details.get("path")
             quarantine_cl = quarantine_target_details.get('catalog', None)
