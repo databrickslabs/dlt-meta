@@ -10,8 +10,8 @@ output_file_path = dbutils.widgets.get("output_file_path")
 log_list = []
 
 # Assumption is that to get to this notebook Bronze and Silver completed successfully
-log_list.append("Completed Bronze DLT Pipeline.")
-log_list.append("Completed Silver DLT Pipeline.")
+log_list.append("Completed Bronze Lakeflow Declarative Pipeline.")
+log_list.append("Completed Silver Lakeflow Declarative Pipeline.")
 
 UC_TABLES = {
     f"{uc_catalog_name}.{bronze_schema}.transactions": 10002,

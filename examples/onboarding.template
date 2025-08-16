@@ -27,6 +27,7 @@
          "cloudFiles.rescuedDataColumn": "_rescued_data"
       },
       "bronze_table_path_it": "{dbfs_path}/data/bronze/customers",
+      "bronze_cluster_by":["operation_date"],
       "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/customers/bronze_data_quality_expectations.json",
       "silver_catalog_it": "silver_catalog",
       "silver_database_it": "silver",
@@ -46,6 +47,7 @@
          ]
       },
       "silver_table_path_it": "{dbfs_path}/data/silver/customers",
+      "silver_cluster_by":["operation_date"],
       "silver_transformation_json_it": "{dbfs_path}/dlt-meta/conf/silver_transformations.json"
    },
    {

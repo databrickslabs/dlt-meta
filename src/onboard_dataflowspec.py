@@ -5,6 +5,7 @@ import dataclasses
 import json
 import yaml
 import logging
+import ast
 
 import pyspark.sql.types as T
 from pyspark.sql import functions as f
@@ -691,13 +692,70 @@ class OnboardDataflowspec:
 
         return data_flow_spec_rows_df
 
+    def __parse_cluster_by_string(self, cluster_by_value, cluster_key):
+        """Parse string representation of list into actual list."""
+
+        if isinstance(cluster_by_value, list):
+            return cluster_by_value
+
+        if isinstance(cluster_by_value, str):
+            # Try to parse string representation of a list
+            try:
+                parsed = ast.literal_eval(cluster_by_value)
+                if isinstance(parsed, list):
+                    return parsed
+                else:
+                    raise ValueError(f"Parsed value is not a list: {type(parsed).__name__}")
+            except (ValueError, SyntaxError) as e:
+                raise Exception(
+                    f"Invalid {cluster_key}: Cannot parse string as list. "
+                    f"Value: '{cluster_by_value}'. Error: {str(e)}"
+                )
+
+        raise Exception(
+            f"Invalid {cluster_key}: Expected a list or string representation of list but got "
+            f"{type(cluster_by_value).__name__}. Value: {cluster_by_value}"
+        )
+
     def __get_cluster_by_properties(self, onboarding_row, table_properties, cluster_key):
         cluster_by = None
         if cluster_key in onboarding_row and onboarding_row[cluster_key]:
-            if table_properties.get('pipelines.autoOptimize.zOrderCols', None) is not None:
-                raise Exception(f"Can not support zOrder and cluster_by together at {cluster_key}")
-            cluster_by = onboarding_row[cluster_key]
-        return cluster_by
+            if table_properties.get('pipelines.autoOptimize.zOrderCols') is not None:
+                raise Exception(
+                    f"Cannot support zOrder and cluster_by together at {cluster_key} "
+                    f"for onboarding_row={onboarding_row}"
+                )
+            # Parse cluster_by value (handles both lists and string representations)
+            cluster_by = self.__parse_cluster_by_string(onboarding_row[cluster_key], cluster_key)
+
+            # Validate that each element in the list is a properly formatted string
+            for i, column in enumerate(cluster_by):
+                if not isinstance(column, str):
+                    raise Exception(
+                        f"Invalid {cluster_key}: Element at index {i} must be a string but got "
+                        f"{type(column).__name__}. Value: {column}"
+                    )
+
+                # Check for common string formatting issues
+                if column.strip() != column:
+                    raise Exception(
+                        f"Invalid {cluster_key}: Element at index {i} contains leading/trailing whitespace. "
+                        f"Value: '{column}' (should be '{column.strip()}')"
+                    )
+
+                if not column.strip():
+                    raise Exception(
+                        f"Invalid {cluster_key}: Element at index {i} is empty or contains only whitespace. "
+                        f"Value: '{column}'"
+                    )
+
+                # Check for unbalanced quotes or malformed strings
+                if (column.count('"') % 2 != 0) or (column.count("'") % 2 != 0):
+                    raise Exception(
+                        f"Invalid {cluster_key}: Element at index {i} contains unbalanced quotes. "
+                        f"Value: '{column}'"
+                    )
+            return cluster_by
 
     def __get_quarantine_details(self, env, layer, onboarding_row):
         quarantine_table_partition_columns = ""
@@ -822,7 +880,6 @@ class OnboardDataflowspec:
             sink["where_clause"] = sink_details.get("where_clause", None)
             sink_list.append(sink)
         sinks_json = json.dumps(sink_list)
-        print(f"Validated sinks details: {sinks_json}")
         logger.info(f"Validated sinks details: {sinks_json}")
         return sinks_json
 
