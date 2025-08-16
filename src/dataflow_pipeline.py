@@ -2,6 +2,7 @@
 import json
 import logging
 from typing import Callable, Optional
+import ast
 import dlt
 from pyspark.sql import DataFrame
 from pyspark.sql.functions import expr
@@ -324,7 +325,6 @@ class DataflowPipeline:
     def apply_custom_transform_fun(self, input_df):
         if self.custom_transform_func:
             input_df = self.custom_transform_func(input_df, self.dataflowSpec)
-            input_df.show(5)
         return input_df
 
     def get_silver_schema(self):
@@ -523,14 +523,15 @@ class DataflowPipeline:
                 cluster_by_value = quarantine_target_details['cluster_by']
                 if isinstance(cluster_by_value, str) and cluster_by_value.strip().startswith(('[', "[")):
                     # Handle string representations like "['id', 'email']" or '["id", "email"]'
-                    import ast
                     try:
                         parsed_cluster_by = ast.literal_eval(cluster_by_value)
                         if isinstance(parsed_cluster_by, list):
                             cluster_by_value = parsed_cluster_by
                     except (ValueError, SyntaxError):
                         # If parsing fails, keep as string and let get_partition_cols handle it
-                        pass
+                        quarantine_table_name = quarantine_target_details.get('table', '')
+                        msg = f"Invalid cluster_by {cluster_by_value} for {quarantine_table_name}"
+                        logger.error(msg)
                 q_cluster_by = DataflowSpecUtils.get_partition_cols(cluster_by_value)
 
             quarantine_path = None if self.uc_enabled else quarantine_target_details.get("path")

@@ -5,6 +5,7 @@ import dataclasses
 import json
 import yaml
 import logging
+import ast
 
 import pyspark.sql.types as T
 from pyspark.sql import functions as f
@@ -693,7 +694,6 @@ class OnboardDataflowspec:
 
     def __parse_cluster_by_string(self, cluster_by_value, cluster_key):
         """Parse string representation of list into actual list."""
-        import ast
 
         if isinstance(cluster_by_value, list):
             return cluster_by_value
