@@ -313,21 +313,29 @@ This demo will perform following tasks:
 
 
 # DAB Demo
-This demo showcases how to use Databricks Asset Bundles (DABs) with DLT-Meta for the following features:
 
-* Deploying Bronze, Silver, and Silver Fanout jobs & pipelines
-* Running pipelines in both Dev and Prod modes
-* Adding custom columns and metadata to Bronze tables
-* Creating HashKeys on selected deterministic columns
-* Implementing SCD Type 1 to Silver tables
-* Applying expectations to filter data in Silver tables
-### Steps:
+## Overview
+This demo showcases how to use Databricks Asset Bundles (DABs) with DLT-Meta:
+* This demo will perform following steps
+* * Create dlt-meta schema's for dataflowspec and bronze/silver layer
+* * Upload nccessary resources to unity catalog volume
+* * Create DAB files with catalog, schema, file locations populated
+* * Deploy DAB to databricks workspace
+* * Run onboarding usind DAB commands
+* * Run Bronze/Silver Pipelines using DAB commands
+* * Demo examples will showcase fan-out pattern in silver layer
+* * Demo example will show case custom transfomations for bronze/silver layers
+* * Adding custom columns and metadata to Bronze tables
+* * Implementing SCD Type 1 to Silver tables
+* * Applying expectations to filter data in Silver tables
+
+## Prerequisites
 1. Launch Command Prompt
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
 3. ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git
+    git clone https://github.com/databrickslabs/dlt-meta.git 
     ```
 
 4. ```commandline
@@ -341,40 +349,41 @@ This demo showcases how to use Databricks Asset Bundles (DABs) with DLT-Meta for
     export PYTHONPATH=$dlt_meta_home
     ```
 
-6. Run the command: Below command will generate DAB related files , create dlt-meta schemas and upload files to volumes
+6. Generate DAB resources and set up schemas:
+    This command will:
+    - Generate DAB configuration files
+    - Create DLT-Meta schemas
+    - Upload necessary files to volumes
     ```commandline
-        python demo/generate_dabs_resources.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
+        python demo/generate_dabs_resources.py --source=cloudfiles --uc_catalog_name=<your_catalog_name> --profile=<your_profile>
     ```
+    > Note: If you don't specify `--profile`, you'll be prompted for your Databricks workspace URL and access token.
 
-    - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
-
-    - - 6a. Databricks Workspace URL:
-    - - Enter your workspace URL, with the format https://<instance-name>.cloud.databricks.com. To get your workspace URL, see Workspace instance names, URLs, and IDs.
-
-    - - 6b. Token:
-        - In your Databricks workspace, click your Databricks username in the top bar, and then select User Settings from the drop down.
-
-        - On the Access tokens tab, click Generate new token.
-
-        - (Optional) Enter a comment that helps you to identify this token in the future, and change the token’s default lifetime of 90 days. To create a token with no lifetime (not recommended), leave the Lifetime (days) box empty (blank).
-
-        - Click Generate.
-
-        - Copy the displayed token
-
-        - Paste to command prompt
-7. ``` commandline
+7. Deploy and run the DAB bundle:
+    - Navigate to the DAB directory
+    ```commandline
         cd demo/dabs
-   ```
-8. ``` commandline
-        databricks bundle validate --profile=<<>>
     ```
-9. ``` commandline
-        databricks bundle deploy --target dev --profile=<<>>
-    ```    
-10. ``` commandline
-        databricks bundle run onboard_people -t dev --profile=<<>>
-    ```  
-11. ``` commandline
-        databricks bundle run execute_pipelines_people -t dev --profile=<<>>
-    ```      
+
+    - Validate the bundle configuration
+    ```commandline
+        databricks bundle validate --profile=<your_profile>
+    ```
+
+    - Deploy the bundle to dev environment
+    ```commandline
+        databricks bundle deploy --target dev --profile=<your_profile>
+    ```
+
+    - Run the onboarding job
+    ```commandline
+        databricks bundle run onboard_people -t dev --profile=<your_profile>
+    ```
+
+    - Execute the pipelines
+    ```commandline
+        databricks bundle run execute_pipelines_people -t dev --profile=<your_profile>
+    ```
+
+    ![dab_onboarding_job.png](../docs/static/images/dab_onboarding_job.png)
+    ![dab_dlt_pipelines.png](../docs/static/images/dab_dlt_pipelines.png)
