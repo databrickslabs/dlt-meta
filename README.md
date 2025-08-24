@@ -11,38 +11,15 @@
 
 ---
 
-<p align="left">
-    <a href="https://databrickslabs.github.io/dlt-meta/">
-        <img src="https://img.shields.io/badge/DOCS-PASSING-green?style=for-the-badge" alt="Documentation Status"/>
-    </a>
-    <a href="https://pypi.org/project/dlt-meta/">
-        <img src="https://img.shields.io/badge/PYPI-v%200.0.9-green?style=for-the-badge" alt="Latest Python Release"/>
-    </a>
-    <a href="https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml">
-        <img src="https://img.shields.io/github/workflow/status/databrickslabs/dlt-meta/build/main?style=for-the-badge"
-             alt="GitHub Workflow Status (branch)"/>
-    </a>
-    <a href="https://codecov.io/gh/databrickslabs/dlt-meta">
-        <img src="https://img.shields.io/codecov/c/github/databrickslabs/dlt-meta?style=for-the-badge&amp;token=2CxLj3YBam"
-             alt="codecov"/>
-    </a>
-    <a href="https://pypistats.org/packages/dl-meta">
-        <img src="https://img.shields.io/pypi/dm/dlt-meta?style=for-the-badge" alt="downloads"/>
-    </a>
-    <a href="https://github.com/PyCQA/flake8">
-        <img src="https://img.shields.io/badge/FLAKE8-FLAKE8-lightgrey?style=for-the-badge"
-             alt="We use flake8 for formatting"/>
-    </a>
-</p>
-
-[![lines of code](https://tokei.rs/b1/github/databrickslabs/dlt-meta)](<[https://codecov.io/github/databrickslabs/dlt-meta](https://github.com/databrickslabs/dlt-meta)>)
+[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://databrickslabs.github.io/dlt-meta/) [![PyPI](https://img.shields.io/badge/pypi-v0.0.9-green)](https://pypi.org/project/dlt-meta/) [![Build](https://img.shields.io/github/workflow/status/databrickslabs/dlt-meta/build/main)](https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml) [![Coverage](https://img.shields.io/codecov/c/github/databrickslabs/dlt-meta)](https://codecov.io/gh/databrickslabs/dlt-meta) [![Style](https://img.shields.io/badge/code%20style-flake8-blue)](https://github.com/PyCQA/flake8) [![PyPI Downloads](https://static.pepy.tech/badge/dlt-meta/month)](https://pepy.tech/projects/dlt-meta)
 
 ---
 
-# Project Overview
-`DLT-META` is a metadata-driven framework designed to work with [Delta Live Tables](https://www.databricks.com/product/delta-live-tables). This framework enables the automation of bronze and silver data pipelines by leveraging metadata recorded in an onboarding JSON file. This file, known as the Dataflowspec, serves as the data flow specification, detailing the source and target metadata required for the pipelines.
 
-In practice, a single generic DLT pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads. This approach streamlines the development and management of data pipelines, allowing for a more efficient and scalable data processing workflow
+# Project Overview
+`DLT-META` is a metadata-driven framework designed to work with [Lakeflow Declarative Pipelines](https://www.databricks.com/product/data-engineering/lakeflow-declarative-pipelines). This framework enables the automation of bronze and silver data pipelines by leveraging metadata recorded in an onboarding JSON file. This file, known as the Dataflowspec, serves as the data flow specification, detailing the source and target metadata required for the pipelines.
+
+In practice, a single generic pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads. This approach streamlines the development and management of data pipelines, allowing for a more efficient and scalable data processing workflow
 
 ### Components:
 
@@ -82,6 +59,7 @@ In practice, a single generic DLT pipeline reads the Dataflowspec and uses it to
 | Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
 | [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/) |  ```databricks labs dlt-meta onboard```, ```databricks labs dlt-meta deploy``` |
 | Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using Direct publishing mode |
+| [DLT Sinks](https://docs.databricks.com/aws/en/delta-live-tables/dlt-sinks) |Supported formats:external ```delta table```, ```kafka```.Bronze, Silver layers|
 
 ## Getting Started
 
