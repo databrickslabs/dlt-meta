@@ -4,10 +4,9 @@
  3. [Append FLOW Autoloader Demo](#append-flow-autoloader-file-metadata-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  4. [Append FLOW Eventhub Demo](#append-flow-eventhub-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  5. [Silver Fanout Demo](#silver-fanout-demo): This demo showcases the implementation of fanout architecture in the silver layer.
- 6. [Apply Changes From Snapshot Demo](#Apply-changes-from-snapshot-demo): This demo showcases the implementation of ingesting from snapshots in bronze layer
- 7. [Lakeflow Declarative Pipelines Sink Demo](#dlt-sink-demo): This demo showcases the implementation of write to external sinks like delta and kafka
-
-The source argument is optional for the demos.
+ 6. [Apply Changes From Snapshot Demo](#apply-changes-from-snapshot-demo): This demo showcases the implementation of ingesting from snapshots in bronze layer
+ 7. [Lakeflow Declarative Pipelines Sink Demo](#lakeflow-declarative-pipelines-sink-demo): This demo showcases the implementation of write to external sinks like delta and kafka
+ 8. [DAB Demo](#dab-demo): This demo showcases how to use Databricks Assets Bundles with dlt-meta
 
 
 # DAIS 2023 DEMO
@@ -224,7 +223,6 @@ This demo will perform following tasks:
     
     ![silver_fanout_dlt.png](../docs/static/images/silver_fanout_dlt.png)
 
-
 # Apply Changes From Snapshot Demo
   - This demo will perform following steps
     - Showcase onboarding process for apply changes from snapshot pattern([snapshot-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/snapshot-onboarding.template))
@@ -312,3 +310,71 @@ This demo will perform following tasks:
     ![dlt_demo_sink.png](../docs/static/images/dlt_demo_sink.png)
     ![dlt_delta_sink.png](../docs/static/images/dlt_delta_sink.png)
     ![dlt_kafka_sink.png](../docs/static/images/dlt_kafka_sink.png)
+
+
+# DAB Demo
+This demo showcases how to use Databricks Asset Bundles (DABs) with DLT-Meta for the following features:
+
+* Deploying Bronze, Silver, and Silver Fanout jobs & pipelines
+* Running pipelines in both Dev and Prod modes
+* Adding custom columns and metadata to Bronze tables
+* Creating HashKeys on selected deterministic columns
+* Implementing SCD Type 1 to Silver tables
+* Applying expectations to filter data in Silver tables
+### Steps:
+1. Launch Command Prompt
+
+2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
+
+3. ```commandline
+    git clone https://github.com/databrickslabs/dlt-meta.git
+    ```
+
+4. ```commandline
+    cd dlt-meta
+    ```
+5. Set python environment variable into terminal
+    ```commandline
+    dlt_meta_home=$(pwd)
+    ```
+    ```commandline
+    export PYTHONPATH=$dlt_meta_home
+    ```
+
+6. Run the command: Below command will generate DAB related files , create dlt-meta schemas and upload files to volumes
+    ```commandline
+        python demo/generate_dabs_resources.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
+    ```
+
+    - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
+
+    - - 6a. Databricks Workspace URL:
+    - - Enter your workspace URL, with the format https://<instance-name>.cloud.databricks.com. To get your workspace URL, see Workspace instance names, URLs, and IDs.
+
+    - - 6b. Token:
+        - In your Databricks workspace, click your Databricks username in the top bar, and then select User Settings from the drop down.
+
+        - On the Access tokens tab, click Generate new token.
+
+        - (Optional) Enter a comment that helps you to identify this token in the future, and change the token’s default lifetime of 90 days. To create a token with no lifetime (not recommended), leave the Lifetime (days) box empty (blank).
+
+        - Click Generate.
+
+        - Copy the displayed token
+
+        - Paste to command prompt
+7. ``` commandline
+        cd demo/dabs
+   ```
+8. ``` commandline
+        databricks bundle validate --profile=<<>>
+    ```
+9. ``` commandline
+        databricks bundle deploy --target dev --profile=<<>>
+    ```    
+10. ``` commandline
+        databricks bundle run onboard_people -t dev --profile=<<>>
+    ```  
+11. ``` commandline
+        databricks bundle run execute_pipelines_people -t dev --profile=<<>>
+    ```      
