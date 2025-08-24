@@ -4,10 +4,9 @@
  3. [Append FLOW Autoloader Demo](#append-flow-autoloader-file-metadata-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  4. [Append FLOW Eventhub Demo](#append-flow-eventhub-demo): Write to same target from multiple sources using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows)  and adding [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  5. [Silver Fanout Demo](#silver-fanout-demo): This demo showcases the implementation of fanout architecture in the silver layer.
- 6. [Apply Changes From Snapshot Demo](#Apply-changes-from-snapshot-demo): This demo showcases the implementation of ingesting from snapshots in bronze layer
- 7. [Lakeflow Declarative Pipelines Sink Demo](#dlt-sink-demo): This demo showcases the implementation of write to external sinks like delta and kafka
-
-The source argument is optional for the demos.
+ 6. [Apply Changes From Snapshot Demo](#apply-changes-from-snapshot-demo): This demo showcases the implementation of ingesting from snapshots in bronze layer
+ 7. [Lakeflow Declarative Pipelines Sink Demo](#lakeflow-declarative-pipelines-sink-demo): This demo showcases the implementation of write to external sinks like delta and kafka
+ 8. [DAB Demo](#dab-demo): This demo showcases how to use Databricks Assets Bundles with dlt-meta
 
 
 # DAIS 2023 DEMO
@@ -224,7 +223,6 @@ This demo will perform following tasks:
     
     ![silver_fanout_dlt.png](../docs/static/images/silver_fanout_dlt.png)
 
-
 # Apply Changes From Snapshot Demo
   - This demo will perform following steps
     - Showcase onboarding process for apply changes from snapshot pattern([snapshot-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/snapshot-onboarding.template))
@@ -312,3 +310,80 @@ This demo will perform following tasks:
     ![dlt_demo_sink.png](../docs/static/images/dlt_demo_sink.png)
     ![dlt_delta_sink.png](../docs/static/images/dlt_delta_sink.png)
     ![dlt_kafka_sink.png](../docs/static/images/dlt_kafka_sink.png)
+
+
+# DAB Demo
+
+## Overview
+This demo showcases how to use Databricks Asset Bundles (DABs) with DLT-Meta:
+* This demo will perform following steps
+* * Create dlt-meta schema's for dataflowspec and bronze/silver layer
+* * Upload nccessary resources to unity catalog volume
+* * Create DAB files with catalog, schema, file locations populated
+* * Deploy DAB to databricks workspace
+* * Run onboarding usind DAB commands
+* * Run Bronze/Silver Pipelines using DAB commands
+* * Demo examples will showcase fan-out pattern in silver layer
+* * Demo example will show case custom transfomations for bronze/silver layers
+* * Adding custom columns and metadata to Bronze tables
+* * Implementing SCD Type 1 to Silver tables
+* * Applying expectations to filter data in Silver tables
+
+## Prerequisites
+1. Launch Command Prompt
+
+2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
+
+3. ```commandline
+    git clone https://github.com/databrickslabs/dlt-meta.git 
+    ```
+
+4. ```commandline
+    cd dlt-meta
+    ```
+5. Set python environment variable into terminal
+    ```commandline
+    dlt_meta_home=$(pwd)
+    ```
+    ```commandline
+    export PYTHONPATH=$dlt_meta_home
+    ```
+
+6. Generate DAB resources and set up schemas:
+    This command will:
+    - Generate DAB configuration files
+    - Create DLT-Meta schemas
+    - Upload necessary files to volumes
+    ```commandline
+        python demo/generate_dabs_resources.py --source=cloudfiles --uc_catalog_name=<your_catalog_name> --profile=<your_profile>
+    ```
+    > Note: If you don't specify `--profile`, you'll be prompted for your Databricks workspace URL and access token.
+
+7. Deploy and run the DAB bundle:
+    - Navigate to the DAB directory
+    ```commandline
+        cd demo/dabs
+    ```
+
+    - Validate the bundle configuration
+    ```commandline
+        databricks bundle validate --profile=<your_profile>
+    ```
+
+    - Deploy the bundle to dev environment
+    ```commandline
+        databricks bundle deploy --target dev --profile=<your_profile>
+    ```
+
+    - Run the onboarding job
+    ```commandline
+        databricks bundle run onboard_people -t dev --profile=<your_profile>
+    ```
+
+    - Execute the pipelines
+    ```commandline
+        databricks bundle run execute_pipelines_people -t dev --profile=<your_profile>
+    ```
+
+    ![dab_onboarding_job.png](../docs/static/images/dab_onboarding_job.png)
+    ![dab_dlt_pipelines.png](../docs/static/images/dab_dlt_pipelines.png)
