@@ -61,13 +61,15 @@
 
     - 9c. Run the command for **kafka**
         ```commandline
-        python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>>  --source=kafka --kafka_topic=dlt-meta-integration-test --kafka_broker=host:9092 --profile=<<DEFAULT>>
+        python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>>  --source=kafka --kafka_source_topic=dlt-meta-integration-test --kafka_sink_topic=dlt-meta_inttest_topic --kafka_source_broker=host:9092 --profile=<<DEFAULT>>
         ```
-
+    - - If you want to use secrets use below options:
+        --kafka_source_servers_secrets_scope_name=<<scope_name>> --kafka_source_servers_secrets_scope_key=<<scope_key>>
+        --kafka_sink_servers_secret_scope_name=<<scope_name>> --kafka_sink_servers_secret_scope_key=<<scope_key>>
     - - For kafka integration tests, the following are the prerequisites:
         1. Needs kafka instance running
 
-    - - Following are the mandatory arguments for running EventHubs integration test
+    - - Following are the mandatory arguments for running kafka integration test
         1. Provide your kafka topic name : --kafka_topic
         2. Provide kafka_broker : --kafka_broker
     

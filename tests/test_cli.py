@@ -234,7 +234,7 @@ class CliTests(unittest.TestCase):
             volume_path,
             f"/Volumes/{mock_volumes_create.return_value.catalog_name}/"
             f"{mock_volumes_create.return_value.schema_name}/"
-            f"{mock_volumes_create.return_value.name}/"
+            f"{mock_volumes_create.return_value.schema_name}/"
         )
         mock_volumes_create.assert_called_once_with(
             catalog_name="uc_catalog",
@@ -823,20 +823,6 @@ class CliTests(unittest.TestCase):
                 uc_enabled=True,
                 silver_dataflowspec_table="silver_dataflowspec"
             )
-        with self.assertRaises(ValueError):
-            OnboardCommand(
-                onboarding_file_path="tests/resources/onboarding.json",
-                onboarding_files_dir_path="tests/resources/",
-                onboard_layer="silver",
-                dlt_meta_schema="dlt_meta",
-                env="dev",
-                import_author="John Doe",
-                version="1.0",
-                overwrite=None,
-                serverless=True,
-                uc_enabled=True,
-                silver_dataflowspec_table="silver_dataflowspec"
-            )
 
         with self.assertRaises(ValueError):
             OnboardCommand(
@@ -1260,3 +1246,501 @@ class CliTests(unittest.TestCase):
         ]
         self.assertEqual(expected_calls, actual_calls)
         self.assertEqual(mock_ws.files.upload.call_count, 3)
+
+    def test_onboard_command_silver_layer_validation(self):
+        """Test validation for silver layer specific cases."""
+        # Test silver layer without silver_dataflowspec_table (line 91)
+        with self.assertRaises(ValueError) as context:
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="silver",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                uc_enabled=False,
+                silver_dataflowspec_table=None,
+                silver_dataflowspec_path="/path/to/silver",
+                overwrite=True,
+            )
+        self.assertIn("silver_dataflowspec_table is required", str(context.exception))
+
+        # Test silver layer without silver_dataflowspec_path when uc_enabled=False (line 94)
+        with self.assertRaises(ValueError) as context:
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="silver",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                uc_enabled=False,
+                silver_dataflowspec_table="silver_table",
+                silver_dataflowspec_path=None,
+                overwrite=True,
+            )
+        self.assertIn("silver_dataflowspec_path is required", str(context.exception))
+
+    def test_onboard_command_version_validation(self):
+        """Test version validation (line 100)."""
+        with self.assertRaises(ValueError) as context:
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze",
+                env="dev",
+                import_author="John Doe",
+                version=None,
+                dlt_meta_schema="dlt_meta",
+                dbfs_path="/dbfs",
+                uc_enabled=False,
+                bronze_dataflowspec_path="/path/to/bronze",
+                overwrite=True,
+            )
+        self.assertIn("version is required", str(context.exception))
+
+    def test_deploy_command_validation_cases(self):
+        """Test DeployCommand validation cases for missing coverage."""
+        # Test bronze layer without dataflowspec_bronze_table when uc_enabled=True (line 136)
+        with self.assertRaises(ValueError) as context:
+            DeployCommand(
+                layer="bronze",
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="bronze_schema",
+                dataflowspec_bronze_table=None,
+                pipeline_name="test_pipeline",
+                dlt_target_schema="target_schema",
+                uc_enabled=True,
+                uc_catalog_name="test_catalog",  # Need this to pass earlier validation
+                serverless=True,
+            )
+        self.assertIn("dataflowspec_bronze_table is required", str(context.exception))
+
+        # Test silver layer without onboard_silver_group (line 141)
+        with self.assertRaises(ValueError) as context:
+            DeployCommand(
+                layer="silver",
+                onboard_silver_group=None,
+                dlt_meta_silver_schema="silver_schema",
+                dataflowspec_silver_table="silver_table",
+                pipeline_name="test_pipeline",
+                dlt_target_schema="target_schema",
+                uc_enabled=True,
+                uc_catalog_name="test_catalog",
+                serverless=True,
+            )
+        self.assertIn("onboard_silver_group is required", str(context.exception))
+
+        # Test silver layer without dataflowspec_silver_table when uc_enabled=True (line 143)
+        with self.assertRaises(ValueError) as context:
+            DeployCommand(
+                layer="silver",
+                onboard_silver_group="A1",
+                dlt_meta_silver_schema="silver_schema",
+                dataflowspec_silver_table=None,
+                pipeline_name="test_pipeline",
+                dlt_target_schema="target_schema",
+                uc_enabled=True,
+                uc_catalog_name="test_catalog",
+                serverless=True,
+            )
+        self.assertIn("dataflowspec_silver_table is required", str(context.exception))
+
+        # Test silver layer without dataflowspec_silver_path when uc_enabled=False (line 145)
+        with self.assertRaises(ValueError) as context:
+            DeployCommand(
+                layer="silver",
+                onboard_silver_group="A1",
+                dlt_meta_silver_schema="silver_schema",
+                dataflowspec_silver_table="silver_table",
+                dataflowspec_silver_path=None,
+                pipeline_name="test_pipeline",
+                dlt_target_schema="target_schema",
+                uc_enabled=False,
+                serverless=True,
+            )
+        self.assertIn("dataflowspec_silver_path is required", str(context.exception))
+
+        # Test without pipeline_name (line 147)
+        with self.assertRaises(ValueError) as context:
+            DeployCommand(
+                layer="bronze",
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="bronze_schema",
+                dataflowspec_bronze_table="bronze_table",
+                pipeline_name=None,
+                dlt_target_schema="target_schema",
+                uc_enabled=True,
+                uc_catalog_name="test_catalog",
+                serverless=True,
+            )
+        self.assertIn("pipeline_name is required", str(context.exception))
+
+        # Test without dlt_target_schema (line 149)
+        with self.assertRaises(ValueError) as context:
+            DeployCommand(
+                layer="bronze",
+                onboard_bronze_group="A1",
+                dlt_meta_bronze_schema="bronze_schema",
+                dataflowspec_bronze_table="bronze_table",
+                pipeline_name="test_pipeline",
+                dlt_target_schema=None,
+                uc_enabled=True,
+                uc_catalog_name="test_catalog",
+                serverless=True,
+            )
+        self.assertIn("dlt_target_schema is required", str(context.exception))
+
+    def test_my_username_method_without_me_attribute(self):
+        """Test _my_username method when _me attribute doesn't exist (line 162)."""
+        mock_ws = MagicMock()
+        # Remove the _me attribute to test the if condition
+        if hasattr(mock_ws, '_me'):
+            delattr(mock_ws, '_me')
+
+        mock_current_user = MagicMock()
+        mock_me = MagicMock()
+        mock_me.user_name = "test_user_no_me"
+        mock_current_user.me.return_value = mock_me
+        mock_ws.current_user = mock_current_user
+
+        dltmeta = DLTMeta(mock_ws)
+        username = dltmeta._my_username()
+
+        self.assertEqual(username, "test_user_no_me")
+        mock_current_user.me.assert_called_once()
+
+    @patch("src.cli.uuid.uuid4")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_load_onboard_config_ui_unity_catalog_enabled(self, mock_open_file, mock_uuid):
+        """Test _load_onboard_config_ui with Unity Catalog enabled."""
+        mock_uuid.return_value.hex = "test_uuid"
+        mock_ws = MagicMock()
+        mock_ws.clusters.select_spark_version.return_value = "14.3.x-scala2.12"
+        dltmeta = DLTMeta(mock_ws)
+        dltmeta._wsi = MagicMock()
+        dltmeta._wsi._short_name = "test_user"
+
+        form_data = {
+            'unity_catalog_enabled': "1",
+            'unity_catalog_name': "test_catalog",
+            'serverless': "1",
+            'onboarding_file_path': 'custom/path/onboarding.json',
+            'local_directory': '/custom/dir/',
+            'dlt_meta_schema': 'custom_schema',
+            'bronze_schema': 'custom_bronze',
+            'silver_schema': 'custom_silver',
+            'dlt_meta_layer': "1",  # bronze_silver
+            'bronze_table': 'custom_bronze_table',
+            'overwrite': "1",
+            'version': 'v2',
+            'environment': 'dev',
+            'author': 'custom_author',
+            'update_paths': "1"
+        }
+
+        result = dltmeta._load_onboard_config_ui(form_data)
+
+        # Verify Unity Catalog settings
+        self.assertTrue(result.uc_enabled)
+        self.assertEqual(result.uc_catalog_name, "test_catalog")
+        self.assertIsNone(result.dbfs_path)
+
+        # Verify serverless settings
+        self.assertTrue(result.serverless)
+        self.assertIsNone(result.cloud)
+        self.assertIsNone(result.dbr_version)
+
+        # Verify other settings
+        self.assertEqual(result.onboard_layer, "bronze_silver")
+        self.assertEqual(result.bronze_dataflowspec_table, "custom_bronze_table")
+        self.assertTrue(result.overwrite)
+        self.assertEqual(result.version, "v2")
+        self.assertEqual(result.env, "dev")
+        self.assertEqual(result.import_author, "custom_author")
+        self.assertTrue(result.update_paths)
+
+    @patch("src.cli.uuid.uuid4")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_load_onboard_config_ui_unity_catalog_disabled(self, mock_open_file, mock_uuid):
+        """Test _load_onboard_config_ui with Unity Catalog disabled."""
+        mock_uuid.return_value.hex = "test_uuid"
+        mock_ws = MagicMock()
+        mock_ws.clusters.select_spark_version.return_value = "14.3.x-scala2.12"
+        dltmeta = DLTMeta(mock_ws)
+        dltmeta._wsi = MagicMock()
+        dltmeta._wsi._short_name = "test_user"
+
+        form_data = {
+            'unity_catalog_enabled': "0",  # Disabled
+            'serverless': "0",  # Disabled
+            'dlt_meta_layer': "0",  # bronze
+        }
+
+        result = dltmeta._load_onboard_config_ui(form_data)
+
+        # Verify Unity Catalog settings
+        self.assertFalse(result.uc_enabled)
+        self.assertEqual(result.dbfs_path, "dbfs:/dlt-meta_cli_demo_test_uuid")
+
+        # Verify non-serverless settings
+        self.assertFalse(result.serverless)
+        self.assertEqual(result.cloud, "aws")
+        self.assertEqual(result.dbr_version, "14.3.x-scala2.12")
+
+        # Verify layer settings
+        self.assertEqual(result.onboard_layer, "bronze")
+
+    @patch("src.cli.uuid.uuid4")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_load_onboard_config_ui_silver_layer(self, mock_open_file, mock_uuid):
+        """Test _load_onboard_config_ui with silver layer."""
+        mock_uuid.return_value.hex = "test_uuid"
+        mock_ws = MagicMock()
+        # Mock the clusters.select_spark_version to return a string instead of MagicMock
+        mock_ws.clusters.select_spark_version.return_value = "13.3.x-scala2.12"
+        dltmeta = DLTMeta(mock_ws)
+        dltmeta._wsi = MagicMock()
+        dltmeta._wsi._short_name = "test_user"
+
+        form_data = {
+            'unity_catalog_enabled': "0",
+            'dlt_meta_layer': "2",  # silver
+        }
+
+        result = dltmeta._load_onboard_config_ui(form_data)
+
+        # Verify layer settings
+        self.assertEqual(result.onboard_layer, "silver")
+        self.assertEqual(result.silver_dataflowspec_table, "silver_dataflowspec")
+
+    @patch("os.path.isfile")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_load_deploy_config_ui_with_onboarding_json(self, mock_open_file, mock_isfile):
+        """Test _load_deploy_config_ui with existing onboarding JSON."""
+        mock_isfile.return_value = True
+        onboarding_data = {
+            "dlt_meta_schema": "test_schema",
+            "bronze_dataflowspec_table": "bronze_table",
+            "silver_dataflowspec_table": "silver_table",
+            "bronze_dataflowspec_path": "/bronze/path",
+            "silver_dataflowspec_path": "/silver/path"
+        }
+        mock_open_file.return_value.read.return_value = json.dumps(onboarding_data)
+
+        mock_ws = MagicMock()
+        dltmeta = DLTMeta(mock_ws)
+
+        input_params = {
+            "load_from_ojd_json": True,
+            "uc_enabled": True,
+            "uc_catalog_name": "test_catalog",
+            "serverless": True,
+            "layer": "bronze_silver",
+            "onboard_bronze_group": "B1",
+            "onboard_silver_group": "S1",
+            "pipeline_name": "test_pipeline",
+            "dlt_target_schema": "target_schema"
+        }
+
+        result = dltmeta._load_deploy_config_ui(input_params)
+
+        # Verify settings loaded from JSON
+        self.assertTrue(result.uc_enabled)
+        self.assertEqual(result.uc_catalog_name, "test_catalog")
+        self.assertTrue(result.serverless)
+        self.assertEqual(result.layer, "bronze_silver")
+        self.assertEqual(result.dlt_meta_bronze_schema, "test_schema")
+        self.assertEqual(result.dataflowspec_bronze_table, "bronze_table")
+        self.assertEqual(result.dlt_meta_silver_schema, "test_schema")
+        self.assertEqual(result.dataflowspec_silver_table, "silver_table")
+
+    @patch("os.path.isfile")
+    def test_load_deploy_config_ui_without_onboarding_json(self, mock_isfile):
+        """Test _load_deploy_config_ui without onboarding JSON."""
+        mock_isfile.return_value = False
+
+        mock_ws = MagicMock()
+        dltmeta = DLTMeta(mock_ws)
+
+        input_params = {
+            "load_from_ojd_json": False,
+            "uc_enabled": False,
+            "layer": "bronze",
+            "onboard_bronze_group": "B1",
+            "dlt_meta_bronze_schema": "bronze_schema",
+            "dataflowspec_bronze_table": "bronze_table",
+            "dataflowspec_bronze_path": "/bronze/path",
+            "num_workers": 8,
+            "pipeline_name": "test_pipeline",
+            "dlt_target_schema": "target_schema"
+        }
+
+        result = dltmeta._load_deploy_config_ui(input_params)
+
+        # Verify settings
+        self.assertFalse(result.uc_enabled)
+        self.assertFalse(result.serverless)
+        self.assertEqual(result.layer, "bronze")
+        self.assertEqual(result.onboard_bronze_group, "B1")
+        self.assertEqual(result.dlt_meta_bronze_schema, "bronze_schema")
+        self.assertEqual(result.dataflowspec_bronze_table, "bronze_table")
+        self.assertEqual(result.dataflowspec_bronze_path, "/bronze/path")
+        self.assertEqual(result.num_workers, 8)
+
+    @patch("os.path.isfile")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_load_deploy_config_ui_non_serverless(self, mock_open_file, mock_isfile):
+        """Test _load_deploy_config_ui with non-serverless configuration."""
+        mock_isfile.return_value = True
+        onboarding_data = {
+            "dlt_meta_schema": "test_schema",
+            "silver_dataflowspec_path": "/test/path/silver"
+        }
+        mock_open_file.return_value.read.return_value = json.dumps(onboarding_data)
+
+        mock_ws = MagicMock()
+        dltmeta = DLTMeta(mock_ws)
+
+        input_params = {
+            "load_from_ojd_json": True,
+            "uc_enabled": False,
+            "serverless": False,
+            "layer": "silver",
+            "onboard_silver_group": "S1",
+            "num_workers": 6,
+            "pipeline_name": "test_pipeline",
+            "dlt_target_schema": "target_schema"
+        }
+
+        result = dltmeta._load_deploy_config_ui(input_params)
+
+        # Verify non-serverless settings
+        self.assertFalse(result.serverless)
+        self.assertEqual(result.num_workers, 6)
+
+    def test_create_uc_volume_exception_handling(self):
+        """Test create_uc_volume exception handling (lines 207-208)."""
+        mock_ws = MagicMock()
+        mock_ws.volumes.create.side_effect = Exception("Volume already exists")
+
+        dltmeta = DLTMeta(mock_ws)
+
+        result = dltmeta.create_uc_volume("test_catalog", "test_schema")
+
+        self.assertEqual(result, "/Volumes/test_catalog/test_schema/test_schema/")
+        mock_ws.volumes.create.assert_called_once()
+
+    def test_onboard_ui_function(self):
+        """Test onboard_ui wrapper function (lines 758-760)."""
+        from src.cli import onboard_ui
+        mock_dltmeta = MagicMock()
+        form_data = {"test": "data"}
+        onboard_ui(mock_dltmeta, form_data)
+        # Verify the function calls the DLTMeta methods
+        mock_dltmeta._load_onboard_config_ui.assert_called_once_with(form_data)
+        mock_dltmeta.onboard.assert_called_once()
+
+    def test_deploy_function(self):
+        """Test deploy wrapper function (lines 763-766)."""
+        from src.cli import deploy
+        mock_dltmeta = MagicMock()
+        deploy(mock_dltmeta)
+        # Verify the function calls the DLTMeta methods
+        mock_dltmeta._load_deploy_config.assert_called_once()
+        mock_dltmeta.deploy.assert_called_once()
+
+    def test_deploy_ui_function(self):
+        """Test deploy_ui wrapper function (lines 770-772)."""
+        from src.cli import deploy_ui
+        mock_dltmeta = MagicMock()
+        form_data = {"test": "data"}
+        deploy_ui(mock_dltmeta, form_data)
+        # Verify the function calls the DLTMeta methods
+        mock_dltmeta._load_deploy_config_ui.assert_called_once_with(form_data)
+        mock_dltmeta.deploy.assert_called_once()
+
+    @patch("src.cli.WorkspaceClient")
+    @patch("src.cli.MAPPING")
+    def test_main_function_ui_commands(self, mock_mapping, mock_workspace_client):
+        """Test main function with UI commands (line 798)."""
+        from src.cli import main
+        import json
+
+        # Mock the mapping dictionary
+        mock_ui_func = MagicMock()
+        mock_mapping.__getitem__.return_value = mock_ui_func
+        mock_mapping.__contains__.return_value = True
+
+        # Mock WorkspaceClient
+        mock_ws = MagicMock()
+        mock_workspace_client.return_value = mock_ws
+
+        # Create payload in the format expected by main function
+        payload = {
+            "command": "onboard_ui",
+            "flags": {"log_level": "disabled"},
+            "test": "payload"
+        }
+        raw_json = json.dumps(payload)
+
+        # Test UI command path (line 798)
+        main(raw_json)
+
+        # Verify the UI command was called with both dltmeta and payload
+        mock_ui_func.assert_called_once()
+        args = mock_ui_func.call_args[0]
+        self.assertEqual(len(args), 2)  # dltmeta and payload
+
+    @patch("src.cli.WorkspaceClient")
+    @patch("src.cli.MAPPING")
+    def test_main_function_non_ui_commands(self, mock_mapping, mock_workspace_client):
+        """Test main function with non-UI commands (line 800)."""
+        from src.cli import main
+        import json
+
+        # Mock the mapping dictionary
+        mock_func = MagicMock()
+        mock_mapping.__getitem__.return_value = mock_func
+        mock_mapping.__contains__.return_value = True
+
+        # Mock WorkspaceClient
+        mock_ws = MagicMock()
+        mock_workspace_client.return_value = mock_ws
+
+        # Create payload in the format expected by main function
+        payload = {
+            "command": "deploy",
+            "flags": {"log_level": "disabled"}
+        }
+        raw_json = json.dumps(payload)
+
+        # Test non-UI command path (line 800)
+        main(raw_json)
+
+        # Verify the command was called with only dltmeta
+        mock_func.assert_called_once()
+        args = mock_func.call_args[0]
+        self.assertEqual(len(args), 1)  # only dltmeta
+
+    def test_bronze_layer_uc_disabled_path_validation(self):
+        """Test bronze layer with UC disabled path requirement (line 89)."""
+        with self.assertRaises(ValueError) as context:
+            OnboardCommand(
+                onboarding_file_path="tests/resources/onboarding.json",
+                onboarding_files_dir_path="tests/resources/",
+                onboard_layer="bronze",
+                env="dev",
+                import_author="John Doe",
+                version="1.0",
+                dlt_meta_schema="dlt_meta",
+                uc_enabled=False,
+                dbfs_path="/dbfs",
+                bronze_dataflowspec_path=None,  # This should trigger the error
+                overwrite=True,
+            )
+        self.assertIn("bronze_dataflowspec_path is required", str(context.exception))

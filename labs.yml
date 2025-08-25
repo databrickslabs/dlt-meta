@@ -1,6 +1,6 @@
 ---
 name: dlt-meta
-description: Metadata-driven framework based on Databricks Delta Live Tables 
+description: Metadata-driven framework based on Databricks Lakeflow Declarative Pipelines 
 install:
   script: src/install.py
 entrypoint: src/cli.py

@@ -1,0 +1,39 @@
+# Bronze and Silver DLT Meta Pipelines for People Data
+resources:
+  pipelines:
+    pipeline_bronze_people:
+      name: People - R2B Pipeline1
+      catalog: ${var.${bundle.target}_catalog_name}
+      schema: ${var.bronze_schema}
+      development: ${var.${bundle.target}_development_enabled}
+      photon: ${var.photon_enabled}
+      serverless: ${var.serverless_enabled}
+      libraries:
+        - notebook:
+            path: ${workspace.file_path}/notebooks/init_dlt_meta_pipeline
+
+      configuration:
+        layer: bronze
+        dummy_param: ${var.dummy_param}       
+        bronze.dataflowspecTable: ${var.${bundle.target}_catalog_name}.${var.dlt_meta_schema}.${var.bronze_dataflowspecTable}
+        bronze.group: my_people
+        bundle.sourcePath: ${workspace.file_path}/notebooks
+
+    pipeline_silver_people:
+      name: People - B2S Pipeline1
+      catalog: ${var.${bundle.target}_catalog_name}
+      schema: ${var.silver_schema}
+      development: ${var.${bundle.target}_development_enabled}
+      photon: ${var.photon_enabled}
+      serverless: ${var.serverless_enabled}
+      libraries:
+        - notebook:
+            path: ${workspace.file_path}/notebooks/init_dlt_meta_pipeline
+
+      configuration:
+        layer: silver
+        dummy_param: ""
+        silver.dataflowspecTable: ${var.${bundle.target}_catalog_name}.${var.dlt_meta_schema}.${var.silver_dataflowspecTable}
+        silver.group: my_people
+        bundle.sourcePath: ${workspace.file_path}/notebooks
+        

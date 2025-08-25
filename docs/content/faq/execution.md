@@ -21,9 +21,9 @@ DLT-META needs following metadata files:
 DLT-META translates input metadata into Delta table as DataflowSpecs
 
 
-**Q. How many DLT pipelines will be launched using DLT-META?**
+**Q. How many Lakeflow Declarative Pipelines will be launched using DLT-META?**
 
-DLT-META uses data_flow_group to launch DLT pipelines, so all the tables belongs to same group will be executed under single DLT pipeline. 
+DLT-META uses data_flow_group to launch Lakeflow Declarative Pipelines, so all the tables belongs to same group will be executed under single Lakeflow Declarative pipeline. 
 
 **Q. Can we run onboarding for bronze layer only?**
 
@@ -107,8 +107,8 @@ When you launch DLT pipeline it will read silver onboarding and run DLT for bron
 
 **Q. How can I do type1 or type2 merge to target table?**
 
-- Using DLT's [dlt.apply_changes](https://docs.databricks.com/en/delta-live-tables/cdc.html) we can do type1 or type2 merge.
-- DLT-META have tag in onboarding file as `bronze_cdc_apply_changes` or `silver_cdc_apply_changes` which maps to DLT's apply_changes API.
+- Using Lakeflow Declarative Pipeline's [dlt.create_auto_cdc_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) we can do type1 or type2 merge.
+- DLT-META have tag in onboarding file as `bronze_cdc_apply_changes` or `silver_cdc_apply_changes` which maps to Lakeflow Declarative Pipeline's create_auto_cdc_flow API.
 ```
 "silver_cdc_apply_changes": {
    "keys":[
@@ -127,7 +127,7 @@ When you launch DLT pipeline it will read silver onboarding and run DLT for bron
 
 **Q. How can I write to same target table using different sources?**
 
-- Using DLT's [dlt.append_flow API](https://docs.databricks.com/en/delta-live-tables/flows.html) we can write to same target from different sources. 
+- Using Lakeflow Declarative Pipeline's [dlt.append_flow API](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-append-flow) we can write to same target from different sources. 
 - DLT-META have tag in onboarding file as [bronze_append_flows](https://github.com/databrickslabs/dlt-meta/blob/main/integration_tests/conf/cloudfiles-onboarding.template#L41) and [silver_append_flows](https://github.com/databrickslabs/dlt-meta/blob/main/integration_tests/conf/cloudfiles-onboarding.template#L67) 
 dlt.append_flow API is mapped to 
 ```json 
