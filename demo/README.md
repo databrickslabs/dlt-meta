@@ -329,7 +329,7 @@ This demo showcases how to use Databricks Asset Bundles (DABs) with DLT-Meta:
 * * Implementing SCD Type 1 to Silver tables
 * * Applying expectations to filter data in Silver tables
 
-## Prerequisites
+### Steps:
 1. Launch Command Prompt
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
