@@ -29,7 +29,7 @@
 6. Install required packages:
     ```commandline
     # Core requirements
-    pip install setuptools databricks-sdk PyYAML>=6.0
+    pip install "PyYAML>=6.0" setuptools databricks-sdk
     
     # Development requirements
     pip install delta-spark==3.0.0 pyspark==3.5.5 pytest>=7.0.0 coverage>=7.0.0

@@ -23,7 +23,7 @@ This Demo launches Bronze and Silver pipelines with following activities:
 
 3. Install Python package requirements:
    ```commandline
-   pip install setuptools databricks-sdk PyYAML>=6.0
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
    pip install delta-spark==3.0.0 pyspark==3.5.5
    ```
 
@@ -62,7 +62,7 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
 
 3. Install Python package requirements:
    ```commandline
-   pip install setuptools databricks-sdk PyYAML>=6.0
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
    pip install delta-spark==3.0.0 pyspark==3.5.5
    ```
 
@@ -104,7 +104,7 @@ This demo will perform following tasks:
 
 3. Install Python package requirements:
    ```commandline
-   pip install setuptools databricks-sdk PyYAML>=6.0
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
    pip install delta-spark==3.0.0 pyspark==3.5.5
    ```
 
@@ -143,7 +143,7 @@ This demo will perform following tasks:
 
 3. Install Python package requirements:
    ```commandline
-   pip install setuptools databricks-sdk PyYAML>=6.0
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
    pip install delta-spark==3.0.0 pyspark==3.5.5
    ```
 
@@ -208,7 +208,7 @@ This demo will perform following tasks:
 
 3. Install Python package requirements:
    ```commandline
-   pip install setuptools databricks-sdk PyYAML>=6.0
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
    pip install delta-spark==3.0.0 pyspark==3.5.5
    ```
 
@@ -274,7 +274,7 @@ This demo will perform following tasks:
 
 3. Install Python package requirements:
    ```commandline
-   pip install setuptools databricks-sdk PyYAML>=6.0
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
    pip install delta-spark==3.0.0 pyspark==3.5.5
    ```
 
@@ -315,7 +315,7 @@ This demo will perform following tasks:
 
 3. Install Python package requirements:
    ```commandline
-   pip install setuptools databricks-sdk PyYAML>=6.0
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
    pip install delta-spark==3.0.0 pyspark==3.5.5
    ```
 
@@ -379,7 +379,7 @@ This demo will perform following steps:
 
 3. Install Python package requirements:
    ```commandline
-   pip install setuptools databricks-sdk PyYAML>=6.0
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
    pip install delta-spark==3.0.0 pyspark==3.5.5
    ```
 
