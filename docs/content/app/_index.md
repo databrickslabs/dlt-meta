@@ -1,6 +1,6 @@
 **DLT-META App Setup**
 
-Make sure you have installed/upgraded the latest databrocks cli version e.g. 0.244.0 and workspace access is configured where the app is deploying.
+Make sure you have installed/upgraded the latest databricks cli version e.g. 0.244.0 and workspace access is configured where the app is deploying.
 
 **Create App and attach source to databricks apps**
 

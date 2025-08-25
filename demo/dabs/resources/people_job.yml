@@ -58,16 +58,16 @@ resources:
       description: "Job to execute the Bronze and Silver DLT-META pipelines"
 
       tasks:
-        - task_key: execute_bronze_people
+        - task_key: bronze_people_pipeline
           description: "Run DLT pipeline for Bronze People"
           pipeline_task:
             pipeline_id: ${resources.pipelines.pipeline_bronze_people.id}
             full_refresh: true
 
-        - task_key: execute_silver_people
+        - task_key: silver_people_pipeline
           description: "Run DLT pipeline for Silver People"
           pipeline_task:
             pipeline_id: ${resources.pipelines.pipeline_silver_people.id}
             full_refresh: true
           depends_on:
-            - task_key: execute_bronze_people
+            - task_key: bronze_people_pipeline

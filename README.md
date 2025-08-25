@@ -60,6 +60,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 | [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/) |  ```databricks labs dlt-meta onboard```, ```databricks labs dlt-meta deploy``` |
 | Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using Direct publishing mode |
 | [DLT Sinks](https://docs.databricks.com/aws/en/delta-live-tables/dlt-sinks) |Supported formats:external ```delta table```, ```kafka```.Bronze, Silver layers|
+| [Databricks Asset Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) | Supported
 
 ## Getting Started
 
@@ -99,36 +100,47 @@ databricks auth login --host WORKSPACE_HOST
 
 If you want to run existing demo files please follow these steps before running onboard command:
 
-```commandline
+1. Clone dlt-meta:
+    ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git
-```
+    ```
 
-```commandline
+2. Navigate to project directory:
+    ```commandline
     cd dlt-meta
-```
+    ```
 
-```commandline
+3. Create Python virtual environment:
+    ```commandline
     python -m venv .venv
-```
+    ```
 
-```commandline
+4. Activate virtual environment:
+    ```commandline
     source .venv/bin/activate
-```
+    ```
 
-```commandline
-    pip install databricks-sdk
-```
+5. Install required packages:
+    ```commandline
+    # Core requirements
+    pip install setuptools databricks-sdk PyYAML>=6.0
+    
+    # Development requirements
+    pip install delta-spark==3.0.0 pyspark==3.5.5 pytest>=7.0.0 coverage>=7.0.0
+    
+    # Integration test requirements
+    pip install "typer[all]==0.6.1"
+    ```
 
-```commandline
+6. Set environment variables:
+    ```commandline
     dlt_meta_home=$(pwd)
-```
-
-```commandline
     export PYTHONPATH=$dlt_meta_home
-```
-```commandline
+    ```
+7. Run onboarding command:
+    ```commandline
     databricks labs dlt-meta onboard
-```
+    ```
 ![onboardingDLTMeta.gif](docs/static/images/onboardingDLTMeta.gif)
 
 
