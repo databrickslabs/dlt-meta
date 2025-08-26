@@ -21,15 +21,22 @@ This Demo launches Bronze and Silver pipelines with following activities:
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
-3. ```commandline
+3. Install Python package requirements:
+   ```commandline
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
+   pip install delta-spark==3.0.0 pyspark==3.5.5
+   ```
+
+4. Clone dlt-meta:
+    ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git
     ```
 
-4. ```commandline
+5. ```commandline
     cd dlt-meta
     ```
 
-5. Set python environment variable into terminal
+6. Set python environment variable into terminal
     ```commandline
     dlt_meta_home=$(pwd)
     ```
@@ -38,7 +45,7 @@ This Demo launches Bronze and Silver pipelines with following activities:
     export PYTHONPATH=$dlt_meta_home
     ```
 
-6. ```commandline
+7. ```commandline
     python demo/launch_dais_demo.py --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
     - uc_catalog_name : Unity catalog name
@@ -53,15 +60,21 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
-3. ```commandline
+3. Install Python package requirements:
+   ```commandline
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
+   pip install delta-spark==3.0.0 pyspark==3.5.5
+   ```
+
+4. ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git
     ```
 
-4. ```commandline
+5. ```commandline
     cd dlt-meta
     ```
 
-5. Set python environment variable into terminal
+6. Set python environment variable into terminal
     ```commandline
     dlt_meta_home=$(pwd)
     ```
@@ -70,7 +83,7 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
     export PYTHONPATH=$dlt_meta_home
     ```
 
-6. ```commandline
+7. ```commandline
     python demo/launch_techsummit_demo.py --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
     - uc_catalog_name : Unity catalog name
@@ -89,15 +102,21 @@ This demo will perform following tasks:
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
-3. ```commandline
+3. Install Python package requirements:
+   ```commandline
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
+   pip install delta-spark==3.0.0 pyspark==3.5.5
+   ```
+
+4. ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git
     ```
 
-4. ```commandline
+5. ```commandline
     cd dlt-meta
     ```
 
-5. Set python environment variable into terminal
+6. Set python environment variable into terminal
     ```commandline
     dlt_meta_home=$(pwd)
     ```
@@ -106,7 +125,7 @@ This demo will perform following tasks:
     export PYTHONPATH=$dlt_meta_home
     ```
 
-6. ```commandline
+7. ```commandline
     python demo/launch_af_cloudfiles_demo.py --uc_catalog_name=<<uc catalog name>> --source=cloudfiles --profile=<<DEFAULT>>
     ```
     - uc_catalog_name : Unity Catalog name
@@ -122,14 +141,20 @@ This demo will perform following tasks:
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
-3. ```commandline
+3. Install Python package requirements:
+   ```commandline
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
+   pip install delta-spark==3.0.0 pyspark==3.5.5
+   ```
+
+4. ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git
     ```
 
-4. ```commandline
+5. ```commandline
     cd dlt-meta
     ```
-5. Set python environment variable into terminal
+6. Set python environment variable into terminal
     ```commandline
     dlt_meta_home=$(pwd)
     ```
@@ -181,14 +206,20 @@ This demo will perform following tasks:
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
-3. ```commandline
+3. Install Python package requirements:
+   ```commandline
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
+   pip install delta-spark==3.0.0 pyspark==3.5.5
+   ```
+
+4. ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git
     ```
 
-4. ```commandline
+5. ```commandline
     cd dlt-meta
     ```
-5. Set python environment variable into terminal
+6. Set python environment variable into terminal
     ```commandline
     dlt_meta_home=$(pwd)
     ```
@@ -198,15 +229,15 @@ This demo will perform following tasks:
 
 6. Run the command 
     ```commandline
-        python demo/launch_silver_fanout_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
+    python demo/launch_silver_fanout_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
 
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
 
-    - - 6a. Databricks Workspace URL:
-    - - Enter your workspace URL, with the format https://<instance-name>.cloud.databricks.com. To get your workspace URL, see Workspace instance names, URLs, and IDs.
+    a. Databricks Workspace URL:
+       Enter your workspace URL, with the format https://<instance-name>.cloud.databricks.com. To get your workspace URL, see Workspace instance names, URLs, and IDs.
 
-    - - 6b. Token:
+    b. Token:
         - In your Databricks workspace, click your Databricks username in the top bar, and then select User Settings from the drop down.
 
         - On the Access tokens tab, click Generate new token.
@@ -241,14 +272,20 @@ This demo will perform following tasks:
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
-3. ```commandline
+3. Install Python package requirements:
+   ```commandline
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
+   pip install delta-spark==3.0.0 pyspark==3.5.5
+   ```
+
+4. ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git 
     ```
 
-4. ```commandline
+5. ```commandline
     cd dlt-meta
     ```
-5. Set python environment variable into terminal
+6. Set python environment variable into terminal
     ```commandline
     dlt_meta_home=$(pwd)
     ```
@@ -276,14 +313,20 @@ This demo will perform following tasks:
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
-3. ```commandline
+3. Install Python package requirements:
+   ```commandline
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
+   pip install delta-spark==3.0.0 pyspark==3.5.5
+   ```
+
+4. ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git 
     ```
 
-4. ```commandline
+5. ```commandline
     cd dlt-meta
     ```
-5. Set python environment variable into terminal
+6. Set python environment variable into terminal
     ```commandline
     dlt_meta_home=$(pwd)
     ```
@@ -316,32 +359,38 @@ This demo will perform following tasks:
 
 ## Overview
 This demo showcases how to use Databricks Asset Bundles (DABs) with DLT-Meta:
-* This demo will perform following steps
-* * Create dlt-meta schema's for dataflowspec and bronze/silver layer
-* * Upload nccessary resources to unity catalog volume
-* * Create DAB files with catalog, schema, file locations populated
-* * Deploy DAB to databricks workspace
-* * Run onboarding usind DAB commands
-* * Run Bronze/Silver Pipelines using DAB commands
-* * Demo examples will showcase fan-out pattern in silver layer
-* * Demo example will show case custom transfomations for bronze/silver layers
-* * Adding custom columns and metadata to Bronze tables
-* * Implementing SCD Type 1 to Silver tables
-* * Applying expectations to filter data in Silver tables
+This demo will perform following steps:
+- Create dlt-meta schema's for dataflowspec and bronze/silver layer
+- Upload nccessary resources to unity catalog volume
+- Create DAB files with catalog, schema, file locations populated
+- Deploy DAB to databricks workspace
+- Run onboarding usind DAB commands
+- Run Bronze/Silver Pipelines using DAB commands
+- Demo examples will showcase fan-out pattern in silver layer
+- Demo example will show case custom transfomations for bronze/silver layers
+- Adding custom columns and metadata to Bronze tables
+- Implementing SCD Type 1 to Silver tables
+- Applying expectations to filter data in Silver tables
 
 ### Steps:
 1. Launch Command Prompt
 
 2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
 
-3. ```commandline
+3. Install Python package requirements:
+   ```commandline
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
+   pip install delta-spark==3.0.0 pyspark==3.5.5
+   ```
+
+4. ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git 
     ```
 
-4. ```commandline
+5. ```commandline
     cd dlt-meta
     ```
-5. Set python environment variable into terminal
+6. Set python environment variable into terminal
     ```commandline
     dlt_meta_home=$(pwd)
     ```
