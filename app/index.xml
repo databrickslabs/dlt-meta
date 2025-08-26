@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title/><link>https://databrickslabs.github.io/dlt-meta/app/index.html</link><description>DLT-META App Setup
+Make sure you have installed/upgraded the latest databricks cli version e.g. 0.244.0 and workspace access is configured where the app is deploying.
+Create App and attach source to databricks apps
+Step1. Create Custom app (“empty”) using cli e.g. app name is demo-dltmeta
+databricks apps create demo-dltmeta
+Wait to complete the command execution. It will take a few minutes.
+Step2. Checkout project from dlt meta git repository
+git clone https://github.com/databrickslabs/dlt-meta.git
+Step3. cd dlt-meta/lakehouse_app
+Step4. Sync DLT-META app code to your workspace directory run below command to sync code “testapp is folder name, you can name as per your choise”
+databricks sync . /Workspace/Users/&lt;user1.user2>@databricks.com/testapp
+Step5. Deploy code to app created in step1
+databricks apps deploy demo-dltmeta --source-code-path /Workspace/Users/&lt;user1.user2>@databricks.com/testapp
+Step6. Open the url from step1 log or go to Databricks web page click New > app > click back on App > search by your app name and click on url to open the app in browser.</description><generator>Hugo</generator><language>en-us</language><atom:link href="https://databrickslabs.github.io/dlt-meta/app/index.xml" rel="self" type="application/rss+xml"/></channel></rss>
