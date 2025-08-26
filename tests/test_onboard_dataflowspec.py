@@ -10,20 +10,6 @@ from pyspark.sql import DataFrame
 class OnboardDataflowspecTests(DLTFrameworkTestCase):
     """OnboardDataflowSpec Unit Test ."""
 
-    def test_onboard_yml_bronze_dataflow_spec(self):
-        """Test onboarding bronze dataflow spec from YAML file."""
-        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
-        onboarding_params_map["onboarding_file_path"] = "tests/resources/onboarding.yml"
-        onboard_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
-        onboard_dfs.onboard_bronze_dataflow_spec()
-        # Verify the onboarded data
-        bronze_df = self.read_dataflowspec(
-            onboarding_params_map["database"],
-            onboarding_params_map["bronze_dataflowspec_table"]
-        )
-        # Check number of records matches YAML file
-        self.assertEqual(bronze_df.count(), 3)  # Two dataflows in YAML
-
     def test_validate_params_for_onboardBronzeDataflowSpec(self):
         """Test for onboardDataflowspec parameters."""
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
@@ -387,34 +373,6 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
 
-    def test_onboard_bronze_create_sink(self):
-        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
-        local_params["onboarding_file_path"] = self.onboarding_sink_json_file
-        local_params["bronze_dataflowspec_table"] = "bronze_dataflowspec_sink"
-        del local_params["silver_dataflowspec_table"]
-        del local_params["silver_dataflowspec_path"]
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
-        onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
-        bronze_dataflowSpec_df = self.read_dataflowspec(
-            self.onboarding_bronze_silver_params_map['database'],
-            "bronze_dataflowspec_sink")
-        bronze_dataflowSpec_df.show(truncate=False)
-        self.assertEqual(bronze_dataflowSpec_df.count(), 1)
-
-    def test_silver_bronze_create_sink(self):
-        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
-        local_params["onboarding_file_path"] = self.onboarding_sink_json_file
-        local_params["silver_dataflowspec_table"] = "silver_dataflowspec_sink"
-        del local_params["bronze_dataflowspec_table"]
-        del local_params["bronze_dataflowspec_path"]
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
-        onboardDataFlowSpecs.onboard_silver_dataflow_spec()
-        silver_dataflowSpec_df = self.read_dataflowspec(
-            self.onboarding_bronze_silver_params_map['database'],
-            "silver_dataflowspec_sink")
-        silver_dataflowSpec_df.show(truncate=False)
-        self.assertEqual(silver_dataflowSpec_df.count(), 1)
-
     def test_onboard_bronze_silver_with_v8(self):
         local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         local_params["onboarding_file_path"] = self.onboarding_json_v8_file
@@ -447,22 +405,6 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
 
-    def test_onboard_bronze_silver_with_v10(self):
-        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
-        local_params["onboarding_file_path"] = self.onboarding_json_v10_file
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
-        onboardDataFlowSpecs.onboard_dataflow_specs()
-        bronze_dataflowSpec_df = self.read_dataflowspec(
-            self.onboarding_bronze_silver_params_map['database'],
-            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
-        bronze_dataflowSpec_df.show(truncate=False)
-        silver_dataflowSpec_df = self.read_dataflowspec(
-            self.onboarding_bronze_silver_params_map['database'],
-            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
-        silver_dataflowSpec_df.show(truncate=False)
-        self.assertEqual(bronze_dataflowSpec_df.count(), 5)
-        self.assertEqual(silver_dataflowSpec_df.count(), 5)
-
     def test_onboard_apply_changes_from_snapshot_positive(self):
         """Test for onboardDataflowspec."""
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
@@ -488,22 +430,6 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         with self.assertRaises(Exception):
             onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
 
-    def test_onboard_silver_apply_changes_from_snapshot_positive(self):
-        """Test for onboardDataflowspec."""
-        onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
-        onboarding_params_map['env'] = 'dev'
-        onboarding_params_map["onboarding_file_path"] = self.onboarding_silver_apply_changes_from_snapshot_json_file
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, onboarding_params_map, uc_enabled=True)
-        onboardDataFlowSpecs.onboard_dataflow_specs()
-        bronze_dataflowSpec_df = self.read_dataflowspec(
-            self.onboarding_bronze_silver_params_map['database'],
-            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
-        self.assertEqual(bronze_dataflowSpec_df.count(), 3)
-        bronze_dataflowSpec_df = self.read_dataflowspec(
-            self.onboarding_bronze_silver_params_map['database'],
-            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
-        self.assertEqual(bronze_dataflowSpec_df.count(), 3)
-
     def test_get_quarantine_details_with_partitions_and_properties(self):
         """Test get_quarantine_details with partitions and properties."""
         onboarding_row = {
@@ -518,7 +444,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
         quarantine_target_details, quarantine_table_properties = (
             onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
-                "it", "bronze", onboarding_row)
+                "it", onboarding_row)
         )
         self.assertEqual(quarantine_target_details["database"], "quarantine_db")
         self.assertEqual(quarantine_target_details["table"], "quarantine_table")
@@ -536,7 +462,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
         quarantine_target_details, quarantine_table_properties = (
             onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
-                "it", "bronze", onboarding_row
+                "it", onboarding_row
             )
         )
         self.assertEqual(quarantine_target_details["path"], "quarantine_path")
@@ -556,7 +482,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         )
         quarantine_target_details, quarantine_table_properties = (
             onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
-                "it", "bronze", onboarding_row
+                "it", onboarding_row
             )
         )
         self.assertEqual(quarantine_target_details["database"], "quarantine_db")
@@ -567,7 +493,7 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
     def test_get_quarantine_details_with_cluster_by_and_properties(self):
         """Test get_quarantine_details with partitions and properties."""
         onboarding_row = {
-            "bronze_quarantine_table_cluster_by": ['col1', 'col2'],
+            "bronze_quarantine_table_cluster_by": 'col1,col2',
             "bronze_database_quarantine_it": "quarantine_db",
             "bronze_quarantine_table": "quarantine_table",
             "bronze_quarantine_table_path_it": "quarantine_path",
@@ -578,17 +504,17 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
         quarantine_target_details, quarantine_table_properties = (
             onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
-                "it", "bronze", onboarding_row)
+                "it", onboarding_row)
         )
         self.assertEqual(quarantine_target_details["database"], "quarantine_db")
         self.assertEqual(quarantine_target_details["table"], "quarantine_table")
-        self.assertEqual(quarantine_target_details["cluster_by"], ['col1', 'col2'])
+        self.assertEqual(quarantine_target_details["cluster_by"], 'col1,col2')
         self.assertEqual(quarantine_target_details["path"], "quarantine_path")
 
     def test_set_quarantine_details_with_cluster_by_and_zOrder_properties(self):
         """Test get_quarantine_details with partitions and properties."""
         onboarding_row = {
-            "bronze_quarantine_table_cluster_by": ['col1', 'col2'],
+            "bronze_quarantine_table_cluster_by": 'col1,col2',
             "bronze_database_quarantine_it": "quarantine_db",
             "bronze_quarantine_table": "quarantine_table",
             "bronze_quarantine_table_path_it": "quarantine_path",
@@ -600,11 +526,10 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
 
         with self.assertRaises(Exception) as context:
             onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
-                "it", "bronze", onboarding_row)
+                "it", onboarding_row)
         print(str(context.exception))
-        self.assertTrue(
-            "Cannot support zOrder and cluster_by together at bronze_quarantine_table_cluster_by"
-            in str(context.exception))
+        self.assertEqual(str(context.exception),
+                         "Can not support zOrder and cluster_by together at bronze_quarantine_table_cluster_by")
 
     def test_set_bronze_table_cluster_by_properties(self):
         """Test get_quarantine_details with partitions and properties."""
@@ -630,8 +555,9 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         with self.assertRaises(Exception) as context:
             onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
                 onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
-        self.assertTrue(
-            "Cannot support zOrder and cluster_by together at bronze_cluster_by" in str(context.exception))
+        self.assertEqual(
+            str(context.exception),
+            "Can not support zOrder and cluster_by together at bronze_cluster_by")
 
     def test_set_silver_table_cluster_by_properties(self):
         """Test get_quarantine_details with partitions and properties."""
@@ -657,132 +583,5 @@ class OnboardDataflowspecTests(DLTFrameworkTestCase):
         with self.assertRaises(Exception) as context:
             onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
                 onboarding_row, onboarding_row['silver_table_properties'], "silver_cluster_by")
-        self.assertTrue(
-            "Cannot support zOrder and cluster_by together at silver_cluster_by" in str(context.exception))
-
-    def test_cluster_by_validation_non_list(self):
-        """Test cluster_by validation with non-list value that cannot be parsed."""
-        onboarding_row = {
-            "bronze_cluster_by": "col1,col2",  # String that cannot be parsed as list
-            "bronze_table_properties": {"pipelines.autoOptimize.managed": "true"}
-        }
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-
-        with self.assertRaises(Exception) as context:
-            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
-                onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
-        self.assertIn("Cannot parse string as list", str(context.exception))
-
-    def test_cluster_by_validation_non_string_element(self):
-        """Test cluster_by validation with non-string element in list."""
-        onboarding_row = {
-            "bronze_cluster_by": ["col1", 123, "col3"],  # Integer in list
-            "bronze_table_properties": {"pipelines.autoOptimize.managed": "true"}
-        }
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-
-        with self.assertRaises(Exception) as context:
-            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
-                onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
-        self.assertIn("Element at index 1 must be a string but got int", str(context.exception))
-
-    def test_cluster_by_validation_whitespace_element(self):
-        """Test cluster_by validation with whitespace in element."""
-        onboarding_row = {
-            "bronze_cluster_by": ["col1", " col2 ", "col3"],  # Whitespace around col2
-            "bronze_table_properties": {"pipelines.autoOptimize.managed": "true"}
-        }
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-
-        with self.assertRaises(Exception) as context:
-            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
-                onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
-        self.assertIn("contains leading/trailing whitespace", str(context.exception))
-
-    def test_cluster_by_validation_empty_element(self):
-        """Test cluster_by validation with empty element."""
-        onboarding_row = {
-            "bronze_cluster_by": ["col1", "", "col3"],  # Empty string
-            "bronze_table_properties": {"pipelines.autoOptimize.managed": "true"}
-        }
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-
-        with self.assertRaises(Exception) as context:
-            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
-                onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
-        self.assertIn("is empty or contains only whitespace", str(context.exception))
-
-    def test_cluster_by_validation_unbalanced_quotes(self):
-        """Test cluster_by validation with unbalanced quotes."""
-        onboarding_row = {
-            "bronze_cluster_by": ["col1", "col2\"", "col3"],  # Unbalanced quote
-            "bronze_table_properties": {"pipelines.autoOptimize.managed": "true"}
-        }
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-
-        with self.assertRaises(Exception) as context:
-            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
-                onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
-        self.assertIn("contains unbalanced quotes", str(context.exception))
-
-    def test_cluster_by_validation_valid_list(self):
-        """Test cluster_by validation with valid list."""
-        onboarding_row = {
-            "silver_cluster_by": ["id", "customer_id"],  # Valid list
-            "silver_table_properties": {"pipelines.autoOptimize.managed": "true"}
-        }
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-
-        cluster_by = onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
-            onboarding_row, onboarding_row['silver_table_properties'], "silver_cluster_by")
-        self.assertEqual(cluster_by, ["id", "customer_id"])
-
-    def test_cluster_by_string_parsing_valid(self):
-        """Test cluster_by parsing from valid string representation."""
-        onboarding_row = {
-            "bronze_cluster_by": "['id', 'email']",  # String representation of list
-            "bronze_table_properties": {"pipelines.autoOptimize.managed": "true"}
-        }
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-
-        cluster_by = onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
-            onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
-        self.assertEqual(cluster_by, ["id", "email"])
-
-    def test_cluster_by_string_parsing_invalid_syntax(self):
-        """Test cluster_by parsing with invalid string syntax."""
-        onboarding_row = {
-            "bronze_cluster_by": "['id', 'email'",  # Missing closing bracket
-            "bronze_table_properties": {"pipelines.autoOptimize.managed": "true"}
-        }
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-
-        with self.assertRaises(Exception) as context:
-            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
-                onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
-        self.assertIn("Cannot parse string as list", str(context.exception))
-
-    def test_cluster_by_string_parsing_not_list(self):
-        """Test cluster_by parsing when string represents non-list."""
-        onboarding_row = {
-            "bronze_cluster_by": "'id,email'",  # String that evaluates to string, not list
-            "bronze_table_properties": {"pipelines.autoOptimize.managed": "true"}
-        }
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-
-        with self.assertRaises(Exception) as context:
-            onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
-                onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
-        self.assertIn("Parsed value is not a list", str(context.exception))
-
-    def test_cluster_by_string_parsing_double_quotes(self):
-        """Test cluster_by parsing with double quotes."""
-        onboarding_row = {
-            "bronze_cluster_by": '["id", "customer_id"]',  # Double quotes
-            "bronze_table_properties": {"pipelines.autoOptimize.managed": "true"}
-        }
-        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-
-        cluster_by = onboardDataFlowSpecs._OnboardDataflowspec__get_cluster_by_properties(
-            onboarding_row, onboarding_row['bronze_table_properties'], "bronze_cluster_by")
-        self.assertEqual(cluster_by, ["id", "customer_id"])
+        self.assertEqual(
+            str(context.exception), "Can not support zOrder and cluster_by together at silver_cluster_by")

@@ -7,7 +7,7 @@ draft: false
 
 **Q. What is DLT-META ?**
 
-DLT-META is a solution/framework using Databricks Lakeflow Declarative Pipelines which helps you automate bronze and silver layer pipelines using CI/CD.
+DLT-META is a solution/framework using Databricks Delta Live Tables aka DLT which helps you automate bronze and silver layer pipelines using CI/CD.
 
 **Q. What are the benefits of using DLT-META ?**
 

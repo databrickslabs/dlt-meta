@@ -2,39 +2,28 @@
    {
       "data_flow_id": "101",
       "data_flow_group": "A1",
-      "bronze_catalog_demo": "{uc_catalog_name}",
-      "bronze_database_demo": "{bronze_schema}",
+      "bronze_database_demo": "{uc_catalog_name}.{bronze_schema}",
       "bronze_table": "cars",
-      "bronze_table_comment": "cars bronze table",
-      "silver_catalog_demo": "{uc_catalog_name}",
-      "silver_database_demo": "{silver_schema}",
+      "silver_database_demo": "{uc_catalog_name}.{silver_schema}",
       "silver_table": "cars_germany",
-      "silver_table_comment": "cars_germany silver table",
       "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/silver_transformations_cars.json"
    },
    {
       "data_flow_id": "102",
       "data_flow_group": "A1",
-      "bronze_catalog_demo": "{uc_catalog_name}",
-      "bronze_database_demo": "{bronze_schema}",
+      "bronze_database_demo": "{uc_catalog_name}.{bronze_schema}",
       "bronze_table": "cars",
-      "bronze_table_comment": "bronze cars table",
-      "silver_catalog_demo": "{uc_catalog_name}",
-      "silver_database_demo": "{silver_schema}",
+      "silver_database_demo": "{uc_catalog_name}.{silver_schema}",
       "silver_table": "cars_uk",
-      "silver_table_comment": "cars_uk silver table",
       "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/silver_transformations_cars.json"
    },
    {
       "data_flow_id": "103",
       "data_flow_group": "A1",
-      "bronze_catalog_demo": "{uc_catalog_name}",
-      "bronze_database_demo": "{bronze_schema}",
+      "bronze_database_demo": "{uc_catalog_name}.{bronze_schema}",
       "bronze_table": "cars",
-      "silver_catalog_demo": "{uc_catalog_name}",
-      "silver_database_demo": "{silver_schema}",
+      "silver_database_demo": "{uc_catalog_name}.{silver_schema}",
       "silver_table": "cars_japan",
-      "silver_table_comment": "cars_japan silver table",
       "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/silver_transformations_cars.json"
    }        
 ]

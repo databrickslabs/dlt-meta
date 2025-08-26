@@ -42,9 +42,8 @@ class ApplyChangesFromSnapshotDemo(DLTMETARunner):
             int_tests_dir="demo",
             dlt_meta_schema=f"dlt_meta_dataflowspecs_demo_{run_id}",
             bronze_schema=f"dlt_meta_bronze_demo_{run_id}",
-            silver_schema=f"dlt_meta_silver_demo_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_demo/{run_id}",
-            runners_full_local_path="demo/notebooks/snapshot_runners",
+            runners_full_local_path="integration_tests/notebooks/snapshot_runners",
             test_output_file_path=(
                 f"/Users/{self.wsi._my_username}/dlt_meta_demo/"
                 f"{run_id}/dlt_meta_acfs_demo-output.csv"

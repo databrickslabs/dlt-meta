@@ -18,8 +18,7 @@
       },
       "source_schema_path": "{dbfs_path}/dlt-meta/resources/customers.ddl"
    },
-   "bronze_catalog_it": "{uc_catalog_name}",
-   "bronze_database_it": "{bronze_schema}",
+   "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",
    "bronze_table": "customers",
    "bronze_reader_options": {
       "cloudFiles.format": "json",
@@ -32,8 +31,7 @@
          "pipelines.autoOptimize.zOrderCols": "id, email"
    },    
    "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/customers/bronze_data_quality_expectations.json",
-   "bronze_catalog_quarantine_it": "{uc_catalog_name}",
-   "bronze_database_quarantine_it": "{bronze_schema}",
+   "bronze_database_quarantine_it": "{uc_catalog_name}.{bronze_schema}",
    "bronze_quarantine_table": "customers_quarantine",
    "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/customers_quarantine",  
    "bronze_quarantine_table_properties": {
@@ -57,7 +55,6 @@
             "once": false
       }
    ],
-   "silver_catalog_it": "{uc_catalog_name}",
    "silver_database_it": "{uc_catalog_name}.{silver_schema}",
    "silver_table": "customers",
    "silver_cdc_apply_changes": {
@@ -95,9 +92,8 @@
             "include_autoloader_metadata_column": "True"
       },      
       "source_schema_path": "{dbfs_path}/dlt-meta/resources/transactions.ddl"
-   },
-   "bronze_catalog_it": "{uc_catalog_name}",   
-   "bronze_database_it": "{bronze_schema}",
+   },   
+   "bronze_database_it": "{uc_catalog_name}.{bronze_schema}",
    "bronze_table": "transactions",
    "bronze_reader_options": {
       "cloudFiles.format": "json",
@@ -110,8 +106,7 @@
          "pipelines.autoOptimize.zOrderCols": "id, customer_id"    
    },
    "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/transactions/bronze_data_quality_expectations.json",
-   "bronze_catalog_quarantine_it": "{uc_catalog_name}",
-   "bronze_database_quarantine_it": "{bronze_schema}",
+   "bronze_database_quarantine_it": "{uc_catalog_name}.{bronze_schema}",
    "bronze_quarantine_table": "transactions_quarantine",
    "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/transactions_quarantine",
    "bronze_quarantine_table_properties": {
@@ -136,8 +131,7 @@
             "once": false
       }
    ],
-   "silver_catalog_it": "{uc_catalog_name}",
-   "silver_database_it": "{silver_schema}",
+   "silver_database_it": "{uc_catalog_name}.{silver_schema}",
    "silver_table": "transactions",
    "silver_cdc_apply_changes": {
       "keys": [

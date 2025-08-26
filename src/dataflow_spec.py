@@ -41,7 +41,6 @@ class BronzeDataflowSpec:
     updateDate: datetime
     updatedBy: str
     clusterBy: list
-    sinks: str
 
 
 @dataclass
@@ -60,10 +59,7 @@ class SilverDataflowSpec:
     whereClause: list
     partitionColumns: list
     cdcApplyChanges: str
-    applyChangesFromSnapshot: str
     dataQualityExpectations: str
-    quarantineTargetDetails: map
-    quarantineTableProperties: map
     appendFlows: str
     appendFlowsSchemas: map
     version: str
@@ -72,7 +68,6 @@ class SilverDataflowSpec:
     updateDate: datetime
     updatedBy: str
     clusterBy: list
-    sinks: str
 
 
 @dataclass
@@ -118,15 +113,6 @@ class AppendFlow:
     once: bool
 
 
-@dataclass
-class DLTSink:
-    name: str
-    format: str
-    options: map
-    select_exp: list
-    where_clause: str
-
-
 class DataflowSpecUtils:
     """A collection of methods for working with DataflowSpec."""
 
@@ -165,9 +151,6 @@ class DataflowSpecUtils:
     }
 
     append_flow_mandatory_attributes = ["name", "source_format", "create_streaming_table", "source_details"]
-    sink_mandatory_attributes = ["name", "format", "options"]
-    supported_sink_formats = ["delta", "kafka", "eventhub"]
-
     append_flow_api_attributes_defaults = {
         "comment": None,
         "create_streaming_table": False,
@@ -176,28 +159,8 @@ class DataflowSpecUtils:
         "once": False
     }
 
-    sink_attributes_defaults = {
-        "select_exp": None,
-        "where_clause": None
-    }
-
-    additional_bronze_df_columns = [
-        "appendFlows",
-        "appendFlowsSchemas",
-        "applyChangesFromSnapshot",
-        "clusterBy",
-        "sinks"
-    ]
-    additional_silver_df_columns = [
-        "dataQualityExpectations",
-        "quarantineTargetDetails",
-        "quarantineTableProperties",
-        "appendFlows",
-        "appendFlowsSchemas",
-        "applyChangesFromSnapshot",
-        "clusterBy",
-        "sinks"
-    ]
+    additional_bronze_df_columns = ["appendFlows", "appendFlowsSchemas", "applyChangesFromSnapshot", "clusterBy"]
+    additional_silver_df_columns = ["dataQualityExpectations", "appendFlows", "appendFlowsSchemas", "clusterBy"]
     additional_cdc_apply_changes_columns = ["flow_name", "once"]
     apply_changes_from_snapshot_api_attributes = [
         "keys",
@@ -322,6 +285,7 @@ class DataflowSpecUtils:
             if isinstance(partition_columns, str):
                 # quarantineTableProperties cluster by
                 partition_cols = partition_columns.split(',')
+
             else:
                 if len(partition_columns) == 1:
                     if partition_columns[0] == "" or partition_columns[0].strip() == "":
@@ -437,122 +401,3 @@ class DataflowSpecUtils:
             logger.info(f"final appendFlow={json_append_flow}")
             list_append_flows.append(AppendFlow(**json_append_flow))
         return list_append_flows
-
-    def get_db_utils(spark):
-        """Get databricks utils using DBUtils package."""
-        from pyspark.dbutils import DBUtils
-        return DBUtils(spark)
-
-    def get_sinks(sinks, spark) -> list[DLTSink]:
-        """Get sink metadata."""
-        logger.info(sinks)
-        json_sinks = json.loads(sinks)
-        dlt_sinks = []
-        for json_sink in json_sinks:
-            logger.info(f"actual sink={json_sink}")
-            payload_keys = json_sink.keys()
-            missing_sink_payload_keys = set(DataflowSpecUtils.sink_mandatory_attributes).difference(payload_keys)
-            logger.info(f"missing sink payload keys:{missing_sink_payload_keys}")
-            if set(DataflowSpecUtils.sink_mandatory_attributes) - set(payload_keys):
-                missing_mandatory_attr = set(DataflowSpecUtils.sink_mandatory_attributes) - set(payload_keys)
-                logger.info(f"mandatory missing keys= {missing_mandatory_attr}")
-                raise Exception(f"mandatory missing keys= {missing_mandatory_attr} for sink")
-            else:
-                logger.info(
-                    f"""all mandatory keys
-                    {DataflowSpecUtils.sink_mandatory_attributes} exists"""
-                )
-            format = json_sink['format']
-            if format not in DataflowSpecUtils.supported_sink_formats:
-                raise Exception(f"Unsupported sink format: {format}")
-            if 'options' in json_sink.keys():
-                json_sink['options'] = json.loads(json_sink['options'])
-            if format == "kafka" and 'options' in json_sink.keys():
-                kafka_options_json = json_sink['options']
-                dbutils = DataflowSpecUtils.get_db_utils(spark)
-                if "kafka_sink_servers_secret_scope_name" in kafka_options_json.keys() and \
-                   "kafka_sink_servers_secret_scope_key" in kafka_options_json.keys():
-                    kbs_secrets_scope = kafka_options_json["kafka_sink_servers_secret_scope_name"]
-                    kbs_secrets_key = kafka_options_json["kafka_sink_servers_secret_scope_key"]
-                    json_sink['options']["kafka.bootstrap.servers"] = \
-                        dbutils.secrets.get(kbs_secrets_scope, kbs_secrets_key)
-                    del json_sink['options']['kafka_sink_servers_secret_scope_name']
-                    del json_sink['options']['kafka_sink_servers_secret_scope_key']
-                    ssl_truststore_location = kafka_options_json.get("kafka.ssl.truststore.location", None)
-                    ssl_keystore_location = kafka_options_json.get("kafka.ssl.keystore.location", None)
-                    if ssl_truststore_location and ssl_keystore_location:
-                        truststore_scope = kafka_options_json.get("kafka.ssl.truststore.secrets.scope", None)
-                        truststore_key = kafka_options_json.get("kafka.ssl.truststore.secrets.key", None)
-                        keystore_scope = kafka_options_json.get("kafka.ssl.keystore.secrets.scope", None)
-                        keystore_key = kafka_options_json.get("kafka.ssl.keystore.secrets.key", None)
-                        if (truststore_scope and truststore_key and keystore_scope and keystore_key):
-                            dbutils = DataflowSpecUtils.get_db_utils(spark)
-                            json_sink['options']['kafka.ssl.truststore.location'] = ssl_truststore_location
-                            json_sink['options']['kafka.ssl.keystore.location'] = ssl_keystore_location
-                            json_sink['options']['kafka.ssl.keystore.password'] = dbutils.secrets.get(
-                                keystore_scope, keystore_key
-                            )
-                            json_sink['options']['kafka.ssl.truststore.password'] = dbutils.secrets.get(
-                                truststore_scope, truststore_key)
-                            del json_sink['options']['kafka.ssl.truststore.secrets.scope']
-                            del json_sink['options']['kafka.ssl.truststore.secrets.key']
-                            del json_sink['options']['kafka.ssl.keystore.secrets.scope']
-                            del json_sink['options']['kafka.ssl.keystore.secrets.key']
-                        else:
-                            params = ["kafka.ssl.truststore.secrets.scope",
-                                      "kafka.ssl.truststore.secrets.key",
-                                      "kafka.ssl.keystore.secrets.scope",
-                                      "kafka.ssl.keystore.secrets.key"
-                                      ]
-                            raise Exception(
-                                f"Kafka ssl required params are: {params}! provided options are :{kafka_options_json}"
-                            )
-            if format == "eventhub" and 'options' in json_sink.keys():
-                dbutils = DataflowSpecUtils.get_db_utils(spark)
-                kafka_options_json = json_sink['options']
-                eh_namespace = kafka_options_json["eventhub.namespace"]
-                eh_port = kafka_options_json["eventhub.port"]
-                eh_name = kafka_options_json["eventhub.name"]
-                eh_shared_key_name = kafka_options_json["eventhub.accessKeyName"]
-                secret_name = kafka_options_json["eventhub.accessKeySecretName"]
-                if not secret_name:
-                    # set default value if "eventhub.accessKeySecretName" is not specified
-                    secret_name = eh_shared_key_name
-                secret_scope = kafka_options_json.get("eventhub.secretsScopeName")
-                eh_shared_key_value = dbutils.secrets.get(secret_scope, secret_name)
-                eh_shared_key_value = f"SharedAccessKeyName={eh_shared_key_name};SharedAccessKey={eh_shared_key_value}"
-                eh_conn_str = f"Endpoint=sb://{eh_namespace}.servicebus.windows.net/;{eh_shared_key_value}"
-                eh_kafka_str = "kafkashaded.org.apache.kafka.common.security.plain.PlainLoginModule"
-                sasl_config = f"{eh_kafka_str} required username=\"$ConnectionString\" password=\"{eh_conn_str}\";"
-
-                eh_conn_options = {
-                    "kafka.bootstrap.servers": f"{eh_namespace}.servicebus.windows.net:{eh_port}",
-                    "topic": eh_name,
-                    "kafka.sasl.mechanism": "PLAIN",
-                    "kafka.security.protocol": "SASL_SSL",
-                    "kafka.sasl.jaas.config": sasl_config
-                }
-                json_sink['options']['kafka.bootstrap.servers'] = eh_conn_options['kafka.bootstrap.servers']
-                json_sink['options']['kafka.sasl.mechanism'] = eh_conn_options['kafka.sasl.mechanism']
-                json_sink['options']['kafka.security.protocol'] = eh_conn_options['kafka.security.protocol']
-                json_sink['options']['kafka.sasl.jaas.config'] = eh_conn_options['kafka.sasl.jaas.config']
-                json_sink['options']['topic'] = eh_conn_options['topic']
-                del json_sink['options']['eventhub.namespace']
-                del json_sink['options']['eventhub.port']
-                del json_sink['options']['eventhub.name']
-                del json_sink['options']['eventhub.accessKeyName']
-                del json_sink['options']['eventhub.accessKeySecretName']
-                del json_sink['options']['eventhub.secretsScopeName']
-                # DLT interacts with EventHub API as Kafka, change format before invoking sink.
-                json_sink['format'] = 'kafka'
-            if 'select_exp' in json_sink.keys():
-                json_sink['select_exp'] = json_sink['select_exp']
-            if 'where_clause' in json_sink.keys():
-                json_sink['where_clause'] = json_sink['where_clause']
-            for missing_sink_payload_key in missing_sink_payload_keys:
-                json_sink[
-                    missing_sink_payload_key
-                ] = DataflowSpecUtils.sink_attributes_defaults[missing_sink_payload_key]
-            logger.info(f"final sink={json_sink}")
-            dlt_sinks.append(DLTSink(**json_sink))
-        return dlt_sinks

@@ -18,7 +18,6 @@
       },
       "source_schema_path": "{uc_volume_path}/demo/resources/data/afam/ddl/customers.ddl"
    },
-   "bronze_catalog_demo": "{uc_catalog_name}",
    "bronze_database_demo": "{uc_catalog_name}.{bronze_schema}",
    "bronze_table": "customers",
    "bronze_reader_options": {
@@ -27,17 +26,16 @@
       "cloudFiles.rescuedDataColumn": "_rescued_data"
    },
    "bronze_table_properties": {
-         "pipelines.autoOptimize.managed": "true"
-   },
-   "bronze_table_cluster_by":["id", "email"],   
+         "pipelines.autoOptimize.managed": "true",
+         "pipelines.autoOptimize.zOrderCols": "id, email"
+   },    
    "bronze_data_quality_expectations_json_demo": "{uc_volume_path}/demo/conf/dqe/customers/bronze_data_quality_expectations.json",
-   "bronze_catalog_quarantine_demo": "{uc_catalog_name}",
-   "bronze_database_quarantine_demo": "{bronze_schema}",
+   "bronze_database_quarantine_demo": "{uc_catalog_name}.{bronze_schema}",
    "bronze_quarantine_table": "customers_quarantine",
    "bronze_quarantine_table_properties": {
-         "pipelines.reset.allowed": "false"
+         "pipelines.reset.allowed": "false",
+         "pipelines.autoOptimize.zOrderCols": "id, email"
    },
-   "bronze_quarantine_table_cluster_by":["id", "email"],
    "bronze_append_flows": [
       {
             "name": "customer_bronze_flow",
@@ -55,8 +53,7 @@
             "once": false
       }
    ],
-   "silver_catalog_demo": "{uc_catalog_name}",
-   "silver_database_demo": "{silver_schema}",
+   "silver_database_demo": "{uc_catalog_name}.{silver_schema}",
    "silver_table": "customers",
    "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/afam_silver_transformations.json",
    "silver_table_properties": {
@@ -94,9 +91,8 @@
             }            
       },            
       "source_schema_path": "{uc_volume_path}/demo/resources/data/afam/ddl/transactions.ddl"
-   },
-   "bronze_catalog_demo": "{uc_catalog_name}",   
-   "bronze_database_demo": "{bronze_schema}",
+   },   
+   "bronze_database_demo": "{uc_catalog_name}.{bronze_schema}",
    "bronze_table": "transactions",
    "bronze_reader_options": {
       "cloudFiles.format": "json",
@@ -104,18 +100,17 @@
       "cloudFiles.rescuedDataColumn": "_rescued_data"
    },
    "bronze_table_properties": {
-         "pipelines.reset.allowed": "true"
+         "pipelines.reset.allowed": "true",
+         "pipelines.autoOptimize.zOrderCols": "id, customer_id"    
    },
-   "bronze_table_cluster_by":["id", "customer_id"],   
    "bronze_data_quality_expectations_json_demo": "{uc_volume_path}/demo/conf/dqe/transactions/bronze_data_quality_expectations.json",
-   "bronze_catalog_quarantine_demo": "{uc_catalog_name}",
-   "bronze_database_quarantine_demo": "{bronze_schema}",
+   "bronze_database_quarantine_demo": "{uc_catalog_name}.{bronze_schema}",
    "bronze_quarantine_table": "transactions_quarantine",
    "bronze_quarantine_table_properties": {
          "pipelines.reset.allowed": "true",
-         "pipelines.autoOptimize.managed": "false"
-   },
-   "bronze_quarantine_table_cluster_by":["id", "customer_id"],   
+         "pipelines.autoOptimize.managed": "false",
+         "pipelines.autoOptimize.zOrderCols": "id, customer_id"   
+   },     
    "bronze_append_flows": [
       {
             "name": "transactions_bronze_flow",
@@ -133,8 +128,7 @@
             "once": false
       }
    ],
-   "silver_catalog_demo": "{uc_catalog_name}",
-   "silver_database_demo": "{silver_schema}",
+   "silver_database_demo": "{uc_catalog_name}.{silver_schema}",
    "silver_table": "transactions",
    "silver_cdc_apply_changes": {
       "keys": [

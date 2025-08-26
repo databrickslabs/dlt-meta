@@ -4,14 +4,11 @@ from setuptools import setup, find_packages
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-INSTALL_REQUIRES = ["setuptools", "databricks-sdk", "PyYAML>=6.0"]
+INSTALL_REQUIRES = ["setuptools", "databricks-sdk"]
 
 DEV_REQUIREMENTS = [
     "flake8==6.0",
-    "delta-spark==3.0.0",
-    "pytest>=7.0.0",
-    "coverage>=7.0.0",
-    "pyspark==3.5.5"
+    "delta-spark==3.2.1"
 ]
 
 IT_REQUIREMENTS = ["typer[all]==0.6.1"]
@@ -22,7 +19,7 @@ package_long_description = """###Databricks Labs DLT-META Framework###
     """
 setup(
     name="dlt_meta",
-    version="0.0.10",
+    version="0.0.9",
     python_requires=">=3.8",
     setup_requires=["wheel>=0.37.1,<=0.42.0"],
     install_requires=INSTALL_REQUIRES,

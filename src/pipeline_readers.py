@@ -86,19 +86,20 @@ class PipelineReaders:
         """
         logger.info("In read_dlt_cloud_files func")
 
-        source_cl = self.source_details.get('source_catalog', None)
-        source_cl_name = f"{source_cl}." if source_cl is not None else ''
-        table_path = f"{source_cl_name}{self.source_details['source_database']}.{self.source_details['source_table']}"
-
-        if self.source_format == "snapshot":
-            reader = self.spark.read
+        if self.reader_config_options and len(self.reader_config_options) > 0:
+            return (
+                self.spark.readStream.options(**self.reader_config_options).table(
+                    f"""{self.source_details["source_database"]}
+                        .{self.source_details["source_table"]}"""
+                )
+            )
         else:
-            reader = self.spark.readStream
-
-        if self.reader_config_options:
-            return reader.options(**self.reader_config_options).table(table_path)
-        else:
-            return reader.table(table_path)
+            return (
+                self.spark.readStream.table(
+                    f"""{self.source_details["source_database"]}
+                        .{self.source_details["source_table"]}"""
+                )
+            )
 
     def get_db_utils(self):
         """Get databricks utils using DBUtils package."""
@@ -167,27 +168,8 @@ class PipelineReaders:
 
     def get_kafka_options(self):
         """Get kafka options from dataflowspec."""
-        kafka_broker = self.source_details.get("kafka.bootstrap.servers", None)
-        if not kafka_broker:
-            kafka_source_servers_secrets_scope_key = self.source_details.get(
-                "kafka_source_servers_secrets_scope_key",
-                None
-            )
-            kafka_source_servers_secrets_scope_name = self.source_details.get(
-                "kafka_source_servers_secrets_scope_name", None)
-            if kafka_source_servers_secrets_scope_key and kafka_source_servers_secrets_scope_name:
-                dbutils = self.get_db_utils()
-                kafka_broker = dbutils.secrets.get(
-                    kafka_source_servers_secrets_scope_name, kafka_source_servers_secrets_scope_key)
-            else:
-                raise Exception(
-                    f"Kafka broker details not found for source_details={self.source_details}!"
-                )
-        topic = self.source_details.get("subscribe", None)
-        if not topic:
-            raise Exception(f"Kafka topic details not found for source_details={self.source_details}!")
         kafka_base_ops = {
-            "kafka.bootstrap.servers": kafka_broker,
+            "kafka.bootstrap.servers": self.source_details.get("kafka.bootstrap.servers"),
             "subscribe": self.source_details.get("subscribe")
         }
         ssl_truststore_location = self.source_details.get("kafka.ssl.truststore.location", None)

@@ -156,4 +156,6 @@ demo/conf/onboarding.json
 integration_tests/conf/onboarding*.json
 demo/conf/onboarding*.json
 integration_test_output*.csv
-onboarding_job_details.json
+databricks.yml
+oboarding_job_details.json
+

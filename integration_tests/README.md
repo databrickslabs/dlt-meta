@@ -6,41 +6,31 @@
     databricks auth login --host WORKSPACE_HOST
     ```
 
-2. Clone dlt-meta:
-    ```commandline
+2. ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git
     ```
 
-3. Navigate to project directory:
-    ```commandline
+3. ```commandline
     cd dlt-meta
     ```
 
-4. Create Python virtual environment:
-    ```commandline
+4. ```commandline
     python -m venv .venv
     ```
 
-5. Activate virtual environment:
-    ```commandline
+5. ```commandline
     source .venv/bin/activate
     ```
 
-6. Install required packages:
-    ```commandline
-    # Core requirements
-    pip install "PyYAML>=6.0" setuptools databricks-sdk
-    
-    # Development requirements
-    pip install delta-spark==3.0.0 pyspark==3.5.5 pytest>=7.0.0 coverage>=7.0.0
-    
-    # Integration test requirements
-    pip install "typer[all]==0.6.1"
+6. ```commandline
+    pip install databricks-sdk
     ```
 
-7. Set environment variables:
-    ```commandline
+7. ```commandline
     dlt_meta_home=$(pwd)
+    ```
+
+8. ```commandline
     export PYTHONPATH=$dlt_meta_home
     ```
 
@@ -55,39 +45,31 @@
         ```commandline
         python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>> --source=eventhub --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer  --eventhub_name_append_flow=test_append_flow --eventhub_accesskey_secret_name=test_secret_name --profile=<<DEFAULT>>
         ```
-    Prerequisites for eventhub integration tests:
-    1. Running eventhub instance
-    2. Create databricks secrets scope for eventhub keys:
-       ```commandline
-       databricks secrets create-scope eventhubs_creds
-       ```
-    3. Create databricks secrets to store producer and consumer keys using the scope created in step 2
+    - - For eventhub integration tests, the following are the prerequisites:
+        1. Needs eventhub instance running
+        2. Use Databricks CLI, Create databricks secrets scope for eventhub keys (```databricks secrets create-scope eventhubs_creds```)
+        3. Use Databricks CLI, Create databricks secrets to store producer and consumer keys using the scope created in step
 
-    Required arguments for EventHubs integration test:
-    1. `--eventhub_name` : Your eventhub topic
-    2. `--eventhub_namespace` : Eventhub namespace
-    3. `--eventhub_port` : Eventhub port
-    4. `--eventhub_secrets_scope_name` : Databricks secret scope name
-    5. `--eventhub_producer_accesskey_name` : Eventhub producer access key name
-    6. `--eventhub_consumer_accesskey_name` : Eventhub access key name
+    - - Following are the mandatory arguments for running EventHubs integration test
+        1. Provide your eventhub topic : --eventhub_name
+        2. Provide eventhub namespace : --eventhub_namespace
+        3. Provide eventhub port : --eventhub_port
+        4. Provide databricks secret scope name : --eventhub_secrets_scope_name
+        5. Provide eventhub producer access key name : --eventhub_producer_accesskey_name
+        6. Provide eventhub access key name : --eventhub_consumer_accesskey_name
 
 
     - 9c. Run the command for **kafka**
         ```commandline
-        python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>>  --source=kafka --kafka_source_topic=dlt-meta-integration-test --kafka_sink_topic=dlt-meta_inttest_topic --kafka_source_broker=host:9092 --profile=<<DEFAULT>>
+        python integration_tests/run_integration_tests.py --uc_catalog_name=<<uc catalog name>>  --source=kafka --kafka_topic=dlt-meta-integration-test --kafka_broker=host:9092 --profile=<<DEFAULT>>
         ```
-    Optional secret configuration:
-    ```commandline
-    --kafka_source_servers_secrets_scope_name=<<scope_name>> --kafka_source_servers_secrets_scope_key=<<scope_key>>
-    --kafka_sink_servers_secret_scope_name=<<scope_name>> --kafka_sink_servers_secret_scope_key=<<scope_key>>
-    ```
 
-    Prerequisites for kafka integration tests:
-    1. Running kafka instance
+    - - For kafka integration tests, the following are the prerequisites:
+        1. Needs kafka instance running
 
-    Required arguments for kafka integration test:
-    1. `--kafka_topic` : Your kafka topic name
-    2. `--kafka_broker` : Kafka broker address
+    - - Following are the mandatory arguments for running EventHubs integration test
+        1. Provide your kafka topic name : --kafka_topic
+        2. Provide kafka_broker : --kafka_broker
     
     - 9d. Run the command for **snapshot**
         ```commandline

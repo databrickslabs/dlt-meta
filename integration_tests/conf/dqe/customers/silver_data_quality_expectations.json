@@ -1,8 +1,5 @@
 {
    "expect_all_or_drop": {
       "valid_customer_id": "id IS NOT NULL"
-   },
-   "expect_or_quarantine": {
-      "valid_operation": "operation IN ('DELETE')"
    }
 }
