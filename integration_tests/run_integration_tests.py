@@ -4,10 +4,15 @@
 import argparse
 import json
 import os
+import sys
 import traceback
 import uuid
 import webbrowser
 from dataclasses import dataclass
+
+# Add project root to Python path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(project_root)
 
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import compute, jobs
@@ -123,6 +128,7 @@ class DLTMetaRunnerConf:
     eventhub_input_data: str = None
     eventhub_append_flow_input_data: str = None
     eventhub_name: str = None
+    eventhub_sink_name: str = None
     eventhub_name_append_flow: str = None
     eventhub_producer_accesskey_name: str = None
     eventhub_consumer_accesskey_name: str = None
@@ -133,8 +139,13 @@ class DLTMetaRunnerConf:
 
     # kafka info
     kafka_template: str = "integration_tests/conf/kafka-onboarding.template"
-    kafka_topic: str = None
-    kafka_broker: str = None
+    kafka_source_topic: str = None
+    kafka_source_broker: str = None
+    kafka_source_servers_secrets_scope_name: str = None
+    kafka_source_servers_secrets_scope_key: str = None
+    kafka_sink_topic: str = None
+    kafka_sink_servers_secret_scope_name: str = None
+    kafka_sink_servers_secret_scope_key: str = None
 
     # snapshot info
     snapshot_template: str = "integration_tests/conf/snapshot-onboarding.template"
@@ -174,17 +185,40 @@ class DLTMETARunner:
                 f"{run_id}/integration-test-output.csv"
             ),
             # kafka provided args
-            kafka_topic=self.args["kafka_topic"],
-            kafka_broker=self.args["kafka_broker"],
+            kafka_source_topic=self.args["kafka_source_topic"],
+            kafka_source_broker=self.args["kafka_source_broker"] if "kafka_source_broker" in self.args else None,
+            kafka_source_servers_secrets_scope_name=(
+                self.args["kafka_source_servers_secrets_scope_name"]
+                if "kafka_source_servers_secrets_scope_name" in self.args
+                else None
+            ),
+            kafka_source_servers_secrets_scope_key=(
+                self.args["kafka_source_servers_secrets_scope_key"]
+                if "kafka_source_servers_secrets_scope_key" in self.args
+                else None
+            ),
+            kafka_sink_topic=self.args["kafka_sink_topic"] if "kafka_sink_topic" in self.args else None,
+            kafka_sink_servers_secret_scope_name=(
+                self.args["kafka_sink_servers_secret_scope_name"]
+                if "kafka_sink_servers_secret_scope_name" in self.args
+                else None
+            ),
+            kafka_sink_servers_secret_scope_key=(
+                self.args["kafka_sink_servers_secret_scope_key"]
+                if "kafka_sink_servers_secret_scope_key" in self.args
+                else None
+            ),
+
             # eventhub provided args
             eventhub_name=self.args["eventhub_name"],
             eventhub_name_append_flow=self.args["eventhub_name_append_flow"],
             eventhub_producer_accesskey_name=self.args[
-                "eventhub_consumer_accesskey_name"
+                "eventhub_producer_accesskey_name"
             ],
             eventhub_consumer_accesskey_name=self.args[
                 "eventhub_consumer_accesskey_name"
             ],
+            eventhub_sink_name=self.args["eventhub_sink_name"],
             eventhub_accesskey_secret_name=self.args["eventhub_accesskey_secret_name"],
             eventhub_secrets_scope_name=self.args["eventhub_secrets_scope_name"],
             eventhub_namespace=self.args["eventhub_namespace"],
@@ -213,8 +247,8 @@ class DLTMETARunner:
 
     def _my_username(self, ws):
         if not hasattr(ws, "_me"):
-            _me = ws.current_user.me()
-        return _me.user_name
+            ws._me = ws.current_user.me()
+        return ws._me.user_name
 
     def create_dlt_meta_pipeline(
         self,
@@ -246,6 +280,7 @@ class DLTMETARunner:
             "layer": layer,
             f"{layer}.group": group,
             "dlt_meta_whl": runner_conf.remote_whl_path,
+            "pipelines.externalSink.enabled": "true",
         }
         created = None
 
@@ -264,7 +299,7 @@ class DLTMETARunner:
                     )
                 )
             ],
-            target=target_schema,
+            schema=target_schema,
         )
 
         if created is None:
@@ -294,7 +329,7 @@ class DLTMETARunner:
                     named_parameters={
                         "onboard_layer": (
                             "bronze_silver"
-                            if runner_conf.source == "cloudfiles"
+                            if runner_conf.source in ["cloudfiles", "snapshot"]
                             else "bronze"
                         ),
                         "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
@@ -344,7 +379,7 @@ class DLTMETARunner:
                         "bronze_schema": f"{runner_conf.bronze_schema}",
                         "silver_schema": (
                             f"{runner_conf.silver_schema}"
-                            if runner_conf.source == "cloudfiles"
+                            if runner_conf.source == "cloudfiles" or runner_conf.source == "snapshot"
                             else ""
                         ),
                         "output_file_path": f"/Workspace{runner_conf.test_output_file_path}",
@@ -400,25 +435,60 @@ class DLTMETARunner:
                 ]
             )
         elif runner_conf.source == "snapshot":
+            base_parameters_v1 = {
+                "base_path": (
+                    f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/snapshots"
+                ),
+                "version": "1",
+                "source_catalog": runner_conf.uc_catalog_name,
+                "source_database": runner_conf.dlt_meta_schema,
+                "source_table": "source_products_delta"
+            }
             base_parameters_v2 = {
                 "base_path": (
                     f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/snapshots"
                 ),
-                "version": "2"
+                "version": "2",
+                "source_catalog": runner_conf.uc_catalog_name,
+                "source_database": runner_conf.dlt_meta_schema,
+                "source_table": "source_products_delta"
             }
             base_parameters_v3 = {
                 "base_path": (
                     f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/snapshots"
                 ),
-                "version": "3"
+                "version": "3",
+                "source_catalog": runner_conf.uc_catalog_name,
+                "source_database": runner_conf.dlt_meta_schema,
+                "source_table": "source_stores_delta"
             }
+            tasks[1].depends_on = [jobs.TaskDependency(task_key='create_source_tables')]
             tasks.extend(
                 [
+                    jobs.Task(
+                        task_key="create_source_tables",
+                        depends_on=[
+                            jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")
+                        ],
+                        notebook_task=jobs.NotebookTask(
+                            notebook_path=f"{runner_conf.runners_nb_path}/runners/upload_snapshots.py",
+                            base_parameters=base_parameters_v1,
+                        ),
+                    ),
+                    jobs.Task(
+                        task_key="silver_dlt_pipeline",
+                        depends_on=[
+                            jobs.TaskDependency(task_key="bronze_dlt_pipeline")
+                        ],
+                        pipeline_task=jobs.PipelineTask(
+                            pipeline_id=runner_conf.silver_pipeline_id
+                        ),
+                    ),
                     jobs.Task(
                         task_key="upload_v2_snapshots",
                         description="test",
                         depends_on=[
-                            jobs.TaskDependency(task_key="bronze_dlt_pipeline")
+                            jobs.TaskDependency(task_key="silver_dlt_pipeline")
                         ],
                         notebook_task=jobs.NotebookTask(
                             notebook_path=f"{runner_conf.runners_nb_path}/runners/upload_snapshots.py",
@@ -433,9 +503,18 @@ class DLTMETARunner:
                         ),
                     ),
                     jobs.Task(
-                        task_key="upload_v3_snapshots",
+                        task_key="silver_v2_dlt_pipeline",
                         depends_on=[
                             jobs.TaskDependency(task_key="bronze_v2_dlt_pipeline")
+                        ],
+                        pipeline_task=jobs.PipelineTask(
+                            pipeline_id=runner_conf.silver_pipeline_id
+                        ),
+                    ),
+                    jobs.Task(
+                        task_key="upload_v3_snapshots",
+                        depends_on=[
+                            jobs.TaskDependency(task_key="silver_v2_dlt_pipeline")
                         ],
                         notebook_task=jobs.NotebookTask(
                             notebook_path=f"{runner_conf.runners_nb_path}/runners/upload_snapshots.py",
@@ -449,6 +528,15 @@ class DLTMETARunner:
                             pipeline_id=runner_conf.bronze_pipeline_id
                         ),
                     ),
+                    jobs.Task(
+                        task_key="silver_v3_dlt_pipeline",
+                        depends_on=[
+                            jobs.TaskDependency(task_key="bronze_v3_dlt_pipeline")
+                        ],
+                        pipeline_task=jobs.PipelineTask(
+                            pipeline_id=runner_conf.silver_pipeline_id
+                        ),
+                    )
                 ]
             )
         else:
@@ -464,8 +552,9 @@ class DLTMETARunner:
                 }
             elif runner_conf.source == "kafka":
                 base_parameters = {
-                    "kafka_topic": runner_conf.kafka_topic,
-                    "kafka_broker": runner_conf.kafka_broker,
+                    "kafka_source_topic": runner_conf.kafka_source_topic,
+                    "kafka_source_servers_secrets_scope_name": runner_conf.kafka_source_servers_secrets_scope_name,
+                    "kafka_source_servers_secrets_scope_key": runner_conf.kafka_source_servers_secrets_scope_key,
                     "kafka_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
                 }
 
@@ -493,7 +582,7 @@ class DLTMETARunner:
         if source == "cloudfiles":
             return "silver_dlt_pipeline"
         elif source == "snapshot":
-            return "bronze_v3_dlt_pipeline"
+            return "silver_v3_dlt_pipeline"
         else:
             return "bronze_dlt_pipeline"
 
@@ -509,7 +598,7 @@ class DLTMETARunner:
             name=runner_conf.bronze_schema,
             comment="bronze_schema",
         )
-        if runner_conf.source == "cloudfiles":
+        if runner_conf.source in ["cloudfiles", "snapshot"]:
             SchemasAPI(self.ws.api_client).create(
                 catalog_name=runner_conf.uc_catalog_name,
                 name=runner_conf.silver_schema,
@@ -536,8 +625,11 @@ class DLTMETARunner:
             "{bronze_schema}": runner_conf.bronze_schema,
         }
 
-        if runner_conf.source == "cloudfiles":
-            string_subs.update({"{silver_schema}": runner_conf.silver_schema})
+        if runner_conf.source in ["cloudfiles", "snapshot"]:
+            string_subs.update({
+                "{silver_schema}": runner_conf.silver_schema,
+                "{source_database}": runner_conf.dlt_meta_schema
+            })
         elif runner_conf.source == "eventhub":
             string_subs.update(
                 {
@@ -545,6 +637,8 @@ class DLTMETARunner:
                     "{eventhub_name}": runner_conf.eventhub_name,
                     "{eventhub_name_append_flow}": runner_conf.eventhub_name_append_flow,
                     "{eventhub_consumer_accesskey_name}": runner_conf.eventhub_consumer_accesskey_name,
+                    "{eventhub_producer_accesskey_name}": runner_conf.eventhub_producer_accesskey_name,
+                    "{eventhub_sink_name}": runner_conf.eventhub_sink_name,
                     "{eventhub_accesskey_secret_name}": runner_conf.eventhub_accesskey_secret_name,
                     "{eventhub_secrets_scope_name}": runner_conf.eventhub_secrets_scope_name,
                     "{eventhub_namespace}": runner_conf.eventhub_namespace,
@@ -555,8 +649,13 @@ class DLTMETARunner:
             string_subs.update(
                 {
                     "{run_id}": runner_conf.run_id,
-                    "{kafka_topic}": runner_conf.kafka_topic,
-                    "{kafka_broker}": runner_conf.kafka_broker,
+                    "{kafka_source_topic}": runner_conf.kafka_source_topic,
+                    "{kafka_source_broker}": runner_conf.kafka_source_broker,
+                    "{kafka_source_servers_secrets_scope_name}": runner_conf.kafka_source_servers_secrets_scope_name,
+                    "{kafka_source_servers_secrets_scope_key}": runner_conf.kafka_source_servers_secrets_scope_key,
+                    "{kafka_sink_topic}": runner_conf.kafka_sink_topic,
+                    "{kafka_sink_servers_secret_scope_name}": runner_conf.kafka_sink_servers_secret_scope_name,
+                    "{kafka_sink_servers_secret_scope_key}": runner_conf.kafka_sink_servers_secret_scope_key,
                 }
             )
 
@@ -681,6 +780,7 @@ class DLTMETARunner:
                 runner_conf,
             )
 
+        if runner_conf.source in ["cloudfiles", "snapshot"]:
             runner_conf.silver_pipeline_id = self.create_dlt_meta_pipeline(
                 f"dlt-meta-silver-{runner_conf.run_id}",
                 "silver",
@@ -763,8 +863,8 @@ class DLTMETARunner:
         except Exception as e:
             print(e)
             traceback.print_exc()
-        finally:
-            self.clean_up(runner_conf)
+        # finally:
+        #     self.clean_up(runner_conf)
 
 
 def process_arguments() -> dict[str:str]:
@@ -853,10 +953,31 @@ def process_arguments() -> dict[str:str]:
             False,
             [],
         ],
+        [
+            "eventhub_sink_name",
+            "Provide an eventhub sink name to write data",
+            str.lower,
+            False,
+            []
+        ],
         # Kafka arguments
         [
-            "kafka_topic",
-            "Provide kafka topic name e.g: iot",
+            "kafka_source_topic",
+            "Provide kafka source topic name e.g: iot",
+            str.lower,
+            False,
+            [],
+        ],
+        [
+            "kafka_source_servers_secrets_scope_name",
+            "Provide kafka broker secret scope name e.g: abc",
+            str.lower,
+            False,
+            [],
+        ],
+        [
+            "kafka_source_servers_secrets_scope_key",
+            "Provide kafka broker secret scope key e.g: xyz",
             str.lower,
             False,
             [],
@@ -864,6 +985,27 @@ def process_arguments() -> dict[str:str]:
         [
             "kafka_broker",
             "Provide kafka broker e.g 127.0.0.1:9092",
+            str.lower,
+            False,
+            [],
+        ],
+        [
+            "kafka_sink_topic",
+            "Provide kafka sink topic e.g: iot_sink",
+            str.lower,
+            False,
+            [],
+        ],
+        [
+            "kafka_sink_servers_secret_scope_name",
+            "Provide kafka server for sink secret scope name e.g: abc",
+            str.lower,
+            False,
+            [],
+        ],
+        [
+            "kafka_sink_servers_secret_scope_key",
+            "Provide kafka server for sink secret scope key e.g: xyz",
             str.lower,
             False,
             [],
@@ -895,18 +1037,21 @@ def process_arguments() -> dict[str:str]:
             args,
             [
                 "eventhub_name",
-                "eventhub_name_append_flow",
                 "eventhub_producer_accesskey_name",
                 "eventhub_consumer_accesskey_name",
                 "eventhub_secrets_scope_name",
                 "eventhub_namespace",
+                "eventhub_sink_name",
                 "eventhub_port",
             ],
         )
     elif args["source"] == "kafka":
         check_cond_mandatory_arg(
             args,
-            ["kafka_topic", "kafka_broker"],
+            [
+                "kafka_source_topic",
+                "kafka_sink_topic"
+            ],
         )
 
     print(f"Processing comand line arguments Complete: {args}")

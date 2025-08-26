@@ -1,0 +1,73 @@
+# Bronze and Silver DLT Meta Onboarding for People Data
+# yaml-language-server: $schema=../bundle_config_schema.json
+
+resources:
+  jobs:
+    onboard_people:
+      name: People - Onboard Job
+      description: "Job to onboard DLT META data"
+
+      tasks:
+        - task_key: onboard_bronze_silver_tables
+          python_wheel_task:
+            package_name: dlt_meta
+            entry_point: run
+            named_parameters:
+              database: ${var.${bundle.target}_catalog_name}.${var.dlt_meta_schema}
+              onboarding_file_path: ${var.people_onboarding_file_path}
+              bronze_dataflowspec_table: ${var.bronze_dataflowspecTable}
+              silver_dataflowspec_table: ${var.silver_dataflowspecTable}
+              uc_enabled: ${var.uc_enabled}
+              import_author: ${var.author}
+              version: ${var.version}
+              onboard_layer: bronze_silver
+              overwrite: "True"
+              env: ${bundle.target}
+
+          # job_cluster_key: my_job_cluster
+          environment_key: default
+
+        - task_key: onboard_silver_fanout_tables
+          python_wheel_task:
+            package_name: dlt_meta
+            entry_point: run
+            named_parameters:
+              database: ${var.${bundle.target}_catalog_name}.${var.dlt_meta_schema}
+              onboarding_file_path: ${var.people_fanout_onboarding_file_path}
+              silver_dataflowspec_table: ${var.silver_dataflowspecTable}
+              uc_enabled: ${var.uc_enabled}
+              import_author: ${var.author}
+              version: ${var.version}
+              onboard_layer: silver
+              overwrite: "False"
+              env: ${bundle.target}
+          depends_on:
+            - task_key: onboard_bronze_silver_tables
+
+          environment_key: default
+
+      environments: 
+        - environment_key: default
+          spec: 
+            client: "1"
+            dependencies:
+              - dlt-meta
+
+    execute_pipelines_people:
+      name: People - Raw_Br_Si Job
+      description: "Job to execute the Bronze and Silver DLT-META pipelines"
+
+      tasks:
+        - task_key: bronze_people_pipeline
+          description: "Run DLT pipeline for Bronze People"
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.pipeline_bronze_people.id}
+            full_refresh: true
+
+        - task_key: silver_people_pipeline
+          description: "Run DLT pipeline for Silver People"
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.pipeline_silver_people.id}
+            full_refresh: true
+          depends_on:
+            - task_key: bronze_people_pipeline
