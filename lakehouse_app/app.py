@@ -7,7 +7,6 @@ import os
 import logging
 import errno
 import re
-# Use pty to create a pseudo-terminal for better interactive support
 import pty
 import select
 import fcntl
@@ -16,7 +15,6 @@ import struct
 import signal
 import json
 
-# Configure logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     handlers=[logging.FileHandler("dlt-meta-app.log"),
@@ -228,7 +226,6 @@ def start_command():
             commands = [
                 "pip install databricks-cli",
                 "git clone https://github.com/databrickslabs/dlt-meta.git",
-                #"git clone https://github.com/dattawalake/dlt-meta.git",
                 f"python -m venv {current_directory}/dlt-meta/.venv",
                 f"export HOME={current_directory}",
                 "cd dlt-meta",
@@ -390,38 +387,43 @@ def run_demo():
 
     if code_to_run == 'demo_dabs':
 
-        # Step 1: Generate Databricks resources
-        subprocess.run(f"python {current_directory}/{demo_file} --uc_catalog_name {uc_name} --source=cloudfiles --profile DEFAULT",
+        #Step 1: Generate Databricks resources
+        subprocess.run(f"python {current_directory}/{demo_file} --uc_catalog_name {uc_name} "
+                       f"--source=cloudfiles --profile DEFAULT",
                        shell=True,
                        capture_output=True,
                        text=True
                        )
 
         # Step 2: Change working directory to demo/dabs for all next commands
-        dabs_dir = os.path.join("demo", "dabs")
-        subprocess.run("databricks bundle validate --profile=DEFAULT", cwd=f"{current_directory}/demo/dabs",shell=True,
+        subprocess.run("databricks bundle validate --profile=DEFAULT", cwd=f"{current_directory}/demo/dabs",
+                       shell=True,
                        capture_output=True,
                        text=True)
 
         # Step 4: Deploy the bundle
-        subprocess.run("databricks bundle deploy --target dev --profile=DEFAULT", cwd=f"{current_directory}/demo/dabs", shell=True,
+        subprocess.run("databricks bundle deploy --target dev --profile=DEFAULT",
+                       cwd=f"{current_directory}/demo/dabs", shell=True,
                        capture_output=True,
                        text=True)
 
         # Step 5: Run 'onboard_people' task
-        rs1 = subprocess.run("databricks bundle run onboard_people -t dev --profile=DEFAULT", cwd=f"{current_directory}/demo/dabs", shell=True,
-                       capture_output=True,
-                       text=True)
+        rs1 = subprocess.run("databricks bundle run onboard_people -t dev --profile=DEFAULT",
+                             cwd=f"{current_directory}/demo/dabs", shell=True,
+                             capture_output=True,
+                             text=True)
         print(f"onboarding completed: {rs1.stdout}")
         # Step 6: Run 'execute_pipelines_people' task
-        result = subprocess.run("databricks bundle run execute_pipelines_people -t dev --profile=DEFAULT", cwd=f"{current_directory}/demo/dabs",
+        result = subprocess.run("databricks bundle run execute_pipelines_people -t dev --profile=DEFAULT",
+                                cwd=f"{current_directory}/demo/dabs",
                                 shell=True,
                                 capture_output=True,
                                 text=True
                                 )
         print(f"execution of pipeline completed: {result.stdout}")
     else:
-        result = subprocess.run(f"python {current_directory}/{demo_file} --uc_catalog_name {uc_name} --profile DEFAULT",
+        result = subprocess.run(f"python {current_directory}/{demo_file} --uc_catalog_name {uc_name} "
+                                f"--profile DEFAULT",
                                 shell=True,
                                 capture_output=True,
                                 text=True
@@ -432,7 +434,7 @@ def run_demo():
 def extract_command_output(result):
     stdout = result.stdout
     job_id_match = re.search(r"job_id=(\d+) | pipeline=(\d+)", stdout)
-    url_match = re.search(r"(https?://[^\s]+)", stdout) #re.search(r"url=(https?://[^\s]+)", stdout)
+    url_match = re.search(r"(https?://[^\s]+)", stdout)
 
     job_id = job_id_match.group(1) or job_id_match.group(2) if job_id_match else None
     job_url = url_match.group(1) if url_match else None
