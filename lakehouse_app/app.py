@@ -374,7 +374,7 @@ def handle_deploy_form():
 def run_demo():
     code_to_run = request.json.get('demo_name', '')
     print(f"processing demo for :{request.json}")
-    current_directory = os.environ['PYTHONPATH']  # os.getcwd()
+    current_directory = os.environ['PYTHONPATH']
     demo_dict = {"demo_cloudfiles": "demo/launch_af_cloudfiles_demo.py",
                  "demo_acf": "demo/launch_acfs_demo.py",
                  "demo_silverfanout": "demo/launch_silver_fanout_demo.py",
@@ -387,7 +387,7 @@ def run_demo():
 
     if code_to_run == 'demo_dabs':
 
-        #Step 1: Generate Databricks resources
+        # Step 1: Generate Databricks resources
         subprocess.run(f"python {current_directory}/{demo_file} --uc_catalog_name {uc_name} "
                        f"--source=cloudfiles --profile DEFAULT",
                        shell=True,
