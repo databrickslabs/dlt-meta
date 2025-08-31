@@ -1,11 +1,10 @@
 ---
 title: "DLT-META Lakehouse App"
-date: 2021-08-04T14:25:26-04:00
+date: 2025-08-31T14:25:26-04:00
 weight: 9
 draft: false
 ---
 
-# DLT-META Lakehouse App Setup
 
 ## Prerequisites
 
