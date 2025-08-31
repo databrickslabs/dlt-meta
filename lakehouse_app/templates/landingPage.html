@@ -656,6 +656,11 @@
                                            type="text" value="bronze_dataflowspec">
                                 </div>
                                 <div class="form-group">
+                                    <label>Provide silver dataflow spec table name:</label>
+                                    <input id="silver_table" name="silver_table" placeholder="Enter silver table name"
+                                           type="text" value="silver_dataflowspec">
+                                </div>
+                                <div class="form-group">
                                     <label>Overwrite dataflow spec?</label>
                                     <div class="radio-group">
                                         <div class="radio-option">
@@ -841,6 +846,8 @@
                     <button class="command-button2" data-command="demo_acf">Demo Apply Changes Snapshot</button>
                     <button class="command-button2" data-command="demo_silverfanout">Demo Silver fanout</button>
                     <button class="command-button2" data-command="demo_dias">Demo Dias</button>
+                    <button class="command-button2" data-command="demo_dlt_sink">Demo Sink</button>
+
 
                 </div>
 
@@ -956,7 +963,7 @@
                     const modalContent = `
                                 <div class="modal-content">
                                 <h3 class='step-heading'>${data.modal_content.title}</h3>
-                                <p>Job ID: ${data.modal_content.job_id}</p>
+                                ${data.modal_content.job_id ? `<p>Job ID: ${data.modal_content.job_id}</p>`:""}
                                 
                                 <p><a href="${url}" target="_blank">Open Job in Databricks</a></p >
                                
@@ -994,7 +1001,8 @@
                     const modalContent = `
                                 <div class="modal-content">
                                 <h3 class='step-heading'>${data.modal_content.title}</h3>
-                                <p>Job ID: ${data.modal_content.job_id}</p>
+                    ${data.modal_content.job_id ? `<p>Job ID: ${data.modal_content.job_id}</p>
+                `:""}
                                 
                                 <p><a href="${url}" target="_blank">Open Job in Databricks</a></p >
                                
@@ -1067,7 +1075,7 @@
                             const modalContent = `
                                 <div class="modal-content">
                                 <h3 class='step-heading'>${data.modal_content.title}</h3>
-                                <p>Job ID: ${data.modal_content.job_id}</p>
+                                 ${data.modal_content.job_id ? `<p>Job ID: ${data.modal_content.job_id}</p>`:""}
                                 
                                 <p><a href="${url}" target="_blank">Open Job in Databricks</a></p >
                                
