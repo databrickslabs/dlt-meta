@@ -48,7 +48,7 @@ This Demo launches Bronze and Silver pipelines with following activities:
 7. ```commandline
     python demo/launch_dais_demo.py --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
-    - uc_catalog_name : Unity catalog name
+    - uc_catalog_name : UC catalog name. Can only contain ASCII letters ('a' - 'z', 'A' - 'Z'), digits ('0' - '9'), and underbar ('_'). Must also not start with a digit.
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
 
     ![dais_demo.png](../docs/static/images/dais_demo.png)
@@ -86,7 +86,7 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
 7. ```commandline
     python demo/launch_techsummit_demo.py --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
-    - uc_catalog_name : Unity catalog name
+    - uc_catalog_name : UC catalog name. Can only contain ASCII letters ('a' - 'z', 'A' - 'Z'), digits ('0' - '9'), and underbar ('_'). Must also not start with a digit.
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
     ![tech_summit_demo.png](../docs/static/images/tech_summit_demo.png)
@@ -128,7 +128,7 @@ This demo will perform following tasks:
 7. ```commandline
     python demo/launch_af_cloudfiles_demo.py --uc_catalog_name=<<uc catalog name>> --source=cloudfiles --profile=<<DEFAULT>>
     ```
-    - uc_catalog_name : Unity Catalog name
+    - uc_catalog_name : UC catalog name. Can only contain ASCII letters ('a' - 'z', 'A' - 'Z'), digits ('0' - '9'), and underbar ('_'). Must also not start with a digit.
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
 ![af_am_demo.png](../docs/static/images/af_am_demo.png)
@@ -178,7 +178,7 @@ This demo will perform following tasks:
 - Create databricks secrets to store producer and consumer keys using the scope created in step 2
 
 - Following are the mandatory arguments for running EventHubs demo
-    - uc_catalog_name : unity catalog name e.g. ravi_dlt_meta_uc
+     - uc_catalog_name : UC catalog name. Can only contain ASCII letters ('a' - 'z', 'A' - 'Z'), digits ('0' - '9'), and underbar ('_'). Must also not start with a digit.
     - eventhub_namespace: Eventhub namespace e.g. dltmeta
     - eventhub_name : Primary Eventhubname e.g. dltmeta_demo
     - eventhub_name_append_flow: Secondary eventhub name for appendflow feed e.g. dltmeta_demo_af
@@ -231,7 +231,8 @@ This demo will perform following tasks:
     ```commandline
     python demo/launch_silver_fanout_demo.py --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
-
+    
+    - uc_catalog_name : UC catalog name. Can only contain ASCII letters ('a' - 'z', 'A' - 'Z'), digits ('0' - '9'), and underbar ('_'). Must also not start with a digit.
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
 
     a. Databricks Workspace URL:
@@ -296,6 +297,9 @@ This demo will perform following tasks:
     ```commandline
     python demo/launch_acfs_demo.py --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
+    - uc_catalog_name : UC catalog name. Can only contain ASCII letters ('a' - 'z', 'A' - 'Z'), digits ('0' - '9'), and underbar ('_'). Must also not start with a digit.
+    - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
+
     ![acfs.png](../docs/static/images/acfs.png)
 
 # Lakeflow Declarative Pipelines Sink Demo
@@ -350,6 +354,10 @@ This demo will perform following tasks:
     ```commandline
     python demo/launch_dlt_sink_demo.py --uc_catalog_name=<<uc_catalog_name>> --source=kafka --kafka_source_topic=<<kafka source topic name>>>> --kafka_sink_topic=<<kafka sink topic name>> --kafka_source_servers_secrets_scope_name=<<kafka source servers secret name>> --kafka_source_servers_secrets_scope_key=<<kafka source server secret scope key name>> --kafka_sink_servers_secret_scope_name=<<kafka sink server secret scope key name>> --kafka_sink_servers_secret_scope_key=<<kafka sink servers secret scope key name>> --profile=<<DEFAULT>>
     ```
+
+    - uc_catalog_name : UC catalog name. Can only contain ASCII letters ('a' - 'z', 'A' - 'Z'), digits ('0' - '9'), and underbar ('_'). Must also not start with a digit.
+    - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
+
     ![dlt_demo_sink.png](../docs/static/images/dlt_demo_sink.png)
     ![dlt_delta_sink.png](../docs/static/images/dlt_delta_sink.png)
     ![dlt_kafka_sink.png](../docs/static/images/dlt_kafka_sink.png)
@@ -406,6 +414,8 @@ This demo will perform following steps:
     ```commandline
         python demo/generate_dabs_resources.py --source=cloudfiles --uc_catalog_name=<your_catalog_name> --profile=<your_profile>
     ```
+    > Note: uc_catalog_name : UC catalog name. Can only contain ASCII letters ('a' - 'z', 'A' - 'Z'), digits ('0' - '9'), and underbar ('_'). Must also not start with a digit.
+
     > Note: If you don't specify `--profile`, you'll be prompted for your Databricks workspace URL and access token.
 
 7. Deploy and run the DAB bundle:

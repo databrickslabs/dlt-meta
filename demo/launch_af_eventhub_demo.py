@@ -71,6 +71,9 @@ class DLTMETAFEHDemo(DLTMETARunner):
             eventhub_port=self.args["eventhub_port"]
         )
         runner_conf.uc_catalog_name = self.args['uc_catalog_name']
+        if '-' in runner_conf.uc_catalog_name or runner_conf.uc_catalog_name[0].isdigit():
+            print("\nERROR: 'uc_catalog_name' can only contain ASCII letters ('a' - 'z', 'A' - 'Z'), digits ('0' - '9'), and underbar ('_'). Must also not start with a digit. Exiting.")
+            exit(1)
         runner_conf.runners_full_local_path = 'demo/notebooks/afam_eventhub_runners'
         return runner_conf
 
