@@ -1,6 +1,6 @@
 ---
 title: "App"
-date: 2025-08-29T14:50:11-04:00
+date: 2021-08-04T14:26:55-04:00
 weight: 63
 draft: false
 ---
@@ -40,25 +40,5 @@ By default, the app uses a dedicated Service Principal (SP) for all data and res
 - User abilities depend on the Service Principal's access, regardless of URL
 - Optional On-Behalf-Of (OBO) mode uses individual user permissions
 
-### Troubleshooting
 
-**Q5. How should I resolve access errors or permission issues?**
-
-If you experience access-related errors:
-- Verify Service Principal permissions in Unity Catalog
-- Check app attachments to warehouses and secrets
-- Review recent administrative changes
-- Check audit logs for permission denials
-- Contact your Databricks workspace administrator if needed
-
-### Security and Isolation
-
-**Q6. How is security and isolation managed?**
-
-The DLT-META App provides enterprise-grade security:
-- Runs in a multi-tenant platform with strong isolation
-- Uses dedicated, isolated serverless compute
-- Restricts sharing to authenticated users only
-- Logs all sharing and permission events
-- No public or anonymous access allowed
 
