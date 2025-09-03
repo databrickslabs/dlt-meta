@@ -7,7 +7,6 @@ import os
 import logging
 import errno
 import re
-# Use pty to create a pseudo-terminal for better interactive support
 import pty
 import select
 import fcntl
@@ -16,7 +15,6 @@ import struct
 import signal
 import json
 
-# Configure logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     handlers=[logging.FileHandler("dlt-meta-app.log"),
@@ -227,8 +225,7 @@ def start_command():
         if 'PYTHONPATH' not in os.environ or not os.path.isdir(os.environ.get('PYTHONPATH', '')):
             commands = [
                 "pip install databricks-cli",
-                # "git clone https://github.com/databrickslabs/dlt-meta.git",
-                "git clone https://github.com/dattawalake/dlt-meta.git",
+                "git clone https://github.com/databrickslabs/dlt-meta.git",
                 f"python -m venv {current_directory}/dlt-meta/.venv",
                 f"export HOME={current_directory}",
                 "cd dlt-meta",
@@ -236,6 +233,7 @@ def start_command():
                 f"export PYTHONPATH={current_directory}/dlt-meta/",
                 "pwd",
                 "pip install databricks-sdk",
+                "pip install PyYAML",
             ]
             print("Start setting up dlt-meta environment")
             for c in commands:
@@ -322,6 +320,7 @@ def handle_onboard_form():
         "silver_schema": request.form.get('silver_schema', 'dltmeta_silver_7b4e981029b843c799bf61a0a121b3ca'),
         "dlt_meta_layer": request.form.get('dlt_meta_layer', '1'),
         "bronze_table": request.form.get('bronze_table', 'bronze_dataflowspec'),
+        "silver_table": request.form.get('silver_table', 'silver_dataflowspec'),
         "overwrite": "1" if request.form.get('overwrite') == "1" else "0",
         "version": request.form.get('version', 'v1'),
         "environment": request.form.get('environment', 'prod'),
@@ -375,26 +374,67 @@ def handle_deploy_form():
 def run_demo():
     code_to_run = request.json.get('demo_name', '')
     print(f"processing demo for :{request.json}")
-    current_directory = os.environ['PYTHONPATH']  # os.getcwd()
+    current_directory = os.environ['PYTHONPATH']
     demo_dict = {"demo_cloudfiles": "demo/launch_af_cloudfiles_demo.py",
                  "demo_acf": "demo/launch_acfs_demo.py",
                  "demo_silverfanout": "demo/launch_silver_fanout_demo.py",
-                 "demo_dias": "demo/launch_dais_demo.py"
+                 "demo_dias": "demo/launch_dais_demo.py",
+                 "demo_dlt_sink": "demo/launch_dlt_sink_demo.py",
+                 "demo_dabs": "demo/generate_dabs_resources.py"
                  }
     demo_file = demo_dict.get(code_to_run, None)
     uc_name = request.json.get('uc_name', '')
-    result = subprocess.run(f"python {current_directory}/{demo_file} --uc_catalog_name {uc_name} --profile DEFAULT",
-                            shell=True,
-                            capture_output=True,
-                            text=True
-                            )
+
+    if code_to_run == 'demo_dabs':
+
+        # Step 1: Generate Databricks resources
+        subprocess.run(f"python {current_directory}/{demo_file} --uc_catalog_name {uc_name} "
+                       f"--source=cloudfiles --profile DEFAULT",
+                       shell=True,
+                       capture_output=True,
+                       text=True
+                       )
+
+        # Step 2: Change working directory to demo/dabs for all next commands
+        subprocess.run("databricks bundle validate --profile=DEFAULT", cwd=f"{current_directory}/demo/dabs",
+                       shell=True,
+                       capture_output=True,
+                       text=True)
+
+        # Step 4: Deploy the bundle
+        subprocess.run("databricks bundle deploy --target dev --profile=DEFAULT",
+                       cwd=f"{current_directory}/demo/dabs", shell=True,
+                       capture_output=True,
+                       text=True)
+
+        # Step 5: Run 'onboard_people' task
+        rs1 = subprocess.run("databricks bundle run onboard_people -t dev --profile=DEFAULT",
+                             cwd=f"{current_directory}/demo/dabs", shell=True,
+                             capture_output=True,
+                             text=True)
+        print(f"onboarding completed: {rs1.stdout}")
+        # Step 6: Run 'execute_pipelines_people' task
+        result = subprocess.run("databricks bundle run execute_pipelines_people -t dev --profile=DEFAULT",
+                                cwd=f"{current_directory}/demo/dabs",
+                                shell=True,
+                                capture_output=True,
+                                text=True
+                                )
+        print(f"execution of pipeline completed: {result.stdout}")
+    else:
+        result = subprocess.run(f"python {current_directory}/{demo_file} --uc_catalog_name {uc_name} "
+                                f"--profile DEFAULT",
+                                shell=True,
+                                capture_output=True,
+                                text=True
+                                )
     return extract_command_output(result)
 
 
 def extract_command_output(result):
     stdout = result.stdout
     job_id_match = re.search(r"job_id=(\d+) | pipeline=(\d+)", stdout)
-    url_match = re.search(r"url=(https?://[^\s]+)", stdout)
+    url_match = re.search(r"(https?://[^\s]+)", stdout)
 
     job_id = job_id_match.group(1) or job_id_match.group(2) if job_id_match else None
     job_url = url_match.group(1) if url_match else None

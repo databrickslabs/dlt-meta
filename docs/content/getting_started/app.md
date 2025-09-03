@@ -1,4 +1,10 @@
-# DLT-META Lakehouse App
+---
+title: "DLT-META Lakehouse App"
+date: 2025-08-31T14:25:26-04:00
+weight: 9
+draft: false
+---
+
 
 ## Prerequisites
 
@@ -69,8 +75,7 @@
 ## Using DLT-META App
 
 ### App User Setup
-
-![App User Example](../docs/static/images/app_cli.png)
+![App User Example](/images/app_cli.png)
 
 The app creates a dedicated user account that:
 - Handles onboarding, deployment, and demo execution
@@ -89,29 +94,23 @@ The app creates a dedicated user account that:
    - Configure pipelines according to your requirements
 
    **Onboarding Pipeline:**
-   
-   ![Onboarding UI](../docs/static/images/app_onboarding.png)
-   
+   ![Onboarding UI](/images/app_onboarding.png)
    *Pipeline onboarding interface for configuring new data pipelines*
 
    **Deploying Pipeline:**
-   
-   ![Deploy UI](../docs/static/images/app_deploy_pipeline.png)
-   
+   ![Deploy UI](/images/app_deploy_pipeline.png)
    *Pipeline deployment interface for managing and deploying pipelines*
 
 3. Demo Access:
    - Available demos can be found under "Demo" tab
    - Run pre-configured demo pipelines to explore features
 
-   ![App Demo](../docs/static/images/app_run_demos.png)
-   
+   ![App Demo](/images/app_run_demos.png)
    *Demo interface showing available example pipelines*
 
 4. Command Line Interface:
    - Access CLI features under the "CLI" tab
    - Execute commands directly from the web interface
 
-   ![CLI UI](../docs/static/images/app_cli.png)
-   
+   ![CLI UI](/images/app_cli.png)
    *CLI interface for command-line operations*

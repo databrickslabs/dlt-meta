@@ -4,9 +4,27 @@ date: 2021-08-04T14:50:11-04:00
 weight: 80
 draft: false
 ---
+# v0.0.10
+## Enhancements
+- Added apply_changes_from_snapshot support in silver layer [PR](https://github.com/databrickslabs/dlt-meta/pull/187)
+- Added UI using databricks lakehouse app for onboarding/deploy commands [PR](https://github.com/databrickslabs/dlt-meta/pull/168)
+- Added support for non-Delta as sinks(delta, kafka) [PR](https://github.com/databrickslabs/dlt-meta/pull/157)
+- Added quarantine support in silver layer for data quality rules [PR](https://github.com/databrickslabs/dlt-meta/pull/191)
+- Added support for table comments, column comments, and cluster_by [PR](https://github.com/databrickslabs/dlt-meta/pull/91)
+- Added catalog support for sourceDetails and targetDetails [PR](https://github.com/databrickslabs/dlt-meta/issues/173)
+- Added DBDemos for dlt-meta [PR](https://github.com/databrickslabs/dlt-meta/issues/183)
+- Added YAML support for onboarding [PR](https://github.com/databrickslabs/dlt-meta/issues/184)
+- Fixed issue cluster by not working with bronze append only table [PR](https://github.com/databrickslabs/dlt-meta/issues/197)
+- Fixed issue view name containing period when using DPM [PR](https://github.com/databrickslabs/dlt-meta/issues/169)
+- Fixed issue CLI onboarding overwrite option always set to True [PR](https://github.com/databrickslabs/dlt-meta/issues/163)
+- Fixed issue Silver DLT not creating based on passed database [PR](https://github.com/databrickslabs/dlt-meta/issues/160)
+- Fixed issue PyPI download stats display [PR](https://github.com/databrickslabs/dlt-meta/issues/200)
+- Fixed issue Silver Data Quality not working [PR](https://github.com/databrickslabs/dlt-meta/issues/156)
+- Fixed issue Removed DPM flag check inside dataflowpipeline [PR](https://github.com/databrickslabs/dlt-meta/issues/177)
+- Fixed issue Updated dlt-meta demos into Delta Live Tables Notebook github [PR](https://github.com/databrickslabs/dlt-meta/issues/158)
 
 # v0.0.9
-## Enhancement
+## Enhancements
 - Added  apply_changes_from_snapshot api support in bronze layer: [PR](https://github.com/databrickslabs/dlt-meta/pull/124)
 - Added dlt append_flow api support for silver layer: [PR](https://github.com/databrickslabs/dlt-meta/pull/63)
 - Added support for file metadata columns for autoloader: [PR](https://github.com/databrickslabs/dlt-meta/pull/56)
@@ -27,7 +45,7 @@ draft: false
 - Fixed issue Onboarding with multiple partition columns errors out: [PR](https://github.com/databrickslabs/dlt-meta/pull/134)
 
 # v0.0.8
-## Enhancement
+## Enhancements
 - Added dlt append_flow api support: [PR](https://github.com/databrickslabs/dlt-meta/pull/58)
 - Added dlt append_flow api support for silver layer: [PR](https://github.com/databrickslabs/dlt-meta/pull/63)
 - Added support for file metadata columns for autoloader: [PR](https://github.com/databrickslabs/dlt-meta/pull/56)
@@ -45,14 +63,14 @@ draft: false
 
 
 # v0.0.7
-## Enhancement
+## Enhancements
 ### 1. Mismatched Keys: Update read_dlt_delta() with key "source_database" instead of "database" [#33](https://github.com/databrickslabs/dlt-meta/pull/33)
 ### 2. Create dlt-meta cli documentation #45 
 - Readme and docs to include above features
 
 
 # v0.0.6
-## Enhancement
+## Enhancements
 ### 1. Migrate to create_streaming_table api from create_streaming_live_table [#37](https://github.com/databrickslabs/dlt-meta/pull/39)
 #### Updates 
 - Readme and docs to include above features
