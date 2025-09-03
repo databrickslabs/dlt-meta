@@ -23,31 +23,43 @@ draft: false
     databricks auth login --host WORKSPACE_HOST
     ```
     
-3. ```commandline
+3. Install Python package requirements:
+    ```commandline
+    # Core requirements
+    pip install "PyYAML>=6.0" setuptools databricks-sdk
+
+    # Development requirements
+    pip install flake8==6.0 delta-spark==3.0.0 pytest>=7.0.0 coverage>=7.0.0 pyspark==3.5.5
+    ```
+
+4. Clone dlt-meta:
+    ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git 
     ```
 
-4. ```commandline
+5. Navigate to project directory:
+    ```commandline
     cd dlt-meta
     ```
-5. Set python environment variable into terminal
+6. Set python environment variable into terminal
     ```commandline
     dlt_meta_home=$(pwd)
     ```
     ```commandline
     export PYTHONPATH=$dlt_meta_home
 
-6. ```commandline
+7. Run the command:
+    ```commandline
     python demo/launch_silver_fanout_demo.py --uc_catalog_name=<<uc catalog name>> --cloud_provider_name=aws
     ```
     - uc_catalog_name : aws or azure
     - cloud_provider_name : aws or azure
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
 
-    - - 6a. Databricks Workspace URL:
-    - - Enter your workspace URL, with the format https://<instance-name>.cloud.databricks.com. To get your workspace URL, see Workspace instance names, URLs, and IDs.
+    a. Databricks Workspace URL:
+       Enter your workspace URL, with the format https://<instance-name>.cloud.databricks.com. To get your workspace URL, see Workspace instance names, URLs, and IDs.
 
-    - - 6b. Token:
+    b. Token:
         - In your Databricks workspace, click your Databricks username in the top bar, and then select User Settings from the drop down.
 
         - On the Access tokens tab, click Generate new token.

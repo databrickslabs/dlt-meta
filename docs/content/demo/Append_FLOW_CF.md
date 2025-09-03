@@ -21,15 +21,26 @@ This demo will perform following tasks:
     databricks auth login --host WORKSPACE_HOST
     ```
 
-3. ```commandline
+3. Install Python package requirements:
+    ```commandline
+    # Core requirements
+    pip install "PyYAML>=6.0" setuptools databricks-sdk
+
+    # Development requirements
+    pip install flake8==6.0 delta-spark==3.0.0 pytest>=7.0.0 coverage>=7.0.0 pyspark==3.5.5
+    ```
+
+4. Clone dlt-meta:
+    ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git 
     ```
 
-4. ```commandline
+5. Navigate to project directory:
+    ```commandline
     cd dlt-meta
     ```
 
-5. Set python environment variable into terminal
+6. Set python environment variable into terminal
     ```commandline
     dlt_meta_home=$(pwd)
     ```
@@ -38,7 +49,8 @@ This demo will perform following tasks:
     export PYTHONPATH=$dlt_meta_home
     ```
 
-6. ```commandline
+7. Run the command:
+    ```commandline
     python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=dlt_meta_uc
     ```
 

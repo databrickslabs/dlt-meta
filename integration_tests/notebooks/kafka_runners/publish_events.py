@@ -28,7 +28,6 @@ from kafka import KafkaProducer
 import json
 kafka_bootstrap_servers = dbutils.secrets.get(f"{kafka_source_servers_secrets_scope_name}", f"{kafka_source_servers_secrets_scope_key}")
 for char in kafka_bootstrap_servers:
-  print(char, end = ' ')
 producer = KafkaProducer(
     bootstrap_servers=f"{kafka_bootstrap_servers}",
     value_serializer=lambda v: json.dumps(v).encode("utf-8"),

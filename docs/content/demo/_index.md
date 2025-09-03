@@ -11,3 +11,5 @@ draft: false
  4. **Append FLOW Eventhub Demo**: Write to same target from multiple sources using append_flow and adding using [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
  5. **Silver Fanout Demo**:  This demo will showcase fanout architecture can be implemented in silver layer
  6. **Apply Changes From Snapshot Demo**:  This demo will showcase [create_auto_cdc_from_snapshot_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes-from-snapshot) can be implemented inside bronze and silver layer
+ 7. **Lakeflow Declarative Pipelines Sink Demo**: This demo showcases the implementation of write to external sinks like delta and kafka
+ 8. **DAB Demo**: This demo showcases how to use Databricks Assets Bundles with dlt-meta

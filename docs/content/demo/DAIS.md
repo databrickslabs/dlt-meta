@@ -23,15 +23,26 @@ This demo showcases DLT-META's capabilities of creating Bronze and Silver DLT pi
     databricks auth login --host WORKSPACE_HOST
     ```
 
-3. ```commandline
+3. Install Python package requirements:
+    ```commandline
+    # Core requirements
+    pip install "PyYAML>=6.0" setuptools databricks-sdk
+
+    # Development requirements
+    pip install flake8==6.0 delta-spark==3.0.0 pytest>=7.0.0 coverage>=7.0.0 pyspark==3.5.5
+    ```
+
+4. Clone dlt-meta:
+    ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git 
     ```
 
-4. ```commandline
+5. Navigate to project directory:
+    ```commandline
     cd dlt-meta
     ```
 
-5. Set python environment variable into terminal
+6. Set python environment variable into terminal
     ```commandline
     dlt_meta_home=$(pwd)
     ```
@@ -39,7 +50,8 @@ This demo showcases DLT-META's capabilities of creating Bronze and Silver DLT pi
     export PYTHONPATH=$dlt_meta_home
     ```
 
-6. ```commandline 
+7. Run the command:
+    ```commandline 
     python demo/launch_dais_demo.py --uc_catalog_name=<<uc catalog name>> --cloud_provider_name=<<>>
     ```
     - uc_catalog_name : unit catalog name
