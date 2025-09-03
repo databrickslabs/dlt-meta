@@ -1,84 +1,117 @@
-# DLT-META Lakehouse App Setup
+# DLT-META Lakehouse App
 
-Make sure you have installed/upgraded the latest Databricks CLI version (e.g., 0.244.0) and configured workspace access where the app is being deployed.
+## Prerequisites
 
-## Create App and Attach Source to Databricks Apps
+### System Requirements
+- Python 3.8.0 or higher
+- [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/tutorial.html) (latest version, e.g., 0.244.0)
+- Configured workspace access
 
-### Step 1: Create a Custom App ("empty") Using the CLI
-For example, if the app name is `demo-dltmeta`:
-```bash
-databricks apps create demo-dltmeta
-```
-Wait for the command execution to complete. It will take a few minutes.
+### Initial Setup
+1. Authenticate with Databricks:
+   ```commandline
+   databricks auth login --host WORKSPACE_HOST
+   ```
 
-### Step 2: Checkout Project from DLT-META Git Repository
-```bash
-git clone https://github.com/databrickslabs/dlt-meta.git
-```
+2. Setup Python Environment:
+   ```commandline
+   git clone https://github.com/databrickslabs/dlt-meta.git
+   cd dlt-meta
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install databricks-sdk
+   ```
 
-### Step 3: Navigate to the Project Directory
-```bash
-cd dlt-meta/lakehouse_app
-```
+## Deployment Options
 
-### Step 4: Sync the DLT-META App Code to Your Workspace Directory
-Run the command below to sync the code (replace `testapp` with your desired folder name):
-```bash
-databricks sync . /Workspace/Users/<user1.user2>@databricks.com/testapp
-```
+### Deploy to Databricks
 
-### Step 5: Deploy Code to the App Created in Step 1
-```bash
-databricks apps deploy demo-dltmeta --source-code-path /Workspace/Users/<user1.user2>@databricks.com/testapp
-```
+1. Create Custom App:
+   ```commandline
+   databricks apps create demo-dltmeta
+   ```
+   > Note: Wait for command completion (a few minutes)
 
-### Step 6: Open the App in the Browser
-- Open the URL from the Step 1 log, or
-- Go to the Databricks web page, click **New > App**, click back on **App**, search for your app name, and click on the URL to open the app in the browser.
+2. Setup App Code:
+   ```commandline
+   cd dlt-meta/lakehouse_app
+   
+   # Replace testapp with your preferred folder name
+   databricks sync . /Workspace/Users/<user1.user2>@databricks.com/testapp
+   
+   # Deploy the app
+   databricks apps deploy demo-dltmeta --source-code-path /Workspace/Users/<user1.user2>@databricks.com/testapp
+   ```
 
----
+3. Access the App:
+   - Open URL from step 1 log, or
+   - Navigate: Databricks Web UI → New → App → Back to App → Search your app name
 
-## Run the App Locally
+### Run Locally
 
-### Step 1: Checkout Project from DLT-META Git Repository
-```bash
-git clone https://github.com/databrickslabs/dlt-meta.git
-```
+1. Setup Environment:
+   ```commandline
+   cd dlt-meta/lakehouse_app
+   pip install -r requirements.txt
+   ```
 
-### Step 2: Navigate to the Project Directory
-```bash
-cd dlt-meta/lakehouse_app
-```
+2. Configure Databricks:
+   ```commandline
+   databricks configure --host <your databricks host url> --token <your token>
+   ```
 
-### Step 3: Install the Required Dependencies
-```bash
-pip install -r requirements.txt
-```
+3. Start App:
+   ```commandline
+   python App.py
+   ```
+   Access at: http://127.0.0.1:5000
 
-### Step 4: Configure Databricks
-```bash
-databricks configure --host <your-databricks-host-url> --token <your-token>
-```
+## Using DLT-META App
 
-### Step 5: Run the App
-```bash
-python App.py
-```
+### App User Setup
 
-### Step 6: Access the App
-Click on the URL link: [http://127.0.0.1:5000](http://127.0.0.1:5000)
+![App User Example](../docs/static/images/app_cli.png)
 
----
+The app creates a dedicated user account that:
+- Handles onboarding, deployment, and demo execution
+- Requires specific permissions for UC catalogs and schemas
+- Example username format: "app-40zbx9_demo-dltmeta"
 
-## Databricks App Username
+### Getting Started
 
-Databricks creates a unique username for each app, which can be found on the Databricks app page.
+1. Initial Setup:
+   - Launch app in browser
+   - Click "Setup dlt-meta project environment"
+   - This initializes the environment for onboarding and deployment
 
-### Step 1: Configure the DLT-META Environment
-After launching the app in the browser, click the button **"Setup DLT-META Project Environment"** to configure the DLT-META environment on the app's remote instance for onboarding and deployment activities.
+2. Pipeline Management:
+   - Use "UI" tab to onboard and deploy pipelines
+   - Configure pipelines according to your requirements
 
-### Step 2: Onboard a DLT Pipeline
-Use the **"UI"** tab to onboard and deploy DLT pipelines based on your pipeline configuration.
+   **Onboarding Pipeline:**
+   
+   ![Onboarding UI](../docs/static/images/app_onboarding.png)
+   
+   *Pipeline onboarding interface for configuring new data pipelines*
 
-### Step 3: Run Available Demos
-Navigate to the **"Demo"** tab to run the available demos.
+   **Deploying Pipeline:**
+   
+   ![Deploy UI](../docs/static/images/app_deploy_pipeline.png)
+   
+   *Pipeline deployment interface for managing and deploying pipelines*
+
+3. Demo Access:
+   - Available demos can be found under "Demo" tab
+   - Run pre-configured demo pipelines to explore features
+
+   ![App Demo](../docs/static/images/app_run_demos.png)
+   
+   *Demo interface showing available example pipelines*
+
+4. Command Line Interface:
+   - Access CLI features under the "CLI" tab
+   - Execute commands directly from the web interface
+
+   ![CLI UI](../docs/static/images/app_cli.png)
+   
+   *CLI interface for command-line operations*
