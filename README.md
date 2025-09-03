@@ -29,13 +29,13 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 - Capture [Data Quality Rules](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
 - Capture processing logic as sql in [Silver transformation file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json)
 
-#### Generic DLT pipeline
+#### Generic Lakeflow Declarative Pipeline
 
 - Apply appropriate readers based on input metadata
 - Apply data quality rules with DLT expectations
 - Apply CDC apply changes if specified in metadata
-- Builds DLT graph based on input/output metadata
-- Launch DLT pipeline
+- Builds Lakeflow Declarative Pipeline graph based on input/output metadata
+- Launch Lakeflow Declarative Pipeline pipeline
 
 ## High-Level Process Flow:
 
