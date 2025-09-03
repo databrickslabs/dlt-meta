@@ -76,7 +76,7 @@ draft: false
    4. Job URL will automatically open in your default browser.
 
 
-- Once onboarding jobs is finished deploy `bronze` and `silver` DLT using below command
+- Once onboarding jobs is finished deploy `bronze` and `silver` Lakeflow Declarative Pipeline using below command
 
 ## DLT-META Lakeflow Declarative Pipeline: 
 

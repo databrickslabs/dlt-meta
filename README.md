@@ -32,10 +32,10 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 #### Generic Lakeflow Declarative Pipeline
 
 - Apply appropriate readers based on input metadata
-- Apply data quality rules with DLT expectations
+- Apply data quality rules with Lakeflow Declarative Pipeline expectations
 - Apply CDC apply changes if specified in metadata
 - Builds Lakeflow Declarative Pipeline graph based on input/output metadata
-- Launch Lakeflow Declarative Pipeline pipeline
+- Launch Lakeflow Declarative pipeline
 
 ## High-Level Process Flow:
 
@@ -45,7 +45,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 
 ![DLT-META Stages](./docs/static/images/dlt-meta_stages.png)
 
-## DLT-META DLT Features support
+## DLT-META Lakeflow Declarative Pipeline Features support
 | Features  | DLT-META Support |
 | ------------- | ------------- |
 | Input data sources  | Autoloader, Delta, Eventhub, Kafka, snapshot  |
@@ -58,7 +58,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 | [append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#use-append-flow-to-write-to-a-streaming-table-from-multiple-source-streams) API support | Bronze layer|
 | Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
 | [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/) |  ```databricks labs dlt-meta onboard```, ```databricks labs dlt-meta deploy``` |
-| Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using Direct publishing mode |
+| Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using default publishing mode |
 | [create_sink](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-sink) API support |Supported formats:```external delta table , kafka``` Bronze, Silver layers|
 | [Databricks Asset Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) | Supported
 | [DLT-META UI](https://github.com/databrickslabs/dlt-meta/tree/main/lakehouse_app#dlt-meta-lakehouse-app-setup) | Uses Databricks Lakehouse DLT-META App
@@ -166,7 +166,7 @@ The command will prompt you to provide pipeline configuration details.
 ![deployingDLTMeta_bronze_silver.gif](docs/static/images/deployingDLTMeta_bronze_silver.gif)
 
 Above deploy cli command will:
-1. Deploy Lakeflow Declarative pipeline with dlt-meta configuration like ```layer```, ```group```, ```dataflowSpec table details``` etc to your databricks workspace
+1. Deploy Lakeflow Declarative Pipeline with dlt-meta configuration like ```layer```, ```group```, ```dataflowSpec table details``` etc to your databricks workspace
 2. Display message: ```dlt-meta pipeline={pipeline_id} created and launched with update_id={pipeline_update_id}, url=https://{databricks workspace url}/#joblist/pipelines/{pipeline_id}```
 3. Pipline URL will automatically open in your defaul browser.
 
