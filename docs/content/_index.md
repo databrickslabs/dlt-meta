@@ -53,7 +53,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 | [append_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-append-flow) API support | Bronze layer|
 | Liquid cluster support | Bronze, Bronze Quarantine, Silver, Silver Quarantine tables|
 | [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/) |  ```databricks labs dlt-meta onboard```, ```databricks labs dlt-meta deploy``` |
-| Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using Direct publishing mode |
+| Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using default publishing mode |
 | [DLT Sinks](https://docs.databricks.com/aws/en/dlt/dlt-sinks) | Supported formats:external ```delta table```, ```kafka```.Bronze, Silver layers|
 ## How much does it cost ?
 DLT-META does not have any **direct cost** associated with it other than the cost to run the Databricks Lakeflow Declarative Pipelines 
