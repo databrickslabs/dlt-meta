@@ -35,7 +35,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 - Apply data quality rules with Lakeflow Declarative Pipeline expectations
 - Apply CDC apply changes if specified in metadata
 - Builds Lakeflow Declarative Pipeline graph based on input/output metadata
-- Launch Lakeflow Declarative Pipeline pipeline
+- Launch Lakeflow Declarative pipeline
 
 ## High-Level Process Flow:
 
