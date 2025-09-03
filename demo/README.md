@@ -13,7 +13,7 @@
 ## [DAIS 2023 Session Recording](https://www.youtube.com/watch?v=WYv5haxLlfA)
 This Demo launches Bronze and Silver pipelines with following activities:
 - Customer and Transactions feeds for initial load
-- Adds new feeds Product and Stores to existing Bronze and Silver DLT pipelines with metadata changes.
+- Adds new feeds Product and Stores to existing Bronze and Silver Lakeflow Declarative Pipeline pipelines with metadata changes.
 - Runs Bronze and Silver pipeline for incremental load for CDC events
 
 ### Steps:
