@@ -6,7 +6,7 @@ draft: false
 ---
 
 ### Databricks Tech Summit FY2024 DEMO:
-This demo will launch auto generated tables(100s) inside single bronze and silver DLT pipeline using dlt-meta.
+This demo will launch auto generated tables(100s) inside single bronze and silver Lakeflow Declarative Pipeline using dlt-meta.
 
 1. Launch Command Prompt
 

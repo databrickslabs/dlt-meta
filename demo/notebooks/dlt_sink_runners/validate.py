@@ -15,7 +15,7 @@ TABLES = {
     f"{uc_catalog_name}.{bronze_schema}.bronze_{run_id}_iot_quarantine": 2,
 }
 
-log_list.append("Validating DLT EVenthub Bronze Table Counts...")
+log_list.append("Validating Lakeflow Declarative Pipeline EVenthub Bronze Table Counts...")
 for table, counts in TABLES.items():
     query = spark.sql(f"SELECT count(*) as cnt FROM {table}")
     cnt = query.collect()[0].cnt

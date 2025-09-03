@@ -32,7 +32,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 #### Generic Lakeflow Declarative Pipeline
 
 - Apply appropriate readers based on input metadata
-- Apply data quality rules with DLT expectations
+- Apply data quality rules with Lakeflow Declarative Pipeline expectations
 - Apply CDC apply changes if specified in metadata
 - Builds Lakeflow Declarative Pipeline graph based on input/output metadata
 - Launch Lakeflow Declarative Pipeline pipeline
@@ -45,7 +45,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 
 ![DLT-META Stages](./docs/static/images/dlt-meta_stages.png)
 
-## DLT-META DLT Features support
+## DLT-META Lakeflow Declarative Pipeline Features support
 | Features  | DLT-META Support |
 | ------------- | ------------- |
 | Input data sources  | Autoloader, Delta, Eventhub, Kafka, snapshot  |
@@ -166,7 +166,7 @@ The command will prompt you to provide pipeline configuration details.
 ![deployingDLTMeta_bronze_silver.gif](docs/static/images/deployingDLTMeta_bronze_silver.gif)
 
 Above deploy cli command will:
-1. Deploy Lakeflow Declarative pipeline with dlt-meta configuration like ```layer```, ```group```, ```dataflowSpec table details``` etc to your databricks workspace
+1. Deploy Lakeflow Declarative Pipeline with dlt-meta configuration like ```layer```, ```group```, ```dataflowSpec table details``` etc to your databricks workspace
 2. Display message: ```dlt-meta pipeline={pipeline_id} created and launched with update_id={pipeline_update_id}, url=https://{databricks workspace url}/#joblist/pipelines/{pipeline_id}```
 3. Pipline URL will automatically open in your defaul browser.
 

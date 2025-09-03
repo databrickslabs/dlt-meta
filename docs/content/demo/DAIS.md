@@ -8,10 +8,10 @@ draft: false
 ### DAIS 2023 DEMO:
 #### [DAIS 2023 Session Recording](https://www.youtube.com/watch?v=WYv5haxLlfA)
 
-This demo showcases DLT-META's capabilities of creating Bronze and Silver DLT pipelines with initial and incremental mode automatically.
+This demo showcases DLT-META's capabilities of creating Bronze and Silver Lakeflow Declarative Pipeline pipelines with initial and incremental mode automatically.
 - Customer and Transactions feeds for initial load
-- Adds new feeds Product and Stores to existing Bronze and Silver DLT pipelines with metadata changes.
-- Runs Bronze and Silver DLT for incremental load for CDC events
+- Adds new feeds Product and Stores to existing Bronze and Silver Lakeflow Declarative Pipeline pipelines with metadata changes.
+- Runs Bronze and Silver Lakeflow Declarative Pipeline for incremental load for CDC events
 
 #### Steps to launch DAIS demo in your Databricks workspace:
 1. Launch Command Prompt
