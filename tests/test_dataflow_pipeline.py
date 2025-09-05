@@ -1363,6 +1363,22 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         pipeline.write_bronze()
         assert mock_cdc_apply_changes.called
 
+    @patch.object(DataflowPipeline, 'cdc_apply_changes', return_value=None)
+    def test_write_bronze_cdc_apply_changes_multiple_sequence(self, mock_cdc_apply_changes):
+        """Test write_bronze with CDC apply changes using multiple sequence columns."""
+        bronze_dataflow_spec = BronzeDataflowSpec(**self.bronze_dataflow_spec_map)
+        bronze_dataflow_spec.cdcApplyChanges = json.dumps({
+            "keys": ["id"],
+            "sequence_by": "event_timestamp, enqueue_timestamp, sequence_id",
+            "scd_type": "1",
+            "apply_as_deletes": "operation = 'DELETE'",
+            "except_column_list": ["operation", "event_timestamp", "enqueue_timestamp", "sequence_id", "_rescued_data"]
+        })
+        view_name = f"{bronze_dataflow_spec.targetDetails['table']}_inputview"
+        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name, None)
+        pipeline.write_bronze()
+        assert mock_cdc_apply_changes.called
+
     @patch('pyspark.sql.SparkSession.readStream')
     def test_get_silver_schema_uc_enabled(self, mock_read_stream):
         """Test get_silver_schema with Unity Catalog enabled."""

@@ -114,7 +114,7 @@ When you launch Lakeflow Declarative Pipeline it will read silver onboarding and
    "keys":[
       "customer_id"
    ],
-   "sequence_by":"dmsTimestamp",
+   "sequence_by":"dmsTimestamp,enqueueTimestamp,sequenceId",
    "scd_type":"2",
    "apply_as_deletes":"Op = 'D'",
    "except_column_list":[
