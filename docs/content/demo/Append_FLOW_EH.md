@@ -18,21 +18,32 @@ draft: false
     databricks auth login --host WORKSPACE_HOST
     ```
 
-3. ```commandline
+3. Install Python package requirements:
+    ```commandline
+    # Core requirements
+    pip install "PyYAML>=6.0" setuptools databricks-sdk
+
+    # Development requirements
+    pip install flake8==6.0 delta-spark==3.0.0 pytest>=7.0.0 coverage>=7.0.0 pyspark==3.5.5
+    ```
+
+4. Clone dlt-meta:
+    ```commandline
     git clone https://github.com/databrickslabs/dlt-meta.git 
     ```
 
-4. ```commandline
+5. Navigate to project directory:
+    ```commandline
     cd dlt-meta
     ```
-5. Set python environment variable into terminal
+6. Set python environment variable into terminal
     ```commandline
     dlt_meta_home=$(pwd)
     ```
     ```commandline
     export PYTHONPATH=$dlt_meta_home
     ```
-6. Eventhub
+7. Configure Eventhub
 - Needs eventhub instance running
 - Need two eventhub topics first for main feed (eventhub_name) and second for append flow feed (eventhub_name_append_flow)
 - Create databricks secrets scope for eventhub keys
@@ -61,7 +72,8 @@ draft: false
     - eventhub_secrets_scope_name: Databricks secret scope name e.g. eventhubs_dltmeta_creds
     - eventhub_port: Eventhub port
 
-7. ```commandline 
+8. Run the command:
+    ```commandline 
     python demo/launch_af_eventhub_demo.py --cloud_provider_name=aws --uc_catalog_name=dlt_meta_uc --eventhub_name=dltmeta_demo --eventhub_name_append_flow=dltmeta_demo_af --eventhub_secrets_scope_name=dltmeta_eventhub_creds --eventhub_namespace=dltmeta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey
     ```
 

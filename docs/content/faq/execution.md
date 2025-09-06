@@ -103,7 +103,7 @@ Yes! Please follow below steps:
 - You can run onboarding for additional silver customer_clean table by having [onboarding file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/onboarding_silverfanout.template) and [silver transformation](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations_fanout.template) with filter condition for fan out.
 
 - Run onboarding for slilver layer in append mode("overwrite": "False") so it will append to existing silver tables.
-When you launch DLT pipeline it will read silver onboarding and run DLT for bronze source and silver as target
+When you launch Lakeflow Declarative Pipeline it will read silver onboarding and run Lakeflow Declarative Pipeline for bronze source and silver as target
 
 **Q. How can I do type1 or type2 merge to target table?**
 

@@ -638,7 +638,7 @@ class DLTMeta:
                 onboard_cmd_dict["bronze_dataflowspec_path"] = f'{self._install_folder()}/bronze_dataflow_specs'
 
         if onboard_cmd_dict["onboard_layer"] == "silver" or onboard_cmd_dict["onboard_layer"] == "bronze_silver":
-            onboard_cmd_dict["silver_dataflowspec_table"] = 'silver_dataflowspec'  # Not in form, using default
+            onboard_cmd_dict["silver_dataflowspec_table"] = form_data.get('silver_table', 'silver_dataflowspec')
             if not onboard_cmd_dict["uc_enabled"]:
                 onboard_cmd_dict["silver_dataflowspec_path"] = f'{self._install_folder()}/silver_dataflow_specs'
 

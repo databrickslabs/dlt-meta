@@ -23,7 +23,7 @@ UC_TABLES = {
 }
 
 
-log_list.append("Validating DLT Bronze and Silver Table Counts...")
+log_list.append("Validating Lakeflow Declarative Pipeline Bronze and Silver Table Counts...")
 for table, counts in UC_TABLES.items():
     query = spark.sql(f"SELECT count(*) as cnt FROM {table}")
     cnt = query.collect()[0].cnt

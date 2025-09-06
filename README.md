@@ -29,13 +29,13 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 - Capture [Data Quality Rules](https://github.com/databrickslabs/dlt-meta/tree/main/examples/dqe/customers/bronze_data_quality_expectations.json)
 - Capture processing logic as sql in [Silver transformation file](https://github.com/databrickslabs/dlt-meta/blob/main/examples/silver_transformations.json)
 
-#### Generic DLT pipeline
+#### Generic Lakeflow Declarative Pipeline
 
 - Apply appropriate readers based on input metadata
-- Apply data quality rules with DLT expectations
+- Apply data quality rules with Lakeflow Declarative Pipeline expectations
 - Apply CDC apply changes if specified in metadata
-- Builds DLT graph based on input/output metadata
-- Launch DLT pipeline
+- Builds Lakeflow Declarative Pipeline graph based on input/output metadata
+- Launch Lakeflow Declarative pipeline
 
 ## High-Level Process Flow:
 
@@ -45,7 +45,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 
 ![DLT-META Stages](./docs/static/images/dlt-meta_stages.png)
 
-## DLT-META DLT Features support
+## DLT-META Lakeflow Declarative Pipeline Features support
 | Features  | DLT-META Support |
 | ------------- | ------------- |
 | Input data sources  | Autoloader, Delta, Eventhub, Kafka, snapshot  |
@@ -53,14 +53,15 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 | Custom transformations | Bronze, Silver layer accepts custom functions|
 | Data Quality Expecations Support | Bronze, Silver layer |
 | Quarantine table support | Bronze layer |
-| [apply_changes](https://docs.databricks.com/en/delta-live-tables/python-ref.html#cdc) API support | Bronze, Silver layer | 
-| [apply_changes_from_snapshot](https://docs.databricks.com/en/delta-live-tables/python-ref.html#change-data-capture-from-database-snapshots-with-python-in-delta-live-tables) API support | Bronze layer|
+| [create_auto_cdc_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) API support | Bronze, Silver layer | 
+| [create_auto_cdc_from_snapshot_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes-from-snapshot) API support | Bronze layer|
 | [append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#use-append-flow-to-write-to-a-streaming-table-from-multiple-source-streams) API support | Bronze layer|
 | Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
 | [DLT-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/dltmeta_cli/) |  ```databricks labs dlt-meta onboard```, ```databricks labs dlt-meta deploy``` |
-| Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using Direct publishing mode |
-| [DLT Sinks](https://docs.databricks.com/aws/en/delta-live-tables/dlt-sinks) |Supported formats:external ```delta table```, ```kafka```.Bronze, Silver layers|
+| Bronze and Silver pipeline chaining | Deploy dlt-meta pipeline with ```layer=bronze_silver``` option using default publishing mode |
+| [create_sink](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-sink) API support |Supported formats:```external delta table , kafka``` Bronze, Silver layers|
 | [Databricks Asset Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) | Supported
+| [DLT-META UI](https://github.com/databrickslabs/dlt-meta/tree/main/lakehouse_app#dlt-meta-lakehouse-app-setup) | Uses Databricks Lakehouse DLT-META App
 
 ## Getting Started
 
@@ -137,38 +138,37 @@ If you want to run existing demo files please follow these steps before running 
     dlt_meta_home=$(pwd)
     export PYTHONPATH=$dlt_meta_home
     ```
+![onboardingDLTMeta.gif](docs/static/images/onboardingDLTMeta.gif)
+
+
 7. Run onboarding command:
     ```commandline
     databricks labs dlt-meta onboard
     ```
-![onboardingDLTMeta.gif](docs/static/images/onboardingDLTMeta.gif)
 
-
-Above commands will prompt you to provide onboarding details. If you have cloned dlt-meta git repo then accept defaults which will launch config from demo folder.
+The command will prompt you to provide onboarding details. If you have cloned the dlt-meta repository, you can accept the default values which will use the configuration from the demo folder.
 ![onboardingDLTMeta_2.gif](docs/static/images/onboardingDLTMeta_2.gif)
 
-
-- Goto your databricks workspace and located onboarding job under: Workflow->Jobs runs
+Above onboard cli command will:
+1. Push code and data to your Databricks workspace
+2. Create an onboarding job
+3. Display a success message: ```Job created successfully. job_id={job_id}, url=https://{databricks workspace url}/jobs/{job_id}```
+4. Job URL will automatically open in your default browser.
 
 ### depoly using dlt-meta CLI:
 
-- Once onboarding jobs is finished deploy `bronze` and `silver` DLT using below command
+- Once onboarding jobs is finished deploy Lakeflow Declarative Pipeline using below command
 - ```commandline
      databricks labs dlt-meta deploy
   ```
-- - Above command will prompt you to provide dlt details. Please provide respective details for schema which you provided in above steps
-- - Bronze DLT
+The command will prompt you to provide pipeline configuration details.
 
-![deployingDLTMeta_bronze.gif](docs/static/images/deployingDLTMeta_bronze.gif)
+![deployingDLTMeta_bronze_silver.gif](docs/static/images/deployingDLTMeta_bronze_silver.gif)
 
-
-- Silver DLT
-- - ```commandline
-       databricks labs dlt-meta deploy
-    ```
-- - Above command will prompt you to provide dlt details. Please provide respective details for schema which you provided in above steps
-
-![deployingDLTMeta_silver.gif](docs/static/images/deployingDLTMeta_silver.gif)
+Above deploy cli command will:
+1. Deploy Lakeflow Declarative Pipeline with dlt-meta configuration like ```layer```, ```group```, ```dataflowSpec table details``` etc to your databricks workspace
+2. Display message: ```dlt-meta pipeline={pipeline_id} created and launched with update_id={pipeline_update_id}, url=https://{databricks workspace url}/#joblist/pipelines/{pipeline_id}```
+3. Pipline URL will automatically open in your defaul browser.
 
 
 ## More questions
