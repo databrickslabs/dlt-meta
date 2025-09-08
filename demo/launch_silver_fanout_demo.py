@@ -84,7 +84,10 @@ class DLTMETATSilverFanoutDemo(DLTMETARunner):
         )
         runner_conf.uc_catalog_name = self.args['uc_catalog_name']
         if '-' in runner_conf.uc_catalog_name or runner_conf.uc_catalog_name[0].isdigit():
-            print("\nERROR: 'uc_catalog_name' can only contain ASCII letters ('a' - 'z', 'A' - 'Z'), digits ('0' - '9'), and underbar ('_'). Must also not start with a digit. Exiting.")
+            print(
+                "\nERROR: 'uc_catalog_name' can only contain ASCII letters ('a' - 'z', 'A' - 'Z'),"
+                " digits ('0' - '9'), and underbar ('_'). Must also not start with a digit. Exiting."
+            )
             exit(1)
         runner_conf.uc_volume_name = f"{runner_conf.uc_catalog_name}_dlt_meta_fout_demo_{run_id}"
         return runner_conf
