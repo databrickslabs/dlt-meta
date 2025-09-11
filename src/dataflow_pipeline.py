@@ -315,9 +315,9 @@ class DataflowPipeline:
         if bronze_dataflow_spec.sourceFormat == "cloudFiles":
             input_df = pipeline_reader.read_dlt_cloud_files()
         elif bronze_dataflow_spec.sourceFormat == "delta" or bronze_dataflow_spec.sourceFormat == "snapshot":
-            return pipeline_reader.read_dlt_delta()
+            input_df = pipeline_reader.read_dlt_delta()
         elif bronze_dataflow_spec.sourceFormat == "eventhub" or bronze_dataflow_spec.sourceFormat == "kafka":
-            return pipeline_reader.read_kafka()
+            input_df = pipeline_reader.read_kafka()
         else:
             raise Exception(f"{bronze_dataflow_spec.sourceFormat} source format not supported")
         return self.apply_custom_transform_fun(input_df)
