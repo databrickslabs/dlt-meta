@@ -61,15 +61,18 @@ jobs:
       - name: Run Unit Tests
         run: python -m coverage run -m pytest tests/ -v
 
+      - name: Generate coverage XML
+        run: python -m coverage xml -o coverage.xml
+
       - name: Publish test coverage
         if: startsWith(matrix.os,'ubuntu')
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
           env_vars: OS,PYTHON
           fail_ci_if_error: true
           flags: unittests
           name: codecov-umbrella
-          path_to_write_report: ./coverage/codecov_report.txt
           verbose: true
  
