@@ -180,3 +180,13 @@ DLT-META have tag [source_metadata](https://github.com/databrickslabs/dlt-meta/b
 - `autoloader_metadata_col_name` if this provided then will be used to rename _metadata to this value otherwise default is `source_metadata`
 - `select_metadata_cols:{key:value}` will be used to extract columns from _metadata. key is target dataframe column name and value is expression used to add column from _metadata column
 
+**Q. After upgrading dlt-meta, why do Lakeflow Declarative Pipeline fail with the message “Materializing tables in custom schemas is not supported,” and how can this be fixed?**
+
+This failure happens because the pipeline was created using Legacy Publishing mode, which does not support saving tables with catalog or schema qualifiers (such as catalog.schema.table). As a result, using qualified table names leads to an error:
+
+``
+com.databricks.pipelines.common.errors.DLTAnalysisException: Materializing tables in custom schemas is not supported. Please remove the database qualifier from table 'catalog_name.schema_name.table_name'
+``
+
+To resolve this, migrate the pipeline to the default (Databricks Publishing Mode) by following Databricks’ guide: [Migrate to the default publishing mode](https://docs.databricks.com/aws/en/dlt/migrate-to-dpm#migrate-to-the-default-publishing-mode). 
+
