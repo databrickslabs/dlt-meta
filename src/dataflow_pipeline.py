@@ -5,7 +5,7 @@ from typing import Callable, Optional
 import ast
 import dlt
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import expr
+from pyspark.sql.functions import expr, struct
 from pyspark.sql.types import StructType, StructField
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
 from src.pipeline_writers import AppendFlowWriter, DLTSinkWriter
@@ -315,9 +315,9 @@ class DataflowPipeline:
         if bronze_dataflow_spec.sourceFormat == "cloudFiles":
             input_df = pipeline_reader.read_dlt_cloud_files()
         elif bronze_dataflow_spec.sourceFormat == "delta" or bronze_dataflow_spec.sourceFormat == "snapshot":
-            return pipeline_reader.read_dlt_delta()
+            input_df = pipeline_reader.read_dlt_delta()
         elif bronze_dataflow_spec.sourceFormat == "eventhub" or bronze_dataflow_spec.sourceFormat == "kafka":
-            return pipeline_reader.read_kafka()
+            input_df = pipeline_reader.read_kafka()
         else:
             raise Exception(f"{bronze_dataflow_spec.sourceFormat} source format not supported")
         return self.apply_custom_transform_fun(input_df)
@@ -630,11 +630,18 @@ class DataflowPipeline:
         target_table = (
             f"{target_cl_name}{target_db_name}.{target_table_name}"
         )
+
+        # Handle comma-separated sequence columns using struct
+        sequence_by = cdc_apply_changes.sequence_by
+        if ',' in sequence_by:
+            sequence_cols = [col.strip() for col in sequence_by.split(',')]
+            sequence_by = struct(*sequence_cols)  # Use struct() from pyspark.sql.functions
+
         dlt.create_auto_cdc_flow(
             target=target_table,
             source=self.view_name,
             keys=cdc_apply_changes.keys,
-            sequence_by=cdc_apply_changes.sequence_by,
+            sequence_by=sequence_by,
             where=cdc_apply_changes.where,
             ignore_null_updates=cdc_apply_changes.ignore_null_updates,
             apply_as_deletes=apply_as_deletes,
@@ -673,8 +680,17 @@ class DataflowPipeline:
                 for field in struct_schema.fields:
                     if field.name not in cdc_apply_changes.except_column_list:
                         modified_schema.add(field)
-                    if field.name == cdc_apply_changes.sequence_by:
-                        sequenced_by_data_type = field.dataType
+                    # For SCD Type 2, get data type of first sequence column
+                    sequence_by = cdc_apply_changes.sequence_by.strip()
+                    if ',' not in sequence_by:
+                        # Single column sequence
+                        if field.name == sequence_by:
+                            sequenced_by_data_type = field.dataType
+                    else:
+                        # Multiple column sequence - use first column's type
+                        first_sequence_col = sequence_by.split(',')[0].strip()
+                        if field.name == first_sequence_col:
+                            sequenced_by_data_type = field.dataType
                 struct_schema = modified_schema
             else:
                 raise Exception(f"Schema is None for {self.dataflowSpec} for cdc_apply_changes! ")

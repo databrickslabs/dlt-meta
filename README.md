@@ -21,6 +21,8 @@
 
 In practice, a single generic pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads. This approach streamlines the development and management of data pipelines, allowing for a more efficient and scalable data processing workflow
 
+[Lakeflow Declarative Pipelines](https://www.databricks.com/product/data-engineering/lakeflow-declarative-pipelines) and `DLT-META`  are designed to complement each other.  [Lakeflow Declarative Pipelines](https://www.databricks.com/product/data-engineering/lakeflow-declarative-pipelines) provide a declarative, intent-driven foundation for building and managing data workflows, while DLT-META adds a powerful configuration-driven layer that automates and scales pipeline creation. By combining these approaches, teams can move beyond manual coding to achieve true enterprise-level agility, governance, and efficiency, templatizing and automating pipelines for any scale of modern data-driven business
+
 ### Components:
 
 #### Metadata Interface
@@ -45,7 +47,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 
 ![DLT-META Stages](./docs/static/images/dlt-meta_stages.png)
 
-## DLT-META Lakeflow Declarative Pipeline Features support
+## DLT-META `Lakeflow Declarative Pipelines` Features support
 | Features  | DLT-META Support |
 | ------------- | ------------- |
 | Input data sources  | Autoloader, Delta, Eventhub, Kafka, snapshot  |
