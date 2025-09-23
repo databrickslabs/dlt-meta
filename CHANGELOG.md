@@ -1,6 +1,33 @@
 # Changelog
 
 ## [v0.0.10]
+### ⚠️ Breaking Changes
+- **DPM Mode Removal**: Legacy DLT pipelines using the previous DPM mode must be migrated to the default publishing mode before upgrading. This change is metadata-only and doesn't impact existing datasets, but is irreversible.
+- **invoke_dlt_pipeline Argument Changes**: Method arguments now require layer-specific prefixes (bronze_ or silver_) to support apply_changes_from_snapshot in both layers. This affects existing pipeline configurations using the previous argument naming.
+
+### Migration Guide
+1. **DPM Mode Migration**:
+   - Before upgrading to v0.0.10, update pipeline JSON settings as per Databricks documentation [Migrate to the default publishing mode](https://docs.databricks.com/aws/en/dlt/migrate-to-dpm#migrate-to-the-default-publishing-mode)
+   - This is a one-way migration - ensure all stakeholders are informed
+   - Verify pipeline functionality in test environment first
+
+2. **invoke_dlt_pipeline Updates**:
+   - Method signature changed to support layer-specific functions:
+     ```python
+     invoke_dlt_pipeline(
+         spark,
+         layer,
+         bronze_custom_transform_func=None,    # Previously: custom_transform_func
+         silver_custom_transform_func=None,    # New in v0.0.10
+         bronze_next_snapshot_and_version=None,  # Previously: next_snapshot_and_version
+         silver_next_snapshot_and_version=None   # New in v0.0.10
+     )
+     ```
+   - Layer-specific functions allow different transformations for bronze and silver layers
+   - Existing code using single custom_transform_func should move to bronze_custom_transform_func
+   - Existing code using next_snapshot_and_version should move to bronze_next_snapshot_and_version
+   - Review and update all pipeline configurations using this method
+
 ### Added
 - Added apply_changes_from_snapshot support in silver layer [PR](https://github.com/databrickslabs/dlt-meta/pull/187)
 - Added UI using databricks lakehouse app for onboarding/deploy commands [PR](https://github.com/databrickslabs/dlt-meta/pull/168)
