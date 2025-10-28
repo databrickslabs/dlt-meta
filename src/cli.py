@@ -1,5 +1,4 @@
 """Main entry point for the CLI."""
-
 import logging
 import json
 import os
@@ -14,6 +13,20 @@ from databricks.sdk.core import DatabricksError
 from databricks.sdk.service.catalog import SchemasAPI, VolumeType
 from src import __about__
 from src.install import WorkspaceInstaller
+
+# %USERPROFILE%\py_bootstrap\sitecustomize.py
+import os, sys
+# Optional: only if your network requires an explicit proxy
+os.environ.setdefault("HTTPS_PROXY", "http://zproxy.newyorklife.com:9480")
+os.environ.setdefault("HTTP_PROXY",  "http://zproxy.newyorklife.com:9480")
+
+    # Install truststore into THIS interpreter so TLS works in the venv
+try:
+
+    import truststore
+    truststore.inject_into_ssl()
+except Exception as e:
+    sys.stderr.write(f"[sitecustomize] inject failed: {e}\n")
 
 logger = logging.getLogger('databricks.labs.dltmeta')
 
@@ -165,14 +178,14 @@ class DLTMeta:
         return _me.user_name
 
     def copy_to_uc_volume(self, src, dst):
-        main_dir = src.replace('file:', '')
+        main_dir = src.replace('file:/', '')
         base_dir_name = os.path.basename(os.path.normpath(main_dir))
         for root, dirs, files in os.walk(main_dir):
             for filename in files:
                 target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
                 uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}".replace("//", "/")
                 contents = open(os.path.join(root, filename), "rb")
-                self._ws.files.upload(file_path=uc_volume_path, content=contents, overwrite=True)
+                self._ws.files.upload(file_path=uc_volume_path.replace('\\', "/"), content=contents, overwrite=True)
 
     def copy_to_dbfs(self, src, dst):
         dst = dst.replace('//', '/')
