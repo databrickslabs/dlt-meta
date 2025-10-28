@@ -1,0 +1,16 @@
+[
+  {
+    "target_table": "handraisers",
+    "select_exp": [
+      "to_utc_timestamp(to_timestamp(START_TS,\"yyyyMMddHHmmss\"),\"US/Eastern\")",
+      "customer_id",
+      "first_name",
+      "last_name",
+      "email",
+      "country",
+      "signup_date",
+      "last_purchase_date",
+      "total_spent"
+    ]
+  }
+]

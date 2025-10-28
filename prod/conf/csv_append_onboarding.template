@@ -40,23 +40,6 @@
                "pipelines.reset.allowed": "false"
          },
          "bronze_quarantine_table_cluster_by":["customer_id"],
-      "bronze_append_flows": [
-         {
-            "name": "customer_bronze_flow",
-            "create_streaming_table": false,
-            "source_format": "cloudFiles",
-            "source_details": {
-               "source_path_prod": "{uc_volume_path}/prod/resources/data/csv/customer/append",
-               "source_schema_path": "{uc_volume_path}/prod/resources/data/csv/customer/ddl/customers_first_load_csvstyle.ddl"
-            },
-            "reader_options": {
-               "cloudFiles.format": "csv",
-               "cloudFiles.inferColumnTypes": "true",
-               "cloudFiles.rescuedDataColumn": "_rescued_data"
-            },
-            "once": false
-         }
-      ],
       "silver_catalog_prod": "{uc_catalog_name}",
       "silver_database_prod": "{silver_schema}",
       "silver_table": "customers",

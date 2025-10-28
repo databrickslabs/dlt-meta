@@ -1,0 +1,57 @@
+[
+    {
+        "data_flow_id": "100",
+        "data_flow_group": "A1",
+        "source_system": "csv",
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_database": "test_csv",
+            "source_table": "customers",
+            "source_path_prod": "/Volumes/nyl_meta/dlt_meta_dataflowspecs_e039bde6c1c2444bafc18e8b405ade6c/dlt_meta_dataflowspecs_e039bde6c1c2444bafc18e8b405ade6c//dltmeta_conf//prod/resources/data/csv/customer/initial",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True",
+                "autoloader_metadata_col_name": "source_metadata",
+                "select_metadata_cols": {
+                    "input_file_name": "_metadata.file_name",
+                    "input_file_path": "_metadata.file_path"
+                }
+            },
+            "source_schema_path": "/Volumes/nyl_meta/dlt_meta_dataflowspecs_e039bde6c1c2444bafc18e8b405ade6c/dlt_meta_dataflowspecs_e039bde6c1c2444bafc18e8b405ade6c//dltmeta_conf//prod/resources/data/csv/customer/ddl/customers_first_load_csvstyle.ddl"
+        },
+        "bronze_catalog_prod": "nyl_meta",
+        "bronze_database_prod": "nyl_meta.dltmeta_bronze_0405bdb11ba04565bef5ba2b00d114e1",
+        "bronze_table": "customers",
+        "bronze_table_comment": "customers bronze table",
+        "bronze_table_path_prod": "/Volumes/nyl_meta/dlt_meta_dataflowspecs_e039bde6c1c2444bafc18e8b405ade6c/dlt_meta_dataflowspecs_e039bde6c1c2444bafc18e8b405ade6c//dltmeta_conf//bronze/customers",
+        "bronze_reader_options": {
+            "cloudFiles.format": "csv",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data",
+            "header": "true"
+        },
+        "bronze_table_properties": {
+            "pipelines.autoOptimize.managed": "true"
+        },
+        "bronze_table_cluster_by": [
+            "customer_id"
+        ],
+        "bronze_catalog_quarantine_demo": "nyl_meta",
+        "bronze_database_quarantine_demo": "dltmeta_bronze_0405bdb11ba04565bef5ba2b00d114e1",
+        "bronze_quarantine_table": "customers_quarantine",
+        "bronze_quarantine_table_properties": {
+            "pipelines.reset.allowed": "false"
+        },
+        "bronze_quarantine_table_cluster_by": [
+            "customer_id"
+        ],
+        "silver_catalog_prod": "nyl_meta",
+        "silver_database_prod": "dltmeta_silver_ca9846daf74541dfa1b9e1dc3b4a1029",
+        "silver_table": "customers",
+        "silver_table_comment": "customers silver table",
+        "silver_transformation_json_prod": "/Volumes/nyl_meta/dlt_meta_dataflowspecs_e039bde6c1c2444bafc18e8b405ade6c/dlt_meta_dataflowspecs_e039bde6c1c2444bafc18e8b405ade6c//dltmeta_conf//prod/conf/customers_silver_transformations.json",
+        "silver_table_properties": {
+            "pipelines.reset.allowed": "false",
+            "pipelines.autoOptimize.zOrderCols": "customer_id"
+        }
+    }
+]

@@ -1,0 +1,51 @@
+[
+    {
+        "data_flow_id": "100",
+        "data_flow_group": "A1",
+        "source_system": "csv",
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_database": "files",
+            "source_table": "handraisers",
+            "source_path_prod": "/Volumes/dev_builder_ingestion/dif_landing/postmetadata/ext/additionalwealth/finwell/handraisers/",
+            "source_metadata": {
+                "include_autoloader_metadata_column": "True",
+                "autoloader_metadata_col_name": "source_metadata",
+                "select_metadata_cols": {
+                    "input_file_name": "_metadata.file_name",
+                    "input_file_path": "_metadata.file_path"
+                }
+            },
+            "source_schema_path": "/Volumes/nyl_meta_pb/dlt_meta_dataflowspecs/dlt_meta_dataflowspecs//dltmeta_conf//nyl/ingestion/conf/additionalwealth_finwell/handraisers/handraisers_bronze.ddl"
+        },
+        "bronze_catalog_prod": "nyl_meta_pb",
+        "bronze_database_prod": "nyl_meta_pb.dlt_meta_bronze",
+        "bronze_table": "handraisers",
+        "bronze_table_comment": "handraisers bronze table",
+        "bronze_table_path_prod": "/Volumes/nyl_meta_pb/dlt_meta_dataflowspecs/dlt_meta_dataflowspecs//dltmeta_conf//bronze/handraisers",
+        "bronze_reader_options": {
+            "cloudFiles.format": "parquet",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data",
+            "header": "true"
+        },
+        "bronze_table_properties": {
+            "pipelines.autoOptimize.managed": "true"
+        },
+        "bronze_catalog_quarantine_demo": "nyl_meta_pb",
+        "bronze_database_quarantine_demo": "dlt_meta_bronze",
+        "bronze_quarantine_table": "handraisers_quarantine",
+        "bronze_quarantine_table_properties": {
+            "pipelines.reset.allowed": "false"
+        },
+        "silver_catalog_prod": "nyl_meta_pb",
+        "silver_database_prod": "dlt_meta_silver",
+        "silver_table": "handraisers",
+        "silver_table_comment": "handraisers silver table",
+        "silver_transformation_json_prod": "/Volumes/nyl_meta_pb/dlt_meta_dataflowspecs/dlt_meta_dataflowspecs//dltmeta_conf//nyl/ingestion/conf/additionalwealth_finwell/handraisers/handraisers_silver_transformations.json",
+        "silver_table_properties": {
+            "pipelines.reset.allowed": "false",
+            "pipelines.autoOptimize.zOrderCols": "NYL_EMPLR_ID"
+        }
+    }
+]

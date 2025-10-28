@@ -23,15 +23,14 @@ targets:
     # See also https://docs.databricks.com/dev-tools/bundles/deployment-modes.html.
     mode: development
     default: true
-    #SET DATABRICKS_HOST=<your-databricks-workspace-url>
-    # workspace:
-    #   root_path: /Workspace/Shared/${bundle.name}/demo/${bundle.target}
+    workspace:
+      host: https://nyl-builder-dev.cloud.databricks.com/
+      # root_path: /Workspace/Shared/${bundle.name}/demo/${bundle.target}
 
   prod:
     mode: production
     workspace:
-      #SET DATABRICKS_HOST=<your-databricks-workspace-url>
-      # host: https://
+      # host: https://your-prod-databricks-workspace-url
       # We explicitly deploy to /Workspace/Users/${bundle.name} to make sure we only have a single copy.
       root_path: /Workspace/Shared/${bundle.name}/demo/${bundle.target}
       # Remember to set the correct group name for production deployments.
