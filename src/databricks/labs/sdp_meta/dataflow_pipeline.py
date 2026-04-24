@@ -708,23 +708,21 @@ class DataflowPipeline:
         sequenced_by_data_type = None
 
         if cdc_apply_changes.except_column_list:
-            modified_schema = StructType([])
             if struct_schema:
-                for field in struct_schema.fields:
-                    if field.name not in cdc_apply_changes.except_column_list:
-                        modified_schema.add(field)
-                    # For SCD Type 2, get data type of first sequence column
-                    sequence_by = cdc_apply_changes.sequence_by.strip()
-                    if ',' not in sequence_by:
-                        # Single column sequence
-                        if field.name == sequence_by:
-                            sequenced_by_data_type = field.dataType
-                    else:
-                        # Multiple column sequence - use first column's type
-                        first_sequence_col = sequence_by.split(',')[0].strip()
-                        if field.name == first_sequence_col:
-                            sequenced_by_data_type = field.dataType
-                struct_schema = modified_schema
+                # Hoist all per-field-invariant work out of the loop. On wide schemas
+                # (hundreds of columns) the previous O(N*M) membership check plus
+                # repeated string parsing dominated graph build time.
+                except_set = set(cdc_apply_changes.except_column_list)
+                sequence_by = cdc_apply_changes.sequence_by.strip()
+                sequence_lookup_col = (
+                    sequence_by if ',' not in sequence_by
+                    else sequence_by.split(',', 1)[0].strip()
+                )
+                name_to_dtype = {f.name: f.dataType for f in struct_schema.fields}
+                sequenced_by_data_type = name_to_dtype.get(sequence_lookup_col)
+                struct_schema = StructType(
+                    [f for f in struct_schema.fields if f.name not in except_set]
+                )
             else:
                 raise Exception(f"Schema is None for {self.dataflowSpec} for cdc_apply_changes! ")
 
