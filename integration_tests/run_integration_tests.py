@@ -399,15 +399,14 @@ class SDPMETARunner:
                         ),
                         "database": f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}",
                         "onboarding_file_path": (
-                            f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/"
-                            f"{os.path.basename(runner_conf.onboarding_file_path)}"
+                            f"{runner_conf.uc_volume_path}{runner_conf.onboarding_file_path}"
                         ),
                         "silver_dataflowspec_table": "silver_dataflowspec_cdc",
-                        "silver_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/silver",
+                        "silver_dataflowspec_path": f"{runner_conf.uc_volume_path}data/dlt_spec/silver",
                         "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                         "import_author": "Ravi",
                         "version": "v1",
-                        "bronze_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/bronze",
+                        "bronze_dataflowspec_path": f"{runner_conf.uc_volume_path}data/dlt_spec/bronze",
                         "overwrite": "True",
                         "env": runner_conf.env,
                         "uc_enabled": "True",
@@ -475,8 +474,7 @@ class SDPMETARunner:
                                 "onboard_layer": "bronze",
                                 "database": f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}",
                                 "onboarding_file_path": (  # noqa : E501
-                                    f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/"
-                                    f"{os.path.basename(runner_conf.onboarding_A2_file_path)}"
+                                    f"{runner_conf.uc_volume_path}{runner_conf.onboarding_A2_file_path}"
                                 ),
                                 "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                                 "import_author": "Ravi",
@@ -618,15 +616,15 @@ class SDPMETARunner:
                     "eventhub_namespace": runner_conf.eventhub_namespace,
                     "eventhub_secrets_scope_name": runner_conf.eventhub_secrets_scope_name,
                     "eventhub_accesskey_name": runner_conf.eventhub_producer_accesskey_name,
-                    "eventhub_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
-                    "eventhub_append_flow_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",  # noqa : E501
+                    "eventhub_input_data": f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
+                    "eventhub_append_flow_input_data": f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/iot_eventhub_af/iot.json",  # noqa : E501
                 }
             elif runner_conf.source == "kafka":
                 base_parameters = {
                     "kafka_source_topic": runner_conf.kafka_source_topic,
                     "kafka_source_servers_secrets_scope_name": runner_conf.kafka_source_servers_secrets_scope_name,
                     "kafka_source_servers_secrets_scope_key": runner_conf.kafka_source_servers_secrets_scope_key,
-                    "kafka_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
+                    "kafka_input_data": f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
                 }
 
             tasks.append(

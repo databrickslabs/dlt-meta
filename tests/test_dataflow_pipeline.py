@@ -1250,6 +1250,124 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         modified_schema = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
         self.assertEqual(modified_schema, None)
 
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_modify_schema_for_cdc_changes_composite_sequence_by(self, mock_dlt):
+        """Composite sequence_by like ' ts , id ' must use the FIRST trimmed token
+        for the SCD2 timestamp dtype lookup."""
+        cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(json.dumps({
+            "keys": ["id"],
+            "sequence_by": " ts , id ",
+            "scd_type": "2",
+            "except_column_list": ["op"],
+        }))
+        schema = T.StructType([
+            T.StructField("id", T.StringType()),
+            T.StructField("ts", T.TimestampType()),
+            T.StructField("op", T.StringType()),
+        ])
+        spec = BronzeDataflowSpec(**copy.deepcopy(self.bronze_dataflow_spec_map))
+        spec.schema = json.dumps(schema.jsonValue())
+        spec.dataQualityExpectations = None
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        out = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
+        self.assertNotIn("op", out.fieldNames())
+        self.assertIn("__START_AT", out.fieldNames())
+        self.assertIn("__END_AT", out.fieldNames())
+        self.assertEqual(out["__START_AT"].dataType, T.TimestampType())
+        self.assertEqual(out["__END_AT"].dataType, T.TimestampType())
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_modify_schema_for_cdc_changes_unknown_sequence_column(self, mock_dlt):
+        """If sequence_by names a column not present in the schema, SCD2
+        START/END columns must NOT be appended (sequenced_by_data_type is None)."""
+        cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(json.dumps({
+            "keys": ["id"],
+            "sequence_by": "missing_col",
+            "scd_type": "2",
+            "except_column_list": ["op"],
+        }))
+        schema = T.StructType([
+            T.StructField("id", T.StringType()),
+            T.StructField("op", T.StringType()),
+        ])
+        spec = BronzeDataflowSpec(**copy.deepcopy(self.bronze_dataflow_spec_map))
+        spec.schema = json.dumps(schema.jsonValue())
+        spec.dataQualityExpectations = None
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        out = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
+        self.assertNotIn("__START_AT", out.fieldNames())
+        self.assertNotIn("__END_AT", out.fieldNames())
+        self.assertNotIn("op", out.fieldNames())
+        self.assertIn("id", out.fieldNames())
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_modify_schema_for_cdc_changes_many_columns_correctness(self, mock_dlt):
+        """Correctness on a wide schema (the shape the optimization targets):
+        a 701-col schema with 100 excluded columns must produce the right
+        field set and SCD2 dtype regardless of width."""
+        cols = [T.StructField(f"c{i}", T.StringType()) for i in range(700)]
+        cols.append(T.StructField("ts", T.TimestampType()))
+        schema = T.StructType(cols)
+        excluded = [f"c{i}" for i in range(100)]
+        cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(json.dumps({
+            "keys": ["c100"],
+            "sequence_by": "ts",
+            "scd_type": "2",
+            "except_column_list": excluded,
+        }))
+        spec = BronzeDataflowSpec(**copy.deepcopy(self.bronze_dataflow_spec_map))
+        spec.schema = json.dumps(schema.jsonValue())
+        spec.dataQualityExpectations = None
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        out = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
+        # 700 c* cols - 100 excluded + 1 ts kept + 2 SCD2 columns = 603
+        self.assertEqual(len(out.fieldNames()), 603)
+        for c in excluded:
+            self.assertNotIn(c, out.fieldNames())
+        self.assertIn("ts", out.fieldNames())
+        self.assertEqual(out["__START_AT"].dataType, T.TimestampType())
+        self.assertEqual(out["__END_AT"].dataType, T.TimestampType())
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_modify_schema_for_cdc_changes_sequence_column_in_except_list(self, mock_dlt):
+        """If the sequence_by column itself is in except_column_list, its dtype
+        must still be captured for SCD2 START/END columns (dtype lookup happens
+        before the schema is filtered) and the column itself must be dropped
+        from the data schema."""
+        cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(json.dumps({
+            "keys": ["id"],
+            "sequence_by": "ts",
+            "scd_type": "2",
+            "except_column_list": ["ts", "op"],
+        }))
+        schema = T.StructType([
+            T.StructField("id", T.StringType()),
+            T.StructField("ts", T.TimestampType()),
+            T.StructField("op", T.StringType()),
+        ])
+        spec = BronzeDataflowSpec(**copy.deepcopy(self.bronze_dataflow_spec_map))
+        spec.schema = json.dumps(schema.jsonValue())
+        spec.dataQualityExpectations = None
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        out = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
+        self.assertNotIn("ts", out.fieldNames())
+        self.assertNotIn("op", out.fieldNames())
+        self.assertIn("id", out.fieldNames())
+        self.assertEqual(out["__START_AT"].dataType, T.TimestampType())
+        self.assertEqual(out["__END_AT"].dataType, T.TimestampType())
+
     @patch.object(dp, 'create_streaming_table', return_value={"called"})
     @patch.object(dp, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
     def test_apply_changes_from_snapshot(self, mock_create_auto_cdc_from_snapshot_flow, mock_create_streaming_table):
