@@ -55,7 +55,7 @@ draft: false
 - Fixed issue cluster by not working with bronze append only table [PR](https://github.com/databrickslabs/sdp-meta/issues/197)
 - Fixed issue view name containing period when using DPM [PR](https://github.com/databrickslabs/sdp-meta/issues/169)
 - Fixed issue CLI onboarding overwrite option always set to True [PR](https://github.com/databrickslabs/sdp-meta/issues/163)
-- Fixed issue Silver Lakeflow Declarative Pipeline not creating based on passed database [PR](https://github.com/databrickslabs/sdp-meta/issues/160)
+- Fixed issue Silver Lakeflow Spark Declarative Pipeline not creating based on passed database [PR](https://github.com/databrickslabs/sdp-meta/issues/160)
 - Fixed issue PyPI download stats display [PR](https://github.com/databrickslabs/sdp-meta/issues/200)
 - Fixed issue Silver Data Quality not working [PR](https://github.com/databrickslabs/sdp-meta/issues/156)
 - Fixed issue Removed DPM flag check inside dataflowpipeline [PR](https://github.com/databrickslabs/sdp-meta/issues/177)
@@ -128,7 +128,7 @@ draft: false
 ### 2. Databricks Labs CLI Support ([#28](https://github.com/databrickslabs/sdp-meta/pull/28)) 
 - Added two commands for SDP-META
 - onboard: Captures all onboarding details from command line and launch onboarding job to your databricks workspace
-- deploy: Captures all Lakeflow Declarative Pipeline details from command line and launch Lakeflow Declarative Pipeline to your databricks workspace
+- deploy: Captures all Lakeflow Spark Declarative Pipeline details from command line and launch Lakeflow Spark Declarative Pipeline to your databricks workspace
 
 ### Updates 
 - Readme and docs to include above features

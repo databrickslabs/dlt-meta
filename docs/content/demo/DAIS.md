@@ -11,7 +11,7 @@ draft: false
 This demo showcases SDP-META's capabilities of creating Bronze and Silver Lakeflow Declarative pipeline with initial and incremental mode automatically.
 - Customer and Transactions feeds for initial load
 - Adds new feeds Product and Stores to existing Bronze and Silver Lakeflow Declarative pipeline with metadata changes.
-- Runs Bronze and Silver Lakeflow Declarative Pipeline for incremental load for CDC events
+- Runs Bronze and Silver Lakeflow Spark Declarative Pipeline for incremental load for CDC events
 
 #### Steps to launch DAIS demo in your Databricks workspace:
 1. Launch Command Prompt

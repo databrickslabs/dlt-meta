@@ -6,8 +6,8 @@
  5. [Append FLOW Eventhub Demo](#append-flow-eventhub-demo): Write to same target from multiple sources using [dp.append_flow](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-append-flow) and adding [File metadata column](https://docs.databricks.com/aws/en/ingestion/file-metadata-column)
  6. [Silver Fanout Demo](#silver-fanout-demo): This demo showcases the implementation of fanout architecture in the silver layer.
  7. [Apply Changes From Snapshot Demo](#apply-changes-from-snapshot-demo): This demo showcases the implementation of ingesting from snapshots in bronze layer
- 8. [Lakeflow Declarative Pipelines Sink Demo](#lakeflow-declarative-pipelines-sink-demo): This demo showcases the implementation of write to external sinks like delta and kafka
- 9. [DAB Demo](#dab-demo): End-to-end walkthrough of the `databricks labs sdp-meta bundle-*` CLI — scaffold a Declarative Automation Bundle, append flows, validate, deploy, and run onboarding + Lakeflow Declarative Pipelines from one driver script. See [`DAB_README.md`](../DAB_README.md) for the full CLI / template / recipe reference.
+ 8. [Lakeflow Spark Declarative Pipelines Sink Demo](#lakeflow-declarative-pipelines-sink-demo): This demo showcases the implementation of write to external sinks like delta and kafka
+ 9. [DAB Demo](#dab-demo): End-to-end walkthrough of the `databricks labs sdp-meta bundle-*` CLI — scaffold a Declarative Automation Bundle, append flows, validate, deploy, and run onboarding + Lakeflow Spark Declarative Pipelines from one driver script. See [`DAB_README.md`](../DAB_README.md) for the full CLI / template / recipe reference.
 
 
 # Interactive Demo (Notebook)
@@ -70,7 +70,7 @@ end-to-end with no CLI setup required.
 3. Click **Run All**. The notebook:
    - Installs SDP-META and (if selected) `dbldatagen` via `%pip install`
    - Creates all UC resources, config files, and demo data automatically
-   - Creates and starts the Lakeflow Declarative Pipeline via the Databricks SDK
+   - Creates and starts the Lakeflow Spark Declarative Pipeline via the Databricks SDK
    - Blocks and polls until each pipeline run completes before moving to the next stage
    - Prints live pipeline state updates and the pipeline URL for each run
 
@@ -378,12 +378,12 @@ This demo will perform following tasks:
     ```
     ![acfs.png](../docs/static/images/acfs.png)
 
-# Lakeflow Declarative Pipelines Sink Demo
+# Lakeflow Spark Declarative Pipelines Sink Demo
   - This demo will perform following steps
     - Showcase onboarding process for dlt writing to external sink pattern
     - Run onboarding for the bronze iot events.
     - Publish test events to kafka topic
-    - Run Bronze Lakeflow Declarative Pipelines which will read from kafka source topic and write to
+    - Run Bronze Lakeflow Spark Declarative Pipelines which will read from kafka source topic and write to
         - events delta table into uc
         - create quarantine table as per data quality expectations
         - writes to external kafka topics
@@ -443,7 +443,7 @@ End-to-end demo for the new `databricks labs sdp-meta bundle-*` CLI commands. On
 
 | Stage | Command | What it does |
 | --- | --- | --- |
-| 1 | `databricks labs sdp-meta bundle-init` | Scaffold a fresh bundle from the packaged template (onboarding job + Lakeflow Declarative Pipelines + `variables.yml` + recipes). |
+| 1 | `databricks labs sdp-meta bundle-init` | Scaffold a fresh bundle from the packaged template (onboarding job + Lakeflow Spark Declarative Pipelines + `variables.yml` + recipes). |
 | 2 | `databricks labs sdp-meta bundle-prepare-wheel` | Build the local sdp-meta wheel and upload it to a UC volume. The resulting `/Volumes/...` path is auto-pinned into `resources/variables.yml` as `sdp_meta_dependency`. |
 | 3 | `databricks labs sdp-meta bundle-add-flow` | Bulk-append flow entries from a CSV (the demo supplies one per scenario under `demo/dab_template_demo/flows/`). |
 | 4 | `python recipes/from_*.py` | Run the rendered recipe (one of `from_uc.py`, `from_volume.py`, `from_topics.py`, `from_inventory.py`) to programmatically generate flows from real workspace state. |

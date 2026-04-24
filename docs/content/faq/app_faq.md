@@ -9,14 +9,14 @@ draft: false
 
 **Q1. Do I need to run an initial setup before using the SDP-META App?**
 
-Yes. Before using the SDP-META App, you must click the Setup button to create the required sdp-meta environment. This initializes the app and enables you to onboard or manage Lakeflow Declarative Pipelines.
+Yes. Before using the SDP-META App, you must click the Setup button to create the required sdp-meta environment. This initializes the app and enables you to onboard or manage Lakeflow Spark Declarative Pipelines.
 
 ### Features and Capabilities
 
 **Q2. What are the main features of the SDP-META App?**
 
 The SDP-META App provides several key capabilities:
-- Onboard new Lakeflow Declarative Pipeline through an interactive interface
+- Onboard new Lakeflow Spark Declarative Pipeline through an interactive interface
 - Deploy and manage pipelines directly in the app
 - Run demo flows to explore example pipelines and usage patterns
 - Use the command-line interface (CLI) to automate operations

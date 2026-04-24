@@ -158,7 +158,7 @@ SCENARIOS = {
         name="cloudfiles_combined",
         # Same demo data + recipe as `cloudfiles`, but the bundle is rendered
         # with `pipeline_mode=combined` so bronze + silver run inside ONE
-        # Lakeflow Declarative Pipeline. Use this when you want to demo the
+        # Lakeflow Spark Declarative Pipeline. Use this when you want to demo the
         # combined topology against real cloud-storage data (cloudfiles) and
         # not against placeholder Event Hubs / Kafka brokers.
         answers_file=DEMO_DIR / "answers" / "cloudfiles_combined.json",
@@ -169,7 +169,7 @@ SCENARIOS = {
             "--bundle-dir", "{bundle_dir}",
         ],
         description=(
-            "Combined bronze_silver in ONE Lakeflow Declarative Pipeline,"
+            "Combined bronze_silver in ONE Lakeflow Spark Declarative Pipeline,"
             " cloudFiles autoloader, YAML onboarding. Same demo data as"
             " `cloudfiles`; only `pipeline_mode=combined` differs."
         ),
@@ -208,7 +208,7 @@ SCENARIOS = {
             "--bundle-dir", "{bundle_dir}",
         ],
         description=(
-            "Combined bronze_silver in ONE Lakeflow Declarative Pipeline,"
+            "Combined bronze_silver in ONE Lakeflow Spark Declarative Pipeline,"
             " Event Hubs source. Demonstrates pipeline_mode=combined and the"
             " same from_topics recipe used for Event Hubs."
         ),

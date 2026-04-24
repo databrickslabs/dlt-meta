@@ -455,7 +455,7 @@ class SDPMeta:
         msg = (
             f"sdp-meta pipeline={pipeline_id} created and launched with "
             f"update_id={update_response.update_id}, Please check the pipeline status in "
-            "databricks workspace under workflows -> Lakeflow Declarative Pipelines tab"
+            "databricks workspace under workflows -> Lakeflow Spark Declarative Pipelines tab"
         )
         logger.info(msg)
         print(

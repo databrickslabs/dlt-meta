@@ -21,9 +21,9 @@ SDP-META needs following metadata files:
 SDP-META translates input metadata into Delta table as DataflowSpecs
 
 
-**Q. How many Lakeflow Declarative Pipelines will be launched using SDP-META?**
+**Q. How many Lakeflow Spark Declarative Pipelines will be launched using SDP-META?**
 
-SDP-META uses data_flow_group to launch Lakeflow Declarative Pipelines, so all the tables belongs to same group will be executed under single Lakeflow Declarative pipeline. 
+SDP-META uses data_flow_group to launch Lakeflow Spark Declarative Pipelines, so all the tables belongs to same group will be executed under single Lakeflow Declarative pipeline. 
 
 **Q. Can we run onboarding for bronze layer only?**
 
@@ -103,12 +103,12 @@ Yes! Please follow below steps:
 - You can run onboarding for additional silver customer_clean table by having an onboarding file ([JSON](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/onboarding_silverfanout.template) or [YAML](https://github.com/databrickslabs/sdp-meta/blob/main/examples/yml/onboarding_silverfanout.template.yml)) and a silver transformation file ([JSON](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/silver_transformations_fanout.template) or [YAML](https://github.com/databrickslabs/sdp-meta/blob/main/examples/yml/silver_transformations_fanout.template.yml)) with a filter condition for fan out.
 
 - Run onboarding for slilver layer in append mode("overwrite": "False") so it will append to existing silver tables.
-When you launch Lakeflow Declarative Pipeline it will read silver onboarding and run Lakeflow Declarative Pipeline for bronze source and silver as target
+When you launch Lakeflow Spark Declarative Pipeline it will read silver onboarding and run Lakeflow Spark Declarative Pipeline for bronze source and silver as target
 
 **Q. How can I do type1 or type2 merge to target table?**
 
-- Using Lakeflow Declarative Pipeline's [dp.create_auto_cdc_flow](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-apply-changes) we can do type1 or type2 merge.
-- SDP-META have tag in onboarding file as `bronze_cdc_apply_changes` or `silver_cdc_apply_changes` which maps to Lakeflow Declarative Pipeline's create_auto_cdc_flow API.
+- Using Lakeflow Spark Declarative Pipeline's [dp.create_auto_cdc_flow](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-apply-changes) we can do type1 or type2 merge.
+- SDP-META have tag in onboarding file as `bronze_cdc_apply_changes` or `silver_cdc_apply_changes` which maps to Lakeflow Spark Declarative Pipeline's create_auto_cdc_flow API.
 ```
 "silver_cdc_apply_changes": {
    "keys":[
@@ -127,7 +127,7 @@ When you launch Lakeflow Declarative Pipeline it will read silver onboarding and
 
 **Q. How can I write to same target table using different sources?**
 
-- Using Lakeflow Declarative Pipeline's [dp.append_flow API](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-append-flow) we can write to same target from different sources. 
+- Using Lakeflow Spark Declarative Pipeline's [dp.append_flow API](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-append-flow) we can write to same target from different sources. 
 - SDP-META have tag in onboarding file as [bronze_append_flows](https://github.com/databrickslabs/sdp-meta/blob/main/integration_tests/conf/cloudfiles-onboarding.template#L41) and [silver_append_flows](https://github.com/databrickslabs/sdp-meta/blob/main/integration_tests/conf/cloudfiles-onboarding.template#L67) 
 dp.append_flow API is mapped to 
 ```json 
@@ -180,7 +180,7 @@ SDP-META have tag [source_metadata](https://github.com/databrickslabs/sdp-meta/b
 - `autoloader_metadata_col_name` if this provided then will be used to rename _metadata to this value otherwise default is `source_metadata`
 - `select_metadata_cols:{key:value}` will be used to extract columns from _metadata. key is target dataframe column name and value is expression used to add column from _metadata column
 
-**Q. After upgrading sdp-meta, why do Lakeflow Declarative Pipeline fail with the message “Materializing tables in custom schemas is not supported,” and how can this be fixed?**
+**Q. After upgrading sdp-meta, why do Lakeflow Spark Declarative Pipeline fail with the message “Materializing tables in custom schemas is not supported,” and how can this be fixed?**
 
 This failure happens because the pipeline was created using Legacy Publishing mode, which does not support saving tables with catalog or schema qualifiers (such as catalog.schema.table). As a result, using qualified table names leads to an error:
 

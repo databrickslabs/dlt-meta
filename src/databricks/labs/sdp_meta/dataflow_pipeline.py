@@ -17,7 +17,7 @@ logger.setLevel(logging.INFO)
 
 
 class DataflowPipeline:
-    """This class uses dataflowSpec to launch Lakeflow Declarative Pipelines.
+    """This class uses dataflowSpec to launch Lakeflow Spark Declarative Pipelines.
 
     Raises:
         Exception: "Dataflow not supported!"

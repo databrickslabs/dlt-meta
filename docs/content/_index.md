@@ -7,7 +7,7 @@ draft: false
 
 
 ## Project Overview
-`SDP-META` is a metadata-driven framework for building automated bronze and silver data pipelines using [Databricks Lakeflow Declarative Pipelines](https://www.databricks.com/product/data-engineering/lakeflow-declarative-pipelines).
+`SDP-META` is a metadata-driven framework for building automated bronze and silver data pipelines using [Databricks Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines).
 
 The framework leverages metadata recorded in an onboarding JSON file (the Dataflowspec) to automate pipeline creation. A single generic pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads, streamlining development and enabling scalable data processing.
 
@@ -21,7 +21,7 @@ The framework leverages metadata recorded in an onboarding JSON file (the Datafl
 
 #### Generic Declarative Pipeline
 - Apply appropriate readers based on input metadata
-- Apply data quality rules with Lakeflow Declarative Pipelines expectations
+- Apply data quality rules with Lakeflow Spark Declarative Pipelines expectations
 - Apply CDC apply changes if specified in metadata
 - Builds declarative pipeline graph based on input/output metadata
 
@@ -36,7 +36,7 @@ The framework leverages metadata recorded in an onboarding JSON file (the Datafl
     - Option#2: [Manual Job](https://databrickslabs.github.io/sdp-meta/getting_started/sdp_meta_manual/#onboardjob)
     - option#3: [Databricks Notebook](https://databrickslabs.github.io/sdp-meta/getting_started/sdp_meta_manual/#option2-databricks-notebook)
 
-- Dataflow Lakeflow Declarative Pipeline
+- Dataflow Lakeflow Spark Declarative Pipeline
     - Option#1: [SDP-META CLI](https://databrickslabs.github.io/sdp-meta/getting_started/sdp_meta_cli/#dataflow-dlt-pipeline)
     - Option#2: [SDP-META MANUAL](https://databrickslabs.github.io/sdp-meta/getting_started/sdp_meta_manual/#dataflow-dlt-pipeline)
 
@@ -59,7 +59,7 @@ The framework leverages metadata recorded in an onboarding JSON file (the Datafl
 | [SDP-META UI](https://github.com/databrickslabs/sdp-meta/tree/main/lakehouse_app#sdp-meta-lakehouse-app-setup) | Yes |
 
 ## How much does it cost?
-SDP-META is open source and has no direct cost. The overall cost is determined by [Databricks Lakeflow Declarative Pipelines Pricing](https://www.databricks.com/product/pricing/lakeflow-declarative-pipelines).
+SDP-META is open source and has no direct cost. The overall cost is determined by [Databricks Lakeflow Spark Declarative Pipelines Pricing](https://www.databricks.com/product/pricing/lakeflow-declarative-pipelines).
 
 
 ## More questions
