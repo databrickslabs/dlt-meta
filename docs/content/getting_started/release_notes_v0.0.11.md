@@ -17,7 +17,7 @@ weight: 55
 
 ### 1. Project Renamed: DLT-META → SDP-META
 
-The project has been renamed to align with the Databricks Lakeflow Declarative Pipelines (formerly Delta Live Tables) rebranding. The new package follows the **Databricks Labs namespace convention** (`databricks.labs.sdp_meta`).
+The project has been renamed to align with the Databricks Lakeflow Spark Declarative Pipelines (formerly Delta Live Tables) rebranding. The new package follows the **Databricks Labs namespace convention** (`databricks.labs.sdp_meta`).
 
 | Component | Before (v0.0.10) | After (v0.0.11) |
 | --- | --- | --- |
@@ -148,7 +148,7 @@ DataflowPipeline.invoke_dlt_pipeline(spark, layer)
 
 ### ⚠️ Pipeline Spark Config Key Changed
 
-If your Lakeflow Declarative Pipeline configuration passes the wheel path via Spark config, update the key:
+If your Lakeflow Spark Declarative Pipeline configuration passes the wheel path via Spark config, update the key:
 
 | Before | After |
 | --- | --- |

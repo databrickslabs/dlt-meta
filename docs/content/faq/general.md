@@ -7,7 +7,7 @@ draft: false
 
 **Q. What is SDP-META ?**
 
-SDP-META is a solution/framework using Databricks Lakeflow Declarative Pipelines which helps you automate bronze and silver layer pipelines using CI/CD.
+SDP-META is a solution/framework using Databricks Lakeflow Spark Declarative Pipelines which helps you automate bronze and silver layer pipelines using CI/CD.
 
 **Q. What are the benefits of using SDP-META ?**
 

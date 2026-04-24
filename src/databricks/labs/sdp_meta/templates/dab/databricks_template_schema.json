@@ -1,5 +1,5 @@
 {
-  "welcome_message": "\nsdp-meta DAB template\nDeploy an sdp-meta onboarding job + Lakeflow Declarative Pipelines as a Declarative Automation Bundle.",
+  "welcome_message": "\nsdp-meta DAB template\nDeploy an sdp-meta onboarding job + Lakeflow Spark Declarative Pipelines as a Declarative Automation Bundle.",
   "properties": {
     "bundle_name": {
       "order": 1,

@@ -17,11 +17,11 @@
 
 
 # Project Overview
-`SDP-META` is a metadata-driven framework designed to work with [Lakeflow Declarative Pipelines](https://www.databricks.com/product/data-engineering/lakeflow-declarative-pipelines). This framework enables the automation of bronze and silver data pipelines by leveraging metadata recorded in an onboarding file (JSON or YAML). This file, known as the Dataflowspec, serves as the data flow specification, detailing the source and target metadata required for the pipelines.
+`SDP-META` is a metadata-driven framework designed to work with [Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines). This framework enables the automation of bronze and silver data pipelines by leveraging metadata recorded in an onboarding file (JSON or YAML). This file, known as the Dataflowspec, serves as the data flow specification, detailing the source and target metadata required for the pipelines.
 
 In practice, a single generic pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads. This approach streamlines the development and management of data pipelines, allowing for a more efficient and scalable data processing workflow
 
-[Lakeflow Declarative Pipelines](https://www.databricks.com/product/data-engineering/lakeflow-declarative-pipelines) and `SDP-META`  are designed to complement each other.  [Lakeflow Declarative Pipelines](https://www.databricks.com/product/data-engineering/lakeflow-declarative-pipelines) provide a declarative, intent-driven foundation for building and managing data workflows, while SDP-META adds a powerful configuration-driven layer that automates and scales pipeline creation. By combining these approaches, teams can move beyond manual coding to achieve true enterprise-level agility, governance, and efficiency, templatizing and automating pipelines for any scale of modern data-driven business
+[Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines and `SDP-META`  are designed to complement each other.  [Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines provide a declarative, intent-driven foundation for building and managing data workflows, while SDP-META adds a powerful configuration-driven layer that automates and scales pipeline creation. By combining these approaches, teams can move beyond manual coding to achieve true enterprise-level agility, governance, and efficiency, templatizing and automating pipelines for any scale of modern data-driven business
 
 ### Components:
 
@@ -31,12 +31,12 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 - Capture Data Quality Rules — JSON ([`examples/json/dqe/customers/bronze_data_quality_expectations.json`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/dqe/customers/bronze_data_quality_expectations.json)) or YAML ([`examples/yml/dqe/customers/bronze_data_quality_expectations.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/yml/dqe/customers/bronze_data_quality_expectations.yml))
 - Capture processing logic as sql in a Silver transformation file — JSON ([`examples/json/silver_transformations.json`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/silver_transformations.json)) or YAML ([`examples/yml/silver_transformations.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/yml/silver_transformations.yml))
 
-#### Generic Lakeflow Declarative Pipeline
+#### Generic Lakeflow Spark Declarative Pipeline
 
 - Apply appropriate readers based on input metadata
-- Apply data quality rules with Lakeflow Declarative Pipeline expectations
+- Apply data quality rules with Lakeflow Spark Declarative Pipeline expectations
 - Apply CDC apply changes if specified in metadata
-- Builds Lakeflow Declarative Pipeline graph based on input/output metadata
+- Builds Lakeflow Spark Declarative Pipeline graph based on input/output metadata
 - Launch Lakeflow Declarative pipeline
 
 ## High-Level Process Flow:
@@ -47,7 +47,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 
 ![SDP-META Stages](./docs/static/images/sdp-meta_stages.png)
 
-## SDP-META `Lakeflow Declarative Pipelines` Features support
+## SDP-META `Lakeflow Spark Declarative Pipelines` Features support
 | Features  | SDP-META Support |
 | ------------- | ------------- |
 | Input data sources  | Autoloader, Delta, Eventhub, Kafka, snapshot  |
@@ -62,7 +62,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 | [SDP-META CLI](https://databrickslabs.github.io/sdp-meta/getting_started/sdp_meta_cli/) | Interactive: ```databricks labs sdp-meta onboard```, ```databricks labs sdp-meta deploy```. Bundle-based (see [`DAB_README.md`](DAB_README.md)): ```bundle-init```, ```bundle-prepare-wheel```, ```bundle-add-flow```, ```bundle-validate``` |
 | Bronze and Silver pipeline chaining | Deploy sdp-meta pipeline with ```layer=bronze_silver``` option using default publishing mode |
 | [create_sink](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-sink) API support |Supported formats:```external delta table , kafka``` Bronze, Silver layers|
-| [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) | First-class: packaged DAB template + four `databricks labs sdp-meta bundle-*` CLI commands (init / prepare-wheel / add-flow / validate), recipes for programmatic flow generation from UC, volumes, Kafka topics or inventory CSVs, and `pipeline_mode={split,combined}` to choose split vs. single Lakeflow Declarative Pipeline. See [`DAB_README.md`](DAB_README.md) for the full reference and [`demo/README.md#dab-demo`](demo/README.md#dab-demo) for an end-to-end runnable walkthrough.
+| [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) | First-class: packaged DAB template + four `databricks labs sdp-meta bundle-*` CLI commands (init / prepare-wheel / add-flow / validate), recipes for programmatic flow generation from UC, volumes, Kafka topics or inventory CSVs, and `pipeline_mode={split,combined}` to choose split vs. single Lakeflow Spark Declarative Pipeline. See [`DAB_README.md`](DAB_README.md) for the full reference and [`demo/README.md#dab-demo`](demo/README.md#dab-demo) for an end-to-end runnable walkthrough.
 | [SDP-META UI](https://github.com/databrickslabs/sdp-meta/tree/main/lakehouse_app#sdp-meta-lakehouse-app-setup) | Uses Databricks Lakehouse SDP-META App
 
 ## Getting Started
@@ -129,7 +129,7 @@ What you get with the bundle path:
 
 - **Git-tracked pipeline state** — every onboarding row, expectation, transformation, and pipeline definition lives in YAML/JSON files inside the bundle.
 - **`dev` and `prod` targets** out of the box, with development-mode overrides (single-node clusters, no schedules, prefixed table names) and a commented `run_as: { service_principal_name: <your-...> }` block in prod for CI/CD.
-- **`pipeline_mode` switch** — render bronze + silver as two separate Lakeflow Declarative Pipelines (`split`, the default) or as a single combined pipeline (`combined`).
+- **`pipeline_mode` switch** — render bronze + silver as two separate Lakeflow Spark Declarative Pipelines (`split`, the default) or as a single combined pipeline (`combined`).
 - **Recipes** for programmatically generating onboarding entries from real workspace state: `from_uc.py` (existing UC tables), `from_volume.py` (CSVs in a UC volume), `from_topics.py` (Kafka / Event Hub topic lists), `from_inventory.py` (inventory CSV).
 - **`bundle-validate` static checks** that catch authoring mistakes the upstream `databricks bundle validate` doesn't (unedited `<your-...>` placeholders in either onboarding or `databricks.yml`, mis-typed `dataflow_group` references, `pipeline_mode` mismatches, sentinel `__SET_ME__` left in place, wheel_source vs sdp_meta_dependency drift, etc.).
 
@@ -165,7 +165,7 @@ If you want to run the existing demo files, set up the repo first:
    ```
    ![deployingDLTMeta_bronze_silver.gif](docs/static/images/deployingDLTMeta_bronze_silver.gif)
 
-   Deploys the Lakeflow Declarative Pipeline and opens its URL in your browser.
+   Deploys the Lakeflow Spark Declarative Pipeline and opens its URL in your browser.
 
 ## More questions
 

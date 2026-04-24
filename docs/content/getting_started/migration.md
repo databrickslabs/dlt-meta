@@ -11,9 +11,9 @@ weight: 50
 The project has been renamed from **DLT-META** (Delta Live Tables META) to **SDP-META** (Spark Declarative Pipelines META) to align with the current Databricks product terminology:
 
 - **Old**: Delta Live Tables (DLT) — deprecated terminology
-- **New**: Lakeflow Declarative Pipelines / Spark Declarative Pipelines (SDP)
+- **New**: Lakeflow Spark Declarative Pipelines / Spark Declarative Pipelines (SDP)
 
-The rename aligns with the current Databricks product terminology for Lakeflow Declarative Pipelines.
+The rename aligns with the current Databricks product terminology for Lakeflow Spark Declarative Pipelines.
 
 ## What Changed
 

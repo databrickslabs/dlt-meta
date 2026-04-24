@@ -1,10 +1,10 @@
 
 """
-This module contains classes for writing data to Lakeflow Declarative Pipelines and other sinks.
+This module contains classes for writing data to Lakeflow Spark Declarative Pipelines and other sinks.
 
 Classes:
-    AppendFlowWriter: A class for writing append flows to Lakeflow Declarative Pipelines.
-    DLTSinkWriter: A class for writing data to various sinks using Lakeflow Declarative Pipelines.
+    AppendFlowWriter: A class for writing append flows to Lakeflow Spark Declarative Pipelines.
+    DLTSinkWriter: A class for writing data to various sinks using Lakeflow Spark Declarative Pipelines.
 
 """
 from databricks.labs.sdp_meta.dataflow_spec import DataflowSpecUtils, DLTSink

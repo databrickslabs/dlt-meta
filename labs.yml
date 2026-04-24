@@ -1,6 +1,6 @@
 ---
 name: sdp-meta
-description: Metadata-driven framework based on Databricks Lakeflow Declarative Pipelines 
+description: Metadata-driven framework based on Databricks Lakeflow Spark Declarative Pipelines 
 install:
   script: src/databricks/labs/sdp_meta/install.py
 entrypoint: src/databricks/labs/sdp_meta/cli.py
@@ -11,7 +11,7 @@ commands:
   - name: deploy
     description: Deploys sdp-meta pipelines for bronze and silver layers after onboarding dataflowspecs is complete
   - name: bundle-init
-    description: Scaffold a new sdp-meta Declarative Automation Bundle (DAB) from the packaged template (onboarding job + Lakeflow Declarative Pipelines + variables + recipes)
+    description: Scaffold a new sdp-meta Declarative Automation Bundle (DAB) from the packaged template (onboarding job + Lakeflow Spark Declarative Pipelines + variables + recipes)
     flags:
       - name: quickstart
         description: Skip all prompts and scaffold a developer-friendly bundle (cloudFiles + bronze_silver + split + pypi) under ./my_sdp_meta_pipeline. Edit resources/variables.yml afterwards to point at your real catalog/schema/sdp_meta_dependency.

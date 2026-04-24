@@ -3,7 +3,7 @@
 # MAGIC # SDP-META (formerly DLT-META) - Interactive Demo
 # MAGIC
 # MAGIC **SDP-META** is a metadata-driven framework for
-# MAGIC [Lakeflow Declarative Pipelines](https://docs.databricks.com/en/delta-live-tables/index.html).
+# MAGIC [Lakeflow Spark Declarative Pipelines](https://docs.databricks.com/en/delta-live-tables/index.html).
 # MAGIC It automates Bronze and Silver data pipelines by leveraging metadata
 # MAGIC recorded in an onboarding JSON/YAML file.
 # MAGIC A single generic pipeline reads the **DataflowSpec** metadata and
@@ -120,14 +120,14 @@ dbutils.library.restartPython()
 # MAGIC ## Demo Summary
 # MAGIC
 # MAGIC **Use Case:** MySQL → AWS DMS Replication → S3 (CSV)
-# MAGIC → Bronze (Lakeflow Declarative Pipeline)
+# MAGIC → Bronze (Lakeflow Spark Declarative Pipeline)
 # MAGIC → Silver (CDC / SCD Type 2)
 # MAGIC
 # MAGIC | Stage | What You'll Do |
 # MAGIC |-------|---------------|
 # MAGIC | **1** | Setup — catalog, schema, volume, create resources |
 # MAGIC | **2** | Onboard **Customers** & **Transactions** feeds |
-# MAGIC | **3** | Create pipeline runner & Lakeflow Declarative Pipeline |
+# MAGIC | **3** | Create pipeline runner & Lakeflow Spark Declarative Pipeline |
 # MAGIC | **4** | Validate initial load (Bronze + Silver tables) |
 # MAGIC | **5** | Add **Products** & **Stores** feeds |
 # MAGIC | **6** | Push incremental CDC data and re-run |
@@ -1367,7 +1367,7 @@ display(
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Stage 3: Create Lakeflow Declarative Pipeline
+# MAGIC ## Stage 3: Create Lakeflow Spark Declarative Pipeline
 # MAGIC
 # MAGIC The pipeline uses a single generic runner notebook that calls
 # MAGIC `DataflowPipeline.invoke_dlt_pipeline(spark, layer)`.
@@ -1430,7 +1430,7 @@ print(f"Runner notebook created: {runner_notebook_path}")
 # MAGIC %md
 # MAGIC ### 3.2 Create and Start the Pipeline
 # MAGIC
-# MAGIC The cell below creates the Lakeflow Declarative Pipeline
+# MAGIC The cell below creates the Lakeflow Spark Declarative Pipeline
 # MAGIC programmatically using the Databricks SDK, then starts it and
 # MAGIC waits for completion. The pipeline ID is persisted to the UC
 # MAGIC Volume so later stages can trigger reruns without manual

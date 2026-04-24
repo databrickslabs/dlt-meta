@@ -37,7 +37,7 @@ databricks bundle run pipelines  --target dev
 | `databricks.yml` | Bundle definition with `dev` (development mode) and `prod` (production mode) targets. |
 | `resources/variables.yml` | Every knob exposed as a bundle variable so you override per-target without editing other files. |
 | `resources/sdp_meta_onboarding_job.yml` | `python_wheel_task` that calls `databricks_labs_sdp_meta:run` to write/update dataflow specs. |
-| `resources/sdp_meta_pipelines.yml` | Lakeflow Declarative Pipeline(s) plus a job that runs them end-to-end. |
+| `resources/sdp_meta_pipelines.yml` | Lakeflow Spark Declarative Pipeline(s) plus a job that runs them end-to-end. |
 | `notebooks/init_sdp_meta_pipeline.py` | Runner notebook installed by each pipeline; pip-installs sdp-meta from `${var.sdp_meta_dependency}` and calls `DataflowPipeline.invoke_dlt_pipeline(spark, layer)`. |
 | `conf/onboarding.{yml,json}` | Seeded flow definition. Branches at render time on the chosen `source_format`. |
 | `conf/silver_transformations.{yml,json}` | Per-target SELECT projections (silver layers only). |
@@ -564,4 +564,4 @@ The pre-existing `demo/dabs/` directory in the repo is left untouched — it rem
 - Upstream Databricks docs:
   - [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/)
   - [`databricks bundle init`](https://docs.databricks.com/dev-tools/cli/bundle-commands.html#bundle-init)
-  - [Lakeflow Declarative Pipelines](https://docs.databricks.com/aws/en/dlt/)
+  - [Lakeflow Spark Declarative Pipelines](https://docs.databricks.com/aws/en/dlt/)
