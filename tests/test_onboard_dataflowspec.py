@@ -416,6 +416,442 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
         assert mock_bronze.called
         assert mock_silver.called
 
+    def test_onboardDataFlowSpecs_pre_validates_uc_names_and_aggregates_errors(self):
+        """Pre-flight UC validation must surface every bad row at once.
+
+        Issue #261: a hyphenated catalog or schema in the onboarding file
+        only blew up mid-onboarding with a confusing Spark error, leaving
+        the bronze dataflowspec table half-written. The pre-flight
+        validator added to ``onboard_dataflow_specs`` walks the file
+        once before any Spark side-effects and aggregates *all* identifier
+        errors into a single ``ValueError`` so the user can fix everything
+        in one pass.
+
+        This test exercises every category the validator covers:
+          - main bronze/silver UC name (``database`` / ``table``)
+          - quarantine UC name (database / table / catalog)
+          - partition / cluster column lists (single string + comma + list
+            literal forms — every shape the parser accepts)
+
+        so a regression in any one of them breaks this test.
+        """
+        # Every row uses a valid ``source_format`` so this test stays
+        # focused on UC-identifier violations. ``source_format`` /
+        # ``scd_type`` enum coverage lives in the dedicated enum test
+        # below.
+        bad_rows = [
+            {
+                # Main UC name violations.
+                "data_flow_id": "100",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/x"},
+                "bronze_database_dev": "bad-db",
+                "bronze_table": "ok_table",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/x",
+            },
+            {
+                # Bronze table + silver table violations.
+                "data_flow_id": "101",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/y"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "1bad_table",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/y",
+                "silver_database_dev": "ok_db",
+                "silver_table": "ok.dotted",
+                "silver_table_path_dev": "/tmp/silver/y",
+            },
+            {
+                # Quarantine UC name violations + a bad partition column
+                # in comma-separated form. These are the new cases Phase 1
+                # added; main UC fields are deliberately valid here so we
+                # know the new checks are what surfaced these errors.
+                "data_flow_id": "102",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/z"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "ok_table",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/z",
+                "bronze_database_quarantine_dev": "bad-q-db",
+                "bronze_quarantine_table": "1bad_q_table",
+                "bronze_partition_columns": "ok_col,bad-col",
+            },
+            {
+                # cluster_by violations — list literal (silver) and python
+                # list (bronze) — covers the two cluster_by shapes the
+                # parser accepts.
+                "data_flow_id": "103",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/w"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "ok_table_b",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/w",
+                "bronze_cluster_by": "['ok_col', '1bad_col']",
+                "silver_database_dev": "ok_db",
+                "silver_table": "ok_table_s",
+                "silver_table_path_dev": "/tmp/silver/w",
+                "silver_cluster_by": ["ok_col", "bad-col"],
+            },
+        ]
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_prevalidate_")
+        try:
+            bad_file = os.path.join(tmp_dir, "onboarding_bad.json")
+            with open(bad_file, "w") as f:
+                json.dump(bad_rows, f)
+
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = bad_file
+
+            with self.assertRaises(ValueError) as ctx:
+                OnboardDataflowspec(self.spark, params).onboard_dataflow_specs()
+
+            msg = str(ctx.exception)
+            # Every distinct violation should be reported in a single error.
+            # Pin the field names so a regression in any one validator path
+            # (main / quarantine / partition / cluster) is immediately obvious.
+            for needle in (
+                "flow 100 bronze_database_dev",
+                "flow 101 bronze_table",
+                "flow 101 silver_table",
+                "flow 102 bronze_database_quarantine_dev",
+                "flow 102 bronze_quarantine_table",
+                "flow 102 bronze_partition_columns",
+                "flow 103 bronze_cluster_by",
+                "flow 103 silver_cluster_by",
+            ):
+                self.assertIn(needle, msg)
+            self.assertIn("validation error(s)", msg)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_onboardDataFlowSpecs_pre_validates_source_format_and_scd_type(self):
+        """Pre-flight enum validation must surface bad source_format / scd_type.
+
+        A typo'd ``source_format`` like ``"cloudfiles"`` (lowercase 'f')
+        falls through every ``elif source_format == ...`` branch in
+        ``DataflowPipeline``, leaving the bronze read with no input. A
+        bad ``scd_type`` reaches DLT's apply_changes and fails opaquely.
+        Pre-flight catches both at onboarding with the allowed values
+        inlined in the error.
+
+        Includes a valid row to confirm the validator only flags the
+        bogus values.
+        """
+        rows = [
+            {
+                # Bogus top-level source_format + bogus CDC scd_type, both
+                # for bronze. UC names valid so they don't add noise.
+                "data_flow_id": "200",
+                "data_flow_group": "A1",
+                "source_format": "cloudfiles",  # lowercase 'f' typo
+                "source_details": {"source_path_dev": "/tmp/a"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "ok_table",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/a",
+                "bronze_cdc_apply_changes": {
+                    "keys": ["id"],
+                    "sequence_by": "ts",
+                    "scd_type": "3",  # not "1" or "2"
+                },
+            },
+            {
+                # Bogus apply_changes_from_snapshot.scd_type on silver +
+                # bogus source_format on a silver append flow. Tests both
+                # the ``apply_changes_from_snapshot`` branch and the
+                # per-append-flow source_format branch.
+                "data_flow_id": "201",
+                "data_flow_group": "A1",
+                "source_format": "snapshot",
+                "source_details": {"source_path_dev": "/tmp/b"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "ok_table_b",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/b",
+                "silver_database_dev": "ok_db",
+                "silver_table": "ok_table_s",
+                "silver_table_path_dev": "/tmp/silver/b",
+                "silver_apply_changes_from_snapshot": {
+                    "keys": ["id"],
+                    "scd_type": "scd_2",  # bad
+                },
+                "silver_append_flows": [
+                    {
+                        "name": "af1",
+                        "source_format": "csv",  # not in supported set
+                        "create_streaming_table": False,
+                        "source_details": {"source_path_dev": "/tmp/af"},
+                    },
+                ],
+            },
+            {
+                # Fully valid row — must NOT contribute to the error list.
+                "data_flow_id": "202",
+                "data_flow_group": "A1",
+                "source_format": "delta",
+                "source_details": {
+                    "source_database_dev": "ok_src_db",
+                    "source_table": "ok_src_tbl",
+                },
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "ok_table_v",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/v",
+            },
+        ]
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_prevalidate_enum_")
+        try:
+            f_path = os.path.join(tmp_dir, "onboarding_enum_bad.json")
+            with open(f_path, "w") as fh:
+                json.dump(rows, fh)
+
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = f_path
+
+            with self.assertRaises(ValueError) as ctx:
+                OnboardDataflowspec(self.spark, params).onboard_dataflow_specs()
+
+            msg = str(ctx.exception)
+            for needle in (
+                "flow 200 source_format",
+                "flow 200 bronze_cdc_apply_changes.scd_type",
+                "flow 201 silver_apply_changes_from_snapshot.scd_type",
+                "flow 201 silver_append_flows[0].source_format",
+            ):
+                self.assertIn(needle, msg)
+            # Valid row 202 must not appear anywhere in the error list.
+            self.assertNotIn("flow 202", msg)
+            # Allowed-values list should be inlined so the user can fix
+            # without going to docs.
+            self.assertIn("cloudFiles", msg)  # in source_format error
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_onboardDataFlowSpecs_pre_validates_cdc_column_names(self):
+        """Pre-flight CDC column-name validation must catch bad column refs.
+
+        Column-name fields inside ``*_cdc_apply_changes`` /
+        ``*_apply_changes_from_snapshot`` (``keys``, ``sequence_by``,
+        ``column_list``, ``track_history_column_list``, etc.) drive
+        DLT's apply_changes column projection. A hyphenated or
+        leading-digit entry there fails at DLT runtime; pre-flight
+        catches it here.
+
+        Critically: ``apply_as_deletes`` and ``apply_as_truncates`` are
+        SQL expressions (``expr(...)``), not column names, and must NOT
+        be validated as identifiers. This test pins that contract by
+        feeding a SQL expression in those fields and asserting they
+        don't trip the validator.
+        """
+        rows = [
+            {
+                # Bronze cdc_apply_changes with bad ``keys`` (Python list
+                # form) and bad ``sequence_by`` (comma-separated string
+                # form). All other UC fields valid so the only errors
+                # we should see come from the column-list validator.
+                "data_flow_id": "300",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/p"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "ok_table",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/p",
+                "bronze_cdc_apply_changes": {
+                    "keys": ["id", "bad-col"],
+                    "sequence_by": "ts,1bad",
+                    "scd_type": "1",
+                    # SQL expressions — must NOT be identifier-validated.
+                    "apply_as_deletes": "operation = 'DELETE'",
+                    "apply_as_truncates": "operation = 'TRUNCATE'",
+                    "where": "id IS NOT NULL",
+                },
+            },
+            {
+                # Silver apply_changes_from_snapshot with bad
+                # ``track_history_column_list``. Use stringified-list
+                # shape to exercise that branch of validate_uc_column_list.
+                "data_flow_id": "301",
+                "data_flow_group": "A1",
+                "source_format": "snapshot",
+                "source_details": {"source_path_dev": "/tmp/q"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "ok_table_b",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/q",
+                "silver_database_dev": "ok_db",
+                "silver_table": "ok_table_s",
+                "silver_table_path_dev": "/tmp/silver/q",
+                "silver_apply_changes_from_snapshot": {
+                    "keys": ["id"],
+                    "scd_type": "2",
+                    "track_history_column_list": ["ok_col", "bad.col"],
+                },
+            },
+            {
+                # Fully valid CDC block — must NOT contribute errors.
+                # Includes apply_as_deletes / apply_as_truncates with
+                # SQL expressions to confirm they aren't identifier-
+                # validated even when other column-name fields exist.
+                "data_flow_id": "302",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/r"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "ok_table_v",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/r",
+                "bronze_cdc_apply_changes": {
+                    "keys": ["id", "tenant_id"],
+                    "sequence_by": "ts",
+                    "scd_type": "2",
+                    "column_list": ["col_a", "col_b"],
+                    "track_history_except_column_list": ["audit_ts"],
+                    "apply_as_deletes": "op = 'D'",
+                },
+            },
+        ]
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_prevalidate_cdc_")
+        try:
+            f_path = os.path.join(tmp_dir, "onboarding_cdc_bad.json")
+            with open(f_path, "w") as fh:
+                json.dump(rows, fh)
+
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = f_path
+
+            with self.assertRaises(ValueError) as ctx:
+                OnboardDataflowspec(self.spark, params).onboard_dataflow_specs()
+
+            msg = str(ctx.exception)
+            for needle in (
+                "flow 300 bronze_cdc_apply_changes.keys",
+                "flow 300 bronze_cdc_apply_changes.sequence_by",
+                "flow 301 silver_apply_changes_from_snapshot.track_history_column_list",
+            ):
+                self.assertIn(needle, msg)
+            # Pin the apply_as_deletes / apply_as_truncates / where
+            # contract: SQL expressions don't get identifier-validated,
+            # so the validator must never emit an error pointed at those
+            # fields, even though they contain characters (``=``, ``'``,
+            # spaces) that would fail the regular-identifier check.
+            # Match on the qualified path (``<block>.<field>``) so we
+            # don't false-positive on the words appearing elsewhere in
+            # the message (e.g. "where" inside "fix these and rerun").
+            self.assertNotIn("bronze_cdc_apply_changes.apply_as_deletes", msg)
+            self.assertNotIn("bronze_cdc_apply_changes.apply_as_truncates", msg)
+            self.assertNotIn("bronze_cdc_apply_changes.where", msg)
+            # Valid row 302 must not appear at all.
+            self.assertNotIn("flow 302", msg)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_onboardDataFlowSpecs_pre_validation_reports_every_category_in_one_error(self):
+        """End-to-end: one onboarding file, one violation per category.
+
+        The pre-flight contract is "tell the user everything that's
+        wrong in a single shot so they can fix the file once". This
+        test pins that contract by seeding a single onboarding row
+        that intentionally violates one rule from each validation
+        category we've added (Phases 1-3):
+
+          - UC catalog/schema/table identifier (with hyphen)
+          - Quarantine UC name (with leading digit)
+          - Partition-column list (with hyphen)
+          - Cluster-by list (with period)
+          - Top-level ``source_format`` enum (typo)
+          - CDC ``scd_type`` enum (numeric instead of string)
+          - CDC column-name field (``keys`` with hyphen)
+          - Append-flow ``source_format`` enum (unsupported value)
+
+        We assert that ALL of them surface in the single aggregated
+        ``ValueError``. If a future refactor short-circuits on the
+        first error, this test fails loudly.
+        """
+        bad_row = {
+            "data_flow_id": "999",
+            "data_flow_group": "A1",
+            # Top-level source_format typo.
+            "source_format": "cloudFile",
+            "source_details": {"source_path_dev": "/tmp/p"},
+            # Bronze: bad catalog (hyphen) + bad table (period).
+            "bronze_catalog_dev": "bad-catalog",
+            "bronze_database_dev": "ok_db",
+            "bronze_table": "ok.table",
+            "bronze_reader_options": {},
+            "bronze_table_path_dev": "/tmp/bronze/p",
+            # Quarantine name with leading digit.
+            "bronze_quarantine_table": "1bad_quarantine",
+            # Partition columns + clusterBy with bad entries.
+            "bronze_partition_columns": "ok_col,bad-col",
+            "bronze_cluster_by": ["ok_col", "bad.col"],
+            "bronze_cdc_apply_changes": {
+                # ``scd_type`` must be a string; numeric trips the enum
+                # validator. ``keys`` has a hyphen — column-list error.
+                "scd_type": 1,
+                "keys": ["id", "bad-key"],
+                "sequence_by": "ts",
+            },
+            "bronze_append_flows": [
+                {
+                    "name": "af1",
+                    # Unsupported append-flow source_format.
+                    "source_format": "parquet",
+                    "source_details": {"source_path_dev": "/tmp/af"},
+                }
+            ],
+        }
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_prevalidate_e2e_")
+        try:
+            f_path = os.path.join(tmp_dir, "onboarding_e2e_bad.json")
+            with open(f_path, "w") as fh:
+                json.dump([bad_row], fh)
+
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = f_path
+            # Bronze-only run keeps the test tightly scoped: every
+            # error surfaced must come from this one row's bronze
+            # fields, so a missing error means the validator is
+            # short-circuiting (the bug we're guarding against).
+            params["bronze_dataflowspec_table"] = "bronze_dataflowspec_table"
+            params["silver_dataflowspec_table"] = "silver_dataflowspec_table"
+
+            with self.assertRaises(ValueError) as ctx:
+                OnboardDataflowspec(self.spark, params).onboard_dataflow_specs()
+
+            msg = str(ctx.exception)
+            expected_needles = [
+                # Identifier categories (Phase 1).
+                "flow 999 bronze_catalog_dev",
+                "flow 999 bronze_table",
+                "flow 999 bronze_quarantine_table",
+                "flow 999 bronze_partition_columns",
+                "flow 999 bronze_cluster_by",
+                # Enum categories (Phase 2).
+                "flow 999 source_format",
+                "flow 999 bronze_cdc_apply_changes.scd_type",
+                # CDC column-list (Phase 3).
+                "flow 999 bronze_cdc_apply_changes.keys",
+                # Append-flow source_format (Phase 2).
+                "flow 999 bronze_append_flows[0].source_format",
+            ]
+            missing = [n for n in expected_needles if n not in msg]
+            self.assertFalse(
+                missing,
+                f"pre-flight short-circuited; missing categories in error message: "
+                f"{missing}\nfull message:\n{msg}",
+            )
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
     def test_onboardDataFlowSpecs_with_merge(self):
         """Test for onboardDataflowspec with merge scenario."""
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)

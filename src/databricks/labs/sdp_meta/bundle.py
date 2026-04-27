@@ -29,6 +29,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
+from databricks.labs.sdp_meta.identifiers import (
+    SUPPORTED_SOURCE_FORMATS,
+    prompt_uc_identifier,
+    validate_source_format,
+    validate_uc_identifier,
+)
+
 logger = logging.getLogger("databricks.labs.sdp_meta")
 
 
@@ -145,6 +152,15 @@ class BundlePrepareWheelCommand:
     # Set False if your principal is read-only on the schema namespace and
     # you want a hard failure instead of an attempted CREATE SCHEMA.
     create_if_missing: bool = True
+
+    def __post_init__(self) -> None:
+        # Reject illegal UC names up-front so we never try to splice a
+        # hyphenated catalog into a CREATE SCHEMA / CREATE VOLUME later
+        # (issue #261). Must mirror the strict regular-identifier rule used
+        # by the rest of the input boundaries (CLI, DAB template).
+        validate_uc_identifier(self.uc_catalog, kind="uc_catalog")
+        validate_uc_identifier(self.uc_schema, kind="uc_schema")
+        validate_uc_identifier(self.uc_volume, kind="uc_volume")
 
 
 def bundle_prepare_wheel(cmd: BundlePrepareWheelCommand) -> str:
@@ -604,8 +620,6 @@ _CSV_FIELD_ALIASES = {
     "cloudfiles_format": ["cloudfiles_format", "cloudFiles.format", "format"],
 }
 
-_VALID_SOURCE_FORMATS = ("cloudFiles", "delta", "kafka", "eventhub", "snapshot")
-
 
 @dataclass
 class FlowSpec:
@@ -717,11 +731,11 @@ def _flow_to_dict(spec: FlowSpec, variables: Dict[str, Any], assigned_id: str) -
     onboarding_file_format, dataflow_group) from variables.yml so the new
     flow matches the surrounding bundle's conventions.
     """
-    if spec.source_format not in _VALID_SOURCE_FORMATS:
-        raise ValueError(
-            f"source_format={spec.source_format!r} is not supported. "
-            f"Use one of {_VALID_SOURCE_FORMATS}."
-        )
+    # Single source of truth lives in identifiers.py so the bundle CLI,
+    # DAB template, and onboarding pre-flight all agree on the supported
+    # set; ValueError message format is preserved for any caller that
+    # was matching on it.
+    validate_source_format(spec.source_format)
 
     layer = (_var_default(variables, "layer") or "bronze_silver").lower()
     onboarding_format = (_var_default(variables, "onboarding_file_format") or "yaml").lower()
@@ -729,6 +743,15 @@ def _flow_to_dict(spec: FlowSpec, variables: Dict[str, Any], assigned_id: str) -
     bronze_schema = _var_default(variables, "bronze_target_schema") or "sdp_meta_bronze"
     silver_schema = _var_default(variables, "silver_target_schema") or "sdp_meta_silver"
     bundle_group = _var_default(variables, "dataflow_group")
+
+    # Validate any UC identifiers we read out of the bundle's
+    # `variables.yml` before splicing them into onboarding rows. This
+    # catches the case where the bundle was scaffolded outside of
+    # `bundle-init` (e.g. hand-edited / generated from an older sdp-meta
+    # version) and a hyphenated catalog snuck through (issue #261).
+    validate_uc_identifier(catalog, kind="variables.yml uc_catalog_name")
+    validate_uc_identifier(bronze_schema, kind="variables.yml bronze_target_schema")
+    validate_uc_identifier(silver_schema, kind="variables.yml silver_target_schema")
 
     bronze_table = spec.bronze_table
     silver_table = spec.silver_table
@@ -743,6 +766,14 @@ def _flow_to_dict(spec: FlowSpec, variables: Dict[str, Any], assigned_id: str) -
             raise ValueError(
                 "silver_table is required when layer is `silver` (no bronze fallback)."
             )
+
+    # Bronze/silver table names eventually get spliced unquoted into SQL
+    # (`spark.read.table(...)`), so reject anything that isn't a regular
+    # SQL identifier here at the input boundary (issue #261).
+    if bronze_table:
+        validate_uc_identifier(bronze_table, kind="bronze_table")
+    if silver_table:
+        validate_uc_identifier(silver_table, kind="silver_table")
 
     table_for_paths = bronze_table or silver_table
     ext = "yml" if onboarding_format == "yaml" else "json"
@@ -1039,6 +1070,16 @@ def _ensure_silver_transformation_entries(
 # wiring helpers used by cli.py
 # ---------------------------------------------------------------------------
 
+# Backwards-compatible alias for the canonical prompt helper. Existing
+# bundle.py call sites read ``_ident_prompt(wsi, text, kind=...)``;
+# routing through :func:`prompt_uc_identifier` keeps the retry / error-
+# print behavior in lockstep with ``cli.py::SDPMeta._ident_question``
+# so a future tweak (e.g. softening the regex, changing the retry
+# count) updates both call paths at once. See identifiers.py for the
+# implementation.
+_ident_prompt = prompt_uc_identifier
+
+
 def _load_bundle_init_config(wsi) -> BundleInitCommand:
     """Interactive loader used by `databricks labs sdp-meta bundle init`."""
     output_dir = wsi._question("Output directory for the new bundle", default=".")
@@ -1090,9 +1131,14 @@ def write_quickstart_config_file(dest_dir: Path) -> Path:
 
 
 def _load_bundle_prepare_wheel_config(wsi) -> BundlePrepareWheelCommand:
-    uc_catalog = wsi._question("Unity Catalog catalog name")
-    uc_schema = wsi._question("UC schema for the wheel volume", default="sdp_meta_dataflowspecs")
-    uc_volume = wsi._question("UC volume name", default="sdp_meta_wheels")
+    uc_catalog = _ident_prompt(wsi, "Unity Catalog catalog name", kind="uc_catalog")
+    uc_schema = _ident_prompt(
+        wsi, "UC schema for the wheel volume",
+        kind="uc_schema", default="sdp_meta_dataflowspecs",
+    )
+    uc_volume = _ident_prompt(
+        wsi, "UC volume name", kind="uc_volume", default="sdp_meta_wheels",
+    )
     # Defaults come from the standard pip env vars so users on networks that
     # require an internal mirror (e.g. PIP_INDEX_URL=https://pypi.internal...)
     # don't have to type the URL again here.
@@ -1148,7 +1194,7 @@ def _load_bundle_add_flow_config(wsi) -> BundleAddFlowCommand:
             dry_run=dry_run,
         )
 
-    source_format = wsi._choice("Source format", list(_VALID_SOURCE_FORMATS))
+    source_format = wsi._choice("Source format", sorted(SUPPORTED_SOURCE_FORMATS))
     bronze_table = wsi._question("Bronze table name (leave blank if silver-only)", default="")
     silver_table = wsi._question("Silver table name (blank = same as bronze)", default="")
     data_flow_id = wsi._question("data_flow_id (use `auto` to auto-increment)", default="auto")

@@ -1745,6 +1745,136 @@ class CliTests(unittest.TestCase):
             )
         self.assertIn("bronze_dataflowspec_path is required", str(context.exception))
 
+    def _build_onboard_kwargs(self, **overrides):
+        """Minimal valid `OnboardCommand` kwargs for identifier-validation tests.
+
+        Centralised so each test only has to declare the *one* field it
+        wants to mutate (e.g. `uc_catalog_name="my-cat"`) rather than
+        re-typing the full happy-path constructor every time.
+        """
+        kwargs = dict(
+            onboarding_file_path="tests/resources/onboarding.json",
+            onboarding_files_dir_path="tests/resources/",
+            onboard_layer="bronze",
+            env="dev",
+            import_author="John Doe",
+            version="1.0",
+            cloud="aws",
+            sdp_meta_schema="sdp_meta",
+            bronze_dataflowspec_path="tests/resources/bronze_dataflowspec",
+            silver_dataflowspec_path="tests/resources/silver_dataflowspec",
+            uc_enabled=True,
+            uc_catalog_name="uc_catalog",
+            uc_volume_path="uc_catalog/sdp_meta/files",
+            overwrite=True,
+            bronze_dataflowspec_table="bronze_dataflowspec",
+            silver_dataflowspec_table="silver_dataflowspec",
+            update_paths=True,
+        )
+        kwargs.update(overrides)
+        return kwargs
+
+    def test_onboard_command_rejects_hyphenated_uc_catalog(self):
+        # Hyphens are legal in UC but not in regular SQL identifiers; we
+        # reject at construction time so users see a clear error instead
+        # of a Spark name-resolution failure later (issue #261).
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            OnboardCommand(**self._build_onboard_kwargs(uc_catalog_name="my-cat"))
+
+    def test_onboard_command_rejects_hyphenated_sdp_meta_schema(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            OnboardCommand(**self._build_onboard_kwargs(sdp_meta_schema="bad-schema"))
+
+    def test_onboard_command_rejects_dotted_table_name(self):
+        # A period inside a single identifier is forbidden (it's the
+        # multi-part separator). We must reject it here so it can't be
+        # spliced into a SQL identifier downstream.
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            OnboardCommand(**self._build_onboard_kwargs(
+                bronze_dataflowspec_table="bad.name",
+            ))
+
+    def test_onboard_command_rejects_leading_digit_table_name(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            OnboardCommand(**self._build_onboard_kwargs(
+                silver_dataflowspec_table="9bronze",
+            ))
+
+    def test_onboard_command_skips_uc_validation_when_uc_disabled(self):
+        # When uc_enabled=False we don't read uc_catalog_name, so the
+        # validator must not be triggered for it. (Bronze schema is
+        # still validated since it's used in non-UC paths too.)
+        cmd = OnboardCommand(**self._build_onboard_kwargs(
+            uc_enabled=False,
+            uc_catalog_name="any-thing-goes",
+            uc_volume_path=None,
+            dbfs_path="/dbfs",
+        ))
+        self.assertFalse(cmd.uc_enabled)
+
+    def test_onboard_command_rejects_hyphenated_bronze_schema_even_without_uc(self):
+        # ``bronze_schema`` / ``silver_schema`` get spliced into the
+        # rendered onboarding template (see ``update_ws_onboarding_paths``)
+        # and from there into pipeline SQL identifiers regardless of
+        # whether UC is enabled. Reject hyphens at the input boundary so
+        # the failure mode is "obvious validation error here" instead of
+        # "confusing Spark identifier-resolution error five minutes into
+        # the pipeline run" (issue #261).
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            OnboardCommand(**self._build_onboard_kwargs(
+                uc_enabled=False,
+                uc_volume_path=None,
+                dbfs_path="/dbfs",
+                bronze_schema="bad-schema",
+            ))
+
+    def test_onboard_command_rejects_hyphenated_silver_schema_even_without_uc(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            OnboardCommand(**self._build_onboard_kwargs(
+                uc_enabled=False,
+                uc_volume_path=None,
+                dbfs_path="/dbfs",
+                silver_schema="bad-schema",
+            ))
+
+    def _build_deploy_kwargs(self, **overrides):
+        kwargs = dict(
+            layer="bronze_silver",
+            onboard_bronze_group="A1",
+            onboard_silver_group="A1",
+            sdp_meta_bronze_schema="dlt_bronze_schema",
+            sdp_meta_silver_schema="dlt_silver_schema",
+            dataflowspec_bronze_table="bronze_dataflowspec_table",
+            dataflowspec_silver_table="silver_dataflowspec_table",
+            num_workers=1,
+            uc_catalog_name="uc_catalog",
+            pipeline_name="unittest_dlt_pipeline",
+            dlt_target_schema="dlt_target_schema",
+            uc_enabled=True,
+            serverless=False,
+            dbfs_path="/dbfs",
+        )
+        kwargs.update(overrides)
+        return kwargs
+
+    def test_deploy_command_rejects_hyphenated_uc_catalog(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            DeployCommand(**self._build_deploy_kwargs(uc_catalog_name="my-cat"))
+
+    def test_deploy_command_rejects_hyphenated_dlt_target_schema(self):
+        # `dlt_target_schema` is spliced unquoted into pipeline target
+        # configuration, so the same strict rule applies.
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            DeployCommand(**self._build_deploy_kwargs(
+                dlt_target_schema="bad-schema",
+            ))
+
+    def test_deploy_command_rejects_dotted_dataflowspec_table(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            DeployCommand(**self._build_deploy_kwargs(
+                dataflowspec_bronze_table="bad.name",
+            ))
+
     def test_get_schema_from_json_with_sdp_meta_key(self):
         """Test _get_schema_from_json returns value for sdp_meta_schema key."""
         oc_json = {"sdp_meta_schema": "my_schema"}

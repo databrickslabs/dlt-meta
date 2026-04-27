@@ -13,25 +13,33 @@
       "order": 2,
       "type": "string",
       "default": "main",
-      "description": "Unity Catalog catalog name where the sdp-meta metadata schema and target bronze/silver schemas live."
+      "description": "Unity Catalog catalog name where the sdp-meta metadata schema and target bronze/silver schemas live.",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "pattern_match_failure_message": "uc_catalog_name must be a regular SQL identifier (letters, digits, underscores; must start with a letter or underscore). Hyphens and other special characters are not supported by sdp-meta — see https://docs.databricks.com/aws/en/sql/language-manual/sql-ref-identifiers"
     },
     "sdp_meta_schema": {
       "order": 3,
       "type": "string",
       "default": "sdp_meta_dataflowspecs",
-      "description": "Schema (inside `uc_catalog_name`) where the sdp-meta bronze_dataflowspec / silver_dataflowspec tables are written."
+      "description": "Schema (inside `uc_catalog_name`) where the sdp-meta bronze_dataflowspec / silver_dataflowspec tables are written.",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "pattern_match_failure_message": "sdp_meta_schema must be a regular SQL identifier (letters, digits, underscores; must start with a letter or underscore)."
     },
     "bronze_target_schema": {
       "order": 4,
       "type": "string",
       "default": "sdp_meta_bronze",
-      "description": "Schema where the bronze LDP pipeline writes its tables."
+      "description": "Schema where the bronze LDP pipeline writes its tables.",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "pattern_match_failure_message": "bronze_target_schema must be a regular SQL identifier (letters, digits, underscores; must start with a letter or underscore)."
     },
     "silver_target_schema": {
       "order": 5,
       "type": "string",
       "default": "sdp_meta_silver",
-      "description": "Schema where the silver LDP pipeline writes its tables."
+      "description": "Schema where the silver LDP pipeline writes its tables.",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "pattern_match_failure_message": "silver_target_schema must be a regular SQL identifier (letters, digits, underscores; must start with a letter or underscore)."
     },
     "layer": {
       "order": 6,
