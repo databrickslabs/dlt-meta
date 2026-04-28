@@ -2,7 +2,7 @@
 import pandas as pd
 
 run_id = dbutils.widgets.get("run_id")
-uc_enabled = eval(dbutils.widgets.get("uc_enabled"))
+uc_enabled = dbutils.widgets.get("uc_enabled").strip().lower() == "true"
 uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
 bronze_schema = dbutils.widgets.get("bronze_schema")
 silver_schema = dbutils.widgets.get("silver_schema")
