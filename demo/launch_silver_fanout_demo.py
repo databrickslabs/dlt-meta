@@ -76,10 +76,11 @@ class SDPMETASilverFanoutDemo(SDPMETARunner):
             source="cloudfiles",
             # node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             # dbr_version=self.args.__dict__['dbr_version'],
-            cloudfiles_template="demo/conf/onboarding_cars.template",
-            onboarding_fanout_templates="demo/conf/onboarding_fanout_cars.template",
-            onboarding_file_path="demo/conf/onboarding_cars.json",
-            onboarding_fanout_file_path="demo/conf/onboarding_fanout_cars.json",
+            cloudfiles_template="demo/conf/json/onboarding_cars.template",
+            onboarding_fanout_templates="demo/conf/json/onboarding_fanout_cars.template",
+            onboarding_file_path="demo/conf/json/onboarding_cars.json",
+            onboarding_fanout_file_path="demo/conf/json/onboarding_fanout_cars.json",
+            onboarding_file_format=self.args.get("onboarding_file_format") or "json",
             env="demo"
         )
         runner_conf.uc_catalog_name = self.args['uc_catalog_name']

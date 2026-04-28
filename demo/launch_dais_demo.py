@@ -44,11 +44,12 @@ class SDPMETADAISDemo(SDPMETARunner):
             runners_full_local_path="demo/notebooks/dais_runners",
             # node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
             # dbr_version=self.args.__dict__['dbr_version'],
-            cloudfiles_template="demo/conf/onboarding.template",
+            cloudfiles_template="demo/conf/json/onboarding.template",
             env="prod",
             source="cloudfiles",
             # runners_full_local_path='./demo/dbc/dais_sdp_meta_runners.dbc',
-            onboarding_file_path='demo/conf/onboarding.json'
+            onboarding_file_path='demo/conf/json/onboarding.json',
+            onboarding_file_format=self.args.get("onboarding_file_format") or "json",
         )
         if self.args['uc_catalog_name']:
             runner_conf.uc_catalog_name = self.args['uc_catalog_name']
@@ -117,7 +118,7 @@ class SDPMETADAISDemo(SDPMETARunner):
                         named_parameters={
                             "onboard_layer": "bronze_silver",
                             "database": f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}",
-                            "onboarding_file_path": f"{runner_conf.uc_volume_path}/demo/conf/onboarding.json",
+                            "onboarding_file_path": f"{runner_conf.uc_volume_path}/{runner_conf.onboarding_file_path}",
                             "silver_dataflowspec_table": "silver_dataflowspec_cdc",
                             "silver_dataflowspec_path": (
                                 f"{runner_conf.uc_volume_path}/demo/resources/data/dlt_spec/silver"

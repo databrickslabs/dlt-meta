@@ -54,7 +54,7 @@ class SDPMETASinkDemo(SDPMETARunner):
             bronze_schema=f"sdp_meta_bronze_demo_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/sdp_meta_demo/{run_id}",
             source="kafka",
-            kafka_template="demo/conf/kafka-sink-onboarding.template",
+            kafka_template="demo/conf/json/kafka-sink-onboarding.template",
             kafka_source_topic=self.args["kafka_source_topic"],
             kafka_source_servers_secrets_scope_name=self.args["kafka_source_servers_secrets_scope_name"],
             kafka_source_servers_secrets_scope_key=self.args["kafka_source_servers_secrets_scope_key"],
@@ -62,7 +62,8 @@ class SDPMETASinkDemo(SDPMETARunner):
             kafka_sink_servers_secret_scope_name=self.args["kafka_sink_servers_secret_scope_name"],
             kafka_sink_servers_secret_scope_key=self.args["kafka_sink_servers_secret_scope_key"],
             env="demo",
-            onboarding_file_path="demo/conf/onboarding.json",
+            onboarding_file_path="demo/conf/json/onboarding.json",
+            onboarding_file_format=self.args.get("onboarding_file_format") or "json",
             runners_full_local_path='./demo/notebooks/dlt_sink_runners/',
             test_output_file_path=(
                 f"/Users/{self.wsi._my_username}/sdp_meta_demo/"

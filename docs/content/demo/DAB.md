@@ -8,7 +8,7 @@ draft: false
 ### DAB Demo
 
 ## Overview
-This demo showcases how to use Databricks Asset Bundles (DABs) with DLT-Meta:
+This demo showcases how to use [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) (DABs) with DLT-Meta:
 
 This demo will perform following steps:
 - Create sdp-meta schema's for dataflowspec and bronze/silver layer

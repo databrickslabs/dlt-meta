@@ -1745,6 +1745,136 @@ class CliTests(unittest.TestCase):
             )
         self.assertIn("bronze_dataflowspec_path is required", str(context.exception))
 
+    def _build_onboard_kwargs(self, **overrides):
+        """Minimal valid `OnboardCommand` kwargs for identifier-validation tests.
+
+        Centralised so each test only has to declare the *one* field it
+        wants to mutate (e.g. `uc_catalog_name="my-cat"`) rather than
+        re-typing the full happy-path constructor every time.
+        """
+        kwargs = dict(
+            onboarding_file_path="tests/resources/onboarding.json",
+            onboarding_files_dir_path="tests/resources/",
+            onboard_layer="bronze",
+            env="dev",
+            import_author="John Doe",
+            version="1.0",
+            cloud="aws",
+            sdp_meta_schema="sdp_meta",
+            bronze_dataflowspec_path="tests/resources/bronze_dataflowspec",
+            silver_dataflowspec_path="tests/resources/silver_dataflowspec",
+            uc_enabled=True,
+            uc_catalog_name="uc_catalog",
+            uc_volume_path="uc_catalog/sdp_meta/files",
+            overwrite=True,
+            bronze_dataflowspec_table="bronze_dataflowspec",
+            silver_dataflowspec_table="silver_dataflowspec",
+            update_paths=True,
+        )
+        kwargs.update(overrides)
+        return kwargs
+
+    def test_onboard_command_rejects_hyphenated_uc_catalog(self):
+        # Hyphens are legal in UC but not in regular SQL identifiers; we
+        # reject at construction time so users see a clear error instead
+        # of a Spark name-resolution failure later (issue #261).
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            OnboardCommand(**self._build_onboard_kwargs(uc_catalog_name="my-cat"))
+
+    def test_onboard_command_rejects_hyphenated_sdp_meta_schema(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            OnboardCommand(**self._build_onboard_kwargs(sdp_meta_schema="bad-schema"))
+
+    def test_onboard_command_rejects_dotted_table_name(self):
+        # A period inside a single identifier is forbidden (it's the
+        # multi-part separator). We must reject it here so it can't be
+        # spliced into a SQL identifier downstream.
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            OnboardCommand(**self._build_onboard_kwargs(
+                bronze_dataflowspec_table="bad.name",
+            ))
+
+    def test_onboard_command_rejects_leading_digit_table_name(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            OnboardCommand(**self._build_onboard_kwargs(
+                silver_dataflowspec_table="9bronze",
+            ))
+
+    def test_onboard_command_skips_uc_validation_when_uc_disabled(self):
+        # When uc_enabled=False we don't read uc_catalog_name, so the
+        # validator must not be triggered for it. (Bronze schema is
+        # still validated since it's used in non-UC paths too.)
+        cmd = OnboardCommand(**self._build_onboard_kwargs(
+            uc_enabled=False,
+            uc_catalog_name="any-thing-goes",
+            uc_volume_path=None,
+            dbfs_path="/dbfs",
+        ))
+        self.assertFalse(cmd.uc_enabled)
+
+    def test_onboard_command_rejects_hyphenated_bronze_schema_even_without_uc(self):
+        # ``bronze_schema`` / ``silver_schema`` get spliced into the
+        # rendered onboarding template (see ``update_ws_onboarding_paths``)
+        # and from there into pipeline SQL identifiers regardless of
+        # whether UC is enabled. Reject hyphens at the input boundary so
+        # the failure mode is "obvious validation error here" instead of
+        # "confusing Spark identifier-resolution error five minutes into
+        # the pipeline run" (issue #261).
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            OnboardCommand(**self._build_onboard_kwargs(
+                uc_enabled=False,
+                uc_volume_path=None,
+                dbfs_path="/dbfs",
+                bronze_schema="bad-schema",
+            ))
+
+    def test_onboard_command_rejects_hyphenated_silver_schema_even_without_uc(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            OnboardCommand(**self._build_onboard_kwargs(
+                uc_enabled=False,
+                uc_volume_path=None,
+                dbfs_path="/dbfs",
+                silver_schema="bad-schema",
+            ))
+
+    def _build_deploy_kwargs(self, **overrides):
+        kwargs = dict(
+            layer="bronze_silver",
+            onboard_bronze_group="A1",
+            onboard_silver_group="A1",
+            sdp_meta_bronze_schema="dlt_bronze_schema",
+            sdp_meta_silver_schema="dlt_silver_schema",
+            dataflowspec_bronze_table="bronze_dataflowspec_table",
+            dataflowspec_silver_table="silver_dataflowspec_table",
+            num_workers=1,
+            uc_catalog_name="uc_catalog",
+            pipeline_name="unittest_dlt_pipeline",
+            dlt_target_schema="dlt_target_schema",
+            uc_enabled=True,
+            serverless=False,
+            dbfs_path="/dbfs",
+        )
+        kwargs.update(overrides)
+        return kwargs
+
+    def test_deploy_command_rejects_hyphenated_uc_catalog(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            DeployCommand(**self._build_deploy_kwargs(uc_catalog_name="my-cat"))
+
+    def test_deploy_command_rejects_hyphenated_dlt_target_schema(self):
+        # `dlt_target_schema` is spliced unquoted into pipeline target
+        # configuration, so the same strict rule applies.
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            DeployCommand(**self._build_deploy_kwargs(
+                dlt_target_schema="bad-schema",
+            ))
+
+    def test_deploy_command_rejects_dotted_dataflowspec_table(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            DeployCommand(**self._build_deploy_kwargs(
+                dataflowspec_bronze_table="bad.name",
+            ))
+
     def test_get_schema_from_json_with_sdp_meta_key(self):
         """Test _get_schema_from_json returns value for sdp_meta_schema key."""
         oc_json = {"sdp_meta_schema": "my_schema"}
@@ -1766,3 +1896,240 @@ class CliTests(unittest.TestCase):
             SDPMeta._get_schema_from_json(oc_json)
         self.assertIn("sdp_meta_schema", str(context.exception))
         self.assertIn("dlt_meta_schema", str(context.exception))
+
+
+class CliCommandWiringTests(unittest.TestCase):
+    """Lock-in: every command declared in `labs.yml` must have a matching
+    handler in `cli.py::MAPPING`, and vice versa.
+
+    Background: the four `bundle-*` commands shipped on issue_278 with full
+    docstrings, docs, demo, and 122 unit/E2E tests -- but were never wired
+    into `labs.yml` or `MAPPING`. Every existing test exercised the bundle
+    handlers as plain Python imports, so the dispatcher gap (`cannot find
+    command: bundle-init`) sailed past CI. These assertions fail loudly
+    if anyone adds a command on one side without the other."""
+
+    @classmethod
+    def setUpClass(cls):
+        import yaml
+        from pathlib import Path
+        repo_root = Path(__file__).resolve().parent.parent
+        with open(repo_root / "labs.yml") as fh:
+            cls._labs_yml = yaml.safe_load(fh)
+
+    def _labs_yml_command_names(self):
+        return {entry["name"] for entry in self._labs_yml["commands"]}
+
+    def _mapping_keys(self):
+        from databricks.labs.sdp_meta.cli import MAPPING
+        return set(MAPPING.keys())
+
+    def test_every_labs_yml_command_has_a_mapping_handler(self):
+        labs_yml_cmds = self._labs_yml_command_names()
+        mapping = self._mapping_keys()
+        missing_in_mapping = labs_yml_cmds - mapping
+        self.assertFalse(
+            missing_in_mapping,
+            f"labs.yml declares commands with no MAPPING handler: "
+            f"{sorted(missing_in_mapping)}. Add a wrapper in cli.py and "
+            f"register it in MAPPING.",
+        )
+
+    def test_every_non_ui_mapping_handler_is_in_labs_yml(self):
+        # `*_ui` entries are intentionally NOT in labs.yml -- they're
+        # invoked by the install UI, not by `databricks labs sdp-meta`.
+        labs_yml_cmds = self._labs_yml_command_names()
+        mapping = self._mapping_keys()
+        non_ui_mapping = {k for k in mapping if not k.endswith("_ui")}
+        missing_in_yaml = non_ui_mapping - labs_yml_cmds
+        self.assertFalse(
+            missing_in_yaml,
+            f"MAPPING has handlers with no labs.yml entry: "
+            f"{sorted(missing_in_yaml)}. Add a `- name: <cmd>` entry to "
+            f"labs.yml so `databricks labs sdp-meta <cmd>` is reachable.",
+        )
+
+    def test_bundle_commands_are_wired_end_to_end(self):
+        """Belt-and-suspenders: each of the four bundle-* commands is
+        explicitly named here so the failure message is unambiguous if
+        somebody deletes one side of the wiring during cleanup."""
+        mapping = self._mapping_keys()
+        labs_yml_cmds = self._labs_yml_command_names()
+        for cmd in (
+            "bundle-init",
+            "bundle-prepare-wheel",
+            "bundle-validate",
+            "bundle-add-flow",
+        ):
+            self.assertIn(cmd, mapping, f"{cmd!r} missing from cli.MAPPING")
+            self.assertIn(cmd, labs_yml_cmds, f"{cmd!r} missing from labs.yml")
+
+    def test_main_dispatches_bundle_command_through_mapping(self):
+        """Functional smoke test: the `main()` dispatcher actually finds
+        and calls the wired bundle handler -- the exact code path that
+        broke when the wiring was missing."""
+        captured = {}
+
+        def fake_handler(sdp_meta, flags=None):
+            captured["called"] = True
+            captured["sdp_meta_type"] = type(sdp_meta).__name__
+
+        with patch.dict(
+            "databricks.labs.sdp_meta.cli.MAPPING",
+            {"bundle-init": fake_handler},
+            clear=False,
+        ), patch("databricks.labs.sdp_meta.cli.WorkspaceClient") as ws_cls:
+            ws_cls.return_value = MagicMock()
+            payload = json.dumps({
+                "command": "bundle-init",
+                "flags": {"log_level": "disabled"},
+            })
+            main(payload)
+
+        self.assertTrue(captured.get("called"),
+                        "main() did not dispatch bundle-init through MAPPING")
+        self.assertEqual(captured.get("sdp_meta_type"), "SDPMeta")
+
+    def test_main_raises_clearly_for_unknown_command(self):
+        """Regression for the user-visible error string -- if anyone
+        rewrites the dispatcher and changes the message format, docs
+        and the bundle template's success_message go stale silently
+        unless this test catches it."""
+        with patch("databricks.labs.sdp_meta.cli.WorkspaceClient") as ws_cls:
+            ws_cls.return_value = MagicMock()
+            payload = json.dumps({
+                "command": "definitely-not-a-real-command",
+                "flags": {"log_level": "disabled"},
+            })
+            with self.assertRaises(KeyError) as ctx:
+                main(payload)
+            self.assertIn("definitely-not-a-real-command", str(ctx.exception))
+            self.assertIn("Available", str(ctx.exception))
+
+    def test_main_passes_flags_to_bundle_wrapper(self):
+        """Wired with `cli.py::main()`: every `bundle-*` command must
+        receive the labs.yml-declared flags as kwargs, not as a payload
+        the wrapper has to re-parse. The `--quickstart` plumbing on
+        bundle-init is the load-bearing case."""
+        captured = {}
+
+        def fake_handler(sdp_meta, flags=None):
+            captured["flags"] = flags
+
+        with patch.dict(
+            "databricks.labs.sdp_meta.cli.MAPPING",
+            {"bundle-init": fake_handler},
+            clear=False,
+        ), patch("databricks.labs.sdp_meta.cli.WorkspaceClient") as ws_cls:
+            ws_cls.return_value = MagicMock()
+            payload = json.dumps({
+                "command": "bundle-init",
+                "flags": {
+                    "log_level": "disabled",
+                    "quickstart": "true",
+                    "output-dir": "/tmp/foo",
+                },
+            })
+            main(payload)
+
+        self.assertIsNotNone(captured.get("flags"))
+        self.assertEqual(captured["flags"].get("quickstart"), "true")
+        self.assertEqual(captured["flags"].get("output-dir"), "/tmp/foo")
+        # log_level must be popped before reaching the wrapper -- otherwise
+        # every wrapper would have to remember to filter it out.
+        self.assertNotIn("log_level", captured["flags"])
+
+
+class BundleInitQuickstartFlagTests(unittest.TestCase):
+    """The cli.py wrapper short-circuits the interactive prompt when
+    `--quickstart` is on. These tests exercise the wrapper directly
+    (not through main()) so they don't need the WorkspaceClient
+    plumbing -- they just prove the wrapper picks the right code path
+    for each flag combination."""
+
+    def _patched_run(self):
+        # Patch the bundle.bundle_init function the wrapper imports + calls
+        # so we can assert what BundleInitCommand it was given without
+        # actually invoking the databricks CLI.
+        return patch("databricks.labs.sdp_meta.bundle.bundle_init")
+
+    def test_quickstart_writes_config_file_and_passes_it(self):
+        from databricks.labs.sdp_meta.cli import bundle_init as cli_bundle_init
+        import tempfile
+
+        sdp_meta = MagicMock()
+        with tempfile.TemporaryDirectory() as tmp, self._patched_run() as fake_run:
+            fake_run.return_value = 0
+            cli_bundle_init(
+                sdp_meta,
+                flags={"quickstart": "true", "output-dir": tmp},
+            )
+            self.assertEqual(fake_run.call_count, 1)
+            cmd = fake_run.call_args[0][0]
+            self.assertEqual(cmd.output_dir, tmp)
+            self.assertIsNotNone(cmd.config_file)
+            cfg_path = cmd.config_file
+            self.assertTrue(cfg_path.endswith(".json"))
+            # The config file actually exists and is valid JSON pre-answering
+            # every schema prompt.
+            with open(cfg_path) as fh:
+                data = json.load(fh)
+            self.assertIn("bundle_name", data)
+            self.assertIn("wheel_source", data)
+            self.assertEqual(data["sdp_meta_dependency"], "__SET_ME__")
+            # Interactive prompt MUST NOT have been called.
+            sdp_meta._wsi._question.assert_not_called()
+            sdp_meta._wsi._choice.assert_not_called()
+
+    def test_no_quickstart_falls_back_to_interactive(self):
+        from databricks.labs.sdp_meta.cli import bundle_init as cli_bundle_init
+
+        sdp_meta = MagicMock()
+        # Mimic the interactive prompt returning "."
+        sdp_meta._wsi._question.return_value = "."
+        with self._patched_run() as fake_run:
+            fake_run.return_value = 0
+            cli_bundle_init(sdp_meta, flags={})
+            cmd = fake_run.call_args[0][0]
+            # Interactive path produces a BundleInitCommand without a
+            # config_file (the prompts answer the schema directly).
+            self.assertIsNone(cmd.config_file)
+            sdp_meta._wsi._question.assert_called()
+
+    def test_output_dir_flag_overrides_interactive_answer(self):
+        from databricks.labs.sdp_meta.cli import bundle_init as cli_bundle_init
+
+        sdp_meta = MagicMock()
+        sdp_meta._wsi._question.return_value = "/interactive/answer"
+        with self._patched_run() as fake_run:
+            fake_run.return_value = 0
+            cli_bundle_init(sdp_meta, flags={"output-dir": "/cli/wins"})
+            cmd = fake_run.call_args[0][0]
+            self.assertEqual(cmd.output_dir, "/cli/wins")
+
+
+class LabsYmlFlagDeclarationTests(unittest.TestCase):
+    """Lock-in: the labs.yml declares `--quickstart` (and other flags) so
+    `databricks labs sdp-meta bundle-init --quickstart` is a recognized
+    invocation. Without this, the labs CLI would reject the flag at
+    parse time and the user would never reach the wrapper."""
+
+    @classmethod
+    def setUpClass(cls):
+        import yaml
+        from pathlib import Path
+        repo_root = Path(__file__).resolve().parent.parent
+        with open(repo_root / "labs.yml") as fh:
+            cls._labs_yml = yaml.safe_load(fh)
+
+    def _flags_for(self, cmd_name):
+        for entry in self._labs_yml["commands"]:
+            if entry["name"] == cmd_name:
+                return {f["name"] for f in entry.get("flags") or []}
+        return None
+
+    def test_bundle_init_declares_quickstart_flag(self):
+        flags = self._flags_for("bundle-init")
+        self.assertIsNotNone(flags, "bundle-init missing from labs.yml")
+        self.assertIn("quickstart", flags)
+        self.assertIn("output-dir", flags)

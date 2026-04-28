@@ -1,0 +1,138 @@
+"""Generate one Kafka or Event Hubs flow per topic.
+
+Use this when the source is a stream (not files or Delta) and you have N
+topics to onboard. The script accepts the topics as either:
+
+  * a comma-separated `--topics` list (handy for ad-hoc / 5-10 topics), or
+  * a `--topics-file` pointing to a newline-delimited file (handy for 100s).
+
+The same `source_format` (`kafka` or `eventhub`) is applied to every topic;
+if you have a mix, run the recipe twice with different `--source-format`.
+
+For `source_format=kafka`:
+  bootstrap_servers -> `kafka_bootstrap_servers`
+  topic             -> `kafka_topic`         (sdp-meta sets `subscribe` from this)
+
+For `source_format=eventhub`:
+  bootstrap_servers -> `eventhub.namespace`
+  topic             -> `eventhub.name`
+  (additional access-key / scope details remain as the seeded onboarding
+  template's defaults; edit them in `conf/onboarding.{{if eq .onboarding_file_format "yaml"}}yml{{else}}json{{end}}`.)
+
+Run from the bundle root (defaults to dry-run; use `--apply` to write):
+
+    # 10 Kafka topics
+    python recipes/from_topics.py \\
+        --source-format kafka \\
+        --bootstrap-servers "broker1:9092,broker2:9092" \\
+        --topics orders,customers,events,payments,shipments,returns,refunds,promotions,reviews,clicks
+
+    # ...or from a file with one topic per line
+    python recipes/from_topics.py \\
+        --source-format kafka \\
+        --bootstrap-servers "broker1:9092" \\
+        --topics-file conf/samples/topics.txt \\
+        --apply
+
+    # 10 Event Hubs in the same namespace
+    python recipes/from_topics.py \\
+        --source-format eventhub \\
+        --bootstrap-servers "my-eh-namespace.servicebus.windows.net:9093" \\
+        --topics orders,customers,events,payments,shipments \\
+        --apply
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from typing import List
+
+from databricks.labs.sdp_meta.bundle import (
+    BundleAddFlowCommand,
+    FlowSpec,
+    bundle_add_flow,
+)
+
+
+def _parse_topics(topics_arg: str, topics_file: str) -> List[str]:
+    if topics_arg and topics_file:
+        raise SystemExit("Pass either --topics or --topics-file, not both.")
+    if topics_arg:
+        return [t.strip() for t in topics_arg.split(",") if t.strip()]
+    if topics_file:
+        if not os.path.isfile(topics_file):
+            raise SystemExit(f"--topics-file not found: {topics_file}")
+        with open(topics_file, "r", encoding="utf-8") as f:
+            return [line.strip() for line in f if line.strip() and not line.startswith("#")]
+    raise SystemExit("Either --topics or --topics-file is required.")
+
+
+def build_flows(
+    topics: List[str],
+    *,
+    source_format: str,
+    bootstrap_servers: str,
+    starting_offsets: str = "earliest",
+    name_prefix: str = "",
+    dataflow_group: str = "",
+) -> List[FlowSpec]:
+    flows: List[FlowSpec] = []
+    for topic in topics:
+        # Topic names often contain dots / hyphens — sanitize for Delta table names.
+        safe = topic.replace(".", "_").replace("-", "_")
+        table = f"{name_prefix}{safe}" if name_prefix else safe
+        flows.append(FlowSpec(
+            source_format=source_format,
+            kafka_bootstrap_servers=bootstrap_servers,
+            kafka_topic=topic,
+            starting_offsets=starting_offsets,
+            bronze_table=table,
+            silver_table=table,
+            data_flow_group=dataflow_group or None,
+            source_system=source_format,
+        ))
+    return flows
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n", maxsplit=1)[0])
+    parser.add_argument("--source-format", required=True, choices=["kafka", "eventhub"])
+    parser.add_argument("--bootstrap-servers", required=True,
+                        help="Kafka brokers (comma-separated) or Event Hubs namespace endpoint")
+    parser.add_argument("--topics", default="",
+                        help="Comma-separated list of topic names")
+    parser.add_argument("--topics-file", default="",
+                        help="Path to a newline-delimited file of topic names (# comments OK)")
+    parser.add_argument("--starting-offsets", default="earliest",
+                        choices=["earliest", "latest"])
+    parser.add_argument("--name-prefix", default="",
+                        help="Prefix prepended to every bronze/silver table name (after sanitization)")
+    parser.add_argument("--dataflow-group", default="",
+                        help="Override `data_flow_group` (default = bundle's variable)")
+    parser.add_argument("--bundle-dir", default=".",
+                        help="Path to the bundle root (default: current directory)")
+    parser.add_argument("--apply", action="store_true",
+                        help="Actually write the flows. Without this flag, runs in dry-run mode.")
+    args = parser.parse_args()
+
+    topics = _parse_topics(args.topics, args.topics_file)
+    flows = build_flows(
+        topics,
+        source_format=args.source_format,
+        bootstrap_servers=args.bootstrap_servers,
+        starting_offsets=args.starting_offsets,
+        name_prefix=args.name_prefix,
+        dataflow_group=args.dataflow_group,
+    )
+    print(f"Built {len(flows)} {args.source_format} flow(s) from {len(topics)} topic(s).")
+    return bundle_add_flow(BundleAddFlowCommand(
+        bundle_dir=args.bundle_dir,
+        flows=flows,
+        dry_run=not args.apply,
+    ))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -50,8 +50,9 @@ class ApplyChangesFromSnapshotDemo(SDPMETARunner):
                 f"{run_id}/sdp_meta_acfs_demo-output.csv"
             ),
             source="snapshot",
-            snapshot_template="demo/conf/snapshot-onboarding.template",
-            onboarding_file_path="demo/conf/onboarding.json",
+            snapshot_template="demo/conf/json/snapshot-onboarding.template",
+            onboarding_file_path="demo/conf/json/onboarding.json",
+            onboarding_file_format=self.args.get("onboarding_file_format") or "json",
             env="demo"
         )
         runner_conf.uc_catalog_name = self.args['uc_catalog_name']

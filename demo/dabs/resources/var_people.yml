@@ -2,23 +2,23 @@ variables:
   dev_catalog_name:
     description: The catalog name for development environment
     type: string
-    default: ravi_sdp_meta_uc
+    default: ravi_dlt_meta_uc
   prod_catalog_name:
     description: The catalog name for production environment
     type: string
-    default: ravi_sdp_meta_uc
+    default: ravi_dlt_meta_uc
   sdp_meta_schema:
     description: The schema name for the pipelines
     type: string
-    default: sdp_meta_dataflowspecs_demo_6d5fe507bd764d978bf89db089a570d8
+    default: sdp_meta_dataflowspecs_demo_d65f39ed6b6d4881977c595ee90e14f9
   bronze_schema:
     description: The schema name for the bronze pipelines
     type: string
-    default: sdp_meta_bronze_demo_6d5fe507bd764d978bf89db089a570d8
+    default: sdp_meta_bronze_demo_d65f39ed6b6d4881977c595ee90e14f9
   silver_schema:
     description: The schema name for the silver pipelines
     type: string
-    default: sdp_meta_silver_demo_6d5fe507bd764d978bf89db089a570d8
+    default: sdp_meta_silver_demo_d65f39ed6b6d4881977c595ee90e14f9
   photon_enabled:
     description: Whether Photon is enabled for the pipelines
     type: bool
@@ -42,11 +42,11 @@ variables:
   people_onboarding_file_path:
     description: The path to the onboarding file for people
     type: string
-    default: /Volumes/ravi_sdp_meta_uc/sdp_meta_dataflowspecs_demo_6d5fe507bd764d978bf89db089a570d8/sdp_meta_files/demo/dabs/conf/onboarding_bronze_silver_people.json
+    default: /Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_demo_d65f39ed6b6d4881977c595ee90e14f9/dlt_meta_files/demo/dabs/conf/yml/onboarding_bronze_silver_people.yml
   people_fanout_onboarding_file_path:
     description: The path to the onboarding file for people
     type: string
-    default: /Volumes/ravi_sdp_meta_uc/sdp_meta_dataflowspecs_demo_6d5fe507bd764d978bf89db089a570d8/sdp_meta_files/demo/dabs/conf/onboarding_silver_fanout_people.json
+    default: /Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_demo_d65f39ed6b6d4881977c595ee90e14f9/dlt_meta_files/demo/dabs/conf/yml/onboarding_silver_fanout_people.yml
   dummy_param:
     description: A dummy parameter for testing purposes
     type: string
@@ -67,3 +67,10 @@ variables:
     description: Whether production development mode is enabled for the pipelines
     type: bool
     default: false
+  sdp_meta_wheel_path:
+    description: On-volume path to the locally-built sdp-meta wheel uploaded by demo/generate_dabs_resources.py.
+      Referenced by the onboarding job's serverless dependency list and by the pipeline
+      notebooks via spark.conf.get('sdp_meta_whl'). Used because the package is not
+      yet published to PyPI.
+    type: string
+    default: /Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_demo_d65f39ed6b6d4881977c595ee90e14f9/dlt_meta_files/wheels/databricks_labs_sdp_meta-0.0.11-py3-none-any.whl

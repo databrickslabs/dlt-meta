@@ -1,16 +1,16 @@
 ---
-title: "Lakeflow Declarative Pipelines Sink Demo"
+title: "Lakeflow Spark Declarative Pipelines Sink Demo"
 date: 2024-02-26T14:25:26-04:00
 weight: 27
 draft: false
 ---
 
-### Lakeflow Declarative Pipelines Sink Demo
+### Lakeflow Spark Declarative Pipelines Sink Demo
 This demo will perform following steps:
 - Showcase onboarding process for dlt writing to external sink pattern
 - Run onboarding for the bronze iot events
 - Publish test events to kafka topic
-- Run Bronze Lakeflow Declarative Pipelines which will read from kafka source topic and write to:
+- Run Bronze Lakeflow Spark Declarative Pipelines which will read from kafka source topic and write to:
   - Events delta table into UC
   - Create quarantine table as per data quality expectations
   - Writes to external kafka topics

@@ -312,7 +312,7 @@ def handle_onboard_form():
         "unity_catalog_enabled": "1" if request.form.get('unity_catalog_enabled') == "1" else "0",
         "unity_catalog_name": request.form.get('unity_catalog_name', ''),
         "serverless": "1" if request.form.get('serverless') == "1" else "0",
-        "onboarding_file_path": request.form.get('onboarding_file_path', 'demo/conf/onboarding.template'),
+        "onboarding_file_path": request.form.get('onboarding_file_path', 'demo/conf/json/onboarding.template'),
         "local_directory": request.form.get('local_directory', '/app/python/source_code/sdp-meta/demo/'),
         "sdp_meta_schema": request.form.get('sdp_meta_schema',
                                             'sdp_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14'),

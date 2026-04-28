@@ -5,8 +5,7 @@ sdp_meta_whl = spark.conf.get("sdp_meta_whl")
 # COMMAND ----------
 
 # Databricks notebook source
-# DBTITLE 1,DLT Snapshot Processing Logic
-import dlt
+# DBTITLE 1,Snapshot Processing Logic
 from databricks.labs.sdp_meta.dataflow_spec import BronzeDataflowSpec
 
 def exist(path):

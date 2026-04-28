@@ -1,0 +1,12 @@
+# 10 Kafka topics added in bulk via the from_topics.py recipe.
+# Lines starting with `#` are ignored.
+orders
+customers
+events
+payments
+shipments
+returns
+refunds
+promotions
+reviews
+clicks

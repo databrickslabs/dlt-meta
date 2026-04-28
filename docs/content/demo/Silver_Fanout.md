@@ -9,7 +9,7 @@ draft: false
   - This demo will perform following steps
     - Showcase onboarding process for silver fanout pattern
     - Run onboarding for the bronze cars table, which contains data from various countries.
-    - Run onboarding for the silver tables, which have a `where_clause` based on the country condition in [silver_transformations_cars.json](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/silver_transformations_cars.json).
+    - Run onboarding for the silver tables, which have a `where_clause` based on the country condition in [`demo/conf/json/silver_transformations_cars.json`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/silver_transformations_cars.json) (or its YAML sibling [`demo/conf/yml/silver_transformations_cars.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/silver_transformations_cars.yml)).
     - Run Bronze for cars tables
     - Run onboarding for the silver tables, fanning out from the bronze cars tables to country-specific tables such as cars_usa, cars_uk, cars_germany, and cars_japan.    
 

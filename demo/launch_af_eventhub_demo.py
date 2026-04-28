@@ -53,8 +53,9 @@ class SDPMETAFEHDemo(SDPMETARunner):
             bronze_schema=f"sdp_meta_bronze_demo_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/sdp_meta_demo/{run_id}",
             source="eventhub",
-            eventhub_template="demo/conf/eventhub-onboarding.template",
-            onboarding_file_path="demo/conf/onboarding.json",
+            eventhub_template="demo/conf/json/eventhub-onboarding.template",
+            onboarding_file_path="demo/conf/json/onboarding.json",
+            onboarding_file_format=self.args.get("onboarding_file_format") or "json",
             env="demo",
             # eventhub provided args
             eventhub_name=self.args["eventhub_name"],

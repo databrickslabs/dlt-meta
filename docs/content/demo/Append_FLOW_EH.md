@@ -6,7 +6,7 @@ draft: false
 ---
 
 ### Append FLOW Autoloader Demo:
-- Read from different eventhub topics and write to same target tables using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows) API
+- Read from different eventhub topics and write to same target tables using [dp.append_flow](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-append-flow) API
 
 ### Steps:
 1. Launch Command Prompt

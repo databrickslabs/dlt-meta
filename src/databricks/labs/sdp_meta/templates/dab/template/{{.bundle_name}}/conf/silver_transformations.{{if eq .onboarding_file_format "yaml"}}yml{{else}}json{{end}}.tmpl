@@ -1,0 +1,17 @@
+{{- if or (eq .layer "silver") (eq .layer "bronze_silver")}}
+{{- if eq .onboarding_file_format "yaml"}}
+# Per-target silver SELECT projections. One entry per target_table. Each
+# entry lists the columns to select from the bronze table; add `where_clause`
+# to filter, and `partition_columns` to override partitions.
+- target_table: example_table
+  select_exp:
+    - "*"
+{{- else}}
+[
+  {
+    "target_table": "example_table",
+    "select_exp": ["*"]
+  }
+]
+{{- end}}
+{{- end}}

@@ -1,8 +1,8 @@
 """Databricks Labs SDP-META Framework.
 
-A metadata-driven framework for Databricks Lakeflow Declarative Pipelines.
+A metadata-driven framework for Databricks Lakeflow Spark Declarative Pipelines.
 
-The framework uses the Lakeflow Declarative Pipelines runtime for building
+The framework uses the Lakeflow Spark Declarative Pipelines runtime for building
 automated bronze and silver data pipelines.
 
 Example usage:

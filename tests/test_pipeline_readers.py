@@ -10,7 +10,7 @@ from databricks.labs.sdp_meta.pipeline_readers import PipelineReaders
 from tests.utils import SDPFrameworkTestCase
 from unittest.mock import MagicMock, patch
 from pyspark.sql import SparkSession
-sys.modules["dlt"] = MagicMock()
+sys.modules["pyspark.pipelines"] = MagicMock()
 sys.modules["pyspark.dbutils"] = MagicMock()
 
 

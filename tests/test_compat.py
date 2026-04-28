@@ -9,8 +9,9 @@ import unittest
 import warnings
 from unittest.mock import MagicMock
 
-# Mock the dlt module before importing runtime modules
-sys.modules['dlt'] = MagicMock()
+# Mock the pyspark.pipelines module before importing runtime modules (the
+# legacy ``dlt`` module has been replaced by ``pyspark.pipelines``).
+sys.modules['pyspark.pipelines'] = MagicMock()
 
 # Ensure the compat directory is on the Python path so `import dlt_meta` works
 _compat_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "compat")

@@ -1,0 +1,122 @@
+"""Walk a UC volume (or local path) and emit one cloudFiles flow per
+top-level subdirectory.
+
+Use this for the classic landing-zone pattern:
+
+    /Volumes/raw/landing/files/
+        orders/        <-- becomes flow "orders"
+        customers/     <-- becomes flow "customers"
+        line_items/    <-- becomes flow "line_items"
+        ...
+
+Run from the bundle root:
+
+    python recipes/from_volume.py \\
+        --volume-path /Volumes/{{.uc_catalog_name}}/landing/files \\
+        --apply
+
+Without `--apply` the script runs in dry-run mode and only prints what
+would be appended.
+
+The script uses the Databricks SDK's Files API for `/Volumes/...` paths and
+falls back to `os.scandir` for local paths (handy for testing against a
+mocked-up `tmp/` tree).
+
+Pre-filled defaults from `bundle-init`:
+  --volume-path  /Volumes/{{.uc_catalog_name}}/landing/files
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from typing import List
+
+from databricks.sdk import WorkspaceClient
+
+from databricks.labs.sdp_meta.bundle import (
+    BundleAddFlowCommand,
+    FlowSpec,
+    bundle_add_flow,
+)
+
+
+def _list_volume_subdirs(ws: WorkspaceClient, volume_path: str) -> List[str]:
+    """Return immediate subdirectory names under a `/Volumes/...` path."""
+    entries = ws.files.list_directory_contents(directory_path=volume_path)
+    return [
+        os.path.basename(e.path.rstrip("/"))
+        for e in entries
+        if getattr(e, "is_directory", False)
+    ]
+
+
+def _list_local_subdirs(local_path: str) -> List[str]:
+    return [e.name for e in os.scandir(local_path) if e.is_dir()]
+
+
+def discover_flows(
+    ws: WorkspaceClient,
+    volume_path: str,
+    *,
+    name_prefix: str = "",
+    dataflow_group: str = "",
+) -> List[FlowSpec]:
+    if volume_path.startswith("/Volumes/"):
+        subdirs = _list_volume_subdirs(ws, volume_path)
+    else:
+        subdirs = _list_local_subdirs(volume_path)
+
+    flows: List[FlowSpec] = []
+    for sub in sorted(subdirs):
+        table_name = f"{name_prefix}{sub}" if name_prefix else sub
+        flows.append(FlowSpec(
+            source_format="cloudFiles",
+            source_path=f"{volume_path.rstrip('/')}/{sub}/",
+            bronze_table=table_name,
+            silver_table=table_name,
+            data_flow_group=dataflow_group or None,
+            source_system="cloudfiles_landing",
+        ))
+    return flows
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n", maxsplit=1)[0])
+    parser.add_argument("--volume-path",
+                        default="/Volumes/{{.uc_catalog_name}}/landing/files",
+                        help="UC volume path to scan, or a local path for testing")
+    parser.add_argument("--name-prefix", default="",
+                        help="Optional prefix prepended to every bronze/silver table name")
+    parser.add_argument("--dataflow-group", default="",
+                        help="Override `data_flow_group` (default = bundle's variable)")
+    parser.add_argument("--bundle-dir", default=".",
+                        help="Path to the bundle root (default: current directory)")
+    parser.add_argument("--profile", default=None,
+                        help="Databricks CLI profile to use for the WorkspaceClient")
+    parser.add_argument("--apply", action="store_true",
+                        help="Actually write the flows. Without this flag, runs in dry-run mode.")
+    args = parser.parse_args()
+
+    ws = WorkspaceClient(profile=args.profile) if args.profile else WorkspaceClient()
+    flows = discover_flows(
+        ws,
+        args.volume_path,
+        name_prefix=args.name_prefix,
+        dataflow_group=args.dataflow_group,
+    )
+    if not flows:
+        print(f"No subdirectories discovered under {args.volume_path}.")
+        return 1
+
+    print(f"Discovered {len(flows)} subdirector(y/ies) under {args.volume_path}")
+    return bundle_add_flow(BundleAddFlowCommand(
+        bundle_dir=args.bundle_dir,
+        flows=flows,
+        dry_run=not args.apply,
+    ))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

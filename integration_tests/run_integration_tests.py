@@ -11,6 +11,8 @@ import webbrowser
 from dataclasses import dataclass
 from datetime import timedelta
 
+import yaml
+
 # Add project root and src/ to Python path so the local sdp_meta package
 # resolves its own absolute imports (databricks.labs.sdp_meta.*) correctly.
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,6 +25,7 @@ from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType
 from databricks.sdk.service.pipelines import NotebookLibrary, PipelineLibrary
 from databricks.sdk.service.workspace import ImportFormat, Language
 
+from databricks.labs.sdp_meta.identifiers import validate_uc_identifier
 from databricks.labs.sdp_meta.install import WorkspaceInstaller
 
 # Dictionary mapping cloud providers to node types
@@ -93,9 +96,10 @@ class SDPMetaRunnerConf:
     run_name: str = None
     uc_catalog_name: str = None
     uc_volume_name: str = "dlt_meta_files"
-    onboarding_file_path: str = "integration_tests/conf/onboarding.json"
-    onboarding_A2_file_path: str = "integration_tests/conf/onboarding_A2.json"
-    # onboarding_fanout_file_path: str = "integration_tests/conf/onboarding.json"
+    onboarding_file_format: str = "json"  # "json" | "yaml"
+    onboarding_file_path: str = "integration_tests/conf/json/onboarding.json"
+    onboarding_A2_file_path: str = "integration_tests/conf/json/onboarding_A2.json"
+    # onboarding_fanout_file_path: str = "integration_tests/conf/json/onboarding.json"
     # onboarding_fanout_templates: str = None
     int_tests_dir: str = "integration_tests"
     sdp_meta_schema: str = None
@@ -121,13 +125,13 @@ class SDPMetaRunnerConf:
     onboarding_fanout_file_path: str = None  # "demo/conf/onboarding_fanout_cars.json",
 
     # cloudfiles info
-    cloudfiles_template: str = "integration_tests/conf/cloudfiles-onboarding.template"
+    cloudfiles_template: str = "integration_tests/conf/json/cloudfiles-onboarding.template"
     cloudfiles_A2_template: str = (
-        "integration_tests/conf/cloudfiles-onboarding_A2.template"
+        "integration_tests/conf/json/cloudfiles-onboarding_A2.template"
     )
 
     # eventhub info
-    eventhub_template: str = "integration_tests/conf/eventhub-onboarding.template"
+    eventhub_template: str = "integration_tests/conf/json/eventhub-onboarding.template"
     eventhub_input_data: str = None
     eventhub_append_flow_input_data: str = None
     eventhub_name: str = None
@@ -141,7 +145,7 @@ class SDPMetaRunnerConf:
     eventhub_port: str = None
 
     # kafka info
-    kafka_template: str = "integration_tests/conf/kafka-onboarding.template"
+    kafka_template: str = "integration_tests/conf/json/kafka-onboarding.template"
     kafka_source_topic: str = None
     kafka_source_broker: str = None
     kafka_source_servers_secrets_scope_name: str = None
@@ -151,7 +155,63 @@ class SDPMetaRunnerConf:
     kafka_sink_servers_secret_scope_key: str = None
 
     # snapshot info
-    snapshot_template: str = "integration_tests/conf/snapshot-onboarding.template"
+    snapshot_template: str = "integration_tests/conf/json/snapshot-onboarding.template"
+
+    def __post_init__(self):
+        """Adjust onboarding file paths based on the requested file format."""
+        fmt = (self.onboarding_file_format or "json").lower()
+        if fmt not in ("json", "yaml", "yml"):
+            raise ValueError(
+                f"Unsupported onboarding_file_format='{self.onboarding_file_format}'. "
+                "Use 'json' or 'yaml'."
+            )
+        # Normalize "yml" to "yaml" internally; use ".yml" as the on-disk extension.
+        self.onboarding_file_format = "yaml" if fmt in ("yaml", "yml") else "json"
+        if self.onboarding_file_format == "yaml":
+            self.onboarding_file_path = self._to_yaml_variant(self.onboarding_file_path)
+            self.onboarding_A2_file_path = self._to_yaml_variant(self.onboarding_A2_file_path)
+            if self.onboarding_fanout_file_path:
+                self.onboarding_fanout_file_path = self._to_yaml_variant(
+                    self.onboarding_fanout_file_path
+                )
+            self.cloudfiles_template = self._to_yaml_variant(self.cloudfiles_template)
+            self.cloudfiles_A2_template = self._to_yaml_variant(self.cloudfiles_A2_template)
+            self.eventhub_template = self._to_yaml_variant(self.eventhub_template)
+            self.kafka_template = self._to_yaml_variant(self.kafka_template)
+            self.snapshot_template = self._to_yaml_variant(self.snapshot_template)
+            if self.onboarding_fanout_templates:
+                self.onboarding_fanout_templates = self._to_yaml_variant(
+                    self.onboarding_fanout_templates
+                )
+
+    @staticmethod
+    def _to_yaml_variant(path: str) -> str:
+        """Translate a `/json/` conf-bucket path to its `/yml/` sibling.
+
+        Rules:
+          * Swap the path segment `/json/` to `/yml/` so the file resolves under
+            the YAML conf bucket.
+          * For templates ending in `.template`, append `.yml` (e.g.
+            `cloudfiles-onboarding.template` -> `cloudfiles-onboarding.template.yml`).
+          * For files ending in `.json`, swap the trailing extension to `.yml`.
+          * Paths already ending in `.yml`/`.yaml` are returned unchanged.
+
+        The swap is unconditional: this method is also used to compute *output*
+        paths (e.g. the runtime-generated `onboarding.yml`) which by definition
+        do not exist on disk yet. If a template's YAML sibling is missing, the
+        downstream open() will surface a clear `FileNotFoundError` pointing at
+        the YAML path the user asked for.
+        """
+        if not path:
+            return path
+        if path.endswith((".yml", ".yaml")):
+            return path
+        candidate = path.replace("/json/", "/yml/")
+        if candidate.endswith(".template"):
+            return f"{candidate}.yml"
+        if candidate.endswith(".json"):
+            return f"{candidate[:-5]}.yml"
+        return candidate
 
 
 class SDPMETARunner:
@@ -182,6 +242,11 @@ class SDPMETARunner:
             silver_schema=f"sdp_meta_silver_it_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
             source=self.args["source"] if "source" in self.args else None,
+            onboarding_file_format=(
+                self.args["onboarding_file_format"]
+                if self.args.get("onboarding_file_format")
+                else "json"
+            ),
             # node_type_id=cloud_node_type_id_dict[self.args["cloud_provider_name"]],
             test_output_file_path=(
                 f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/"
@@ -342,13 +407,15 @@ class SDPMETARunner:
                             else "bronze"
                         ),
                         "database": f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}",
-                        "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding.json",
+                        "onboarding_file_path": (
+                            f"{runner_conf.uc_volume_path}{runner_conf.onboarding_file_path}"
+                        ),
                         "silver_dataflowspec_table": "silver_dataflowspec_cdc",
-                        "silver_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/silver",
+                        "silver_dataflowspec_path": f"{runner_conf.uc_volume_path}data/dlt_spec/silver",
                         "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                         "import_author": "Ravi",
                         "version": "v1",
-                        "bronze_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/bronze",
+                        "bronze_dataflowspec_path": f"{runner_conf.uc_volume_path}data/dlt_spec/bronze",
                         "overwrite": "True",
                         "env": runner_conf.env,
                         "uc_enabled": "True",
@@ -415,7 +482,9 @@ class SDPMETARunner:
                             named_parameters={
                                 "onboard_layer": "bronze",
                                 "database": f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}",
-                                "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding_A2.json",  # noqa : E501
+                                "onboarding_file_path": (  # noqa : E501
+                                    f"{runner_conf.uc_volume_path}{runner_conf.onboarding_A2_file_path}"
+                                ),
                                 "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                                 "import_author": "Ravi",
                                 "version": "v1",
@@ -556,15 +625,15 @@ class SDPMETARunner:
                     "eventhub_namespace": runner_conf.eventhub_namespace,
                     "eventhub_secrets_scope_name": runner_conf.eventhub_secrets_scope_name,
                     "eventhub_accesskey_name": runner_conf.eventhub_producer_accesskey_name,
-                    "eventhub_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
-                    "eventhub_append_flow_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",  # noqa : E501
+                    "eventhub_input_data": f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
+                    "eventhub_append_flow_input_data": f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/iot_eventhub_af/iot.json",  # noqa : E501
                 }
             elif runner_conf.source == "kafka":
                 base_parameters = {
                     "kafka_source_topic": runner_conf.kafka_source_topic,
                     "kafka_source_servers_secrets_scope_name": runner_conf.kafka_source_servers_secrets_scope_name,
                     "kafka_source_servers_secrets_scope_key": runner_conf.kafka_source_servers_secrets_scope_key,
-                    "kafka_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
+                    "kafka_input_data": f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
                 }
 
             tasks.append(
@@ -680,36 +749,163 @@ class SDPMETARunner:
             template_path = runner_conf.snapshot_template
 
         if template_path:
-            with open(f"{template_path}", "r") as f:
-                onboard_json = f.read()
+            onboard_text = self._read_template_text(template_path)
 
             if runner_conf.source == "cloudfiles":
-                with open(f"{runner_conf.cloudfiles_A2_template}") as f:
-                    onboard_json_a2 = f.read()
+                onboard_text_a2 = self._read_template_text(runner_conf.cloudfiles_A2_template)
 
             for key, val in string_subs.items():
                 val = "" if val is None else val  # Ensure val is a string
-                onboard_json = onboard_json.replace(key, val)
+                onboard_text = onboard_text.replace(key, val)
                 if runner_conf.source == "cloudfiles":
-                    onboard_json_a2 = onboard_json_a2.replace(key, val)
+                    onboard_text_a2 = onboard_text_a2.replace(key, val)
 
-            with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
-                json.dump(json.loads(onboard_json), onboarding_file, indent=4)
+            self._write_onboarding_file(
+                runner_conf.onboarding_file_path,
+                self._parse_template_payload(template_path, onboard_text),
+                runner_conf.onboarding_file_format,
+            )
 
             if runner_conf.source == "cloudfiles":
-                with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file_a2:
-                    json.dump(json.loads(onboard_json_a2), onboarding_file_a2, indent=4)
+                self._write_onboarding_file(
+                    runner_conf.onboarding_A2_file_path,
+                    self._parse_template_payload(
+                        runner_conf.cloudfiles_A2_template, onboard_text_a2
+                    ),
+                    runner_conf.onboarding_file_format,
+                )
 
         if runner_conf.onboarding_fanout_templates:
             template = runner_conf.onboarding_fanout_templates
-            with open(f"{template}", "r") as f:
-                onboard_json = f.read()
+            onboard_text = self._read_template_text(template)
 
             for key, val in string_subs.items():
-                onboard_json = onboard_json.replace(key, val)
+                onboard_text = onboard_text.replace(key, val)
 
-            with open(runner_conf.onboarding_fanout_file_path, "w") as onboarding_file:
-                json.dump(json.loads(onboard_json), onboarding_file, indent=4)
+            self._write_onboarding_file(
+                runner_conf.onboarding_fanout_file_path,
+                self._parse_template_payload(template, onboard_text),
+                runner_conf.onboarding_file_format,
+            )
+
+    @staticmethod
+    def _read_template_text(template_path: str) -> str:
+        with open(template_path, "r") as fh:
+            return fh.read()
+
+    @staticmethod
+    def _parse_template_payload(template_path: str, text: str):
+        """Parse a substituted template body. YAML if the path ends in .yml/.yaml, else JSON."""
+        if template_path.endswith((".yml", ".yaml")):
+            return yaml.safe_load(text)
+        return json.loads(text)
+
+    @staticmethod
+    def _write_onboarding_file(path: str, payload, file_format: str):
+        """Serialize the onboarding payload as JSON or YAML depending on file_format."""
+        with open(path, "w") as fh:
+            if file_format == "yaml":
+                yaml.safe_dump(payload, fh, sort_keys=False, default_flow_style=False)
+            else:
+                json.dump(payload, fh, indent=4)
+
+    # Keys in the onboarding spec whose values point at external silver/DQ files.
+    # When the user selects YAML format, these files are also converted to YAML so
+    # the entire pipeline (onboarding + silver transforms + DQ rules) is YAML.
+    _SILVER_DQE_KEY_PREFIXES = (
+        "silver_transformation_json_",
+        "bronze_data_quality_expectations_json_",
+        "silver_data_quality_expectations_json_",
+    )
+
+    def _rewrite_silver_and_dqe_paths_to_yml(self, runner_conf: SDPMetaRunnerConf):
+        """Rewrite silver/DQ paths in generated onboarding specs from ``.json`` to ``.yml``.
+
+        Assumes dedicated ``.yml`` siblings already exist next to the corresponding
+        ``.json`` files in ``integration_tests/conf/`` (they are committed to the
+        repo). Walks the just-generated onboarding files, finds every value
+        pointing at a ``.json`` silver-transformation or DQ-expectations file, and
+        rewrites the path to the ``.yml`` sibling. Raises if the expected sibling
+        is missing locally (so we never silently ship a stale spec to the cluster).
+
+        No-op unless ``runner_conf.onboarding_file_format == "yaml"``.
+        """
+        if runner_conf.onboarding_file_format != "yaml":
+            return
+
+        rewritten = set()
+        missing_siblings = []
+        candidate_paths = [
+            runner_conf.onboarding_file_path,
+            runner_conf.onboarding_A2_file_path,
+        ]
+        if runner_conf.onboarding_fanout_file_path:
+            candidate_paths.append(runner_conf.onboarding_fanout_file_path)
+        for onboarding_path in candidate_paths:
+            if not onboarding_path or not os.path.exists(onboarding_path):
+                continue
+            with open(onboarding_path) as fh:
+                spec = yaml.safe_load(fh)
+            if not isinstance(spec, list):
+                continue
+            mutated = False
+            for entry in spec:
+                if not isinstance(entry, dict):
+                    continue
+                for key, value in list(entry.items()):
+                    if not any(key.startswith(p) for p in self._SILVER_DQE_KEY_PREFIXES):
+                        continue
+                    if not isinstance(value, str) or not value.endswith(".json"):
+                        continue
+                    local_src = self._resolve_local_conf_path(value, runner_conf)
+                    if local_src is None:
+                        missing_siblings.append(value)
+                        continue
+                    # Mirror the on-disk json/ -> yml/ bucket split when looking
+                    # for the YAML sibling, and rewrite both the bucket and the
+                    # extension in the spec value. Reuse the same helper that
+                    # SDPMetaRunnerConf.__post_init__ uses so the json/->yml/
+                    # contract lives in exactly one place.
+                    yml_local = SDPMetaRunnerConf._to_yaml_variant(local_src)
+                    if not os.path.exists(yml_local):
+                        missing_siblings.append(yml_local)
+                        continue
+                    entry[key] = SDPMetaRunnerConf._to_yaml_variant(value)
+                    rewritten.add(yml_local)
+                    mutated = True
+            if mutated:
+                with open(onboarding_path, "w") as fh:
+                    yaml.safe_dump(spec, fh, sort_keys=False, default_flow_style=False)
+
+        if missing_siblings:
+            raise FileNotFoundError(
+                "Missing dedicated .yml sibling(s) for YAML integration run; "
+                f"create them next to the .json file(s): {sorted(set(missing_siblings))}"
+            )
+        if rewritten:
+            print(
+                f"Rewrote {len(rewritten)} silver/DQ path(s) to dedicated .yml "
+                f"siblings for YAML integration run: {sorted(rewritten)}"
+            )
+
+    @staticmethod
+    def _resolve_local_conf_path(spec_path: str, runner_conf: SDPMetaRunnerConf):
+        """Map a spec path (which may be a UC volume path) back to a local conf file.
+
+        The spec path always contains the substring ``/<basename>/conf/`` (e.g.
+        ``/integration_tests/conf/...``). We use the basename of
+        ``runner_conf.int_tests_dir`` to find that marker, then rebuild the local
+        filesystem path under the runner's actual ``int_tests_dir``.
+
+        Returns the local filesystem path if the file exists, else ``None``.
+        """
+        int_dir_name = os.path.basename(runner_conf.int_tests_dir.rstrip("/"))
+        marker = f"/{int_dir_name}/conf/"
+        if marker not in spec_path:
+            return None
+        rel = spec_path.split(marker, 1)[1]
+        local = os.path.join(runner_conf.int_tests_dir, "conf", rel)
+        return local if os.path.exists(local) else None
 
     def upload_files_to_databricks(self, runner_conf: SDPMetaRunnerConf):
         """
@@ -733,11 +929,10 @@ class SDPMETARunner:
                         overwrite=True,
                     )
 
-        # Upload all the JSONs in the conf directory, that is the generated onboarding JSONs and
-        # the DQE JSONS
+        # Upload generated onboarding files (JSON or YAML) and DQE JSONs from the conf dir.
         for root, dirs, files in os.walk(f"{runner_conf.int_tests_dir}/conf"):
             for file in files:
-                if file.endswith(".json"):
+                if file.endswith((".json", ".yml", ".yaml")):
                     with open(os.path.join(root, file), "rb") as content:
                         self.ws.files.upload(
                             file_path=f"{runner_conf.uc_volume_path}{root}/{file}",
@@ -774,6 +969,9 @@ class SDPMETARunner:
         # Generate uc schemas, volumes and upload onboarding files
         self.initialize_uc_resources(runner_conf)
         self.generate_onboarding_file(runner_conf)
+        # When --onboarding_file_format yaml, also convert referenced silver
+        # transformation and DQ-rule files so the entire pipeline runs on YAML.
+        self._rewrite_silver_and_dqe_paths_to_yml(runner_conf)
         self.upload_files_to_databricks(runner_conf)
 
     def create_bronze_silver_dlt(self, runner_conf: SDPMetaRunnerConf):
@@ -940,6 +1138,13 @@ def process_arguments() -> dict[str:str]:
         ],
         ["trigger_interval_min",
          "LFC trigger interval in minutes — positive integer (lfc demo, default: 5)", str, False, []],
+        [
+            "onboarding_file_format",
+            "Format of the generated onboarding file: 'json' (default) or 'yaml'.",
+            str.lower,
+            False,
+            ["json", "yaml", "yml"],
+        ],
         # Eventhub arguments
         ["eventhub_name", "Provide eventhub_name e.g: iot", str.lower, False, []],
         [
@@ -1091,6 +1296,12 @@ def process_arguments() -> dict[str:str]:
         ),
     )
     args = vars(parser.parse_args())
+
+    # Validate UC identifiers up-front so the run fails fast with a clear
+    # error message instead of crashing later inside CREATE SCHEMA / CREATE
+    # VOLUME / spark.read.table when a hyphenated catalog or other illegal
+    # name was passed (issue #261). Strictly regular SQL identifiers only.
+    validate_uc_identifier(args["uc_catalog_name"], kind="--uc_catalog_name")
 
     def check_cond_mandatory_arg(args, mandatory_args):
         """Post argument parsing check for conditionally required arguments"""

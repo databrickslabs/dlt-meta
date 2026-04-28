@@ -7,12 +7,17 @@ import sys
 import uuid
 import webbrowser
 from dataclasses import dataclass
+from pathlib import Path
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import jobs, pipelines, compute
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
 from databricks.sdk.core import DatabricksError
 from databricks.sdk.service.catalog import SchemasAPI, VolumeType
 from databricks.labs.sdp_meta import __about__
+from databricks.labs.sdp_meta.identifiers import (
+    prompt_uc_identifier,
+    validate_uc_identifier,
+)
 from databricks.labs.sdp_meta.install import WorkspaceInstaller
 
 logger = logging.getLogger('databricks.labs.sdp_meta')
@@ -104,6 +109,30 @@ class OnboardCommand:
             raise ValueError("version is required")
         if not self.env:
             raise ValueError("env is required")
+        # Validate UC identifiers up front (issue #261). Even when UC is
+        # disabled the *_schema and *_dataflowspec_table values are spliced
+        # unquoted into the onboarding template (see
+        # ``SDPMeta.update_ws_onboarding_paths``: the ``{bronze_schema}`` /
+        # ``{silver_schema}`` placeholders land inside identifier positions
+        # like ``bronze_database_<env>`` and from there into the deployed
+        # pipeline's SQL), so they have to be valid regardless of
+        # ``uc_enabled``. Only ``uc_catalog_name`` is gated because the
+        # non-UC code path never references it.
+        validate_uc_identifier(self.sdp_meta_schema, kind="sdp_meta_schema")
+        if self.bronze_dataflowspec_table:
+            validate_uc_identifier(
+                self.bronze_dataflowspec_table, kind="bronze_dataflowspec_table"
+            )
+        if self.silver_dataflowspec_table:
+            validate_uc_identifier(
+                self.silver_dataflowspec_table, kind="silver_dataflowspec_table"
+            )
+        if self.bronze_schema:
+            validate_uc_identifier(self.bronze_schema, kind="bronze_schema")
+        if self.silver_schema:
+            validate_uc_identifier(self.silver_schema, kind="silver_schema")
+        if self.uc_enabled:
+            validate_uc_identifier(self.uc_catalog_name, kind="uc_catalog_name")
 
 
 @dataclass
@@ -151,6 +180,29 @@ class DeployCommand:
             raise ValueError("pipeline_name is required")
         if not self.dlt_target_schema:
             raise ValueError("dlt_target_schema is required")
+        # Issue #261: catalog / schema / table names are spliced into SQL
+        # identifiers downstream (e.g. `spark.read.table(<dataflowspecTable>)`),
+        # so reject anything that can't be safely emitted before the pipeline
+        # is even created.
+        validate_uc_identifier(self.dlt_target_schema, kind="dlt_target_schema")
+        if self.uc_enabled:
+            validate_uc_identifier(self.uc_catalog_name, kind="uc_catalog_name")
+        if self.sdp_meta_bronze_schema:
+            validate_uc_identifier(
+                self.sdp_meta_bronze_schema, kind="sdp_meta_bronze_schema"
+            )
+        if self.sdp_meta_silver_schema:
+            validate_uc_identifier(
+                self.sdp_meta_silver_schema, kind="sdp_meta_silver_schema"
+            )
+        if self.dataflowspec_bronze_table:
+            validate_uc_identifier(
+                self.dataflowspec_bronze_table, kind="dataflowspec_bronze_table"
+            )
+        if self.dataflowspec_silver_table:
+            validate_uc_identifier(
+                self.dataflowspec_silver_table, kind="dataflowspec_silver_table"
+            )
 
 
 class SDPMeta:
@@ -160,6 +212,32 @@ class SDPMeta:
         self._ws = ws
         self._wsi = WorkspaceInstaller(ws)
         self.version = __about__.__version__
+
+    def _ident_question(
+        self,
+        text: str,
+        kind: str,
+        *,
+        default: str = None,
+        max_attempts: int = 10,
+    ) -> str:
+        """Prompt for a UC identifier with validation + re-prompt on bad input.
+
+        Thin wrapper over
+        :func:`databricks.labs.sdp_meta.identifiers.prompt_uc_identifier`
+        that supplies this CLI's :class:`WorkspaceInstaller` (``_wsi``)
+        as the prompter. Kept so existing call sites remain readable
+        (``self._ident_question(text, kind=...)``) while sharing the
+        retry / TTY-aware error-print logic with ``bundle.py``
+        (issue #261).
+        """
+        return prompt_uc_identifier(
+            self._wsi,
+            text,
+            kind=kind,
+            default=default,
+            max_attempts=max_attempts,
+        )
 
     @staticmethod
     def _get_schema_from_json(oc_json: dict) -> str:
@@ -453,7 +531,7 @@ class SDPMeta:
         msg = (
             f"sdp-meta pipeline={pipeline_id} created and launched with "
             f"update_id={update_response.update_id}, Please check the pipeline status in "
-            "databricks workspace under workflows -> Lakeflow Declarative Pipelines tab"
+            "databricks workspace under workflows -> Lakeflow Spark Declarative Pipelines tab"
         )
         logger.info(msg)
         print(
@@ -469,8 +547,8 @@ class SDPMeta:
         onboard_cmd_dict["uc_enabled"] = True if onboard_cmd_dict["uc_enabled"] == "True" else False
         if onboard_cmd_dict["uc_enabled"]:
             onboard_cmd_dict["dbfs_path"] = None
-            onboard_cmd_dict["uc_catalog_name"] = self._wsi._question(
-                "Provide unity catalog name")
+            onboard_cmd_dict["uc_catalog_name"] = self._ident_question(
+                "Provide unity catalog name", kind="uc_catalog_name")
         else:
             onboard_cmd_dict["dbfs_path"] = self._wsi._question(
                 "Provide dbfs path", default=f"dbfs:/sdp-meta_cli_demo_{uuid.uuid4().hex}")
@@ -486,28 +564,38 @@ class SDPMeta:
             onboard_cmd_dict["dbr_version"] = self._wsi._question(
                 "Provide databricks runtime version", default=self._ws.clusters.select_spark_version(latest=True))
         onboard_cmd_dict["onboarding_file_path"] = self._wsi._question(
-            "Provide onboarding file path", default='demo/conf/onboarding.template')
+            "Provide onboarding file path", default='demo/conf/json/onboarding.template')
         cwd = os.getcwd()
         onboarding_files_dir_path = self._wsi._question(
             "Provide onboarding files local directory", default=f'{cwd}/demo/')
         onboard_cmd_dict["onboarding_files_dir_path"] = f"file:/{onboarding_files_dir_path}"
-        onboard_cmd_dict["sdp_meta_schema"] = self._wsi._question(
-            "Provide sdp meta schema name", default=f'sdp_meta_dataflowspecs_{uuid.uuid4().hex}')
-        onboard_cmd_dict["bronze_schema"] = self._wsi._question(
-            "Provide sdp meta bronze layer schema name", default=f'sdp_meta_bronze_{uuid.uuid4().hex}')
-        onboard_cmd_dict["silver_schema"] = self._wsi._question(
-            "Provide sdp meta silver layer schema name", default=f'sdp_meta_silver_{uuid.uuid4().hex}')
+        onboard_cmd_dict["sdp_meta_schema"] = self._ident_question(
+            "Provide sdp meta schema name",
+            kind="sdp_meta_schema",
+            default=f'sdp_meta_dataflowspecs_{uuid.uuid4().hex}')
+        onboard_cmd_dict["bronze_schema"] = self._ident_question(
+            "Provide sdp meta bronze layer schema name",
+            kind="bronze_schema",
+            default=f'sdp_meta_bronze_{uuid.uuid4().hex}')
+        onboard_cmd_dict["silver_schema"] = self._ident_question(
+            "Provide sdp meta silver layer schema name",
+            kind="silver_schema",
+            default=f'sdp_meta_silver_{uuid.uuid4().hex}')
         onboard_cmd_dict["onboard_layer"] = self._wsi._choice(
             "Provide sdp meta layer", ['bronze', 'silver', 'bronze_silver'])
         if onboard_cmd_dict["onboard_layer"] in ["bronze", "bronze_silver"]:
-            onboard_cmd_dict["bronze_dataflowspec_table"] = self._wsi._question(
-                "Provide bronze dataflow spec table name", default='bronze_dataflowspec')
+            onboard_cmd_dict["bronze_dataflowspec_table"] = self._ident_question(
+                "Provide bronze dataflow spec table name",
+                kind="bronze_dataflowspec_table",
+                default='bronze_dataflowspec')
             if not onboard_cmd_dict["uc_enabled"]:
                 onboard_cmd_dict["bronze_dataflowspec_path"] = self._wsi._question(
                     "Provide bronze dataflow spec path", default=f'{self._install_folder()}/bronze_dataflow_specs')
         if onboard_cmd_dict["onboard_layer"] in ["silver", "bronze_silver"]:
-            onboard_cmd_dict["silver_dataflowspec_table"] = self._wsi._question(
-                "Provide silver dataflow spec table name", default='silver_dataflowspec')
+            onboard_cmd_dict["silver_dataflowspec_table"] = self._ident_question(
+                "Provide silver dataflow spec table name",
+                kind="silver_dataflowspec_table",
+                default='silver_dataflowspec')
             if not onboard_cmd_dict["uc_enabled"]:
                 onboard_cmd_dict["silver_dataflowspec_path"] = self._wsi._question(
                     "Provide silver dataflow spec path", default=f'{self._install_folder()}/silver_dataflow_specs')
@@ -548,8 +636,8 @@ class SDPMeta:
                 "Deploy SDP-META with unity catalog enabled?", ["True", "False"])
             deploy_cmd_dict["uc_enabled"] = True if deploy_cmd_dict["uc_enabled"] == "True" else False
             if deploy_cmd_dict["uc_enabled"]:
-                deploy_cmd_dict["uc_catalog_name"] = self._wsi._question(
-                    "Provide unity catalog name")
+                deploy_cmd_dict["uc_catalog_name"] = self._ident_question(
+                    "Provide unity catalog name", kind="uc_catalog_name")
                 deploy_cmd_dict["serverless"] = self._wsi._choice(
                     "Deploy SDP-META with serverless?", ["True", "False"])
                 deploy_cmd_dict["serverless"] = True if deploy_cmd_dict["serverless"] == "True" else False
@@ -581,8 +669,8 @@ class SDPMeta:
                 "Deploy SDP-META with unity catalog enabled?", ["True", "False"])
             deploy_cmd_dict["uc_enabled"] = True if deploy_cmd_dict["uc_enabled"] == "True" else False
             if deploy_cmd_dict["uc_enabled"]:
-                deploy_cmd_dict["uc_catalog_name"] = self._wsi._question(
-                    "Provide unity catalog name")
+                deploy_cmd_dict["uc_catalog_name"] = self._ident_question(
+                    "Provide unity catalog name", kind="uc_catalog_name")
                 deploy_cmd_dict["serverless"] = self._wsi._choice(
                     "Deploy SDP-META with serverless?", ["True", "False"])
                 deploy_cmd_dict["serverless"] = True if deploy_cmd_dict["serverless"] == "True" else False
@@ -593,20 +681,26 @@ class SDPMeta:
             if deploy_cmd_dict["layer"] in ["bronze", "bronze_silver"]:
                 deploy_cmd_dict["onboard_bronze_group"] = self._wsi._question(
                     "Provide sdp meta onboard bronze group")
-                deploy_cmd_dict["sdp_meta_bronze_schema"] = self._wsi._question(
-                    "Provide sdp_meta bronze dataflowspec schema name")
-                deploy_cmd_dict["dataflowspec_bronze_table"] = self._wsi._question(
-                    "Provide bronze dataflowspec table name", default='bronze_dataflowspec')
+                deploy_cmd_dict["sdp_meta_bronze_schema"] = self._ident_question(
+                    "Provide sdp_meta bronze dataflowspec schema name",
+                    kind="sdp_meta_bronze_schema")
+                deploy_cmd_dict["dataflowspec_bronze_table"] = self._ident_question(
+                    "Provide bronze dataflowspec table name",
+                    kind="dataflowspec_bronze_table",
+                    default='bronze_dataflowspec')
                 if not deploy_cmd_dict["uc_enabled"]:
                     deploy_cmd_dict["dataflowspec_bronze_path"] = self._wsi._question(
                         "Provide bronze dataflowspec path", default=f'{self._install_folder()}/bronze_dataflow_specs')
             if deploy_cmd_dict["layer"] in ["silver", "bronze_silver"]:
                 deploy_cmd_dict["onboard_silver_group"] = self._wsi._question(
                     "Provide sdp meta silver onboard group")
-                deploy_cmd_dict["sdp_meta_silver_schema"] = self._wsi._question(
-                    "Provide sdp_meta silver dataflowspec schema name")
-                deploy_cmd_dict["dataflowspec_silver_table"] = self._wsi._question(
-                    "Provide silver dataflowspec table name", default='silver_dataflowspec')
+                deploy_cmd_dict["sdp_meta_silver_schema"] = self._ident_question(
+                    "Provide sdp_meta silver dataflowspec schema name",
+                    kind="sdp_meta_silver_schema")
+                deploy_cmd_dict["dataflowspec_silver_table"] = self._ident_question(
+                    "Provide silver dataflowspec table name",
+                    kind="dataflowspec_silver_table",
+                    default='silver_dataflowspec')
                 if not deploy_cmd_dict["uc_enabled"]:
                     deploy_cmd_dict["dataflowspec_path"] = self._wsi._question(
                         "Provide silver dataflowspec path",
@@ -617,8 +711,8 @@ class SDPMeta:
         layer = deploy_cmd_dict["layer"]
         deploy_cmd_dict["pipeline_name"] = self._wsi._question(
             "Provide sdp meta pipeline name", default=f"sdp_meta_{layer}_pipeline_{uuid.uuid4().hex}")
-        deploy_cmd_dict["dlt_target_schema"] = self._wsi._question(
-            "Provide dlt target schema name")
+        deploy_cmd_dict["dlt_target_schema"] = self._ident_question(
+            "Provide dlt target schema name", kind="dlt_target_schema")
         return DeployCommand(**deploy_cmd_dict)
 
     def _load_onboard_config_ui(self, form_data) -> OnboardCommand:
@@ -644,7 +738,7 @@ class SDPMeta:
 
         # Get file paths
         onboard_cmd_dict["onboarding_file_path"] = form_data.get(
-            'onboarding_file_path', 'demo/conf/onboarding.template'
+            'onboarding_file_path', 'demo/conf/json/onboarding.template'
         )
         onboarding_files_dir_path = form_data.get('local_directory', f'{os.getcwd()}/demo/')
         onboard_cmd_dict["onboarding_files_dir_path"] = f"file:/{onboarding_files_dir_path}"
@@ -805,11 +899,111 @@ def deploy_ui(sdp_meta: SDPMeta, form_data):
     sdp_meta.deploy(cmd)
 
 
+# ---------------------------------------------------------------------------
+# DAB (Declarative Automation Bundle) command wrappers
+#
+# Mirror the onboard/deploy pattern: each wrapper takes the shared SDPMeta
+# instance, uses `sdp_meta._wsi` (a WorkspaceInstaller, set up in the SDPMeta
+# constructor) as the interactive prompter, and delegates to the matching
+# pure-function handler in `bundle.py`. The handlers themselves don't need
+# a WorkspaceClient -- they shell out to the `databricks` CLI -- but routing
+# them through SDPMeta keeps the dispatcher's signature uniform with the
+# legacy commands.
+#
+# These four entries MUST stay in lock-step with `labs.yml commands:` and
+# the `MAPPING` dict below. The `tests/test_cli.py::CliCommandWiringTests`
+# regression test enforces both.
+# ---------------------------------------------------------------------------
+
+
+def bundle_init(sdp_meta: SDPMeta, flags: dict = None):
+    """Scaffold a new sdp-meta DAB.
+
+    With ``--quickstart`` (declared in labs.yml), all 13 template prompts are
+    pre-answered with developer-friendly defaults via a generated
+    ``--config-file`` (see ``QUICKSTART_BUNDLE_INIT_DEFAULTS`` in bundle.py).
+    The user still has to fix ``sdp_meta_dependency`` afterwards, but the
+    happy path is ``bundle-init --quickstart`` -> edit one file ->
+    ``bundle-validate``. ``--output-dir`` is honored by both modes.
+    Without ``--quickstart``, falls back to the interactive prompts.
+    """
+    from databricks.labs.sdp_meta.bundle import (
+        BundleInitCommand,
+        _load_bundle_init_config,
+        bundle_init as _run,
+        write_quickstart_config_file,
+    )
+
+    flags = flags or {}
+    quickstart = bool(flags.get("quickstart"))
+    output_dir = flags.get("output-dir") or flags.get("output_dir") or "."
+
+    if quickstart:
+        logger.info(
+            "Scaffolding a new sdp-meta DAB in --quickstart mode "
+            "(no prompts; developer defaults)."
+        )
+        # Stash the generated config alongside the rendered bundle so users
+        # have a record of which defaults they got. tempfile would also work
+        # but leaving it next to the bundle aids debugging.
+        cfg_dir = Path(output_dir).resolve()
+        cfg_dir.mkdir(parents=True, exist_ok=True)
+        cfg_path = write_quickstart_config_file(cfg_dir)
+        cmd = BundleInitCommand(output_dir=output_dir, config_file=str(cfg_path))
+    else:
+        logger.info("Scaffolding a new sdp-meta DAB from the packaged template.")
+        cmd = _load_bundle_init_config(sdp_meta._wsi)
+        # CLI --output-dir wins over an interactive answer when both are given,
+        # since the user explicitly typed it on the command line.
+        if flags.get("output-dir") or flags.get("output_dir"):
+            cmd.output_dir = output_dir
+    _run(cmd)
+
+
+def bundle_prepare_wheel(sdp_meta: SDPMeta, flags: dict = None):
+    # `flags` is accepted for dispatcher uniformity (see main()) but unused.
+    del flags
+    logger.info("Building the sdp-meta wheel and uploading it to a UC volume.")
+    from databricks.labs.sdp_meta.bundle import (
+        _load_bundle_prepare_wheel_config,
+        bundle_prepare_wheel as _run,
+    )
+    _run(_load_bundle_prepare_wheel_config(sdp_meta._wsi))
+
+
+def bundle_validate(sdp_meta: SDPMeta, flags: dict = None):
+    del flags
+    logger.info("Validating the sdp-meta DAB (databricks bundle validate + sanity checks).")
+    from databricks.labs.sdp_meta.bundle import (
+        _load_bundle_validate_config,
+        bundle_validate as _run,
+    )
+    rc = _run(_load_bundle_validate_config(sdp_meta._wsi))
+    if rc != 0:
+        sys.exit(rc)
+
+
+def bundle_add_flow(sdp_meta: SDPMeta, flags: dict = None):
+    del flags
+    logger.info("Appending flow entries to the bundle's onboarding file.")
+    from databricks.labs.sdp_meta.bundle import (
+        _load_bundle_add_flow_config,
+        bundle_add_flow as _run,
+    )
+    rc = _run(_load_bundle_add_flow_config(sdp_meta._wsi))
+    if rc != 0:
+        sys.exit(rc)
+
+
 MAPPING = {
     "onboard": onboard,
     "deploy": deploy,
     "onboard_ui": onboard_ui,
     "deploy_ui": deploy_ui,
+    "bundle-init": bundle_init,
+    "bundle-prepare-wheel": bundle_prepare_wheel,
+    "bundle-validate": bundle_validate,
+    "bundle-add-flow": bundle_add_flow,
 }
 
 
@@ -835,6 +1029,12 @@ def main(raw):
     sdp_meta = SDPMeta(ws)
     if command in ["onboard_ui", "deploy_ui"]:
         MAPPING[command](sdp_meta, payload)
+    elif command.startswith("bundle-"):
+        # Bundle wrappers receive `flags` so they can opt into non-interactive
+        # behavior (e.g. `bundle-init --quickstart`). Wrappers that ignore
+        # flags accept them as a `flags=None` keyword arg, which keeps the
+        # wrapper callable in tests without constructing a fake payload.
+        MAPPING[command](sdp_meta, flags=flags)
     else:
         MAPPING[command](sdp_meta)
 

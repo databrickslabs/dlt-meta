@@ -18,6 +18,7 @@ resources:
         bronze.dataflowspecTable: ${var.${bundle.target}_catalog_name}.${var.sdp_meta_schema}.${var.bronze_dataflowspecTable}
         bronze.group: my_people
         bundle.sourcePath: ${workspace.file_path}/notebooks
+        sdp_meta_whl: ${var.sdp_meta_wheel_path}
 
     pipeline_silver_people:
       name: People - B2S Pipeline1
@@ -36,4 +37,5 @@ resources:
         silver.dataflowspecTable: ${var.${bundle.target}_catalog_name}.${var.sdp_meta_schema}.${var.silver_dataflowspecTable}
         silver.group: my_people
         bundle.sourcePath: ${workspace.file_path}/notebooks
+        sdp_meta_whl: ${var.sdp_meta_wheel_path}
         

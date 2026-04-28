@@ -1,0 +1,36 @@
+# Databricks notebook source
+# Runner notebook for the sdp-meta LDP pipelines in bundle `{{.bundle_name}}`.
+#
+# IMPORTANT: keep cell 1 below SHORT (variable read + `%pip install` only).
+# The Databricks notebook source format for `.py` files is fragile around
+# line magics: any multi-line Python BEFORE `%pip install` in the same cell
+# causes the parser to fail with `SyntaxError: incomplete input` at LDP
+# startup. This layout (mirrors the existing demo runner notebooks under
+# `demo/notebooks/*_runners/init_sdp_meta_pipeline.py`) is the one shape the
+# parser accepts.
+#
+# Serverless LDP also forbids `libraries: - whl:` and `libraries: - pypi:`
+# entries on the pipeline definition, so we cannot install the wheel from
+# `resources/sdp_meta_pipelines.yml` either -- it has to happen here.
+sdp_meta_dependency = spark.conf.get("sdp_meta_dependency")
+%pip install $sdp_meta_dependency  # noqa: E999
+
+# COMMAND ----------
+
+# Validate + invoke. By the time we reach this cell, sdp-meta is importable.
+dep = spark.conf.get("sdp_meta_dependency", "")
+if dep == "__SET_ME__" or not dep:
+    raise ValueError(
+        "sdp_meta_dependency is still set to the placeholder `__SET_ME__`. "
+        "Replace it in resources/variables.yml with either a PyPI coordinate "
+        "(e.g. `databricks-labs-sdp-meta==0.0.11`) or a UC-volume wheel path "
+        "(e.g. `/Volumes/<catalog>/<schema>/<volume>/databricks_labs_sdp_meta-"
+        "<version>-py3-none-any.whl`). For the volume path, run "
+        "`databricks labs sdp-meta bundle-prepare-wheel` to build and upload "
+        "the wheel and copy the printed path."
+    )
+
+layer = spark.conf.get("layer", None)
+from databricks.labs.sdp_meta.dataflow_pipeline import DataflowPipeline
+
+DataflowPipeline.invoke_dlt_pipeline(spark, layer)

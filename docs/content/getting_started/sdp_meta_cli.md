@@ -76,9 +76,9 @@ draft: false
    4. Job URL will automatically open in your default browser.
 
 
-- Once onboarding jobs is finished deploy `bronze` and `silver` Lakeflow Declarative Pipeline using below command
+- Once onboarding jobs is finished deploy `bronze` and `silver` Lakeflow Spark Declarative Pipeline using below command
 
-## SDP-META Lakeflow Declarative Pipeline: 
+## SDP-META Lakeflow Spark Declarative Pipeline: 
 
 #### Deploy ```Bronze``` and ```Silver``` layer into single pipeline
  ```shell 

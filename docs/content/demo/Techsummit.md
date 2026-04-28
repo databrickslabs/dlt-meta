@@ -7,7 +7,7 @@ draft: false
 
 ### Databricks Tech Summit FY2024 DEMO
 
-This demo launches 100+ auto-generated tables in a single bronze and silver Lakeflow Declarative Pipeline using sdp-meta. Data is generated as CSV files and ingested via Autoloader.
+This demo launches 100+ auto-generated tables in a single bronze and silver Lakeflow Spark Declarative Pipeline using sdp-meta. Data is generated as CSV files and ingested via Autoloader.
 
 ---
 

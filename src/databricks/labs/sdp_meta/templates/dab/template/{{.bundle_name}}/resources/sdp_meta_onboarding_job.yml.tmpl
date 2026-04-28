@@ -1,0 +1,35 @@
+# Onboarding job: reads conf/${var.onboarding_file_name} and writes/updates rows in the
+# bronze/silver dataflowspec tables. Run once (per schema change) before running the pipelines.
+
+resources:
+  jobs:
+    onboarding:
+      name: "${bundle.name} - sdp-meta onboarding"
+      description: "Writes sdp-meta dataflow specifications from the onboarding file."
+      tasks:
+        - task_key: onboard_dataflowspecs
+          python_wheel_task:
+            package_name: databricks_labs_sdp_meta
+            entry_point: run
+            named_parameters:
+              onboard_layer: ${var.layer}
+              database: ${var.uc_catalog_name}.${var.sdp_meta_schema}
+              onboarding_file_path: ${workspace.file_path}/conf/${var.onboarding_file_name}
+              {{- if or (eq .layer "bronze") (eq .layer "bronze_silver")}}
+              bronze_dataflowspec_table: ${var.bronze_dataflowspec_table}
+              {{- end}}
+              {{- if or (eq .layer "silver") (eq .layer "bronze_silver")}}
+              silver_dataflowspec_table: ${var.silver_dataflowspec_table}
+              {{- end}}
+              uc_enabled: "True"
+              import_author: ${var.author}
+              version: ${var.dataflowspec_version}
+              overwrite: ${var.overwrite_dataflowspecs}
+              env: ${bundle.target}
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+            dependencies:
+              - ${var.sdp_meta_dependency}

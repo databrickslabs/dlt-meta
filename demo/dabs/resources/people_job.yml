@@ -51,7 +51,10 @@ resources:
           spec: 
             client: "1"
             dependencies:
-              - sdp-meta
+              # Locally-built sdp-meta wheel uploaded to UC volume by
+              # demo/generate_dabs_resources.py. The package is not on PyPI
+              # yet so we install from the volume path instead of the name.
+              - ${var.sdp_meta_wheel_path}
 
     execute_pipelines_people:
       name: People - Raw_Br_Si Job

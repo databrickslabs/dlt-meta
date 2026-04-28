@@ -1,0 +1,105 @@
+# All knobs for the {{.bundle_name}} sdp-meta bundle.
+# Override any of these per target in databricks.yml under `targets.<name>.variables`.
+
+variables:
+  uc_catalog_name:
+    description: Unity Catalog catalog where the sdp-meta schema and bronze/silver schemas live.
+    type: string
+    default: {{.uc_catalog_name}}
+
+  sdp_meta_schema:
+    description: Schema that holds the bronze_dataflowspec / silver_dataflowspec tables.
+    type: string
+    default: {{.sdp_meta_schema}}
+
+  bronze_target_schema:
+    description: Schema where the bronze LDP pipeline writes its tables.
+    type: string
+    default: {{.bronze_target_schema}}
+
+  silver_target_schema:
+    description: Schema where the silver LDP pipeline writes its tables.
+    type: string
+    default: {{.silver_target_schema}}
+
+  layer:
+    description: Layer to onboard. One of `bronze`, `silver`, `bronze_silver`.
+    type: string
+    default: {{.layer}}
+
+  pipeline_mode:
+    description: |
+      Only consulted when layer=bronze_silver. `split` keeps two LDP pipelines
+      (silver depends on bronze); `combined` collapses both layers into one
+      LDP pipeline using sdp-meta's `bronze_silver` runtime mode.
+    type: string
+    default: {{.pipeline_mode}}
+
+  dataflow_group:
+    description: |
+      data_flow_group used by the seeded flow(s) and referenced from the LDP
+      pipeline `configuration` as `bronze.group` / `silver.group`.
+    type: string
+    default: {{.dataflow_group}}
+
+  onboarding_file_name:
+    description: Filename (inside conf/) of the onboarding file uploaded with this bundle.
+    type: string
+    default: onboarding.{{if eq .onboarding_file_format "yaml"}}yml{{else}}json{{end}}
+
+  bronze_dataflowspec_table:
+    description: Bronze dataflowspec table name inside `sdp_meta_schema`.
+    type: string
+    default: bronze_dataflowspec
+
+  silver_dataflowspec_table:
+    description: Silver dataflowspec table name inside `sdp_meta_schema`.
+    type: string
+    default: silver_dataflowspec
+
+  dataflowspec_version:
+    description: Value written to the `version` column of dataflowspec rows.
+    type: string
+    default: v1
+
+  author:
+    description: Value written to the `import_author` column of dataflowspec rows.
+    type: string
+    default: {{.author}}
+
+  overwrite_dataflowspecs:
+    description: If "True", onboarding overwrites existing dataflowspec rows; if "False" it merges.
+    type: string
+    default: "True"
+
+  wheel_source:
+    description: |
+      Documents (and lets `bundle-validate` enforce) which install style this
+      bundle uses. `pypi` -> `sdp_meta_dependency` should be a coordinate.
+      `volume_path` -> `sdp_meta_dependency` should start with `/Volumes/`.
+    type: string
+    default: {{.wheel_source}}
+
+  sdp_meta_dependency:
+    description: |
+      Concrete value the bundle pins for installs. The runner notebook will
+      `pip install` this verbatim and the onboarding job consumes it as an
+      environments dependency. Must match `wheel_source`. The sentinel
+      `__SET_ME__` will fail-fast at validate and at runtime.
+    type: string
+    default: {{.sdp_meta_dependency}}
+
+  serverless:
+    description: Run the LDP pipelines on serverless compute.
+    type: bool
+    default: true
+
+  photon_enabled:
+    description: Enable Photon on the LDP pipelines (ignored on serverless).
+    type: bool
+    default: true
+
+  development_enabled:
+    description: Set the LDP pipeline `development` flag. Overridden per-target in databricks.yml.
+    type: bool
+    default: true

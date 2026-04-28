@@ -153,20 +153,27 @@ class WorkspaceInstaller:
             # working copy becomes project root for building a wheel
             project_root = tmp_dir_path
         logger.debug(f"Building wheel for {project_root} in {tmp_dir}")
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "pip",
-                "wheel",
-                "--no-deps",
-                "--wheel-dir",
-                tmp_dir,
-                project_root,
-            ],
-            **streams,
-            check=True,
-        )
+        pip_cmd = [
+            sys.executable,
+            "-m",
+            "pip",
+            "wheel",
+            "--no-deps",
+            "--wheel-dir",
+            tmp_dir,
+        ]
+        # Opt-in escape hatch for offline / firewalled environments where
+        # pip's default build isolation cannot reach pypi.org to fetch
+        # build-system requirements (setuptools, wheel). When set, pip uses
+        # the build tools already installed in the active interpreter.
+        if os.environ.get("SDP_META_NO_BUILD_ISOLATION", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        ):
+            pip_cmd.append("--no-build-isolation")
+        pip_cmd.append(project_root)
+        subprocess.run(pip_cmd, **streams, check=True)
         # get wheel name as first file in the temp directory
         return next(Path(tmp_dir).glob("*.whl"))
 

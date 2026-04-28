@@ -1,5 +1,6 @@
 # Databricks notebook source
-%pip install databricks-labs-sdp-meta
+sdp_meta_whl = spark.conf.get("sdp_meta_whl")
+%pip install $sdp_meta_whl  # noqa: E999
 
 # COMMAND ----------
 
