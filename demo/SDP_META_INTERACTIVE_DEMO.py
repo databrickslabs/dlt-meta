@@ -48,10 +48,12 @@
 # MAGIC
 # MAGIC | Parameter | Description |
 # MAGIC |-----------|-------------|
-# MAGIC | **Git Branch** | Branch to install SDP-META from |
+# MAGIC | **Git Branch** | Branch on `databrickslabs/dlt-meta` used to (a) install SDP-META when `Install Source = git_branch` and (b) fetch demo datasets / onboarding templates from `raw.githubusercontent.com` |
 # MAGIC | **UC Catalog Name** | Unity Catalog catalog for the demo |
 # MAGIC | **UC Schema Name** | Schema within the catalog |
 # MAGIC | **Data Source** | `dbdatagen` (generate synthetic data) or `github` (download from repo) |
+# MAGIC | **Install Source** | `git_branch` (default — installs SDP-META from the GitHub branch above) or `whl_file` (installs from a pre-built wheel — preferred when validating a local build) |
+# MAGIC | **Wheel File Path** | Required only when `Install Source = whl_file`. Path to the SDP-META wheel on a Volume / Workspace, e.g. `/Volumes/<catalog>/<schema>/<volume>/sdp_meta-<version>-py3-none-any.whl` |
 
 # COMMAND ----------
 
@@ -82,6 +84,50 @@ dbutils.widgets.dropdown(
     choices=["json", "yml"],
     label="Onboarding File Format"
 )
+# Lets the demo install SDP-META either from the GitHub branch
+# (default — anyone can run the demo without building) or from a
+# pre-built wheel on a Volume / Workspace path (preferred when
+# validating a local build before merging). Note: ``git_branch`` is
+# still used regardless of this choice — it controls where demo
+# datasets and onboarding templates are fetched from on raw.github.
+dbutils.widgets.dropdown(
+    name="install_source",
+    defaultValue="git_branch",
+    choices=["git_branch", "whl_file"],
+    label="Install Source"
+)
+dbutils.widgets.text(
+    name="whl_file_path",
+    defaultValue="",
+    label="Wheel File Path (when install_source=whl_file)"
+)
+# Final-validation toggle. Off by default so SAs walking through the
+# demo interactively don't get an unexpected hard fail at the end.
+# When ``true``, the cell at the bottom of the notebook turns the demo
+# into a smoke test: it asserts the deterministic tables hit their
+# expected row counts and that every demo-produced table is non-empty.
+# Use this in CI / pre-release smoke runs.
+dbutils.widgets.dropdown(
+    name="validate_counts",
+    defaultValue="false",
+    choices=["false", "true"],
+    label="Validate Counts (smoke test mode)"
+)
+# Cleanup toggle. Off by default so SAs walking through the demo
+# interactively can keep poking at bronze/silver tables after the
+# notebook finishes. When ``true``, the cleanup cell at the bottom of
+# the notebook drops every per-run resource the demo created
+# (pipelines, runner notebooks, per-run schemas + the per-run
+# config volume). The user-supplied UC catalog is intentionally
+# preserved -- it's shared across runs and would clobber other
+# work if dropped here. Use this in CI runs that need to leave the
+# workspace clean.
+dbutils.widgets.dropdown(
+    name="cleanup",
+    defaultValue="false",
+    choices=["false", "true"],
+    label="Cleanup (drop per-run resources at end)"
+)
 
 # COMMAND ----------
 
@@ -90,27 +136,96 @@ uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
 uc_schema_name = dbutils.widgets.get("uc_schema_name")
 data_source = dbutils.widgets.get("data_source")
 onboarding_format = dbutils.widgets.get("onboarding_format")
+install_source = dbutils.widgets.get("install_source")
+whl_file_path = dbutils.widgets.get("whl_file_path").strip()
+validate_counts = dbutils.widgets.get("validate_counts").lower() == "true"
+cleanup = dbutils.widgets.get("cleanup").lower() == "true"
+
+# Reject illegal UC identifiers up-front. The demo notebook splices these
+# names directly into SQL throughout the rest of the cells, so any value
+# that isn't a regular SQL identifier would only blow up much later with
+# a confusing Spark error (issue #261).
+#
+# IMPORTANT: this cell runs *before* the %pip install of sdp-meta below,
+# so we cannot import ``databricks.labs.sdp_meta.identifiers`` here -- it
+# isn't on PYTHONPATH yet. We inline the same regular-SQL-identifier rule
+# that ``validate_uc_identifier`` enforces (``[A-Za-z_][A-Za-z0-9_]*``,
+# max 255 chars). The canonical, import-based check still happens after
+# the Python restart in cell 1.1.
+#
+# KEEP IN SYNC WITH src/databricks/labs/sdp_meta/identifiers.py
+# (``_REGULAR_IDENT_RE`` and ``_MAX_IDENT_LEN``). If the canonical regex
+# or max-length tightens/loosens there, mirror the change here -- otherwise
+# this pre-install gate will silently drift from the post-install one and
+# the demo will reject names the rest of the codebase accepts (or vice
+# versa).
+import re as _re_preinstall
+_REGULAR_IDENT_RE_PREINSTALL = _re_preinstall.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+def _validate_uc_identifier_preinstall(name, *, kind):
+    if not isinstance(name, str) or not name:
+        raise ValueError(
+            f"{kind} must be a non-empty string, got {type(name).__name__}: {name!r}"
+        )
+    if len(name) > 255:
+        raise ValueError(
+            f"{kind} {name!r} is {len(name)} characters; maximum allowed is 255"
+        )
+    if not _REGULAR_IDENT_RE_PREINSTALL.match(name):
+        raise ValueError(
+            f"{kind} {name!r} is not a valid Databricks SQL regular identifier. "
+            f"Names must match {_REGULAR_IDENT_RE_PREINSTALL.pattern} (letters, "
+            f"digits and underscores only; must start with a letter or "
+            f"underscore). Hyphens, periods, spaces and leading digits are not "
+            f"supported."
+        )
+
+_validate_uc_identifier_preinstall(uc_catalog_name, kind="uc_catalog_name widget")
+_validate_uc_identifier_preinstall(uc_schema_name, kind="uc_schema_name widget")
+
+# Resolve the install target up-front so every downstream consumer
+# (this notebook's %pip install, the runner-notebook %pip install, and
+# the ``sdp_meta_whl`` pipeline config key passed into all 3 pipelines)
+# uses the exact same value. Fail fast on a missing wheel path here —
+# otherwise the error surfaces later inside the embedded runner
+# notebook where it's much harder to diagnose.
+if install_source == "whl_file":
+    if not whl_file_path:
+        raise ValueError(
+            "install_source=whl_file requires the 'whl_file_path' widget "
+            "to be set (e.g. /Volumes/<catalog>/<schema>/<volume>/"
+            "sdp_meta-<version>-py3-none-any.whl). Either set the path "
+            "or switch install_source back to 'git_branch'."
+        )
+    sdp_meta_install_target = whl_file_path
+else:
+    sdp_meta_install_target = (
+        f"git+https://github.com/databrickslabs/"
+        f"dlt-meta.git@{git_branch}"
+    )
 
 print(f"Git Branch         : {git_branch}")
 print(f"UC Catalog         : {uc_catalog_name}")
 print(f"UC Schema          : {uc_schema_name}")
 print(f"Data Source        : {data_source}")
 print(f"Onboarding Format  : {onboarding_format}")
+print(f"Install Source     : {install_source}")
+print(f"Install Target     : {sdp_meta_install_target}")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### Install SDP-META from Git
+# MAGIC ### Install SDP-META
+# MAGIC
+# MAGIC Installs from the chosen `Install Source`:
+# MAGIC - `git_branch` — `pip install git+https://github.com/databrickslabs/dlt-meta.git@<branch>`
+# MAGIC - `whl_file` — `pip install <whl_file_path>` (wheel on a Volume / Workspace path)
 
 # COMMAND ----------
 
-git_url = (
-    f"git+https://github.com/databrickslabs/"
-    f"dlt-meta.git@{dbutils.widgets.get('git_branch')}"
-)
 # dbldatagen is only needed for the "dbdatagen" data source option
 extra_packages = " dbldatagen" if data_source == "dbdatagen" else ""
-packages = git_url + extra_packages
+packages = sdp_meta_install_target + extra_packages
 %pip install $packages  # noqa: E999
 dbutils.library.restartPython()
 
@@ -186,6 +301,34 @@ uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
 uc_schema_name = dbutils.widgets.get("uc_schema_name")
 data_source = dbutils.widgets.get("data_source")
 onboarding_format = dbutils.widgets.get("onboarding_format")
+install_source = dbutils.widgets.get("install_source")
+whl_file_path = dbutils.widgets.get("whl_file_path").strip()
+validate_counts = dbutils.widgets.get("validate_counts").lower() == "true"
+cleanup = dbutils.widgets.get("cleanup").lower() == "true"
+
+# Re-resolve the install target after the Python restart so the
+# pipeline runner notebooks (created later in this same cell-group) get
+# the right value pumped into ``sdp_meta_whl``. Mirrors the resolution
+# in the prerequisites cell — keep both copies in sync.
+if install_source == "whl_file":
+    if not whl_file_path:
+        raise ValueError(
+            "install_source=whl_file requires the 'whl_file_path' widget "
+            "to be set."
+        )
+    sdp_meta_install_target = whl_file_path
+else:
+    sdp_meta_install_target = (
+        f"git+https://github.com/databrickslabs/"
+        f"dlt-meta.git@{git_branch}"
+    )
+
+# Re-validate after re-reading widgets in this cell to match the strict
+# regular SQL identifier rule used everywhere else (issue #261). Cheap
+# and keeps every entry point honest.
+from databricks.labs.sdp_meta.identifiers import validate_uc_identifier  # noqa: E402
+validate_uc_identifier(uc_catalog_name, kind="uc_catalog_name widget")
+validate_uc_identifier(uc_schema_name, kind="uc_schema_name widget")
 
 w = WorkspaceClient()
 
@@ -1438,10 +1581,12 @@ print(f"Runner notebook created: {runner_notebook_path}")
 
 # COMMAND ----------
 
-git_url_for_pip = (
-    f"git+https://github.com/databrickslabs/"
-    f"dlt-meta.git@{git_branch}"
-)
+# All 3 pipelines (main, snapshot, sink) reuse the same install target
+# resolved from the ``install_source`` / ``whl_file_path`` widgets. The
+# runner notebooks read this value via ``spark.conf.get("sdp_meta_whl")``
+# and feed it straight to ``%pip install`` — works for both
+# ``git+https://...@branch`` and ``/Volumes/.../foo.whl`` shapes.
+git_url_for_pip = sdp_meta_install_target
 
 pipeline_config = {
     "layer": "bronze_silver",
@@ -1483,7 +1628,7 @@ else:
         ],
         configuration=pipeline_config,
         development=True,
-        serverless=True
+        serverless=True,
     )
     pipeline_id = created.pipeline_id
     print(f"Pipeline created: {pipeline_id}")
@@ -2645,7 +2790,7 @@ else:
         ],
         configuration=snapshot_pipeline_config,
         development=True,
-        serverless=True
+        serverless=True,
     )
     snapshot_pipeline_id = created_snap.pipeline_id
     print(f"Snapshot pipeline created: {snapshot_pipeline_id}")
@@ -2954,6 +3099,7 @@ else:
         ],
         configuration=sink_pipeline_config,
         development=True,
+        serverless=True,
     )
     sink_pipeline_id = created_sink.pipeline_id
     print(f"Sink pipeline created: {sink_pipeline_id}")
@@ -3100,38 +3246,263 @@ display(spark.createDataFrame(summary_rows))
 
 # MAGIC %md
 # MAGIC ---
-# MAGIC ## Cleanup (Optional)
+# MAGIC ## Final Validation (Smoke Test Mode)
 # MAGIC
-# MAGIC Uncomment and run the cells below to clean up all demo resources.
+# MAGIC When the **`Validate Counts`** widget is set to `true`, this cell
+# MAGIC turns the demo into a smoke test: it asserts that every table
+# MAGIC the demo is supposed to produce exists, is non-empty, and (for
+# MAGIC tables fed by hardcoded data) hits an exact expected row count.
+# MAGIC
+# MAGIC The numeric expectations come from data that is hardcoded in
+# MAGIC this notebook (`orders_main_data` + `orders_af_data`,
+# MAGIC `iot_events`, the snapshot CSV literals, and the bad-records
+# MAGIC strings) and so are deterministic regardless of the
+# MAGIC `data_source` widget. The customers / transactions / products /
+# MAGIC stores tables only get an existence + non-empty check because
+# MAGIC their counts depend on whether `data_source = github` (CSVs from
+# MAGIC the repo) or `dbdatagen` (random synthetic data).
+# MAGIC
+# MAGIC All failures are collected and reported in a single
+# MAGIC `AssertionError` — easier to fix the demo / pipelines once than
+# MAGIC to chase one failure at a time.
 
 # COMMAND ----------
 
-# -- Delete pipelines --
-# for pid_file in [
-#     pipeline_id_file,
-#     snapshot_pipeline_id_file,
-#     sink_pipeline_id_file,
-# ]:
-#     try:
-#         with open(pid_file, "r") as fh:
-#             pid = fh.read().strip()
-#         w.pipelines.delete(pipeline_id=pid)
-#         print(f"Deleted pipeline: {pid}")
-#     except Exception as e:
-#         print(f"Skipping {pid_file}: {e}")
-#
-# -- Delete runner notebooks --
-# for nb_path in [runner_notebook_path, snapshot_runner_path]:
-#     try:
-#         w.workspace.delete(nb_path)
-#         print(f"Deleted notebook: {nb_path}")
-#     except Exception as e:
-#         print(f"Skipping {nb_path}: {e}")
-#
-# -- Drop schemas and catalog --
-# spark.sql(f"DROP SCHEMA IF EXISTS {uc_catalog_name}.{bronze_schema} CASCADE")
-# spark.sql(f"DROP SCHEMA IF EXISTS {uc_catalog_name}.{silver_schema} CASCADE")
-# spark.sql(f"DROP SCHEMA IF EXISTS {uc_catalog_name}.{pipeline_target_schema} CASCADE")
-# spark.sql(f"DROP SCHEMA IF EXISTS {uc_catalog_name}.{uc_schema_name} CASCADE")
-# spark.sql(f"DROP CATALOG IF EXISTS {uc_catalog_name} CASCADE")
-# print(f"Cleaned up all demo resources for: {uc_catalog_name}")
+if not validate_counts:
+    print(
+        "Skipping final validation: 'validate_counts' widget is "
+        "'false'. Set it to 'true' to enable the smoke-test mode."
+    )
+else:
+    # ``failures`` is a list of human-readable strings; we collect
+    # every failed expectation and raise once at the end so a CI
+    # operator sees the full picture from one run instead of fixing
+    # one regression, re-running, and finding the next.
+    failures = []
+
+    def _table_count(fqn):
+        """Return row count for ``fqn``, or ``None`` if missing/unreadable.
+
+        Returning ``None`` (rather than raising) lets the caller
+        distinguish "table doesn't exist" from "table exists but is
+        empty" — both are failures, but they're reported with
+        different messages so the operator knows whether the bug is
+        in pipeline wiring or in data routing.
+        """
+        try:
+            return spark.sql(
+                f"SELECT count(*) AS c FROM {fqn}"
+            ).first().c
+        except Exception:
+            return None
+
+    def _expect_exact(fqn, want):
+        got = _table_count(fqn)
+        if got is None:
+            failures.append(f"{fqn}: missing (table not found)")
+        elif got != want:
+            failures.append(
+                f"{fqn}: expected exactly {want} rows, got {got}"
+            )
+
+    def _expect_at_least(fqn, want):
+        got = _table_count(fqn)
+        if got is None:
+            failures.append(f"{fqn}: missing (table not found)")
+        elif got < want:
+            failures.append(
+                f"{fqn}: expected >= {want} rows, got {got}"
+            )
+
+    def _expect_nonempty(fqn):
+        _expect_at_least(fqn, 1)
+
+    # 1. Append flow — bronze ``orders`` is fed by two hardcoded JSON
+    # literals (``orders_main_data`` = 4 rows, ``orders_af_data`` = 3
+    # rows). Append flow is non-merging, so the count is exactly 7
+    # regardless of widget choices. Drift here means
+    # ``dp.append_flow`` wiring broke.
+    _expect_exact(
+        f"{uc_catalog_name}.{bronze_schema}.orders", 7
+    )
+
+    # 2. Sink — bronze ``iot_events`` is fed by a hardcoded 5-row CSV
+    # literal. Drift here means the bronze table that backs the sink
+    # is broken; the external sink target is validated separately by
+    # the ``DLT Sink`` cells above.
+    _expect_exact(
+        f"{uc_catalog_name}.{bronze_schema}.iot_events", 5
+    )
+
+    # 3. Snapshot tables — fed by hardcoded CSV literals. The demo
+    # runs the snapshot pipeline TWICE: once with LOAD_1, once after
+    # LOAD_2 is copied over LOAD_1 (see "Snapshot V2" cells above).
+    # Bounds below track the *final* state after the V2 run, not the
+    # initial load:
+    #   - ``snap_products`` is SCD Type 2 → history retained, so the
+    #     final row count is ``>= LOAD_1 count`` (5). LOAD_2 keeps
+    #     the same 5 keys but renames them; SCD2 inserts new rows
+    #     for the changed values, so the actual count is closer to
+    #     ~7-9 — we assert the lower bound (5).
+    #   - ``snap_stores`` is SCD Type 1 → the demo deliberately drops
+    #     stores 3 & 4 in LOAD_2 to show SCD1's delete-on-missing
+    #     semantics, leaving exactly 2 rows. We assert ``>= 2`` (the
+    #     LOAD_2 count) rather than exact 2 so future tweaks to the
+    #     LOAD_2 fixture don't have to thread through here.
+    _expect_at_least(
+        f"{uc_catalog_name}.{bronze_schema}.snap_products", 5
+    )
+    _expect_at_least(
+        f"{uc_catalog_name}.{bronze_schema}.snap_stores", 2
+    )
+    _expect_at_least(
+        f"{uc_catalog_name}.{silver_schema}.snap_products", 5
+    )
+    _expect_at_least(
+        f"{uc_catalog_name}.{silver_schema}.snap_stores", 2
+    )
+
+    # 4. Quarantine — for each domain we wrote 2 hardcoded bad rows
+    # (lines ~963-983). Some may be DQE-dropped vs quarantined
+    # depending on the DQE rules in ``demo/conf/json/dqe/``, so we
+    # only assert ``>= 1``. An empty quarantine table after we
+    # explicitly seeded bad data means quarantine routing is broken.
+    for domain in ("customers", "transactions", "products", "stores"):
+        _expect_nonempty(
+            f"{uc_catalog_name}.{bronze_schema}"
+            f".{domain}_quarantine"
+        )
+
+    # 5. Customers / transactions / products / stores — count varies
+    # with ``data_source``: ``github`` uses fixed CSVs from the
+    # repo, ``dbdatagen`` uses random synthetic data with no fixed
+    # seed. Existence + non-empty is the strongest universal check;
+    # tightening to exact counts would require either pinning the
+    # dbdatagen seed across the codebase or splitting this branch by
+    # ``data_source``, neither of which is worth the complexity.
+    for domain in ("customers", "transactions", "products", "stores"):
+        _expect_nonempty(
+            f"{uc_catalog_name}.{bronze_schema}.{domain}"
+        )
+        _expect_nonempty(
+            f"{uc_catalog_name}.{silver_schema}.{domain}"
+        )
+
+    if failures:
+        raise AssertionError(
+            "Demo final validation failed "
+            f"({len(failures)} issue(s)):\n  - "
+            + "\n  - ".join(failures)
+        )
+    print("Demo final validation passed: all expected tables present.")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
+# MAGIC ## Cleanup (Optional)
+# MAGIC
+# MAGIC Drops every per-run resource the demo created -- pipelines,
+# MAGIC runner notebooks, and per-run schemas (bronze, silver, pipeline
+# MAGIC target, config). Controlled by the `cleanup` widget; safe to
+# MAGIC re-run interactively (each step is wrapped in try/except).
+# MAGIC
+# MAGIC Intentionally **does NOT drop the UC catalog** -- the catalog
+# MAGIC is user-supplied (via the `uc_catalog_name` widget), is shared
+# MAGIC across runs, and dropping it would clobber other concurrent
+# MAGIC demos. If you want to drop the catalog too, do it manually:
+# MAGIC `DROP CATALOG <name> CASCADE`.
+
+# COMMAND ----------
+
+def _cleanup_demo_resources():
+    """Drop every per-run resource the demo created.
+
+    Resolution order matches the demo's creation order, reversed:
+
+    1. Pipelines -- read pipeline IDs from the per-run pid files we
+       wrote into ``uc_volume_path`` during pipeline creation. Falls
+       back to a name-based lookup (``sdp_meta_demo_*_<schema>``) when
+       the pid file is missing (e.g. cleanup re-run after the volume
+       was already dropped).
+    2. Runner notebooks -- ``runner_notebook_path`` and
+       ``snapshot_runner_path``. The sink pipeline reuses
+       ``runner_notebook_path``, so it's covered by the same delete.
+    3. Per-run schemas -- ``bronze_schema``, ``silver_schema``,
+       ``pipeline_target_schema``, ``uc_schema_name``. Each ``DROP
+       SCHEMA ... CASCADE`` removes every table, view, and (for
+       ``uc_schema_name``) the per-run config volume.
+
+    Each step is independent and errors are swallowed with a print so
+    a partial demo failure (e.g. snapshot pipeline never ran) doesn't
+    block cleanup of everything else.
+    """
+    print("=" * 78)
+    print(
+        f"Cleanup: dropping per-run resources for "
+        f"{uc_catalog_name}.{uc_schema_name}"
+    )
+    print("=" * 78)
+
+    pipeline_specs = [
+        ("main", pipeline_id_file, pipeline_name),
+        (
+            "snapshot",
+            snapshot_pipeline_id_file,
+            f"sdp_meta_demo_snapshot_{uc_schema_name}",
+        ),
+        ("sink", sink_pipeline_id_file, sink_pipeline_name),
+    ]
+    for label, pid_file, name in pipeline_specs:
+        pid = None
+        try:
+            with open(pid_file, "r") as fh:
+                pid = fh.read().strip()
+        except Exception:
+            for p in w.pipelines.list_pipelines():
+                if p.name == name:
+                    pid = p.pipeline_id
+                    break
+        if not pid:
+            print(f"  Skipping {label} pipeline: not found ({name})")
+            continue
+        try:
+            w.pipelines.delete(pipeline_id=pid)
+            print(f"  Deleted {label} pipeline: {pid} ({name})")
+        except Exception as exc:
+            print(f"  Could not delete {label} pipeline {pid}: {exc}")
+
+    for nb_path in [runner_notebook_path, snapshot_runner_path]:
+        try:
+            w.workspace.delete(nb_path)
+            print(f"  Deleted runner notebook: {nb_path}")
+        except Exception as exc:
+            print(f"  Could not delete notebook {nb_path}: {exc}")
+
+    for schema in [
+        bronze_schema,
+        silver_schema,
+        pipeline_target_schema,
+        uc_schema_name,
+    ]:
+        fqn = f"{uc_catalog_name}.{schema}"
+        try:
+            spark.sql(f"DROP SCHEMA IF EXISTS {fqn} CASCADE")
+            print(f"  Dropped schema: {fqn}")
+        except Exception as exc:
+            print(f"  Could not drop schema {fqn}: {exc}")
+
+    print(
+        f"Cleanup complete for run schema={uc_schema_name} "
+        f"(catalog {uc_catalog_name} preserved)."
+    )
+
+
+if cleanup:
+    _cleanup_demo_resources()
+else:
+    print(
+        "Cleanup skipped (cleanup widget = false). "
+        "Re-run with cleanup=true to drop per-run resources, "
+        "or call _cleanup_demo_resources() manually."
+    )

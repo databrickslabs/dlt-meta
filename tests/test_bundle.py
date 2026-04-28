@@ -886,6 +886,103 @@ class BundlePrepareWheelUnitTests(unittest.TestCase):
                 wheel_path.unlink()
 
 
+class BundleIdentifierValidationTests(unittest.TestCase):
+    """Strict UC-identifier validation at every bundle input boundary.
+
+    The bundle module accepts UC names from three places: the
+    ``BundlePrepareWheelCommand`` constructor, the bundle's own
+    ``variables.yml`` (read by ``_flow_to_dict``), and the per-flow
+    ``FlowSpec`` (bronze/silver table). We must reject anything that
+    isn't a regular SQL identifier at every one of them so a hyphenated
+    catalog or other illegal name can't sneak through to the deployed
+    pipeline (issue #261).
+    """
+
+    def test_prepare_wheel_rejects_hyphenated_catalog(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            BundlePrepareWheelCommand(
+                uc_catalog="my-cat", uc_schema="schema", uc_volume="vol",
+            )
+
+    def test_prepare_wheel_rejects_dotted_schema(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            BundlePrepareWheelCommand(
+                uc_catalog="cat", uc_schema="bad.name", uc_volume="vol",
+            )
+
+    def test_prepare_wheel_rejects_leading_digit_volume(self):
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            BundlePrepareWheelCommand(
+                uc_catalog="cat", uc_schema="schema", uc_volume="9vol",
+            )
+
+    def test_prepare_wheel_accepts_regular_identifiers(self):
+        # Sanity: the validation is strict but not over-eager. Plain
+        # underscore-separated names continue to work.
+        cmd = BundlePrepareWheelCommand(
+            uc_catalog="my_cat", uc_schema="my_schema", uc_volume="my_volume",
+        )
+        self.assertEqual(cmd.uc_catalog, "my_cat")
+
+    def test_flow_to_dict_rejects_hyphenated_variables(self):
+        # Hand-edited variables.yml could carry a hyphenated catalog from
+        # an older sdp-meta version; we must reject when reading too.
+        from databricks.labs.sdp_meta.bundle import _flow_to_dict
+        variables = {
+            "uc_catalog_name": {"default": "my-cat"},
+            "bronze_target_schema": {"default": "bronze"},
+            "silver_target_schema": {"default": "silver"},
+            "layer": {"default": "bronze"},
+            "onboarding_file_format": {"default": "yaml"},
+        }
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            _flow_to_dict(
+                FlowSpec(source_format="cloudFiles", bronze_table="t"),
+                variables,
+                assigned_id="100",
+            )
+
+    def test_flow_to_dict_rejects_hyphenated_bronze_table(self):
+        from databricks.labs.sdp_meta.bundle import _flow_to_dict
+        variables = {
+            "uc_catalog_name": {"default": "main"},
+            "bronze_target_schema": {"default": "bronze"},
+            "silver_target_schema": {"default": "silver"},
+            "layer": {"default": "bronze"},
+            "onboarding_file_format": {"default": "yaml"},
+        }
+        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+            _flow_to_dict(
+                FlowSpec(source_format="cloudFiles", bronze_table="bad-name"),
+                variables,
+                assigned_id="100",
+            )
+
+    def test_flow_to_dict_rejects_unknown_source_format(self):
+        # The five-format set is pinned in identifiers.SUPPORTED_SOURCE_FORMATS;
+        # _flow_to_dict must reject anything outside it (e.g. "parquet")
+        # so a hand-edited bundle can't ship a flow that the bronze
+        # readers in dataflow_pipeline.py have no branch for.
+        from databricks.labs.sdp_meta.bundle import _flow_to_dict
+        variables = {
+            "uc_catalog_name": {"default": "main"},
+            "bronze_target_schema": {"default": "bronze"},
+            "silver_target_schema": {"default": "silver"},
+            "layer": {"default": "bronze"},
+            "onboarding_file_format": {"default": "yaml"},
+        }
+        with self.assertRaises(ValueError) as ctx:
+            _flow_to_dict(
+                FlowSpec(source_format="parquet", bronze_table="t"),
+                variables,
+                assigned_id="100",
+            )
+        msg = str(ctx.exception)
+        # Allowed values must be inlined for the user.
+        self.assertIn("parquet", msg)
+        self.assertIn("cloudFiles", msg)
+
+
 class BundleValidateUnitTests(unittest.TestCase):
     """bundle_validate shells out to `databricks bundle validate` plus sanity."""
 

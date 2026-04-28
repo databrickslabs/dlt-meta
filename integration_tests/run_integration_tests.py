@@ -23,6 +23,7 @@ from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType
 from databricks.sdk.service.pipelines import NotebookLibrary, PipelineLibrary
 from databricks.sdk.service.workspace import ImportFormat, Language
 
+from databricks.labs.sdp_meta.identifiers import validate_uc_identifier
 from databricks.labs.sdp_meta.install import WorkspaceInstaller
 
 # Dictionary mapping cloud providers to node types
@@ -1229,6 +1230,12 @@ def process_arguments() -> dict[str:str]:
                 f"--{arg[0]}", help=arg[1], type=arg[2], required=arg[3]
             )
     args = vars(parser.parse_args())
+
+    # Validate UC identifiers up-front so the run fails fast with a clear
+    # error message instead of crashing later inside CREATE SCHEMA / CREATE
+    # VOLUME / spark.read.table when a hyphenated catalog or other illegal
+    # name was passed (issue #261). Strictly regular SQL identifiers only.
+    validate_uc_identifier(args["uc_catalog_name"], kind="--uc_catalog_name")
 
     def check_cond_mandatory_arg(args, mandatory_args):
         """Post argument parsing check for conditionally required arguments"""

@@ -15,7 +15,8 @@
 **Recommended starting point** — a single Databricks notebook that walks through all SDP-META features
 end-to-end with no CLI setup required.
 
-**Notebook:** [`demo/SDP_META_INTERACTIVE_DEMO.py`](SDP_META_INTERACTIVE_DEMO.py)
+- **Notebook:** [`demo/SDP_META_INTERACTIVE_DEMO.py`](SDP_META_INTERACTIVE_DEMO.py) — run interactively in the Databricks workspace.
+- **Headless launcher:** [`demo/launch_interactive_demo.py`](launch_interactive_demo.py) — submit the same notebook as a one-time serverless job from your laptop / CI.
 
 ## What It Covers
 
@@ -34,7 +35,7 @@ end-to-end with no CLI setup required.
 
 ## Features Demonstrated
 
-- Metadata-driven onboarding (JSON → DataflowSpec → generic pipeline)
+- Metadata-driven onboarding (JSON or YAML → DataflowSpec → generic pipeline)
 - CloudFiles (Autoloader) ingestion with schema enforcement
 - Data quality rules: `expect_or_drop` and `expect_or_quarantine`
 - Quarantine tables for bad records
@@ -42,50 +43,101 @@ end-to-end with no CLI setup required.
 - Liquid clustering (`cluster_by_auto`)
 - Silver transformations via JSON (column selection, expressions)
 - Adding new feeds without pipeline code changes
-- `dp.append_flow` — multiple sources → same target table 
+- `dp.append_flow` — multiple sources → same target table
 - `_metadata.file_name` / `_metadata.file_path` file metadata columns
 - `apply_changes_from_snapshot` — snapshot-based SCD Type 1 & 2
 - `dp.create_sink` — write to external Delta destinations
+- All Lakeflow Spark Declarative Pipelines created with `serverless=True`
 
 ## Prerequisites
 
 - Databricks workspace with Unity Catalog enabled
-- A UC catalog you have `CREATE` privileges on
+- A UC catalog you have `CREATE SCHEMA` + `CREATE VOLUME` privileges on
 
-## Steps
+## Widgets
+
+The notebook is fully driven by widgets at the top — same ones the headless launcher pre-populates via `base_parameters`.
+
+| Widget | Choices / default | Purpose |
+|---|---|---|
+| `git_branch` | text, default `main` | Branch to install SDP-META from when `install_source=git_branch`. Also used as the GitHub branch for the conf-file fallback if the notebook is imported standalone. |
+| `uc_catalog_name` | text, default `sdp_meta_demo` | UC catalog the demo writes into. Must be a Databricks SQL **regular identifier** (`[A-Za-z_][A-Za-z0-9_]*`, max 255 chars). Hyphens / dots are rejected up-front (issue #261). |
+| `uc_schema_name` | text, default `retail_data` | Schema within the catalog. Same identifier rules as above. The demo creates `<schema>_bronze`, `<schema>_silver`, `<schema>_pipeline_default` underneath. |
+| `data_source` | dropdown `dbdatagen` (default) / `github` | `dbdatagen` generates synthetic retail data with `dbldatagen` (no internet needed); `github` downloads fixed CSVs from the dlt-meta repo (requires outbound internet from the workspace). |
+| `onboarding_format` | dropdown `json` (default) / `yml` | Whether the rendered onboarding spec + silver-transformations files are written as JSON or YAML. The demo reads back the matching `demo/conf/<format>/sample_onboarding.<ext>` template. |
+| `install_source` | dropdown `git_branch` (default) / `whl_file` | Where to install SDP-META from. `git_branch` runs `pip install git+https://github.com/databrickslabs/dlt-meta.git@<git_branch>`; `whl_file` runs `pip install <whl_file_path>` against a Volume / Workspace path. Use `whl_file` when validating local changes that aren't pushed yet. |
+| `whl_file_path` | text, default empty | Path to the wheel when `install_source=whl_file`, e.g. `/Volumes/<catalog>/<schema>/<volume>/databricks_labs_sdp_meta-<version>-py3-none-any.whl`. Required when `install_source=whl_file`; ignored otherwise. |
+| `validate_counts` | dropdown `false` (default) / `true` | When `true`, the final cell turns the demo into a smoke test: it asserts deterministic row counts (`bronze.orders == 7`, `bronze.iot_events == 5`, snapshot tables `>= LOAD_2 size`) and non-empty for every demo-produced bronze / silver / quarantine table, raising a single `AssertionError` listing every failure. Use in CI / pre-release smoke runs. |
+| `cleanup` | dropdown `false` (default) / `true` | When `true`, the cleanup cell at the bottom drops every per-run resource the demo created: pipelines (main / snapshot / sink), runner notebooks (`runner_notebook_path`, `snapshot_runner_path`), and per-run schemas (`<schema>_bronze`, `<schema>_silver`, `<schema>_pipeline_default`, `<schema>` itself — including its config volume). The user-supplied UC catalog is **intentionally preserved** because it's shared across runs. |
+
+## Option A — Run interactively in the workspace
 
 1. Import the notebook into your Databricks workspace:
    - In the sidebar click **Workspace** → **Import**
-   - Upload `demo/SDP_META_INTERACTIVE_DEMO.py` or paste the GitHub raw URL
+   - Upload `demo/SDP_META_INTERACTIVE_DEMO.py`, or paste the GitHub raw URL.
+   - To use the workspace-co-located conf path (offline-friendly, no GitHub roundtrip), import the notebook into a folder that contains a `demo/` segment so its workspace path looks like `.../demo/SDP_META_INTERACTIVE_DEMO`. Otherwise the demo falls back to fetching `demo/conf/<fmt>/sample_onboarding.<ext>` from `raw.githubusercontent.com/databrickslabs/dlt-meta/<git_branch>/...` — make sure that branch is published.
 
-2. Open the notebook and fill in the widgets at the top:
+2. Open the notebook, fill in the widgets above, and click **Run All**. The notebook:
+   - Installs SDP-META + optional `dbldatagen` via `%pip install` and restarts Python.
+   - Creates all UC resources (catalog membership, per-run schemas, config volume), config files, and demo data automatically.
+   - Creates and starts every Lakeflow Spark Declarative Pipeline via the Databricks SDK with `serverless=True`.
+   - Blocks and polls until each pipeline run completes before moving to the next stage.
+   - Prints live pipeline state updates and the pipeline URL for each run.
 
-   | Widget | Default | Description |
-   |--------|---------|-------------|
-   | `git_branch` | `main` | Branch to install SDP-META from |
-   | `uc_catalog_name` | `sdp_meta_demo` | UC catalog for the demo |
-   | `uc_schema_name` | `retail_data` | Schema within the catalog |
-   | `data_source` | `dbdatagen` | `dbdatagen` (synthetic) or `github` (download from repo) |
+> No manual pipeline UI interactions are required — the notebook is fully automated end-to-end.
 
-3. Click **Run All**. The notebook:
-   - Installs SDP-META and (if selected) `dbldatagen` via `%pip install`
-   - Creates all UC resources, config files, and demo data automatically
-   - Creates and starts the Lakeflow Spark Declarative Pipeline via the Databricks SDK
-   - Blocks and polls until each pipeline run completes before moving to the next stage
-   - Prints live pipeline state updates and the pipeline URL for each run
+## Option B — Run headless via the launcher (CI-friendly)
 
-> No manual pipeline UI interactions required — the notebook is fully automated end-to-end.
+`demo/launch_interactive_demo.py` uploads the demo notebook (and the sibling `demo/conf/<fmt>/sample_onboarding.<ext>` files, so the workspace-co-located lookup always works), submits a one-time serverless job that runs it, prints + opens the run-page URL in your browser immediately so you can watch it live, and waits for completion. On failure it still surfaces the run URL in the summary — no traceback hunting required.
 
-## Data Source Options
+```commandline
+# CI smoke run — assert row counts and tear down every per-run resource
+python demo/launch_interactive_demo.py \
+    --profile <your_profile> \
+    --uc-catalog-name <your_catalog> \
+    --install-source whl_file \
+    --whl-file-path /Volumes/<catalog>/<schema>/<volume>/databricks_labs_sdp_meta-<version>-py3-none-any.whl \
+    --data-source dbdatagen \
+    --validate-counts true \
+    --cleanup true \
+    --timeout-minutes 25
+```
 
-| Option | Description |
-|--------|-------------|
-| `dbdatagen` | Generates synthetic retail data using [dbldatagen](https://github.com/databrickslabs/dbldatagen). No internet access required after install. |
-| `github` | Downloads sample CSV data directly from the [dlt-meta repo](https://github.com/databrickslabs/dlt-meta/tree/main/demo/resources). Requires outbound internet access from the cluster. |
+Local-dev shortcut: build the wheel from the working tree and push it to a UC volume in one shot, instead of having to `pip wheel` and `databricks fs cp` manually:
+
+```commandline
+python demo/launch_interactive_demo.py \
+    --profile <your_profile> \
+    --uc-catalog-name <your_catalog> \
+    --build-and-upload-whl \
+    --uc-schema-name <wheel_volume_schema> \
+    --uc-volume-name sdp_meta_wheels \
+    --data-source dbdatagen
+```
+
+Run `python demo/launch_interactive_demo.py --help` for the full flag surface. Selected flags map 1:1 onto the widgets:
+
+| CLI flag | Widget it sets | Notes |
+|---|---|---|
+| `--uc-catalog-name` (required) | `uc_catalog_name` | Validated locally against the SQL identifier rules before any workspace call. |
+| `--profile` | n/a (auth) | Databricks CLI profile to authenticate the SDK with. Omit to use ambient creds. |
+| `--git-branch` | `git_branch` | Defaults to `main`. |
+| `--install-source` | `install_source` | `git_branch` (default) or `whl_file`. |
+| `--whl-file-path` | `whl_file_path` | Required when `--install-source whl_file` and `--build-and-upload-whl` is not set. |
+| `--build-and-upload-whl` | sets `install_source=whl_file` + `whl_file_path=<uploaded path>` | Builds the local sdp-meta wheel via `bundle_prepare_wheel` and uploads it to `/Volumes/<catalog>/<uc-schema-name>/<uc-volume-name>/`. Requires `--uc-schema-name` and `--uc-volume-name`. |
+| `--data-source` | `data_source` | `dbdatagen` (default) or `github`. |
+| `--onboarding-format` | `onboarding_format` | `json` (default) or `yml`. |
+| `--validate-counts` | `validate_counts` | `true` (default for the launcher) or `false`. When `true`, the job FAILS on row-count regression. |
+| `--cleanup` | `cleanup` | `false` (default) or `true`. Set `true` for CI runs that need to leave the workspace clean. |
+| `--timeout-minutes` | n/a (driver) | Max wall-clock for the launcher to wait on the job. Default 90; for cold workspaces with all 4 pipelines, 20-25 is comfortable. |
+
+Each launch gets a unique, scannable name in the workspace **Job Runs** UI of the form `sdp-meta-demo-<UTC-timestamp>-<catalog>-<run-id>`, e.g. `sdp-meta-demo-20260427T201235Z-ravi_dlt_meta_uc-57f84fe925a1`. The same `<run-id>` flows through the per-run workspace path (`/Users/<me>/sdp_meta_demo_runs/<run-id>/demo/...`) and the per-run schema (`sdp_meta_demo_<run-id>`) so concurrent runs never collide on bronze / silver tables.
 
 ## Cleanup
 
-Uncomment and run the cleanup cell at the bottom of the notebook to drop all schemas and the catalog created during the demo.
+- **Notebook (interactive):** flip the `cleanup` widget to `true` and re-run the last cell, or call `_cleanup_demo_resources()` from a fresh cell. Both drop only per-run resources; the UC catalog is preserved.
+- **Launcher (headless):** pass `--cleanup true`. The cleanup runs as the very last cell of the demo, so it only fires on a successful end-to-end run; failed runs deliberately leave artifacts in place for debugging.
+- **Manual:** `DROP CATALOG <name> CASCADE` if you want to nuke the catalog itself (intentionally not done by the demo).
 
 ---
 

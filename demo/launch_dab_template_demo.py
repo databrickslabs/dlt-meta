@@ -95,6 +95,7 @@ from databricks.labs.sdp_meta.bundle import (  # noqa: E402
     bundle_prepare_wheel,
     bundle_validate,
 )
+from databricks.labs.sdp_meta.identifiers import validate_uc_identifier  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -1773,6 +1774,20 @@ def main() -> int:
                              "Defaults to 'staging'. Only used by scenarios whose "
                              "recipe references {uc_source_schema}.")
     args = parser.parse_args()
+
+    # Validate UC identifiers up-front so the demo fails fast with a clear
+    # error message rather than producing a bundle that breaks at deploy
+    # time on a hyphenated catalog (issue #261). Strict regular SQL
+    # identifier rule applied to every UC name the demo accepts.
+    validate_uc_identifier(args.uc_catalog_name, kind="--uc-catalog-name")
+    if args.uc_schema:
+        validate_uc_identifier(args.uc_schema, kind="--uc-schema")
+    if args.uc_volume:
+        validate_uc_identifier(args.uc_volume, kind="--uc-volume")
+    if args.uc_source_catalog:
+        validate_uc_identifier(args.uc_source_catalog, kind="--uc-source-catalog")
+    if args.uc_source_schema:
+        validate_uc_identifier(args.uc_source_schema, kind="--uc-source-schema")
 
     out_dir = Path(args.out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
