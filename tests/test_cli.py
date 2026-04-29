@@ -315,7 +315,7 @@ class CliTests(unittest.TestCase):
         mock_ws_installer._choice.side_effect = ['True', 'True', 'bronze_silver', 'False', 'True', 'False']
         mock_ws_installer._question.side_effect = [
             "uc_catalog", "demo/conf/onboarding.template",
-            "file:/demo/", "sdp_meta_dataflowspecs", "sdp_meta_bronze", "sdp_meta_silver",
+            "/demo/", "sdp_meta_dataflowspecs", "sdp_meta_bronze", "sdp_meta_silver",
             "bronze_dataflowspec", "silver_dataflowspec", "v1", "prod", "author", "True"
         ]
         sdp_meta = SDPMeta(mock_workspace_client)
@@ -325,7 +325,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(cmd.uc_catalog_name, "uc_catalog")
         self.assertEqual(cmd.dbfs_path, None)
         self.assertEqual(cmd.onboarding_file_path, "demo/conf/onboarding.template")
-        self.assertEqual(cmd.onboarding_files_dir_path, "file:/file:/demo/")
+        self.assertEqual(cmd.onboarding_files_dir_path, "file:/demo/")
         self.assertEqual(cmd.sdp_meta_schema, "sdp_meta_dataflowspecs")
         self.assertEqual(cmd.bronze_schema, "sdp_meta_bronze")
         self.assertEqual(cmd.silver_schema, "sdp_meta_silver")
@@ -347,7 +347,7 @@ class CliTests(unittest.TestCase):
                                                  'bronze_silver', 'False', 'True', 'False']
         mock_ws_installer._question.side_effect = [
             'dbfs_path', "dbrx", "demo/conf/onboarding.template",
-            "file:/demo/", "sdp_meta_dataflowspecs", "sdp_meta_bronze",
+            "/demo/", "sdp_meta_dataflowspecs", "sdp_meta_bronze",
             "sdp_meta_silver", "bronze_dataflowspec_table",
             "bronze_dataflowspec_path", "silver_dataflowspec_table",
             "silver_dataflowspec_path", "v1", "prod", "author", "True"
@@ -359,7 +359,7 @@ class CliTests(unittest.TestCase):
         self.assertFalse(cmd.serverless)
         self.assertEqual(cmd.dbfs_path, "dbfs_path")
         self.assertEqual(cmd.onboarding_file_path, "demo/conf/onboarding.template")
-        self.assertEqual(cmd.onboarding_files_dir_path, "file:/file:/demo/")
+        self.assertEqual(cmd.onboarding_files_dir_path, "file:/demo/")
         self.assertEqual(cmd.sdp_meta_schema, "sdp_meta_dataflowspecs")
         self.assertEqual(cmd.bronze_schema, "sdp_meta_bronze")
         self.assertEqual(cmd.silver_schema, "sdp_meta_silver")
@@ -2106,6 +2106,123 @@ class BundleInitQuickstartFlagTests(unittest.TestCase):
             cli_bundle_init(sdp_meta, flags={"output-dir": "/cli/wins"})
             cmd = fake_run.call_args[0][0]
             self.assertEqual(cmd.output_dir, "/cli/wins")
+
+
+class TestFileUriHelpers(unittest.TestCase):
+    """Test cases for file URI helper functions (Issue #251)."""
+
+    def test_normalize_file_uri_unix_path(self):
+        """Test normalizing Unix file URIs."""
+        from databricks.labs.sdp_meta.cli import _normalize_file_uri_to_path
+
+        self.assertEqual(_normalize_file_uri_to_path("file:/path/to/dir"), "/path/to/dir")
+        self.assertEqual(_normalize_file_uri_to_path("/path/to/dir"), "/path/to/dir")
+        self.assertEqual(_normalize_file_uri_to_path("file:///path/to/dir"), "/path/to/dir")
+
+    def test_normalize_file_uri_windows_path(self):
+        """Test normalizing Windows file URIs (Issue #251)."""
+        from databricks.labs.sdp_meta.cli import _normalize_file_uri_to_path
+
+        self.assertEqual(
+            _normalize_file_uri_to_path("file:/C:\\projects\\dlt-meta\\conf"),
+            "C:\\projects\\dlt-meta\\conf",
+        )
+        self.assertEqual(
+            _normalize_file_uri_to_path("file:/C:/projects/dlt-meta/conf"),
+            "C:/projects/dlt-meta/conf",
+        )
+        self.assertEqual(
+            _normalize_file_uri_to_path("file:///C:/projects/dlt-meta/conf"),
+            "C:/projects/dlt-meta/conf",
+        )
+        self.assertEqual(
+            _normalize_file_uri_to_path("file:///C:\\projects\\dlt-meta\\conf"),
+            "C:\\projects\\dlt-meta\\conf",
+        )
+
+    def test_path_to_file_uri_unix(self):
+        """Test creating file URIs from Unix paths."""
+        from databricks.labs.sdp_meta.cli import _path_to_file_uri
+
+        self.assertEqual(_path_to_file_uri("/path/to/dir"), "file:/path/to/dir")
+        self.assertEqual(_path_to_file_uri("file:/path/to/dir"), "file:/path/to/dir")
+
+    def test_path_to_file_uri_windows(self):
+        """Test creating file URIs from Windows paths (Issue #251)."""
+        from databricks.labs.sdp_meta.cli import _path_to_file_uri
+
+        self.assertEqual(
+            _path_to_file_uri("C:\\projects\\dlt-meta\\conf"),
+            "file:///C:/projects/dlt-meta/conf",
+        )
+        self.assertEqual(
+            _path_to_file_uri("C:/projects/dlt-meta/conf"),
+            "file:///C:/projects/dlt-meta/conf",
+        )
+        self.assertEqual(
+            _path_to_file_uri("file:///C:/projects/dir"),
+            "file:///C:/projects/dir",
+        )
+
+    def test_roundtrip_unix(self):
+        """Test that Unix paths round-trip correctly through URI conversion."""
+        from databricks.labs.sdp_meta.cli import _normalize_file_uri_to_path, _path_to_file_uri
+
+        original_path = "/home/user/projects/demo"
+        uri = _path_to_file_uri(original_path)
+        restored_path = _normalize_file_uri_to_path(uri)
+        self.assertEqual(original_path, restored_path)
+
+    def test_roundtrip_windows(self):
+        """Test that Windows paths round-trip correctly through URI conversion (Issue #251)."""
+        from databricks.labs.sdp_meta.cli import _normalize_file_uri_to_path, _path_to_file_uri
+
+        original_path = "C:/projects/dlt-meta/conf"
+        uri = _path_to_file_uri(original_path)
+        restored_path = _normalize_file_uri_to_path(uri)
+        self.assertEqual(original_path, restored_path)
+
+    @patch("os.walk")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_copy_to_uc_volume_windows_path(self, mock_open_func, mock_os_walk):
+        """Test that copy_to_uc_volume handles Windows paths correctly (Issue #251)."""
+        mock_ws = MagicMock()
+        sdp_meta = SDPMeta(mock_ws)
+        windows_src = "file:///C:/projects/dlt-meta/conf"
+        mock_os_walk.return_value = [
+            ("C:/projects/dlt-meta/conf", [], ["file1.json"]),
+        ]
+        mock_ws.files.upload = MagicMock()
+
+        sdp_meta.copy_to_uc_volume(windows_src, "/Volumes/catalog/schema/volume/")
+
+        walk_call_arg = mock_os_walk.call_args[0][0]
+        self.assertFalse(
+            walk_call_arg.startswith('/C:'),
+            f"Invalid Windows path passed to os.walk: {walk_call_arg}",
+        )
+        self.assertEqual(walk_call_arg, "C:/projects/dlt-meta/conf")
+
+    @patch("os.walk")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_copy_to_dbfs_windows_path(self, mock_open_func, mock_os_walk):
+        """Test that copy_to_dbfs handles Windows paths correctly (Issue #251)."""
+        mock_ws = MagicMock()
+        sdp_meta = SDPMeta(mock_ws)
+        windows_src = "file:///C:/projects/dlt-meta/conf"
+        mock_os_walk.return_value = [
+            ("C:/projects/dlt-meta/conf", [], ["file1.json"]),
+        ]
+        mock_ws.dbfs.upload = MagicMock()
+
+        sdp_meta.copy_to_dbfs(windows_src, "dbfs:/dlt-meta/conf/")
+
+        walk_call_arg = mock_os_walk.call_args[0][0]
+        self.assertFalse(
+            walk_call_arg.startswith('/C:'),
+            f"Invalid Windows path passed to os.walk: {walk_call_arg}",
+        )
+        self.assertEqual(walk_call_arg, "C:/projects/dlt-meta/conf")
 
 
 class LabsYmlFlagDeclarationTests(unittest.TestCase):
