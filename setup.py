@@ -22,13 +22,15 @@ DEV_REQUIREMENTS = [
 
 IT_REQUIREMENTS = ["typer[all]==0.6.1"]
 
+MCP_REQUIREMENTS = ["mcp>=1.0,<2.0"]
+
 setup(
     name="databricks-labs-sdp-meta",
     version="0.0.11",
     python_requires=">=3.8",
     setup_requires=["wheel>=0.37.1,<=0.42.0"],
     install_requires=INSTALL_REQUIRES,
-    extras_require={"dev": DEV_REQUIREMENTS, "IT": IT_REQUIREMENTS},
+    extras_require={"dev": DEV_REQUIREMENTS, "IT": IT_REQUIREMENTS, "mcp": MCP_REQUIREMENTS},
     author="Ravi Gawai",
     author_email="databrickslabs@databricks.com",
     license="Databricks License",
