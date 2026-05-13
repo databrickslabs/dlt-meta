@@ -9,6 +9,18 @@ from delta.pip_utils import configure_spark_with_delta_pip
 from databricks.labs.sdp_meta.metastore_ops import DeltaPipelinesMetaStoreOps, DeltaPipelinesInternalTableOps
 
 
+_SDP_RUNTIME_CONFS = [
+    "spark.databricks.unityCatalog.enabled",
+    "layer",
+    "bronze.dataflowspecTable",
+    "bronze.group",
+    "bronze.dataflowIds",
+    "silver.dataflowspecTable",
+    "silver.group",
+    "silver.dataflowIds",
+]
+
+
 class SDPFrameworkTestCase(unittest.TestCase):
     """Test class base that sets up a correctly configured SparkSession for querying Delta tables."""
 
@@ -33,6 +45,14 @@ class SDPFrameworkTestCase(unittest.TestCase):
         self.spark.conf.set("delta.log.cacheSize", "3")
         self.spark.conf.set("spark.databricks.delta.delta.log.cacheSize", "3")
         self.spark.conf.set("spark.sql.sources.parallelPartitionDiscovery.parallelism", "5")
+        # Reset runtime confs that leak across tests (the suite shares one
+        # SparkSession; without this, tests that read these confs inherit
+        # values left over by earlier tests and fail non-deterministically).
+        for _conf in _SDP_RUNTIME_CONFS:
+            try:
+                self.spark.conf.unset(_conf)
+            except Exception:
+                pass
         self.deltaPipelinesMetaStoreOps = DeltaPipelinesMetaStoreOps(self.spark)
         self.deltaPipelinesInternalTableOps = DeltaPipelinesInternalTableOps(self.spark)
         self.sc = self.spark.sparkContext
@@ -96,6 +116,5 @@ class SDPFrameworkTestCase(unittest.TestCase):
     def tearDown(self):
         """Tear down."""
         self.deltaPipelinesMetaStoreOps.drop_database("ravi_dlt_demo")
-        self.sc.stop()
         shutil.rmtree(self.onboarding_spec_paths)
         shutil.rmtree(self.temp_delta_tables_path)
