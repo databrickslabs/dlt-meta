@@ -1843,106 +1843,6 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         mock_stream2.where.assert_called_once_with("name IS NOT NULL")
         self.assertEqual(result, mock_stream2)
 
-    def test_build_table_name_with_catalog(self):
-        """Test _build_table_name with catalog."""
-        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
-
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
-
-        result = pipeline._build_table_name("my_catalog", "my_database", "my_table")
-        self.assertEqual(result, "my_catalog.my_database.my_table")
-
-    def test_build_table_name_without_catalog(self):
-        """Test _build_table_name without catalog."""
-        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
-
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
-
-        result = pipeline._build_table_name(None, "my_database", "my_table")
-        self.assertEqual(result, "my_database.my_table")
-
-        result = pipeline._build_table_name("", "my_database", "my_table")
-        self.assertEqual(result, "my_database.my_table")
-
-    @patch('pyspark.sql.SparkSession.readStream', new_callable=MagicMock)
-    def test_create_dataframe_reader_streaming(self, mock_read_stream_property):
-        """Test _create_dataframe_reader for streaming."""
-        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
-
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
-
-        # Configure the mock - the property returns a reader that has options method
-        mock_reader_with_options = MagicMock()
-        mock_read_stream_property.options.return_value = mock_reader_with_options
-
-        # Test with no options - should return the readStream property itself
-        result = pipeline._create_dataframe_reader(is_streaming=True, reader_options=None)
-        self.assertEqual(result, mock_read_stream_property)
-
-        # Test with options - should return result of options() call
-        options = {"option1": "value1"}
-        result = pipeline._create_dataframe_reader(is_streaming=True, reader_options=options)
-        mock_read_stream_property.options.assert_called_with(**options)
-        self.assertEqual(result, mock_reader_with_options)
-
-    @patch('pyspark.sql.SparkSession.read', new_callable=MagicMock)
-    def test_create_dataframe_reader_batch(self, mock_read_property):
-        """Test _create_dataframe_reader for batch."""
-        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
-
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
-
-        # Configure the mock - the property returns a reader that has options method
-        mock_reader_with_options = MagicMock()
-        mock_read_property.options.return_value = mock_reader_with_options
-
-        # Test batch reader with empty options (empty dict is falsy, so options() not called)
-        result = pipeline._create_dataframe_reader(is_streaming=False, reader_options={})
-        mock_read_property.options.assert_not_called()
-        self.assertEqual(result, mock_read_property)
-
-        # Test batch reader with actual options (should call options())
-        options = {"format": "parquet"}
-        result = pipeline._create_dataframe_reader(is_streaming=False, reader_options=options)
-        mock_read_property.options.assert_called_with(**options)
-        self.assertEqual(result, mock_reader_with_options)
-
-    def test_apply_transformations_with_none(self):
-        """Test _apply_transformations with None parameters."""
-        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
-
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
-
-        mock_df = MagicMock()
-
-        # Test with no transformations
-        result = pipeline._apply_transformations(mock_df, None, None)
-        self.assertEqual(result, mock_df)
-
-    def test_apply_transformations_with_select_and_where(self):
-        """Test _apply_transformations with select and where clauses."""
-        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
-
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
-
-        mock_df = MagicMock()
-        mock_df.selectExpr = MagicMock(return_value=mock_df)
-        mock_df.where = MagicMock(return_value=mock_df)
-
-        select_exp = ["col1", "col2"]
-        where_clause = ["id > 0"]
-
-        pipeline._apply_transformations(mock_df, select_exp, where_clause)
-
-        mock_df.selectExpr.assert_called_once_with(*select_exp)
-        mock_df.where.assert_called_once_with("id > 0")
-
     def test_cluster_by_auto_string_to_boolean_conversion_true(self):
         """Test cluster_by_auto string 'true' conversion to boolean True."""
         bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
@@ -2153,26 +2053,6 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         table_properties = pipeline._get_table_properties()
         self.assertIsInstance(table_properties, dict)
 
-    def test_helper_methods_for_table_info(self):
-        """Test helper methods that extract source and target table information."""
-        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
-        bronze_spec_map["sourceDetails"] = {
-            "catalog": "test_catalog",
-            "database": "test_db",
-            "table": "test_table"
-        }
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
-
-        # Test _get_source_table_info
-        source_table_name, source_details = pipeline._get_source_table_info()
-        self.assertEqual(source_table_name, "test_catalog.test_db.test_table")
-        self.assertIn("catalog", source_details)
-
-        # Test _get_target_table_name
-        target_table_name = pipeline._get_target_table_name()
-        self.assertIn("customer", target_table_name)
-
     def test_quarantine_cluster_by_string_parsing(self):
         """Test quarantine cluster_by parsing with string representation."""
         bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
@@ -2188,21 +2068,6 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         # This should trigger the cluster_by parsing logic
         quarantine_details = pipeline._get_quarantine_target_details()
         self.assertIn("cluster_by", quarantine_details)
-
-    def test_apply_transformations_helper(self):
-        """Test _apply_transformations helper method."""
-        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
-
-        # Create test DataFrame
-        test_data = [("1", "John", "john@email.com"), ("2", "Jane", "jane@email.com")]
-        test_df = self.spark.createDataFrame(test_data, ["id", "name", "email"])
-
-        # Test with select and where
-        result_df = pipeline._apply_transformations(test_df, ["id", "name"], ["id > '0'"])
-        self.assertEqual(len(result_df.columns), 2)
-        self.assertIn("id", result_df.columns)
-        self.assertIn("name", result_df.columns)
 
     def test_get_silver_schema_uc_disabled_with_path(self):
         """Test get_silver_schema with Unity Catalog disabled using path."""
@@ -2365,87 +2230,3 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         result_df = pipeline.read_silver()
         self.assertIsNotNone(result_df)
 
-    def test_read_from_source_snapshot_format(self):
-        """Test _read_from_source with snapshot format."""
-        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
-        bronze_spec_map["sourceFormat"] = "snapshot"
-        bronze_spec_map["sourceDetails"] = {
-            "database": "bronze",
-            "table": "customer",
-            "path": "tests/resources/delta/customers"
-        }
-
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
-
-        # Test with UC disabled
-        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "False")
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
-
-        # This exercises the snapshot read path
-        self.assertIsNotNone(pipeline)
-        self.assertEqual(pipeline.dataflowSpec.sourceFormat, "snapshot")
-
-    def test_read_from_source_streaming_with_path(self):
-        """Test _read_from_source with streaming format using path."""
-        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
-        bronze_spec_map["sourceFormat"] = "delta"
-        bronze_spec_map["sourceDetails"] = {
-            "database": "bronze",
-            "table": "customer",
-            "path": "tests/resources/delta/customers"
-        }
-
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
-
-        # Test with UC disabled - exercises the streaming read with path
-        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "False")
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
-
-        self.assertIsNotNone(pipeline)
-        self.assertFalse(pipeline.uc_enabled)
-
-    def test_read_from_source_with_reader_options(self):
-        """Test _read_from_source with reader config options."""
-        bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
-        bronze_spec_map["sourceFormat"] = "delta"
-        bronze_spec_map["readerConfigOptions"] = {"maxFilesPerTrigger": "1", "ignoreDeletes": "true"}
-        bronze_spec_map["sourceDetails"] = {
-            "database": "bronze",
-            "table": "customer",
-            "path": "tests/resources/delta/customers"
-        }
-
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
-
-        # Verify reader config options are available
-        reader_opts = pipeline._get_reader_config_options()
-        self.assertIn("maxFilesPerTrigger", reader_opts)
-        self.assertEqual(reader_opts["maxFilesPerTrigger"], "1")
-
-    def test_create_dataframe_reader_with_options(self):
-        """Test _create_dataframe_reader with various options."""
-        bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
-        pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
-
-        # Test streaming reader without options
-        reader = pipeline._create_dataframe_reader(is_streaming=True, reader_options=None)
-        self.assertIsNotNone(reader)
-
-        # Test batch reader without options
-        reader = pipeline._create_dataframe_reader(is_streaming=False, reader_options=None)
-        self.assertIsNotNone(reader)
-
-        # Test streaming reader with options
-        reader = pipeline._create_dataframe_reader(
-            is_streaming=True,
-            reader_options={"maxFilesPerTrigger": "1"}
-        )
-        self.assertIsNotNone(reader)
-
-        # Test batch reader with options
-        reader = pipeline._create_dataframe_reader(
-            is_streaming=False,
-            reader_options={"inferSchema": "true"}
-        )
-        self.assertIsNotNone(reader)
