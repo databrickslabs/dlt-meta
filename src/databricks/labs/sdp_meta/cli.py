@@ -388,20 +388,23 @@ class SDPMeta:
 
     def onboard(self, cmd: OnboardCommand):
         """launch the onboarding job."""
-        onboarding_filename = os.path.basename(cmd.onboarding_file_path)
-        ob_file = open(cmd.onboarding_file_path, "rb")
-
         if cmd.uc_enabled:
             self.create_uc_schema(cmd.uc_catalog_name, cmd.sdp_meta_schema)
             cmd.uc_volume_path = self.create_uc_volume(cmd.uc_catalog_name, cmd.sdp_meta_schema)
             self.update_ws_onboarding_paths(cmd)
+            with open(cmd.onboarding_file_path, "rb") as ob_file:
+                self._ws.files.upload(
+                    file_path=self._get_remote_onboarding_file_path(cmd),
+                    contents=ob_file,
+                    overwrite=True
+                )
             self.copy_to_uc_volume(cmd.onboarding_files_dir_path, cmd.uc_volume_path + "/sdp_meta_conf/")
             logger.info(f"uploading to  {cmd.uc_volume_path}/sdp_meta_conf complete!!!")
         else:
             self._ws.dbfs.mkdirs(f"{cmd.dbfs_path}/sdp_meta_conf/")
-            self._ws.dbfs.upload(f"{cmd.dbfs_path}/sdp_meta_conf/{onboarding_filename}", ob_file, overwrite=True)
             self.update_ws_onboarding_paths(cmd)
-            onboarding_filename = os.path.basename(cmd.onboarding_file_path)
+            with open(cmd.onboarding_file_path, "rb") as ob_file:
+                self._ws.dbfs.upload(self._get_remote_onboarding_file_path(cmd), ob_file, overwrite=True)
             self.copy_to_dbfs(cmd.onboarding_files_dir_path, cmd.dbfs_path + "/sdp_meta_conf/")
             logger.info(f"uploading to  {cmd.dbfs_path}/sdp_meta_conf complete!!!")
         created_job = self.create_onnboarding_job(cmd)
@@ -483,6 +486,11 @@ class SDPMeta:
             ]
         )
 
+    def _get_remote_onboarding_file_path(self, cmd: OnboardCommand):
+        onboarding_filename = os.path.basename(cmd.onboarding_file_path)
+        base_path = cmd.uc_volume_path if cmd.uc_enabled else cmd.dbfs_path
+        return f"{base_path.rstrip('/')}/sdp_meta_conf/{onboarding_filename}"
+
     def _get_onboarding_named_parameters(self, cmd: OnboardCommand):
         named_parameters = {
             "onboard_layer": cmd.onboard_layer,
@@ -495,10 +503,7 @@ class SDPMeta:
             "env": cmd.env,
             "uc_enabled": "True" if cmd.uc_enabled else "False"
         }
-        if cmd.uc_enabled:
-            named_parameters["onboarding_file_path"] = f"{cmd.uc_volume_path}/sdp_meta_conf/{cmd.onboarding_file_path}"
-        else:
-            named_parameters["onboarding_file_path"] = f"{cmd.dbfs_path}/sdp_meta_conf/{cmd.onboarding_file_path}"
+        named_parameters["onboarding_file_path"] = self._get_remote_onboarding_file_path(cmd)
         if cmd.onboard_layer == "bronze_silver":
             named_parameters["bronze_dataflowspec_table"] = cmd.bronze_dataflowspec_table
             named_parameters["silver_dataflowspec_table"] = cmd.silver_dataflowspec_table
