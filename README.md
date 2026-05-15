@@ -147,7 +147,7 @@ If you want to run the existing demo files, set up the repo first:
    cd sdp-meta
    python -m venv .venv && source .venv/bin/activate
    pip install "PyYAML>=6.0" setuptools databricks-sdk
-   pip install delta-spark==3.0.0 pyspark==3.5.5 pytest>=7.0.0 coverage>=7.0.0
+   pip install "delta-spark>=4.0.0" "pyspark>=4.1.0" pytest>=7.0.0 coverage>=7.0.0
    pip install "typer[all]==0.6.1"
    export PYTHONPATH=$(pwd)
    ```
