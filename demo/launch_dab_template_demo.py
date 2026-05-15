@@ -89,7 +89,6 @@ from databricks.labs.sdp_meta.bundle import (  # noqa: E402
     BundlePrepareWheelCommand,
     BundleValidateCommand,
     _flows_from_csv,
-    _sdp_meta_sanity_checks,
     bundle_add_flow,
     bundle_init,
     bundle_prepare_wheel,
@@ -1109,13 +1108,6 @@ def stage_recipe(scenario: Scenario, bundle_dir: Path, *, apply_recipe: bool,
 
 def stage_validate(bundle_dir: Path, profile: Optional[str]) -> None:
     _banner("STAGE 5", "bundle-validate  (sdp-meta sanity checks + databricks validate)")
-    errors = _sdp_meta_sanity_checks(bundle_dir)
-    if errors:
-        print("[STAGE 5] sdp-meta sanity checks reported issues:")
-        for e in errors:
-            print(f"  - {e}")
-    else:
-        print("[STAGE 5] sdp-meta sanity checks: clean")
     rc = bundle_validate(BundleValidateCommand(
         bundle_dir=str(bundle_dir),
         profile=profile,
