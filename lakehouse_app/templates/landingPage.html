@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta content="frame-src 'self' *.cloud.databricks.com;" http-equiv="Content-Security-Policy">
-    <title>DLT-META Configuration Portal</title>
+    <title>SDP-META Configuration Portal</title>
 
     <style>
         /* Reset and Base Styles */
@@ -532,8 +532,8 @@
         <nav>
             <ul>
                 <li><a class="active" href="#">Home</a></li>
-                <li><a href="https://databrickslabs.github.io/dlt-meta/index.html">Documentation</a></li>
-                <li><a href="https://github.com/databrickslabs/dlt-meta?tab=readme-ov-file#project-overview">About</a>
+                <li><a href="https://databrickslabs.github.io/sdp-meta/index.html">Documentation</a></li>
+                <li><a href="https://github.com/databrickslabs/sdp-meta?tab=readme-ov-file#project-overview">About</a>
                 </li>
             </ul>
         </nav>
@@ -544,7 +544,7 @@
 <main class="container">
     <div style="height: 20px;"></div>
     <div class="command-suggestions" id="setupDlt">
-        <button class="command-button" data-command="setup">Click here to setup "dlt-meta" project environment</button>
+        <button class="command-button" data-command="setup">Click here to setup "sdp-meta" project environment</button>
     </div>
     <!-- Tab Layout -->
     <section class="tab-container" id="tab-layout">
@@ -606,13 +606,13 @@
                                     <label>Provide onboarding file path:</label>
                                     <input id="onboarding_file_path" name="onboarding_file_path"
                                            placeholder="Enter file path"
-                                           type="text" value="demo/conf/onboarding.template">
+                                           type="text" value="demo/conf/json/onboarding.template">
                                 </div>
                                 <div class="form-group">
                                     <label>Provide onboarding files local directory:</label>
                                     <input id="local_directory" name="local_directory"
                                            placeholder="Enter local directory"
-                                           type="text" value="/app/python/source_code/dlt-meta/demo/">
+                                           type="text" value="/app/python/source_code/sdp-meta/demo/">
                                 </div>
                             </div>
 
@@ -620,14 +620,14 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>Provide dlt meta schema name:</label>
-                                    <input id="dlt_meta_schema" name="dlt_meta_schema" placeholder="Enter schema name"
-                                           type="text" value="dlt_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14">
+                                    <input id="sdp_meta_schema" name="sdp_meta_schema" placeholder="Enter schema name"
+                                           type="text" value="sdp_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14">
                                 </div>
                                 <div class="form-group">
                                     <label>Provide dlt meta bronze layer schema name:</label>
                                     <input id="bronze_schema" name="bronze_schema"
                                            placeholder="Enter bronze schema name"
-                                           type="text" value="dltmeta_bronze_9c1aa383b36a49198d3e99d25f7180a4">
+                                           type="text" value="sdp_meta_bronze_9c1aa383b36a49198d3e99d25f7180a4">
                                 </div>
                             </div>
 
@@ -636,11 +636,11 @@
                                     <label>Provide dlt meta silver layer schema name:</label>
                                     <input id="silver_schema" name="silver_schema"
                                            placeholder="Enter silver schema name"
-                                           type="text" value="dltmeta_silver_7b4e981029b843c799bf61a0a121b3ca">
+                                           type="text" value="sdp_meta_silver_7b4e981029b843c799bf61a0a121b3ca">
                                 </div>
                                 <div class="form-group">
                                     <label>Provide dlt meta layer:</label>
-                                    <select id="dlt_meta_layer" name="dlt_meta_layer">
+                                    <select id="sdp_meta_layer" name="sdp_meta_layer">
                                         <option value="0">bronze</option>
                                         <option value="1">bronze_silver</option>
                                         <option value="2">silver</option>
@@ -794,7 +794,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label>Provide dlt meta layer:</label>
-                                    <select id="dlt_meta_layer" name="deploylayer">
+                                    <select id="sdp_meta_layer" name="deploylayer">
                                         <option value="bronze">bronze</option>
                                         <option value="bronze_silver">bronze_silver</option>
                                         <option value="silver">silver</option>
@@ -882,7 +882,7 @@
 <!-- Footer Section -->
 <footer>
     <div class="container">
-        <p>&copy; 2025 DLT-META Configuration Portal. All rights reserved.</p>
+        <p>&copy; 2025 SDP-META Configuration Portal. All rights reserved.</p>
     </div>
 </footer>
 
@@ -1274,7 +1274,7 @@
         });
 
         // Initialize with a prompt
-        appendToTerminal('Welcome to the Databricks DLT-META CLI Browser Interface', 'input-line');
+        appendToTerminal('Welcome to the Databricks SDP-META CLI Browser Interface', 'input-line');
         appendToTerminal('Type a command or click one of the suggestions below', 'input-line');
         appendToTerminal('$ ', 'prompt');
 

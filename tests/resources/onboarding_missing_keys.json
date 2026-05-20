@@ -65,8 +65,8 @@
          "cloudFiles.rescuedDataColumn": "_rescued_data"
       },
       "bronze_table_path_dev": "tests/resources/delta/transactions",
-      "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/transactions",
-      "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/transactions",
+      "bronze_table_path_staging": "s3://db-sdp-meta-staging/demo/data/bronze/transactions",
+      "bronze_table_path_prd": "s3://db-sdp-meta-prod/demo/data/bronze/transactions",
       "bronze_table_properties": {
          "pipelines.reset.allowed": "false"
       },

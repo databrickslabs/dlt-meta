@@ -10,11 +10,11 @@ draft: false
 - **Prerequisite**: Datatbricks CLI installed as given [here](https://docs.databricks.com/en/dev-tools/cli/profiles.html)
 
 ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git
+    git clone https://github.com/databrickslabs/sdp-meta.git
 ```
 
 ```commandline
-    cd dlt-meta
+    cd sdp-meta
 ```
 
 ```commandline
@@ -29,16 +29,16 @@ draft: false
     pip install databricks-sdk
 ```
 ```commandline
-    dlt_meta_home=$(pwd)
+    sdp_meta_home=$(pwd)
 ```
  ```commandline
-    export PYTHONPATH=$dlt_meta_home
+    export PYTHONPATH=$sdp_meta_home
 ```
 
 2. Run integration test against cloudfile or eventhub or kafka using below options: If databricks profile configured using CLI then pass ```--profile <profile-name>``` to below command otherwise provide workspace url and token in command line
     - 2a. Run the command for cloudfiles ```python integration_tests/run_integration_tests.py  --source=cloudfiles uc_catalog_name=<<>>```
 
-    - 2b. Run the command for eventhub ```python integration-tests/run_integration_tests.py --cloud_provider_name=azure --dbr_version=15.3.x-scala2.12 --source=eventhub --dbfs_path=dbfs:/tmp/DLT-META/ --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer```
+    - 2b. Run the command for eventhub ```python integration-tests/run_integration_tests.py --cloud_provider_name=azure --dbr_version=15.3.x-scala2.12 --source=eventhub --uc_catalog_name=<catalog> --eventhub_name=iot --eventhub_secrets_scope_name=eventhubs_creds --eventhub_namespace=int_test-standard --eventhub_port=9093 --eventhub_producer_accesskey_name=producer --eventhub_consumer_accesskey_name=consumer```
 
     - - For eventhub integration tests, the following are the prerequisites:
         1. Needs eventhub instance running
@@ -54,7 +54,7 @@ draft: false
         6. Provide eventhub access key name : --eventhub_consumer_accesskey_name
 
 
-    - 2c. Run the command for kafka ```python3 integration_tests/run_integration_tests.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --source=kafka --dbfs_path=dbfs:/tmp/DLT-META/ --kafka_topic_name=dlt-meta-integration-test --kafka_broker=host:9092```
+    - 2c. Run the command for kafka ```python3 integration_tests/run_integration_tests.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --source=kafka --uc_catalog_name=<catalog> --kafka_topic_name=sdp-meta-integration-test --kafka_broker=host:9092```
 
     - - For kafka integration tests, the following are the prerequisites:
         1. Needs kafka instance running
@@ -69,9 +69,9 @@ draft: false
 4. Output of a successful run should have the following in the file 
 ```
 ,0
-0,Completed Bronze Lakeflow Declarative Pipeline.
-1,Completed Silver Lakeflow Declarative Pipeline.
-2,Validating Lakeflow Declarative Pipeline Bronze and Silver Table Counts...
+0,Completed Bronze Lakeflow Spark Declarative Pipeline.
+1,Completed Silver Lakeflow Spark Declarative Pipeline.
+2,Validating Lakeflow Spark Declarative Pipeline Bronze and Silver Table Counts...
 3,Validating Counts for Table bronze_7d1d3ccc9e144a85b07c23110ea50133.transactions.
 4,Expected: 10002 Actual: 10002. Passed!
 5,Validating Counts for Table bronze_7d1d3ccc9e144a85b07c23110ea50133.transactions_quarantine.

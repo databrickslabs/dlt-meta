@@ -17,7 +17,7 @@ import json
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    handlers=[logging.FileHandler("dlt-meta-app.log"),
+                    handlers=[logging.FileHandler("sdp-meta-app.log"),
                               logging.StreamHandler()])
 logger = logging.getLogger(__name__)
 
@@ -225,17 +225,17 @@ def start_command():
         if 'PYTHONPATH' not in os.environ or not os.path.isdir(os.environ.get('PYTHONPATH', '')):
             commands = [
                 "pip install databricks-cli",
-                "git clone https://github.com/databrickslabs/dlt-meta.git",
-                f"python -m venv {current_directory}/dlt-meta/.venv",
+                "git clone https://github.com/databrickslabs/sdp-meta.git",
+                f"python -m venv {current_directory}/sdp-meta/.venv",
                 f"export HOME={current_directory}",
-                "cd dlt-meta",
+                "cd sdp-meta",
                 "source .venv/bin/activate",
-                f"export PYTHONPATH={current_directory}/dlt-meta/",
+                f"export PYTHONPATH={current_directory}/sdp-meta/",
                 "pwd",
                 "pip install databricks-sdk",
                 "pip install PyYAML",
             ]
-            print("Start setting up dlt-meta environment")
+            print("Start setting up sdp-meta environment")
             for c in commands:
                 try:
                     command_id = str(time.time())
@@ -250,7 +250,7 @@ def start_command():
                 except Exception as e:
                     logger.error(f"Error starting command: {str(e)}")
                     print(f"Error starting command: {str(e)}")
-            print("Completed setting up dlt-meta environment")
+            print("Completed setting up sdp-meta environment")
 
     else:
         command_id = str(time.time())
@@ -312,13 +312,13 @@ def handle_onboard_form():
         "unity_catalog_enabled": "1" if request.form.get('unity_catalog_enabled') == "1" else "0",
         "unity_catalog_name": request.form.get('unity_catalog_name', ''),
         "serverless": "1" if request.form.get('serverless') == "1" else "0",
-        "onboarding_file_path": request.form.get('onboarding_file_path', 'demo/conf/onboarding.template'),
-        "local_directory": request.form.get('local_directory', '/app/python/source_code/dlt-meta/demo/'),
-        "dlt_meta_schema": request.form.get('dlt_meta_schema',
-                                            'dlt_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14'),
-        "bronze_schema": request.form.get('bronze_schema', 'dltmeta_bronze_9c1aa383b36a49198d3e99d25f7180a4'),
-        "silver_schema": request.form.get('silver_schema', 'dltmeta_silver_7b4e981029b843c799bf61a0a121b3ca'),
-        "dlt_meta_layer": request.form.get('dlt_meta_layer', '1'),
+        "onboarding_file_path": request.form.get('onboarding_file_path', 'demo/conf/json/onboarding.template'),
+        "local_directory": request.form.get('local_directory', '/app/python/source_code/sdp-meta/demo/'),
+        "sdp_meta_schema": request.form.get('sdp_meta_schema',
+                                            'sdp_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14'),
+        "bronze_schema": request.form.get('bronze_schema', 'sdp_meta_bronze_9c1aa383b36a49198d3e99d25f7180a4'),
+        "silver_schema": request.form.get('silver_schema', 'sdp_meta_silver_7b4e981029b843c799bf61a0a121b3ca'),
+        "sdp_meta_layer": request.form.get('sdp_meta_layer', '1'),
         "bronze_table": request.form.get('bronze_table', 'bronze_dataflowspec'),
         "silver_table": request.form.get('silver_table', 'silver_dataflowspec'),
         "overwrite": "1" if request.form.get('overwrite') == "1" else "0",
@@ -350,13 +350,13 @@ def handle_deploy_form():
         "uc_catalog_name": request.form.get('uc_catalog_name', ''),
         "serverless": "1" if request.form.get('serverless') == "1" else "0",
         "layer": request.form.get('deploylayer', 'bronze'),
-        "pipeline_name": request.form.get('pipeline_name', 'dlt_meta_pipeline'),
+        "pipeline_name": request.form.get('pipeline_name', 'sdp_meta_pipeline'),
         "dlt_target_schema": request.form.get("dlt_target_schema"),
         "command": "deploy_ui",
         "flags": {"log_level": "info"},
         "onboard_bronze_group": request.form.get("onboard_bronze_group"),
         "onboard_silver_group": request.form.get("onboard_silver_group"),
-        "dlt_meta_schema": request.form.get("spc_schema_name"),
+        "sdp_meta_schema": request.form.get("spc_schema_name"),
         "bronze_dataflowspec_table": request.form.get("bronze_dataflowspec_table"),
         "dataflowspec_silver_table": request.form.get("silver_dataflowspec_table"),
     }

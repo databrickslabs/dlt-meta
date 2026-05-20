@@ -9,7 +9,7 @@ draft: false
   - This demo will perform following steps
     - Showcase onboarding process for silver fanout pattern
     - Run onboarding for the bronze cars table, which contains data from various countries.
-    - Run onboarding for the silver tables, which have a `where_clause` based on the country condition in [silver_transformations_cars.json](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/silver_transformations_cars.json).
+    - Run onboarding for the silver tables, which have a `where_clause` based on the country condition in [`demo/conf/json/silver_transformations_cars.json`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/silver_transformations_cars.json) (or its YAML sibling [`demo/conf/yml/silver_transformations_cars.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/silver_transformations_cars.yml)).
     - Run Bronze for cars tables
     - Run onboarding for the silver tables, fanning out from the bronze cars tables to country-specific tables such as cars_usa, cars_uk, cars_germany, and cars_japan.    
 
@@ -32,21 +32,21 @@ draft: false
     pip install flake8==6.0 delta-spark==3.0.0 pytest>=7.0.0 coverage>=7.0.0 pyspark==3.5.5
     ```
 
-4. Clone dlt-meta:
+4. Clone sdp-meta:
     ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git 
+    git clone https://github.com/databrickslabs/sdp-meta.git 
     ```
 
 5. Navigate to project directory:
     ```commandline
-    cd dlt-meta
+    cd sdp-meta
     ```
 6. Set python environment variable into terminal
     ```commandline
-    dlt_meta_home=$(pwd)
+    sdp_meta_home=$(pwd)
     ```
     ```commandline
-    export PYTHONPATH=$dlt_meta_home
+    export PYTHONPATH=$sdp_meta_home
 
 7. Run the command:
     ```commandline

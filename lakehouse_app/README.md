@@ -1,4 +1,4 @@
-# DLT-META Lakehouse App
+# SDP-META Lakehouse App
 
 ## Prerequisites
 
@@ -15,8 +15,8 @@
 
 2. Setup Python Environment:
    ```commandline
-   git clone https://github.com/databrickslabs/dlt-meta.git
-   cd dlt-meta
+   git clone https://github.com/databrickslabs/sdp-meta.git
+   cd sdp-meta
    python -m venv .venv
    source .venv/bin/activate
    pip install databricks-sdk
@@ -28,19 +28,19 @@
 
 1. Create Custom App:
    ```commandline
-   databricks apps create demo-dltmeta
+   databricks apps create demo-sdp-meta
    ```
    > Note: Wait for command completion (a few minutes)
 
 2. Setup App Code:
    ```commandline
-   cd dlt-meta/lakehouse_app
+   cd sdp-meta/lakehouse_app
    
    # Replace testapp with your preferred folder name
    databricks sync . /Workspace/Users/<user1.user2>@databricks.com/testapp
    
    # Deploy the app
-   databricks apps deploy demo-dltmeta --source-code-path /Workspace/Users/<user1.user2>@databricks.com/testapp
+   databricks apps deploy demo-sdp-meta --source-code-path /Workspace/Users/<user1.user2>@databricks.com/testapp
    ```
 
 3. Access the App:
@@ -51,7 +51,7 @@
 
 1. Setup Environment:
    ```commandline
-   cd dlt-meta/lakehouse_app
+   cd sdp-meta/lakehouse_app
    pip install -r requirements.txt
    ```
 
@@ -66,7 +66,7 @@
    ```
    Access at: http://127.0.0.1:5000
 
-## Using DLT-META App
+## Using SDP-META App
 
 ### App User Setup
 
@@ -75,13 +75,13 @@
 The app creates a dedicated user account that:
 - Handles onboarding, deployment, and demo execution
 - Requires specific permissions for UC catalogs and schemas
-- Example username format: "app-40zbx9_demo-dltmeta"
+- Example username format: "app-40zbx9_demo-sdp-meta"
 
 ### Getting Started
 
 1. Initial Setup:
    - Launch app in browser
-   - Click "Setup dlt-meta project environment"
+   - Click "Setup sdp-meta project environment"
    - This initializes the environment for onboarding and deployment
 
 2. Pipeline Management:

@@ -9,35 +9,32 @@ import os
 from pyspark.sql.functions import lit, expr
 import pyspark.sql.types as T
 from pyspark.sql import DataFrame
-from tests.utils import DLTFrameworkTestCase
+from tests.utils import SDPFrameworkTestCase
 from unittest.mock import MagicMock, patch
-from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec
-sys.modules["dlt"] = MagicMock()
-from src.dataflow_pipeline import DataflowPipeline  # noqa: E402
-from src.onboard_dataflowspec import OnboardDataflowspec  # noqa: E402
-from src.dataflow_spec import DataflowSpecUtils  # noqa: E402
-from src.pipeline_readers import PipelineReaders  # noqa: E402
+from databricks.labs.sdp_meta.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec
 
-dlt = MagicMock()
-dlt.expect_all_or_drop = MagicMock(return_value=lambda func: func)
-dlt.expect_all_or_fail = MagicMock(return_value=lambda func: func)
-dlt.table = MagicMock(return_value=lambda func: func)
-dlt.create_auto_cdc_from_snapshot_flow = MagicMock()
-dlt.append_flow = MagicMock(return_value=lambda func: func)
-dlt.expect_all = MagicMock(return_value=lambda func: func)
-raw_delta_table_stream = MagicMock()
+# The legacy ``dlt`` module has been replaced by ``pyspark.pipelines`` (imported
+# as ``dp``). On the test runner we don't have a Spark version that ships
+# ``pyspark.pipelines`` yet, so we register a mock module so the production
+# imports succeed.
+sys.modules["pyspark.pipelines"] = MagicMock()
+from databricks.labs.sdp_meta.dataflow_pipeline import DataflowPipeline  # noqa: E402
+from databricks.labs.sdp_meta.onboard_dataflowspec import OnboardDataflowspec  # noqa: E402
+from databricks.labs.sdp_meta.dataflow_spec import DataflowSpecUtils  # noqa: E402
+from databricks.labs.sdp_meta.pipeline_readers import PipelineReaders  # noqa: E402
 
-dlt = MagicMock()
-dlt.expect_all_or_drop = MagicMock(return_value=lambda func: func)
-dlt.expect_all_or_fail = MagicMock(return_value=lambda func: func)
-dlt.table = MagicMock(return_value=lambda func: func)
-dlt.create_auto_cdc_from_snapshot_flow = MagicMock()
-dlt.append_flow = MagicMock(return_value=lambda func: func)
-dlt.expect_all = MagicMock(return_value=lambda func: func)
+dp = MagicMock()
+dp.expect_all_or_drop = MagicMock(return_value=lambda func: func)
+dp.expect_all_or_fail = MagicMock(return_value=lambda func: func)
+dp.table = MagicMock(return_value=lambda func: func)
+dp.create_auto_cdc_from_snapshot_flow = MagicMock()
+dp.append_flow = MagicMock(return_value=lambda func: func)
+dp.expect_all = MagicMock(return_value=lambda func: func)
+dp.temporary_view = MagicMock(return_value=lambda func: func)
 raw_delta_table_stream = MagicMock()
 
 
-class DataflowPipelineTests(DLTFrameworkTestCase):
+class DataflowPipelineTests(SDPFrameworkTestCase):
     """Test for Dataflowpipeline."""
 
     bronze_dataflow_spec_acs_map = {
@@ -69,9 +66,9 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "appendFlowsSchemas": {},
         "version": "v1",
         "createDate": datetime.now,
-        "createdBy": "dlt-meta-unittest",
+        "createdBy": "sdp-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "dlt-meta-unittest",
+        "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
         "sinks": []
@@ -107,9 +104,9 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "sinks": [],
         "version": "v1",
         "createDate": datetime.now,
-        "createdBy": "dlt-meta-unittest",
+        "createdBy": "sdp-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "dlt-meta-unittest",
+        "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
     }
@@ -168,9 +165,9 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "sinks": {},
         "version": "v1",
         "createDate": datetime.now,
-        "createdBy": "dlt-meta-unittest",
+        "createdBy": "sdp-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "dlt-meta-unittest",
+        "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
     }
@@ -215,9 +212,9 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         "sinks": {},
         "version": "v1",
         "createDate": datetime.now,
-        "createdBy": "dlt-meta-unittest",
+        "createdBy": "sdp-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "dlt-meta-unittest",
+        "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
     }
@@ -490,7 +487,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         self.assertIsNotNone(silver_df)
 
     @patch.object(DataflowPipeline, "write_layer_with_dqe", return_value={"called"})
-    @patch.object(dlt, "expect_all_or_drop", return_value={"called"})
+    @patch.object(dp, "expect_all_or_drop", return_value={"called"})
     def test_broze_write_dqe(self, expect_all_or_drop, write_layer_with_dqe):
         bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
         dlt_data_flow = DataflowPipeline(
@@ -503,7 +500,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         assert write_layer_with_dqe.called
 
     @patch.object(DataflowPipeline, "cdc_apply_changes", return_value={"called"})
-    @patch.object(dlt, "expect_all_or_drop", return_value={"called"})
+    @patch.object(dp, "expect_all_or_drop", return_value={"called"})
     def test_broze_write_cdc_apply_changes(self, expect_all_or_drop, cdc_apply_changes):
         bronze_dataflow_spec = BronzeDataflowSpec(**DataflowPipelineTests.bronze_dataflow_spec_map)
         cdc_apply_changes_json = """{
@@ -559,9 +556,9 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         with self.assertRaises(Exception):
             dlt_data_flow.cdc_apply_changes()
 
-    @patch('src.dataflow_pipeline.dlt')
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     def test_dlt_view_bronze_call(self, mock_dlt):
-        mock_dlt.view = MagicMock(return_value=None)
+        mock_dlt.temporary_view = MagicMock(return_value=None)
         bronze_dataflow_spec = BronzeDataflowSpec(
             **DataflowPipelineTests.bronze_dataflow_spec_map
         )
@@ -570,15 +567,15 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         pipeline.read_bronze = MagicMock()
         pipeline.view_name = view_name
         pipeline.read()
-        mock_dlt.view.assert_called_once_with(
+        mock_dlt.temporary_view.assert_called_once_with(
             pipeline.read_bronze,
             name=pipeline.view_name,
             comment=f"input dataset view for {pipeline.view_name}"
         )
 
-    @patch('src.dataflow_pipeline.dlt')
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     def test_dlt_view_silver_call(self, mock_dlt):
-        mock_dlt.view = MagicMock(return_value=None)
+        mock_dlt.temporary_view = MagicMock(return_value=None)
         silver_dataflow_spec = SilverDataflowSpec(
             **DataflowPipelineTests.silver_dataflow_spec_map
         )
@@ -587,13 +584,13 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         pipeline.read_bronze = MagicMock()
         pipeline.view_name = view_name
         pipeline.read()
-        mock_dlt.view.assert_called_once_with(
+        mock_dlt.temporary_view.assert_called_once_with(
             pipeline.read_silver,
             name=pipeline.view_name,
             comment=f"input dataset view for {pipeline.view_name}"
         )
 
-    @patch('src.dataflow_pipeline.dlt')
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     def test_dlt_write_bronze(self, mock_dlt):
         mock_dlt_table = MagicMock(return_value=lambda func: func)
         mock_dlt.table = mock_dlt_table
@@ -641,7 +638,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         self.assertEqual(kwargs["path"], target_path_no_uc)
         self.assertEqual(kwargs["comment"], expected_comment_no_uc)
 
-    @patch('src.dataflow_pipeline.dlt')
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     def test_dlt_write_silver(self, mock_dlt):
         mock_dlt_table = MagicMock(return_value=lambda func: func)
         mock_dlt.table = mock_dlt_table
@@ -663,7 +660,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         target_path_uc, target_table_uc, target_table_name_uc = pipeline_uc._get_target_table_info()
         expected_comment_uc = pipeline_uc._get_table_comment(target_table_uc, is_bronze=False)
         self.assertEqual(args[0], pipeline_uc.write_to_delta)
-        self.assertEqual(kwargs["name"], target_table_name_uc)
+        self.assertEqual(kwargs["name"], target_table_uc)
         self.assertIsNone(target_path_uc)
         self.assertIsNone(kwargs["path"])
         self.assertEqual(kwargs["comment"], expected_comment_uc)
@@ -684,7 +681,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         mock_dlt_table.assert_called_once()
         args, kwargs = mock_dlt_table.call_args
         self.assertEqual(args[0], pipeline_no_uc.write_to_delta)
-        self.assertEqual(kwargs["name"], target_table_name_no_uc)
+        self.assertEqual(kwargs["name"], target_table_no_uc)
         self.assertEqual(kwargs["path"], target_path_no_uc)
         self.assertEqual(kwargs["comment"], expected_comment_no_uc)
 
@@ -774,7 +771,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
     def read_dataflowspec(self, database, table):
         return self.spark.read.table(f"{database}.{table}")
 
-    @patch('src.dataflow_pipeline.dlt')
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     def test_dataflowpipeline_bronze_dqe(self, mock_dlt):
         mock_dlt_table = MagicMock(return_value=lambda func: func)
         mock_expect_all = MagicMock(return_value=lambda func: func)
@@ -814,7 +811,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         _, kwargs = mock_dlt_table.call_args_list[0]
         target_path_actual, target_table, target_table_name = pipeline._get_target_table_info()
         expected_comment = pipeline._get_table_comment(target_table, is_bronze=True)
-        self.assertEqual(kwargs["name"], target_table_name)
+        self.assertEqual(kwargs["name"], target_table)
         expected_table_properties = (
             dict(bronze_dataflow_spec.tableProperties)
             if bronze_dataflow_spec.tableProperties
@@ -833,9 +830,19 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         mock_expect_all_or_fail.assert_called_once_with(expect_or_fail_dict)
         mock_expect_all.assert_called_once_with(expect_dict)
         assert mock_expect_all_or_drop.expect_all_or_drop(expect_or_quarantine_dict)
+        # Verify quarantine table uses fully-qualified name (issue #243)
+        if expect_or_quarantine_dict:
+            _, quarantine_kwargs = mock_dlt_table.call_args_list[-1]
+            quarantine_target_details = pipeline._get_quarantine_target_details()
+            q_cl = quarantine_target_details.get('catalog', None)
+            q_cl_name = f"{q_cl}." if q_cl is not None else ''
+            q_db = quarantine_target_details.get('database', '')
+            q_table_name = quarantine_target_details.get('table', '')
+            expected_quarantine_table = f"{q_cl_name}{q_db}.{q_table_name}"
+            self.assertEqual(quarantine_kwargs["name"], expected_quarantine_table)
 
     @patch.object(DataflowPipeline, 'get_silver_schema', new_callable=MagicMock)
-    @patch('src.dataflow_pipeline.dlt')
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
     def test_dataflowpipeline_silver_cdc_apply_changes(self,
                                                        mock_create_streaming_table,
@@ -925,7 +932,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             cdc_apply_changes.ignore_null_updates_except_column_list
         )
 
-    @patch('src.dataflow_pipeline.dlt')
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
     def test_bronze_cdc_apply_changes(self,
                                       mock_create_streaming_table,
@@ -978,7 +985,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         assert_column_equals(kwargs["apply_as_deletes"], apply_as_deletes)
         assert_column_equals(kwargs["apply_as_truncates"], apply_as_truncates)
 
-    @patch('src.dataflow_pipeline.dlt')
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
     def test_bronze_cdc_apply_changes_v7(self,
                                          mock_create_streaming_table,
@@ -1054,11 +1061,11 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
 
     @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
     @patch.object(DataflowPipeline, "write_to_delta", new_callable=MagicMock)
-    @patch('src.pipeline_writers.dlt')
-    @patch('src.dataflow_pipeline.dlt')
+    @patch('databricks.labs.sdp_meta.pipeline_writers.dp')
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     def test_bronze_append_flow_positive(self,
-                                         mock_dlt,
-                                         mock_pipeline_writers_dlt,
+                                         mock_dlt_dp,
+                                         mock_dlt_pw,
                                          mock_write_to_delta,
                                          mock_create_streaming_table,
                                          ):
@@ -1066,13 +1073,8 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         mock_write_to_delta.return_value = None
         mock_dlt_create_streaming_table = MagicMock(return_value=None)
         mock_append_flow = MagicMock(return_value=lambda func: func)
-        mock_read_stream = MagicMock(return_value=None)
-        mock_dlt.create_streaming_table = mock_dlt_create_streaming_table
-        mock_dlt.append_flow = mock_append_flow
-        mock_dlt.read_stream = mock_read_stream
-        # Also set up mocks for pipeline_writers.dlt
-        mock_pipeline_writers_dlt.append_flow = mock_append_flow
-        mock_pipeline_writers_dlt.read_stream = mock_read_stream
+        mock_dlt_pw.create_streaming_table = mock_dlt_create_streaming_table
+        mock_dlt_pw.append_flow = mock_append_flow
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         onboarding_params_map['onboarding_file_path'] = self.onboarding_append_flow_json_file
         o_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
@@ -1124,9 +1126,9 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         self.assertIsNone(expect_all_or_fail_dict)
         self.assertIsNone(expect_all_dict)
 
-    @patch('src.dataflow_pipeline.dlt')
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     def test_read_append_flows(self, mock_dlt):
-        mock_dlt.view = MagicMock(return_value=None)
+        mock_dlt.temporary_view = MagicMock(return_value=None)
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         onboarding_params_map['onboarding_file_path'] = self.onboarding_append_flow_json_file
         o_dfs = OnboardDataflowspec(self.spark, onboarding_params_map)
@@ -1142,13 +1144,13 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         append_flow = DataflowSpecUtils.get_append_flows(silver_dataflow_spec.appendFlows)[0]
 
         # Check if mock was called before unpacking
-        self.assertIsNotNone(mock_dlt.view.call_args, "mock_view was not called")
-        called_args, called_kwargs = mock_dlt.view.call_args
+        self.assertIsNotNone(mock_dlt.temporary_view.call_args, "mock_view was not called")
+        called_args, called_kwargs = mock_dlt.temporary_view.call_args
         read_callable = called_args[0]
         self.assertEqual(read_callable.__name__, "read_dlt_cloud_files")
         self.assertEqual(called_kwargs["name"], f"{append_flow.name}_view")
         self.assertEqual(called_kwargs["comment"], f"append flow input dataset view for {append_flow.name}_view")
-        mock_dlt.view.reset_mock()
+        mock_dlt.temporary_view.reset_mock()
 
         bronze_df_row = bronze_dataflowSpec_df.filter(bronze_dataflowSpec_df.dataFlowId == "103").collect()[0]
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_df_row.asDict())
@@ -1157,13 +1159,13 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         pipeline.read_append_flows()
         append_flow = DataflowSpecUtils.get_append_flows(bronze_dataflow_spec.appendFlows)[0]
 
-        self.assertIsNotNone(mock_dlt.view.call_args, "mock_view was not called for dataFlowId 103")
-        called_args, called_kwargs = mock_dlt.view.call_args
+        self.assertIsNotNone(mock_dlt.temporary_view.call_args, "mock_view was not called for dataFlowId 103")
+        called_args, called_kwargs = mock_dlt.temporary_view.call_args
         read_callable = called_args[0]
         self.assertEqual(read_callable.__name__, "read_kafka")
         self.assertEqual(called_kwargs["name"], f"{append_flow.name}_view")
         self.assertEqual(called_kwargs["comment"], f"append flow input dataset view for {append_flow.name}_view")
-        mock_dlt.view.reset_mock()
+        mock_dlt.temporary_view.reset_mock()
 
         silver_dataflowSpec_df = self.spark.read.format("delta").load(
             self.onboarding_bronze_silver_params_map['silver_dataflowspec_path']
@@ -1175,8 +1177,8 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         pipeline.read_append_flows()
         append_flow = DataflowSpecUtils.get_append_flows(silver_dataflow_spec.appendFlows)[0]
 
-        self.assertIsNotNone(mock_dlt.view.call_args, "mock_view was not called for dataFlowId 101")
-        called_args, called_kwargs = mock_dlt.view.call_args
+        self.assertIsNotNone(mock_dlt.temporary_view.call_args, "mock_view was not called for dataFlowId 101")
+        called_args, called_kwargs = mock_dlt.temporary_view.call_args
         read_callable = called_args[0]
         self.assertEqual(read_callable.__name__, "read_dlt_delta")
         self.assertEqual(called_kwargs["name"], f"{append_flow.name}_view")
@@ -1206,7 +1208,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         self.assertIsNotNone(expect_all_or_drop_dict)
         self.assertIsNotNone(expect_all_or_fail_dict)
 
-    @patch('src.dataflow_pipeline.dlt')
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     def test_modify_schema_for_cdc_changes(self, mock_dlt):
         mock_dlt_table = MagicMock()
         mock_dlt_table.table.return_value = None
@@ -1248,8 +1250,126 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         modified_schema = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
         self.assertEqual(modified_schema, None)
 
-    @patch.object(dlt, 'create_streaming_table', return_value={"called"})
-    @patch.object(dlt, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_modify_schema_for_cdc_changes_composite_sequence_by(self, mock_dlt):
+        """Composite sequence_by like ' ts , id ' must use the FIRST trimmed token
+        for the SCD2 timestamp dtype lookup."""
+        cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(json.dumps({
+            "keys": ["id"],
+            "sequence_by": " ts , id ",
+            "scd_type": "2",
+            "except_column_list": ["op"],
+        }))
+        schema = T.StructType([
+            T.StructField("id", T.StringType()),
+            T.StructField("ts", T.TimestampType()),
+            T.StructField("op", T.StringType()),
+        ])
+        spec = BronzeDataflowSpec(**copy.deepcopy(self.bronze_dataflow_spec_map))
+        spec.schema = json.dumps(schema.jsonValue())
+        spec.dataQualityExpectations = None
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        out = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
+        self.assertNotIn("op", out.fieldNames())
+        self.assertIn("__START_AT", out.fieldNames())
+        self.assertIn("__END_AT", out.fieldNames())
+        self.assertEqual(out["__START_AT"].dataType, T.TimestampType())
+        self.assertEqual(out["__END_AT"].dataType, T.TimestampType())
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_modify_schema_for_cdc_changes_unknown_sequence_column(self, mock_dlt):
+        """If sequence_by names a column not present in the schema, SCD2
+        START/END columns must NOT be appended (sequenced_by_data_type is None)."""
+        cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(json.dumps({
+            "keys": ["id"],
+            "sequence_by": "missing_col",
+            "scd_type": "2",
+            "except_column_list": ["op"],
+        }))
+        schema = T.StructType([
+            T.StructField("id", T.StringType()),
+            T.StructField("op", T.StringType()),
+        ])
+        spec = BronzeDataflowSpec(**copy.deepcopy(self.bronze_dataflow_spec_map))
+        spec.schema = json.dumps(schema.jsonValue())
+        spec.dataQualityExpectations = None
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        out = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
+        self.assertNotIn("__START_AT", out.fieldNames())
+        self.assertNotIn("__END_AT", out.fieldNames())
+        self.assertNotIn("op", out.fieldNames())
+        self.assertIn("id", out.fieldNames())
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_modify_schema_for_cdc_changes_many_columns_correctness(self, mock_dlt):
+        """Correctness on a wide schema (the shape the optimization targets):
+        a 701-col schema with 100 excluded columns must produce the right
+        field set and SCD2 dtype regardless of width."""
+        cols = [T.StructField(f"c{i}", T.StringType()) for i in range(700)]
+        cols.append(T.StructField("ts", T.TimestampType()))
+        schema = T.StructType(cols)
+        excluded = [f"c{i}" for i in range(100)]
+        cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(json.dumps({
+            "keys": ["c100"],
+            "sequence_by": "ts",
+            "scd_type": "2",
+            "except_column_list": excluded,
+        }))
+        spec = BronzeDataflowSpec(**copy.deepcopy(self.bronze_dataflow_spec_map))
+        spec.schema = json.dumps(schema.jsonValue())
+        spec.dataQualityExpectations = None
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        out = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
+        # 700 c* cols - 100 excluded + 1 ts kept + 2 SCD2 columns = 603
+        self.assertEqual(len(out.fieldNames()), 603)
+        for c in excluded:
+            self.assertNotIn(c, out.fieldNames())
+        self.assertIn("ts", out.fieldNames())
+        self.assertEqual(out["__START_AT"].dataType, T.TimestampType())
+        self.assertEqual(out["__END_AT"].dataType, T.TimestampType())
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_modify_schema_for_cdc_changes_sequence_column_in_except_list(self, mock_dlt):
+        """If the sequence_by column itself is in except_column_list, its dtype
+        must still be captured for SCD2 START/END columns (dtype lookup happens
+        before the schema is filtered) and the column itself must be dropped
+        from the data schema."""
+        cdc_apply_changes = DataflowSpecUtils.get_cdc_apply_changes(json.dumps({
+            "keys": ["id"],
+            "sequence_by": "ts",
+            "scd_type": "2",
+            "except_column_list": ["ts", "op"],
+        }))
+        schema = T.StructType([
+            T.StructField("id", T.StringType()),
+            T.StructField("ts", T.TimestampType()),
+            T.StructField("op", T.StringType()),
+        ])
+        spec = BronzeDataflowSpec(**copy.deepcopy(self.bronze_dataflow_spec_map))
+        spec.schema = json.dumps(schema.jsonValue())
+        spec.dataQualityExpectations = None
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        out = pipeline.modify_schema_for_cdc_changes(cdc_apply_changes)
+        self.assertNotIn("ts", out.fieldNames())
+        self.assertNotIn("op", out.fieldNames())
+        self.assertIn("id", out.fieldNames())
+        self.assertEqual(out["__START_AT"].dataType, T.TimestampType())
+        self.assertEqual(out["__END_AT"].dataType, T.TimestampType())
+
+    @patch.object(dp, 'create_streaming_table', return_value={"called"})
+    @patch.object(dp, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
     def test_apply_changes_from_snapshot(self, mock_create_auto_cdc_from_snapshot_flow, mock_create_streaming_table):
         """Test apply_changes_from_snapshot method."""
 
@@ -1271,10 +1391,10 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name,
                                     next_snapshot_and_version=next_snapshot_and_version)
         pipeline.apply_changes_from_snapshot()
-        dlt.called
+        dp.called
 
-    @patch.object(dlt, 'create_streaming_table', return_value={"called"})
-    @patch.object(dlt, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
+    @patch.object(dp, 'create_streaming_table', return_value={"called"})
+    @patch.object(dp, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
     def test_apply_changes_from_snapshot_uc_enabled(self,
                                                     mock_create_auto_cdc_from_snapshot_flow,
                                                     mock_create_streaming_table):
@@ -1297,10 +1417,10 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, view_name,
                                     next_snapshot_and_version=next_snapshot_and_version)
         pipeline.apply_changes_from_snapshot()
-        dlt.called
+        dp.called
 
-    @patch.object(dlt, 'create_streaming_table', return_value={"called"})
-    @patch.object(dlt, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
+    @patch.object(dp, 'create_streaming_table', return_value={"called"})
+    @patch.object(dp, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
     def test_silver_apply_changes_from_snapshot_uc_enabled(self,
                                                            mock_create_auto_cdc_from_snapshot_flow,
                                                            mock_create_streaming_table):
@@ -1311,7 +1431,7 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
         self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
         pipeline = DataflowPipeline(self.spark, silver_dataflow_spec, view_name)
         pipeline.apply_changes_from_snapshot()
-        dlt.called
+        dp.called
 
     @patch.object(DataflowSpecUtils, 'get_bronze_dataflow_spec', return_value=[MagicMock()])
     @patch.object(DataflowSpecUtils, 'get_silver_dataflow_spec', return_value=[MagicMock()])
@@ -1342,8 +1462,8 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             silver_custom_transform_func, silver_next_snapshot_and_version
         )
 
-    @patch.object(dlt, 'create_streaming_table', return_value={"called"})
-    @patch.object(dlt, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
+    @patch.object(dp, 'create_streaming_table', return_value={"called"})
+    @patch.object(dp, 'create_auto_cdc_from_snapshot_flow', return_value={"called"})
     def test_read_unsupported_dataflow(self, mock_create_auto_cdc_from_snapshot_flow, mock_create_streaming_table):
         """Test apply_changes_from_snapshot method."""
         mock_create_streaming_table.return_value = None
@@ -1650,11 +1770,11 @@ class DataflowPipelineTests(DLTFrameworkTestCase):
             pipeline.run_dlt()
         self.assertEqual(str(context.exception), "Snapshot reader function not provided!")
 
-    @patch('src.dataflow_pipeline.dlt')
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     def test_is_create_view_with_delta_snapshot_format(self, mock_dlt):
         """Test is_create_view with delta snapshot format."""
-        mock_dlt_view = MagicMock()
-        mock_dlt.view = mock_dlt_view
+        mock_dlt_temporary_view = MagicMock()
+        mock_dlt.temporary_view = mock_dlt_temporary_view
         bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
         bronze_spec_map["sourceDetails"] = {"snapshot_format": "delta"}
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)

@@ -1,16 +1,16 @@
 ---
-title: "Lakeflow Declarative Pipelines Sink Demo"
+title: "Lakeflow Spark Declarative Pipelines Sink Demo"
 date: 2024-02-26T14:25:26-04:00
 weight: 27
 draft: false
 ---
 
-### Lakeflow Declarative Pipelines Sink Demo
+### Lakeflow Spark Declarative Pipelines Sink Demo
 This demo will perform following steps:
 - Showcase onboarding process for dlt writing to external sink pattern
 - Run onboarding for the bronze iot events
 - Publish test events to kafka topic
-- Run Bronze Lakeflow Declarative Pipelines which will read from kafka source topic and write to:
+- Run Bronze Lakeflow Spark Declarative Pipelines which will read from kafka source topic and write to:
   - Events delta table into UC
   - Create quarantine table as per data quality expectations
   - Writes to external kafka topics
@@ -35,20 +35,20 @@ This demo will perform following steps:
     pip install flake8==6.0 delta-spark==3.0.0 pytest>=7.0.0 coverage>=7.0.0 pyspark==3.5.5
     ```
 
-4. Clone dlt-meta:
+4. Clone sdp-meta:
     ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git 
+    git clone https://github.com/databrickslabs/sdp-meta.git 
     ```
 
 5. Navigate to project directory:
     ```commandline
-    cd dlt-meta
+    cd sdp-meta
     ```
 
 6. Set python environment variable into terminal:
     ```commandline
-    dlt_meta_home=$(pwd)
-    export PYTHONPATH=$dlt_meta_home
+    sdp_meta_home=$(pwd)
+    export PYTHONPATH=$sdp_meta_home
     ```
 
 7. Configure Kafka (Optional):

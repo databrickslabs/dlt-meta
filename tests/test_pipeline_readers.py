@@ -5,16 +5,16 @@ import os
 import json
 from pyspark.sql.functions import lit, struct
 from pyspark.sql.types import StructType
-from src.dataflow_spec import BronzeDataflowSpec
-from src.pipeline_readers import PipelineReaders
-from tests.utils import DLTFrameworkTestCase
+from databricks.labs.sdp_meta.dataflow_spec import BronzeDataflowSpec
+from databricks.labs.sdp_meta.pipeline_readers import PipelineReaders
+from tests.utils import SDPFrameworkTestCase
 from unittest.mock import MagicMock, patch
 from pyspark.sql import SparkSession
-sys.modules["dlt"] = MagicMock()
+sys.modules["pyspark.pipelines"] = MagicMock()
 sys.modules["pyspark.dbutils"] = MagicMock()
 
 
-from src.onboard_dataflowspec import OnboardDataflowspec
+from databricks.labs.sdp_meta.onboard_dataflowspec import OnboardDataflowspec
 import pyspark.sql.types as T
 
 dbutils = MagicMock()
@@ -23,7 +23,7 @@ spark = MagicMock()
 spark.readStream = MagicMock()
 
 
-class PipelineReadersTests(DLTFrameworkTestCase):
+class PipelineReadersTests(SDPFrameworkTestCase):
     """Pieline readers unit tests."""
 
     bronze_dataflow_spec_map = {
@@ -50,9 +50,9 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "sinks": None,
         "version": "v1",
         "createDate": datetime.now,
-        "createdBy": "dlt-meta-unittest",
+        "createdBy": "sdp-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "dlt-meta-unittest",
+        "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
     }
@@ -94,9 +94,9 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "sinks": None,
         "version": "v1",
         "createDate": datetime.now,
-        "createdBy": "dlt-meta-unittest",
+        "createdBy": "sdp-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "dlt-meta-unittest",
+        "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
     }
@@ -137,9 +137,9 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "sinks": None,
         "version": "v1",
         "createDate": datetime.now,
-        "createdBy": "dlt-meta-unittest",
+        "createdBy": "sdp-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "dlt-meta-unittest",
+        "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
     }
@@ -172,9 +172,9 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         "sinks": None,
         "version": "v1",
         "createDate": datetime.now,
-        "createdBy": "dlt-meta-unittest",
+        "createdBy": "sdp-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "dlt-meta-unittest",
+        "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
     }
@@ -402,6 +402,22 @@ class PipelineReadersTests(DLTFrameworkTestCase):
         )
         dbutils = pipeline_readers.get_db_utils()
         self.assertIsNotNone(dbutils)
+
+    def test_get_db_utils_import_error(self):
+        """Test get_db_utils raises RuntimeError when DBUtils is not available."""
+        bronze_map = PipelineReadersTests.bronze_kafka_dataflow_spec_map
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
+        pipeline_readers = PipelineReaders(
+            self.spark,
+            bronze_dataflow_spec.sourceFormat,
+            bronze_dataflow_spec.sourceDetails,
+            bronze_dataflow_spec.readerConfigOptions,
+            bronze_dataflow_spec.schema
+        )
+        with patch.dict(sys.modules, {"pyspark.dbutils": None}):
+            with self.assertRaises(RuntimeError) as context:
+                pipeline_readers.get_db_utils()
+            self.assertIn("DBUtils is not available", str(context.exception))
 
     @patch.object(SparkSession, "readStream", return_value={"called"})
     @patch.object(dbutils, "secrets.get", return_value={"called"})

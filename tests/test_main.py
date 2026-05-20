@@ -1,15 +1,15 @@
 """Test Main class."""
-from tests.utils import DLTFrameworkTestCase
+from tests.utils import SDPFrameworkTestCase
 import sys
 import copy
-from src import __main__
+from databricks.labs.sdp_meta import __main__
 from unittest.mock import MagicMock
 
 spark = MagicMock()
 OnboardDataflowspec = MagicMock()
 
 
-class MainTests(DLTFrameworkTestCase):
+class MainTests(SDPFrameworkTestCase):
     """Main Unit Test ."""
 
     def test_parse_args(self):
@@ -137,7 +137,7 @@ class MainTests(DLTFrameworkTestCase):
         }
 
         spark_mock = MagicMock("SparkSession")
-        spark.builder.appName("DLT-META_Onboarding_Task").getOrCreate().return_value = spark_mock
+        spark.builder.appName("SDP-META_Onboarding_Task").getOrCreate().return_value = spark_mock
 
         mock_onboard_obj = MagicMock()
         mock_onboard_dataflowspec.return_value = mock_onboard_obj

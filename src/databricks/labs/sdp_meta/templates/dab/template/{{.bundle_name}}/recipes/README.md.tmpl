@@ -1,0 +1,127 @@
+# Flow generation recipes
+
+These three scripts use the same `bundle_add_flow` engine that powers
+`databricks labs sdp-meta bundle-add-flow`, but call it programmatically so
+you can scale to hundreds of tables without typing each one.
+
+All recipes default to **dry-run** — they print what they would write but do
+not modify `conf/onboarding.{{if eq .onboarding_file_format "yaml"}}yml{{else}}json{{end}}`. Add `--apply` once the
+preview looks right.
+
+| Recipe | When to use it | Discovery source |
+|---|---|---|
+| `from_uc.py` | Source tables already exist in UC and you want one delta-source flow per table | `WorkspaceClient.tables.list(catalog, schema)` |
+| `from_volume.py` | Source files land as one subdirectory per table under a UC volume (or local path during testing) | `WorkspaceClient.files.list_directory_contents(volume_path)` |
+| `from_topics.py` | You have N Kafka or Event Hubs topics to onboard against the same broker / namespace | `--topics a,b,c` or `--topics-file conf/samples/topics.txt` |
+| `from_inventory.py` | You have a hand-curated list (Excel, JSON, JIRA ticket) of `system -> [tables]` and want naming conventions applied programmatically | A literal `INVENTORY` dict you edit in the file |
+
+## Quick start
+
+```bash
+# 1) Mirror every Delta table from raw.landing as a delta-source flow
+python recipes/from_uc.py --source-catalog {{.uc_catalog_name}} --source-schema landing
+python recipes/from_uc.py --source-catalog {{.uc_catalog_name}} --source-schema landing --apply
+
+# 2) Treat each subdirectory under a UC volume as a cloudFiles source
+python recipes/from_volume.py --volume-path /Volumes/{{.uc_catalog_name}}/landing/files
+python recipes/from_volume.py --volume-path /Volumes/{{.uc_catalog_name}}/landing/files --apply
+
+# 3) 10 Kafka topics off the same broker
+python recipes/from_topics.py \
+    --source-format kafka \
+    --bootstrap-servers "broker1:9092,broker2:9092" \
+    --topics-file conf/samples/topics.txt \
+    --apply
+
+# 4) 10 Event Hubs in the same namespace
+python recipes/from_topics.py \
+    --source-format eventhub \
+    --bootstrap-servers "my-eh-namespace.servicebus.windows.net:9093" \
+    --topics orders,customers,events,payments,shipments \
+    --apply
+
+# 5) Edit INVENTORY in from_inventory.py, then run
+python recipes/from_inventory.py
+python recipes/from_inventory.py --apply
+```
+
+## Pattern cheatsheet (when none of the recipes fits exactly)
+
+Every shape below is a 4-line edit to `from_inventory.py` — the engine
+handles auto-id, dedup, layer-aware key emission, and YAML/JSON.
+
+**N cloudFiles paths that don't share a parent directory:**
+```python
+PATHS = [
+    "/Volumes/raw/zone_a/orders/",
+    "/Volumes/raw/zone_b/customers/",
+    "s3://other-bucket/landing/events/",
+]
+flows = [
+    FlowSpec(source_format="cloudFiles", source_path=p,
+             bronze_table=p.rstrip('/').split('/')[-1],
+             silver_table=p.rstrip('/').split('/')[-1])
+    for p in PATHS
+]
+```
+
+**N fully-qualified upstream Delta tables:**
+```python
+TABLES = ["raw.landing.orders", "raw.landing.customers", "ops.audit.events"]
+flows = [
+    FlowSpec(source_format="delta",
+             source_database=fqn.rsplit('.', 1)[0],
+             source_table=fqn.rsplit('.', 1)[1],
+             bronze_table=fqn.rsplit('.', 1)[1],
+             silver_table=fqn.rsplit('.', 1)[1])
+    for fqn in TABLES
+]
+```
+
+**Mixed source formats in one bundle** — call `bundle_add_flow` once per
+list, or concatenate the lists; the engine writes them all atomically.
+
+## What each recipe does on your behalf
+
+* **Reads bundle defaults** from `resources/variables.yml`
+  (target catalog, bronze/silver schemas, layer, dataflow group, file format).
+  You don't pass them on the command line.
+* **Auto-assigns `data_flow_id`** by continuing from the highest existing
+  numeric id in the onboarding file (starts at 100 for an empty file).
+* **Rejects duplicates** — if a generated id collides with one already in the
+  file, the engine errors out without writing anything.
+* **Respects the onboarding format** (YAML or JSON) — whatever the bundle was
+  scaffolded with is what gets appended to.
+* **Layer-aware** — bronze-only bundles only emit bronze keys, silver-only
+  bundles only emit silver keys, combined bundles emit both.
+
+## Building your own recipe
+
+The primitive is `FlowSpec` — a dataclass with one optional field per
+column. Anything you can express as a Python iterable of `FlowSpec` can be
+passed straight to `bundle_add_flow`:
+
+```python
+from databricks.labs.sdp_meta.bundle import (
+    BundleAddFlowCommand, FlowSpec, bundle_add_flow,
+)
+
+flows = [
+    FlowSpec(
+        source_format="cloudFiles",
+        source_path=f"/Volumes/{{.uc_catalog_name}}/landing/files/{name}/",
+        bronze_table=name,
+        silver_table=name,
+    )
+    for name in my_table_names  # 1, 10, 1000 — same code path
+]
+
+bundle_add_flow(BundleAddFlowCommand(
+    bundle_dir=".",
+    flows=flows,
+    dry_run=True,  # flip to False when you're happy
+))
+```
+
+Use `from_inventory.py` as the closest starting point — it shows the basic
+loop, the naming-convention helper, and the dry-run / apply pattern.

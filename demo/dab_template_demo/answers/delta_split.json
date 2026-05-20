@@ -1,0 +1,16 @@
+{
+  "_comment": "Answers for `databricks bundle init` -> sdp-meta DAB template, scenario D: bronze_silver pipelines reading upstream Delta tables (the typical 'staging table -> bronze -> silver' flavor). Demonstrates source_format=delta + the recipes/from_uc.py mirroring helper. {uc_catalog_name}, {sdp_meta_schema}, {bronze_target_schema}, and {silver_target_schema} are substituted at runtime (driven by --uc-catalog-name and --uc-schema).",
+  "bundle_name": "dab_demo_delta_split",
+  "uc_catalog_name": "{uc_catalog_name}",
+  "sdp_meta_schema": "{sdp_meta_schema}",
+  "bronze_target_schema": "{bronze_target_schema}",
+  "silver_target_schema": "{silver_target_schema}",
+  "layer": "bronze_silver",
+  "pipeline_mode": "split",
+  "source_format": "delta",
+  "onboarding_file_format": "yaml",
+  "dataflow_group": "dab_demo_delta_group",
+  "wheel_source": "volume_path",
+  "sdp_meta_dependency": "__SET_ME__",
+  "author": "dab-template-demo"
+}

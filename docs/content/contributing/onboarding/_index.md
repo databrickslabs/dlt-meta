@@ -6,13 +6,13 @@ weight: 4
 ---
 
 
-This document aims to provide complete information needed for anyone who would like to contribute to the dlt-meta project.  Your contributions are vital to its success, whether you’re fixing bugs, improving documentation, or adding new features.
+This document aims to provide complete information needed for anyone who would like to contribute to the sdp-meta project.  Your contributions are vital to its success, whether you’re fixing bugs, improving documentation, or adding new features.
 
 # Steps
 
 ## Step 0 \- Read the documentation
 
-Refer documentation wiki page [here](https://databricks.atlassian.net/wiki/spaces/FE/pages/2985722046/DLT-META) that will guide you to access different DLT-META resources like documentation, github repo, presentation etc. Read the getting started link [here](https://databrickslabs.github.io/dlt-meta/getting_started/) to understand pre-requisite , setup steps and configuration details.
+Refer documentation wiki page [here](https://databricks.atlassian.net/wiki/spaces/FE/pages/2985722046/SDP-META) that will guide you to access different SDP-META resources like documentation, github repo, presentation etc. Read the getting started link [here](https://databrickslabs.github.io/sdp-meta/getting_started/) to understand pre-requisite , setup steps and configuration details.
 
 Prerequisite
 
@@ -26,11 +26,11 @@ In case you may not be able to fork this repo because the repository is outside 
 
 ## Step 2 \- Clone the Repository Locally
 
-1. Run command “git clone [https://github.com/databrickslabs/dlt-meta.git](https://github.com/databrickslabs/dlt-meta.git)” it will create folder name “dlt-meta” 
+1. Run command “git clone [https://github.com/databrickslabs/sdp-meta.git](https://github.com/databrickslabs/sdp-meta.git)” it will create folder name “sdp-meta” 
 
 ## Step 3 \- Set Up the Development Environment
 
-2. cd dlt-meta  
+2. cd sdp-meta  
 3. Create python virtual environment   
    * python \-m venv .venv or python3 \-m venv .venv  
 4. Activate python virtual environment  
@@ -38,7 +38,7 @@ In case you may not be able to fork this repo because the repository is outside 
 5. Install databricks sdk  
    * pip install databricks-sdk  
 6. Install code editor like VS code or any other.  
-7. Import project into VS code File \> Open folder \> select above dlt-meta folder from your system  
+7. Import project into VS code File \> Open folder \> select above sdp-meta folder from your system  
 8. Install setuptools and wheel if not already installed  
    * pip install setuptools wheel  
 9. Install the project dependencies specified in setup.py   
@@ -59,11 +59,11 @@ In case you may not be able to fork this repo because the repository is outside 
 
 * Integration Tests are at integration\_tests folder  
   * To run integration test run file run\_integration\_tests.py with mandatory required argument as below  
-  * e.g. run\_integration\_tests.py \--uc\_catalog\_name datta\_demo \--cloud\_provider\_name aws \--dbr\_version 14.3 \--source cloudfiles \--dbfs\_path "dbfs:/tmp/DLT-META/" \--profile DEFAULT
+  * e.g. run\_integration\_tests.py \--uc\_catalog\_name datta\_demo \--cloud\_provider\_name aws \--dbr\_version 14.3 \--source cloudfiles \--profile DEFAULT
 
 ## Step 5 \- Find Beginner-Friendly Issues
 
-	Refer open issues [here](https://github.com/databrickslabs/dlt-meta/issues). 
+	Refer open issues [here](https://github.com/databrickslabs/sdp-meta/issues). 
 
 ## Step 7 \- Work on the Issue
 

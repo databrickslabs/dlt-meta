@@ -1,5 +1,11 @@
-"""Setup file."""
-from setuptools import setup, find_packages
+"""Setup file for SDP-META (primary package).
+
+This is the primary package following Databricks Labs namespace conventions.
+Package structure: databricks.labs.sdp_meta
+
+For backwards compatibility wrapper (dlt-meta package), see the compat/ directory.
+"""
+from setuptools import setup, find_namespace_packages
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -16,13 +22,9 @@ DEV_REQUIREMENTS = [
 
 IT_REQUIREMENTS = ["typer[all]==0.6.1"]
 
-package_long_description = """###Databricks Labs DLT-META Framework###
-    The Databricks Labs DLT META is a metadata-driven Databricks Delta Live Tables (aka DLT) framework
-     which lets you automate your bronze and silver pipelines.
-    """
 setup(
-    name="dlt_meta",
-    version="0.0.10",
+    name="databricks-labs-sdp-meta",
+    version="0.0.11",
     python_requires=">=3.8",
     setup_requires=["wheel>=0.37.1,<=0.42.0"],
     install_requires=INSTALL_REQUIRES,
@@ -30,11 +32,17 @@ setup(
     author="Ravi Gawai",
     author_email="databrickslabs@databricks.com",
     license="Databricks License",
-    description="DLT-META Framework",
+    description="Databricks Labs SDP-META Framework (formerly DLT-META)",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    packages=find_packages(include=["src", "integration_tests"]),
-    entry_points={"group_1": "run=src.__main__:main"},
+    package_dir={"": "src"},
+    packages=find_namespace_packages(where="src", include=["databricks.*"]),
+    entry_points={
+        "console_scripts": [
+            "sdp-meta=databricks.labs.sdp_meta.__main__:main",
+        ],
+        "group_1": "run=databricks.labs.sdp_meta.__main__:main",
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",

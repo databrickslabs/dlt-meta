@@ -9,10 +9,10 @@ dbutils.widgets.text("base_input_path","", "base_input_path")
 dbutils.widgets.text("table_count","", "table_count")
 dbutils.widgets.text("table_column_count","", "table_column_count")
 dbutils.widgets.text("table_data_rows_count","", "table_data_rows_count")
-dbutils.widgets.text("dlt_meta_schema","", "dlt_meta_schema")
+dbutils.widgets.text("sdp_meta_schema","", "sdp_meta_schema")
 dbutils.widgets.text("uc_catalog_name","", "uc_catalog_name")
 dbutils.widgets.text("bronze_schema","", "bronze_schema")
-dbutils.widgets.text("silver_schema","", "bronze_schema")
+dbutils.widgets.text("silver_schema","", "silver_schema")
 
 
 
@@ -20,7 +20,7 @@ base_input_path = dbutils.widgets.get("base_input_path")
 table_column_count = int(dbutils.widgets.get("table_column_count"))
 table_data_rows_count = int(dbutils.widgets.get("table_data_rows_count"))
 table_count = int(dbutils.widgets.get("table_count"))
-dlt_meta_schema = dbutils.widgets.get("dlt_meta_schema")
+sdp_meta_schema = dbutils.widgets.get("sdp_meta_schema")
 uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
 bronze_schema = dbutils.widgets.get("bronze_schema")
 silver_schema = dbutils.widgets.get("silver_schema")
@@ -33,7 +33,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import to_json, collect_list, struct, col
 from pyspark.sql.types import StringType, StructType, StructField, MapType, ArrayType, FloatType, IntegerType
 
-builder = SparkSession.builder.appName("DLT-META_TECH_SUMMIT")
+builder = SparkSession.builder.appName("SDP-META_TECH_SUMMIT")
 spark = builder.getOrCreate()
 
 
@@ -41,7 +41,7 @@ def generate_table_data(spark, base_input_path, column_count, data_rows, table_c
     table_path = f"{base_input_path}/resources/data/input/table"
     table_path = table_path+"_{}"
     for i in range(1, (table_count + 1)):
-        df_spec = (dg.DataGenerator(spark, name="dlt_meta_demo", rows=data_rows, partitions=4)
+        df_spec = (dg.DataGenerator(spark, name="sdp_meta_demo", rows=data_rows, partitions=4)
                    .withIdOutput()
                    .withColumn("r", FloatType(),
                                expr="floor(rand() * 350) * (86400 + 3600)",
@@ -55,7 +55,7 @@ def generate_table_data(spark, base_input_path, column_count, data_rows, table_c
         df.coalesce(1).write.mode("append").option("header", "True").csv(table_path.format(i))
 
 
-def generate_onboarding_file(spark, base_input_path, table_count, dlt_meta_schema):
+def generate_onboarding_file(spark, base_input_path, table_count, sdp_meta_schema):
     data_flow_spec_columns = [
         "data_flow_id",
         "data_flow_group",
@@ -153,7 +153,7 @@ def generate_onboarding_file(spark, base_input_path, table_count, dlt_meta_schem
     dbutils.fs.rm(f"{base_input_path}/conf/onboarding_auto.txt",True)
     spark.sql(f"CREATE DATABASE IF NOT EXISTS {bronze_database_prod} COMMENT '{bronze_database_prod}'")
     spark.sql(f"CREATE DATABASE IF NOT EXISTS {silver_database_prod} COMMENT '{silver_database_prod}'")
-    spark.sql(f"CREATE DATABASE IF NOT EXISTS {dlt_meta_schema} COMMENT '{dlt_meta_schema}'")
+    spark.sql(f"CREATE DATABASE IF NOT EXISTS {sdp_meta_schema} COMMENT '{sdp_meta_schema}'")
 
 
 
@@ -217,6 +217,6 @@ generate_table_data(spark, base_input_path, table_column_count, table_data_rows_
 # COMMAND ----------
 
 # DBTITLE 1,Generates Onboarding files
-generate_onboarding_file(spark, base_input_path, table_count, dlt_meta_schema)
+generate_onboarding_file(spark, base_input_path, table_count, sdp_meta_schema)
 generate_silver_transformation_json(spark, base_input_path, table_count)
 generate_dqe_json(base_input_path)

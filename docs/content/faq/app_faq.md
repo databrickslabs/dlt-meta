@@ -7,23 +7,23 @@ draft: false
 
 ### Initial Setup
 
-**Q1. Do I need to run an initial setup before using the DLT-META App?**
+**Q1. Do I need to run an initial setup before using the SDP-META App?**
 
-Yes. Before using the DLT-META App, you must click the Setup button to create the required dlt-meta environment. This initializes the app and enables you to onboard or manage Lakeflow Declarative Pipelines.
+Yes. Before using the SDP-META App, you must click the Setup button to create the required sdp-meta environment. This initializes the app and enables you to onboard or manage Lakeflow Spark Declarative Pipelines.
 
 ### Features and Capabilities
 
-**Q2. What are the main features of the DLT-META App?**
+**Q2. What are the main features of the SDP-META App?**
 
-The DLT-META App provides several key capabilities:
-- Onboard new Lakeflow Declarative Pipeline through an interactive interface
+The SDP-META App provides several key capabilities:
+- Onboard new Lakeflow Spark Declarative Pipeline through an interactive interface
 - Deploy and manage pipelines directly in the app
 - Run demo flows to explore example pipelines and usage patterns
 - Use the command-line interface (CLI) to automate operations
 
 ### Access and Permissions
 
-**Q3. Who can access and use the DLT-META App?**
+**Q3. Who can access and use the SDP-META App?**
 
 Only authenticated Databricks workspace users with appropriate permissions can access and use the app:
 - You need `CAN_USE` permission to run the app
@@ -33,7 +33,7 @@ Only authenticated Databricks workspace users with appropriate permissions can a
 
 ### Resource Access
 
-**Q4. How does catalog and schema access work in the DLT-META App?**
+**Q4. How does catalog and schema access work in the SDP-META App?**
 
 By default, the app uses a dedicated Service Principal (SP) for all data and resource access:
 - The Service Principal needs explicit permissions (`USE CATALOG`, `USE SCHEMA`, `SELECT`) on all Unity Catalog resources

@@ -1,0 +1,138 @@
+# Lakeflow Spark Declarative Pipelines driven by sdp-meta. The runner notebook reads
+# `layer` and `*.dataflowspecTable` from the pipeline configuration and asks
+# sdp-meta to build the LDP graph.
+#
+# Render-time topology (layer={{.layer}}{{if eq .layer "bronze_silver"}}, pipeline_mode={{.pipeline_mode}}{{end}}):
+{{- if eq .layer "bronze"}}
+#   - one pipeline `bronze`
+{{- else if eq .layer "silver"}}
+#   - one pipeline `silver`
+{{- else if and (eq .layer "bronze_silver") (eq .pipeline_mode "combined")}}
+#   - one pipeline `bronze_silver` that materializes both layers in one DAG
+{{- else}}
+#   - two pipelines `bronze` and `silver`; the `pipelines` job runs silver after bronze
+{{- end}}
+
+resources:
+  pipelines:
+{{- if eq .layer "bronze"}}
+    bronze:
+      name: "${bundle.name} - bronze"
+      catalog: ${var.uc_catalog_name}
+      schema: ${var.bronze_target_schema}
+      development: ${var.development_enabled}
+      photon: ${var.photon_enabled}
+      serverless: ${var.serverless}
+      libraries:
+        - notebook:
+            path: ${workspace.file_path}/notebooks/init_sdp_meta_pipeline
+      configuration:
+        layer: bronze
+        bronze.dataflowspecTable: ${var.uc_catalog_name}.${var.sdp_meta_schema}.${var.bronze_dataflowspec_table}
+        bronze.group: ${var.dataflow_group}
+        sdp_meta_dependency: ${var.sdp_meta_dependency}
+{{- else if eq .layer "silver"}}
+    silver:
+      name: "${bundle.name} - silver"
+      catalog: ${var.uc_catalog_name}
+      schema: ${var.silver_target_schema}
+      development: ${var.development_enabled}
+      photon: ${var.photon_enabled}
+      serverless: ${var.serverless}
+      libraries:
+        - notebook:
+            path: ${workspace.file_path}/notebooks/init_sdp_meta_pipeline
+      configuration:
+        layer: silver
+        silver.dataflowspecTable: ${var.uc_catalog_name}.${var.sdp_meta_schema}.${var.silver_dataflowspec_table}
+        silver.group: ${var.dataflow_group}
+        sdp_meta_dependency: ${var.sdp_meta_dependency}
+{{- else if and (eq .layer "bronze_silver") (eq .pipeline_mode "combined")}}
+    # Combined mode: one LDP pipeline materializes both bronze and silver tables
+    # in a single DAG. sdp-meta dispatches on `layer=bronze_silver` and reads
+    # both `bronze.dataflowspecTable` and `silver.dataflowspecTable` below.
+    # `schema` is the LDP-level default; sdp-meta still writes each table to
+    # its own (catalog, schema) from the dataflowspec rows, so bronze tables
+    # land in `bronze_target_schema` and silver tables in `silver_target_schema`.
+    bronze_silver:
+      name: "${bundle.name} - bronze+silver"
+      catalog: ${var.uc_catalog_name}
+      schema: ${var.bronze_target_schema}
+      development: ${var.development_enabled}
+      photon: ${var.photon_enabled}
+      serverless: ${var.serverless}
+      libraries:
+        - notebook:
+            path: ${workspace.file_path}/notebooks/init_sdp_meta_pipeline
+      configuration:
+        layer: bronze_silver
+        bronze.dataflowspecTable: ${var.uc_catalog_name}.${var.sdp_meta_schema}.${var.bronze_dataflowspec_table}
+        bronze.group: ${var.dataflow_group}
+        silver.dataflowspecTable: ${var.uc_catalog_name}.${var.sdp_meta_schema}.${var.silver_dataflowspec_table}
+        silver.group: ${var.dataflow_group}
+        sdp_meta_dependency: ${var.sdp_meta_dependency}
+{{- else}}
+    bronze:
+      name: "${bundle.name} - bronze"
+      catalog: ${var.uc_catalog_name}
+      schema: ${var.bronze_target_schema}
+      development: ${var.development_enabled}
+      photon: ${var.photon_enabled}
+      serverless: ${var.serverless}
+      libraries:
+        - notebook:
+            path: ${workspace.file_path}/notebooks/init_sdp_meta_pipeline
+      configuration:
+        layer: bronze
+        bronze.dataflowspecTable: ${var.uc_catalog_name}.${var.sdp_meta_schema}.${var.bronze_dataflowspec_table}
+        bronze.group: ${var.dataflow_group}
+        sdp_meta_dependency: ${var.sdp_meta_dependency}
+    silver:
+      name: "${bundle.name} - silver"
+      catalog: ${var.uc_catalog_name}
+      schema: ${var.silver_target_schema}
+      development: ${var.development_enabled}
+      photon: ${var.photon_enabled}
+      serverless: ${var.serverless}
+      libraries:
+        - notebook:
+            path: ${workspace.file_path}/notebooks/init_sdp_meta_pipeline
+      configuration:
+        layer: silver
+        silver.dataflowspecTable: ${var.uc_catalog_name}.${var.sdp_meta_schema}.${var.silver_dataflowspec_table}
+        silver.group: ${var.dataflow_group}
+        sdp_meta_dependency: ${var.sdp_meta_dependency}
+{{- end}}
+
+  jobs:
+    pipelines:
+      name: "${bundle.name} - run pipelines"
+      description: "Runs the sdp-meta LDP pipeline(s) end-to-end."
+      tasks:
+{{- if eq .layer "bronze"}}
+        - task_key: bronze
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.bronze.id}
+            full_refresh: false
+{{- else if eq .layer "silver"}}
+        - task_key: silver
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.silver.id}
+            full_refresh: false
+{{- else if and (eq .layer "bronze_silver") (eq .pipeline_mode "combined")}}
+        - task_key: bronze_silver
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.bronze_silver.id}
+            full_refresh: false
+{{- else}}
+        - task_key: bronze
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.bronze.id}
+            full_refresh: false
+        - task_key: silver
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.silver.id}
+            full_refresh: false
+          depends_on:
+            - task_key: bronze
+{{- end}}

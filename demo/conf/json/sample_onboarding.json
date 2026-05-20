@@ -1,0 +1,80 @@
+[
+  {
+    "data_flow_id": "100",
+    "data_flow_group": "A1",
+    "source_system": "mysql",
+    "source_format": "cloudFiles",
+    "source_details": {
+      "source_path_prod": "$data_path/customers",
+      "source_schema_path": "$ddl_path/customers.ddl"
+    },
+    "bronze_catalog_prod": "$uc_catalog_name",
+    "bronze_database_prod": "$bronze_schema",
+    "bronze_table": "customers",
+    "bronze_table_comment": "customers bronze table",
+    "bronze_reader_options": {
+      "cloudFiles.format": "csv",
+      "cloudFiles.rescuedDataColumn": "_rescued_data",
+      "header": "true"
+    },
+    "bronze_cluster_by_auto": true,
+    "bronze_data_quality_expectations_json_prod": "$dqe_path/customers.json",
+    "bronze_catalog_quarantine_prod": "$uc_catalog_name",
+    "bronze_database_quarantine_prod": "$bronze_schema",
+    "bronze_quarantine_table": "customers_quarantine",
+    "bronze_quarantine_table_comment": "customers quarantine table",
+    "silver_catalog_prod": "$uc_catalog_name",
+    "silver_database_prod": "$silver_schema",
+    "silver_table": "customers",
+    "silver_table_comment": "customers silver table",
+    "silver_cdc_apply_changes": {
+      "keys": ["customer_id"],
+      "sequence_by": "dmsTimestamp",
+      "scd_type": "2",
+      "apply_as_deletes": "Op = 'D'",
+      "except_column_list": ["Op", "dmsTimestamp", "_rescued_data"]
+    },
+    "silver_cluster_by_auto": true,
+    "silver_transformation_json_prod": "$transformation_path/silver_transformations.json",
+    "silver_data_quality_expectations_json_prod": "$dqe_path/customers_silver_dqe.json"
+  },
+  {
+    "data_flow_id": "101",
+    "data_flow_group": "A1",
+    "source_system": "mysql",
+    "source_format": "cloudFiles",
+    "source_details": {
+      "source_path_prod": "$data_path/transactions",
+      "source_schema_path": "$ddl_path/transactions.ddl"
+    },
+    "bronze_catalog_prod": "$uc_catalog_name",
+    "bronze_database_prod": "$bronze_schema",
+    "bronze_table": "transactions",
+    "bronze_table_comment": "transactions bronze table",
+    "bronze_reader_options": {
+      "cloudFiles.format": "csv",
+      "cloudFiles.rescuedDataColumn": "_rescued_data",
+      "header": "true"
+    },
+    "bronze_cluster_by_auto": true,
+    "bronze_data_quality_expectations_json_prod": "$dqe_path/transactions.json",
+    "bronze_catalog_quarantine_prod": "$uc_catalog_name",
+    "bronze_database_quarantine_prod": "$bronze_schema",
+    "bronze_quarantine_table": "transactions_quarantine",
+    "bronze_quarantine_table_comment": "transactions bronze quarantine table",
+    "silver_catalog_prod": "$uc_catalog_name",
+    "silver_database_prod": "$silver_schema",
+    "silver_table": "transactions",
+    "silver_table_comment": "transactions silver table",
+    "silver_cdc_apply_changes": {
+      "keys": ["transaction_id"],
+      "sequence_by": "dmsTimestamp",
+      "scd_type": "2",
+      "apply_as_deletes": "Op = 'D'",
+      "except_column_list": ["Op", "dmsTimestamp", "_rescued_data"]
+    },
+    "silver_cluster_by_auto": true,
+    "silver_transformation_json_prod": "$transformation_path/silver_transformations.json",
+    "silver_data_quality_expectations_json_prod": "$dqe_path/transactions_silver_dqe.json"
+  }
+]

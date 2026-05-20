@@ -5,7 +5,7 @@ weight: 80
 draft: false 
 ---
 
-##  Contributing to DLT-META 
+##  Contributing to SDP-META 
 
 At present, external contributions are not accepted
 

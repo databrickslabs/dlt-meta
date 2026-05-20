@@ -6,10 +6,10 @@ import tempfile
 import unittest
 from pyspark.sql import SparkSession
 from delta.pip_utils import configure_spark_with_delta_pip
-from src.metastore_ops import DeltaPipelinesMetaStoreOps, DeltaPipelinesInternalTableOps
+from databricks.labs.sdp_meta.metastore_ops import DeltaPipelinesMetaStoreOps, DeltaPipelinesInternalTableOps
 
 
-class DLTFrameworkTestCase(unittest.TestCase):
+class SDPFrameworkTestCase(unittest.TestCase):
     """Test class base that sets up a correctly configured SparkSession for querying Delta tables."""
 
     @classmethod
@@ -17,7 +17,7 @@ class DLTFrameworkTestCase(unittest.TestCase):
         """Set inputs."""
         # Configurations to speed up tests and reduce memory footprint
         builder = (
-            SparkSession.builder.appName("DLT-META_UNIT_TESTS")
+            SparkSession.builder.appName("SDP-META_UNIT_TESTS")
             .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
             .config(
                 "spark.sql.catalog.spark_catalog",
@@ -26,7 +26,7 @@ class DLTFrameworkTestCase(unittest.TestCase):
         )
         self.spark = configure_spark_with_delta_pip(builder).getOrCreate()
         self.spark.conf.set("spark.sql.shuffle.partitions", "4")
-        self.spark.conf.set("spark.app.name", "dlt-meta-unit-tests")
+        self.spark.conf.set("spark.app.name", "sdp-meta-unit-tests")
         self.spark.conf.set("spark.master", "local[4]")
         self.spark.conf.set("spark.databricks.delta.snapshotPartitions", "2")
         self.spark.conf.set("spark.sql.shuffle.partitions", "5")

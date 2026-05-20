@@ -1,0 +1,16 @@
+{
+  "_comment": "Answers for `databricks bundle init` -> sdp-meta DAB template, scenario C: combined bronze+silver in ONE Lakeflow Spark Declarative Pipeline (pipeline_mode=combined) reading Event Hubs. Showcases the single-DLT topology + the eventhub source format. {uc_catalog_name}, {sdp_meta_schema}, {bronze_target_schema}, and {silver_target_schema} are substituted at runtime (driven by --uc-catalog-name and --uc-schema).",
+  "bundle_name": "dab_demo_eventhub_combined",
+  "uc_catalog_name": "{uc_catalog_name}",
+  "sdp_meta_schema": "{sdp_meta_schema}",
+  "bronze_target_schema": "{bronze_target_schema}",
+  "silver_target_schema": "{silver_target_schema}",
+  "layer": "bronze_silver",
+  "pipeline_mode": "combined",
+  "source_format": "eventhub",
+  "onboarding_file_format": "yaml",
+  "dataflow_group": "dab_demo_eh_group",
+  "wheel_source": "volume_path",
+  "sdp_meta_dependency": "__SET_ME__",
+  "author": "dab-template-demo"
+}

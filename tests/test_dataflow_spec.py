@@ -3,15 +3,15 @@ import copy
 import sys
 from unittest.mock import MagicMock, patch
 import json
-from tests.utils import DLTFrameworkTestCase
-from src.dataflow_spec import (
+from tests.utils import SDPFrameworkTestCase
+from databricks.labs.sdp_meta.dataflow_spec import (
     DataflowSpecUtils,
     CDCApplyChanges,
     ApplyChangesFromSnapshot,
     BronzeDataflowSpec,
     SilverDataflowSpec,
 )
-from src.onboard_dataflowspec import OnboardDataflowspec
+from databricks.labs.sdp_meta.onboard_dataflowspec import OnboardDataflowspec
 
 sys.modules["pyspark.dbutils"] = MagicMock()
 dbutils = MagicMock()
@@ -19,7 +19,7 @@ DBUtils = MagicMock()
 spark = MagicMock()
 
 
-class DataFlowSpecTests(DLTFrameworkTestCase):
+class DataFlowSpecTests(SDPFrameworkTestCase):
     """Test DataflowSpec script."""
 
     def test_checkSparkDataFlowpipelineSparkConfParams_negative(self):
@@ -587,7 +587,7 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].options, {"path": "/test/path"})
 
-    @patch('src.dataflow_spec.DataflowSpecUtils.get_db_utils')
+    @patch('databricks.labs.sdp_meta.dataflow_spec.DataflowSpecUtils.get_db_utils')
     def test_get_sinks_kafka_with_ssl_missing_params(self, mock_get_db_utils):
         """Test Kafka sink with SSL but missing required parameters to cover lines 503-511."""
         mock_dbutils = MagicMock()
@@ -610,7 +610,7 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
             DataflowSpecUtils.get_sinks(sink_spec, self.spark)
         self.assertIn("Kafka ssl required params are", str(context.exception))
 
-    @patch('src.dataflow_spec.DataflowSpecUtils.get_db_utils')
+    @patch('databricks.labs.sdp_meta.dataflow_spec.DataflowSpecUtils.get_db_utils')
     def test_get_sinks_kafka_with_complete_ssl_config(self, mock_get_db_utils):
         """Test Kafka sink with complete SSL configuration to cover lines 486-502."""
         mock_dbutils = MagicMock()
@@ -639,7 +639,7 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
         self.assertEqual(result[0].options["kafka.ssl.keystore.password"], "secret_keystore_scope_keystore_key")
         self.assertEqual(result[0].options["kafka.ssl.truststore.password"], "secret_truststore_scope_truststore_key")
 
-    @patch('src.dataflow_spec.DataflowSpecUtils.get_db_utils')
+    @patch('databricks.labs.sdp_meta.dataflow_spec.DataflowSpecUtils.get_db_utils')
     def test_get_sinks_kafka_basic_config(self, mock_get_db_utils):
         """Test Kafka sink with basic configuration to cover lines 475-482."""
         mock_dbutils = MagicMock()
@@ -661,7 +661,7 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
         self.assertNotIn("kafka_sink_servers_secret_scope_name", result[0].options)
         self.assertNotIn("kafka_sink_servers_secret_scope_key", result[0].options)
 
-    @patch('src.dataflow_spec.DataflowSpecUtils.get_db_utils')
+    @patch('databricks.labs.sdp_meta.dataflow_spec.DataflowSpecUtils.get_db_utils')
     def test_get_sinks_eventhub_config(self, mock_get_db_utils):
         """Test EventHub sink configuration to cover lines 513-549."""
         mock_dbutils = MagicMock()
@@ -694,7 +694,7 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
         self.assertNotIn("eventhub.port", result[0].options)
         self.assertNotIn("eventhub.name", result[0].options)
 
-    @patch('src.dataflow_spec.DataflowSpecUtils.get_db_utils')
+    @patch('databricks.labs.sdp_meta.dataflow_spec.DataflowSpecUtils.get_db_utils')
     def test_get_sinks_eventhub_with_default_secret_name(self, mock_get_db_utils):
         """Test EventHub sink with default secret name to cover line 522."""
         mock_dbutils = MagicMock()
@@ -750,3 +750,10 @@ class DataFlowSpecTests(DLTFrameworkTestCase):
         # Should have null values for explicitly set null optional attributes
         self.assertEqual(result[0].select_exp, None)
         self.assertEqual(result[0].where_clause, None)
+
+    def test_get_db_utils_import_error(self):
+        """Test get_db_utils raises RuntimeError when DBUtils is not available."""
+        with patch.dict(sys.modules, {"pyspark.dbutils": None}):
+            with self.assertRaises(RuntimeError) as context:
+                DataflowSpecUtils.get_db_utils(self.spark)
+            self.assertIn("DBUtils is not available", str(context.exception))

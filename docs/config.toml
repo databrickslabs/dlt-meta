@@ -1,10 +1,10 @@
-baseURL = 'https://databrickslabs.github.io/dlt-meta/'
+baseURL = 'https://databrickslabs.github.io/sdp-meta/'
 languageCode = 'en-us'
-title = 'DLT-META'
+title = 'SDP-META'
 theme= "hugo-theme-relearn"
 pluralizeListTitles = false
 canonifyURLs = true
-description = "DLT-META Documentation"
+description = "SDP-META Documentation"
 
 [params]
     themeVariant = 'learn'

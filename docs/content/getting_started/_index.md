@@ -5,8 +5,8 @@ weight: 5
 draft: false
 ---
 
-The following tutorial will guide you through the process for setting up the DLT-META on your Databricks Lakehouse environment.
+The following tutorial will guide you through the process for setting up SDP-META on your Databricks Lakehouse environment.
 
 You will deploy/configure the solution, configure a database/table for bronze and silver layer as per below stages.
 
-![DLT-META Stages](/images/dlt-meta_stages.png)
+![SDP-META Stages](/images/sdp-meta_stages.png)

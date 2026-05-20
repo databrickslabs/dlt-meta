@@ -1,0 +1,5 @@
+source_format,source_path,bronze_table,silver_table,data_flow_id,source_system,cloudfiles_format
+cloudFiles,{demo_data_volume_path}/customers/,customers,customers,auto,demo_assets,csv
+cloudFiles,{demo_data_volume_path}/transactions/,transactions,transactions,auto,demo_assets,csv
+cloudFiles,{demo_data_volume_path}/products/,products,products,auto,demo_assets,csv
+cloudFiles,{demo_data_volume_path}/stores/,stores,stores,auto,demo_assets,csv

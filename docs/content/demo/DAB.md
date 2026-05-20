@@ -8,10 +8,10 @@ draft: false
 ### DAB Demo
 
 ## Overview
-This demo showcases how to use Databricks Asset Bundles (DABs) with DLT-Meta:
+This demo showcases how to use [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) (DABs) with DLT-Meta:
 
 This demo will perform following steps:
-- Create dlt-meta schema's for dataflowspec and bronze/silver layer
+- Create sdp-meta schema's for dataflowspec and bronze/silver layer
 - Upload necessary resources to unity catalog volume
 - Create DAB files with catalog, schema, file locations populated
 - Deploy DAB to databricks workspace
@@ -42,20 +42,20 @@ This demo will perform following steps:
     pip install flake8==6.0 delta-spark==3.0.0 pytest>=7.0.0 coverage>=7.0.0 pyspark==3.5.5
     ```
 
-4. Clone dlt-meta:
+4. Clone sdp-meta:
     ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git 
+    git clone https://github.com/databrickslabs/sdp-meta.git 
     ```
 
 5. Navigate to project directory:
     ```commandline
-    cd dlt-meta
+    cd sdp-meta
     ```
 
 6. Set python environment variable into terminal:
     ```commandline
-    dlt_meta_home=$(pwd)
-    export PYTHONPATH=$dlt_meta_home
+    sdp_meta_home=$(pwd)
+    export PYTHONPATH=$sdp_meta_home
     ```
 
 7. Generate DAB resources and set up schemas:

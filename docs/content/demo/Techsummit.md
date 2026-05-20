@@ -6,7 +6,7 @@ draft: false
 ---
 
 ### Databricks Tech Summit FY2024 DEMO:
-This demo will launch auto generated tables(100s) inside single bronze and silver Lakeflow Declarative Pipeline using dlt-meta.
+This demo will launch auto generated tables(100s) inside single bronze and silver Lakeflow Spark Declarative Pipeline using sdp-meta.
 
 1. Launch Command Prompt
 
@@ -26,22 +26,22 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
     pip install flake8==6.0 delta-spark==3.0.0 pytest>=7.0.0 coverage>=7.0.0 pyspark==3.5.5
     ```
 
-4. Clone dlt-meta:
+4. Clone sdp-meta:
     ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git 
+    git clone https://github.com/databrickslabs/sdp-meta.git 
     ```
 
 5. Navigate to project directory:
     ```commandline
-    cd dlt-meta
+    cd sdp-meta
     ```
 
 6. Set python environment variable into terminal
     ```commandline
-    dlt_meta_home=$(pwd)
+    sdp_meta_home=$(pwd)
     ```
     ```commandline
-    export PYTHONPATH=$dlt_meta_home
+    export PYTHONPATH=$sdp_meta_home
     ```
 
 7. Run the command:

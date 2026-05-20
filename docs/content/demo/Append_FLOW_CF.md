@@ -7,9 +7,9 @@ draft: false
 
 ### Append FLOW Autoloader Demo:
 This demo will perform following tasks:
-- Read from different source paths using autoloader and write to same target using [dlt.append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#append-flows) API
+- Read from different source paths using autoloader and write to same target using [dp.append_flow](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-append-flow) API
 - Read from different delta tables and write to same silver table using append_flow API
-- Add file_name and file_path to target bronze table for autoloader source using [File metadata column](https://docs.databricks.com/en/ingestion/file-metadata-column.html)
+- Add file_name and file_path to target bronze table for autoloader source using [File metadata column](https://docs.databricks.com/aws/en/ingestion/file-metadata-column)
 ## Append flow with autoloader
 
 1. Launch Command Prompt
@@ -30,33 +30,32 @@ This demo will perform following tasks:
     pip install flake8==6.0 delta-spark==3.0.0 pytest>=7.0.0 coverage>=7.0.0 pyspark==3.5.5
     ```
 
-4. Clone dlt-meta:
+4. Clone sdp-meta:
     ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git 
+    git clone https://github.com/databrickslabs/sdp-meta.git 
     ```
 
 5. Navigate to project directory:
     ```commandline
-    cd dlt-meta
+    cd sdp-meta
     ```
 
 6. Set python environment variable into terminal
     ```commandline
-    dlt_meta_home=$(pwd)
+    sdp_meta_home=$(pwd)
     ```
 
     ```commandline
-    export PYTHONPATH=$dlt_meta_home
+    export PYTHONPATH=$sdp_meta_home
     ```
 
 7. Run the command:
     ```commandline
-    python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --dbfs_path=dbfs:/tmp/DLT-META/demo/ --uc_catalog_name=dlt_meta_uc
+    python demo/launch_af_cloudfiles_demo.py --cloud_provider_name=aws --dbr_version=15.3.x-scala2.12 --uc_catalog_name=sdp_meta_uc
     ```
 
 - cloud_provider_name : aws or azure or gcp
 - db_version : Databricks Runtime Version
-- dbfs_path : Path on your Databricks workspace where demo will be copied for launching DLT-META Pipelines
 - uc_catalog_name: Unity catalog name
 - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 

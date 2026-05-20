@@ -17,6 +17,13 @@ spark-warehouse
 docs/.hugo_build.lock
 docs/public/
 
+# Local DAB scaffolds and demo runs (created by `databricks labs sdp-meta
+# bundle-init` and `demo/launch_dab_template_demo.py` -- per-developer
+# output, never checked in).
+test-dab/
+demo_runs/
+demo_runs_*/
+
 # Distribution / packaging
 .Python
 build/
@@ -150,10 +157,17 @@ deployment-merged.yaml
 #IDE
 .idea/
 .vscode/
+.cursor/
+.claude/
 .databricks
 .databricks-login.json
-demo/conf/onboarding.json
-integration_tests/conf/onboarding*.json
-demo/conf/onboarding*.json
+demo/conf/json/onboarding*.json
+demo/conf/yml/onboarding*.yml
+demo/dabs/conf/json/onboarding_bronze_silver_people.json
+demo/dabs/conf/json/onboarding_silver_fanout_people.json
+demo/dabs/conf/yml/onboarding_bronze_silver_people.yml
+demo/dabs/conf/yml/onboarding_silver_fanout_people.yml
+integration_tests/conf/json/onboarding*.json
+integration_tests/conf/yml/onboarding*.yml
 integration_test_output*.csv
 onboarding_job_details.json

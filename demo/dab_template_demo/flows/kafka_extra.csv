@@ -1,0 +1,4 @@
+source_format,kafka_bootstrap_servers,kafka_topic,starting_offsets,bronze_table,data_flow_id,source_system
+kafka,"broker1.example.com:9092,broker2.example.com:9092",iot_sensors,earliest,iot_sensors,auto,kafka
+kafka,"broker1.example.com:9092,broker2.example.com:9092",payments,earliest,payments,auto,kafka
+kafka,"broker1.example.com:9092,broker2.example.com:9092",audit_log,latest,audit_log,auto,kafka

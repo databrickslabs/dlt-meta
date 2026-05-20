@@ -1,0 +1,102 @@
+"""Discover Delta tables in a Unity Catalog schema and append one flow per table.
+
+Use this when your sources already live in UC (e.g. another team's landing
+schema) and you want every table mirrored as a `delta` source flow with the
+same name on the bronze (and optionally silver) side.
+
+Run from the bundle root:
+
+    python recipes/from_uc.py --source-catalog raw --source-schema landing
+    # inspect the dry-run output, then commit the writes:
+    python recipes/from_uc.py --source-catalog raw --source-schema landing --apply
+
+The script always defaults to dry-run; pass `--apply` to actually write.
+Bundle-wide defaults (target catalog, target schemas, layer, dataflow_group,
+file format) are read from `resources/variables.yml` so the new flows match
+the surrounding bundle.
+
+Pre-filled defaults from `bundle-init`:
+  --source-catalog   {{.uc_catalog_name}}
+  --source-schema    landing
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from typing import List
+
+from databricks.sdk import WorkspaceClient
+
+from databricks.labs.sdp_meta.bundle import (
+    BundleAddFlowCommand,
+    FlowSpec,
+    bundle_add_flow,
+)
+
+
+def discover_flows(
+    ws: WorkspaceClient,
+    source_catalog: str,
+    source_schema: str,
+    *,
+    table_filter: str = "",
+    dataflow_group: str = "",
+) -> List[FlowSpec]:
+    flows: List[FlowSpec] = []
+    for table in ws.tables.list(catalog_name=source_catalog, schema_name=source_schema):
+        if table_filter and table_filter not in table.name:
+            continue
+        flows.append(FlowSpec(
+            source_format="delta",
+            source_database=f"{source_catalog}.{source_schema}",
+            source_table=table.name,
+            bronze_table=table.name,
+            silver_table=table.name,
+            data_flow_group=dataflow_group or None,
+            source_system=source_schema,
+        ))
+    return flows
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n", maxsplit=1)[0])
+    parser.add_argument("--source-catalog", default="{{.uc_catalog_name}}",
+                        help="UC catalog containing the source tables")
+    parser.add_argument("--source-schema", default="landing",
+                        help="UC schema to list tables from")
+    parser.add_argument("--table-filter", default="",
+                        help="Substring filter; only matching table names are emitted")
+    parser.add_argument("--dataflow-group", default="",
+                        help="Override `data_flow_group` (default = bundle's variable)")
+    parser.add_argument("--bundle-dir", default=".",
+                        help="Path to the bundle root (default: current directory)")
+    parser.add_argument("--profile", default=None,
+                        help="Databricks CLI profile to use for the WorkspaceClient")
+    parser.add_argument("--apply", action="store_true",
+                        help="Actually write the flows. Without this flag, runs in dry-run mode.")
+    args = parser.parse_args()
+
+    ws = WorkspaceClient(profile=args.profile) if args.profile else WorkspaceClient()
+    flows = discover_flows(
+        ws,
+        args.source_catalog,
+        args.source_schema,
+        table_filter=args.table_filter,
+        dataflow_group=args.dataflow_group,
+    )
+    if not flows:
+        print(f"No tables discovered in {args.source_catalog}.{args.source_schema}"
+              f"{f' matching {args.table_filter!r}' if args.table_filter else ''}.")
+        return 1
+
+    print(f"Discovered {len(flows)} table(s) in {args.source_catalog}.{args.source_schema}")
+    return bundle_add_flow(BundleAddFlowCommand(
+        bundle_dir=args.bundle_dir,
+        flows=flows,
+        dry_run=not args.apply,
+    ))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

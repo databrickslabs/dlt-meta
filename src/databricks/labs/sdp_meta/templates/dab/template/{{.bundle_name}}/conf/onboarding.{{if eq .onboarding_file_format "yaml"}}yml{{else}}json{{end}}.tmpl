@@ -1,0 +1,126 @@
+{{- /*
+Seeded onboarding flow for source_format={{.source_format}}.
+Edit the fields to point at your real source and target tables, then add more
+flows by copying the block. Every flow must carry a `data_flow_id` and a
+`data_flow_group` matching `${var.dataflow_group}` (unless you override the group
+in variables.yml).
+*/ -}}
+{{- if eq .onboarding_file_format "yaml"}}
+- data_flow_id: "100"
+  data_flow_group: {{.dataflow_group}}
+  source_system: example_source
+  source_format: {{.source_format}}
+  source_details:
+  {{- if eq .source_format "cloudFiles"}}
+    source_database: example_db
+    source_table: example_table
+    source_path_dev: "/Volumes/{{.uc_catalog_name}}/landing/files/example_table/"
+    source_schema_path: "${workspace.file_path}/conf/schemas/example_table.ddl"
+  {{- else if eq .source_format "delta"}}
+    source_database: {{.uc_catalog_name}}.landing
+    source_table: example_table
+    source_path_dev: ""
+  {{- else if eq .source_format "kafka"}}
+    kafka.bootstrap.servers: "<your-kafka-host>:9092"
+    subscribe: "example_topic"
+    startingOffsets: "earliest"
+    source_schema_path: "${workspace.file_path}/conf/schemas/example_topic.ddl"
+  {{- else if eq .source_format "eventhub"}}
+    eventhub.namespace: "<your-eventhub-namespace>"
+    eventhub.name: "example-hub"
+    eventhub.port: "9093"
+    eventhub.accessKeyName: "<your-sas-policy-name>"
+    eventhub.accessKeySecretName: "<your-secret-name>"
+    eventhub.secretsScopeName: "<your-secret-scope>"
+    kafka.sasl.mechanism: "PLAIN"
+    kafka.security.protocol: "SASL_SSL"
+    source_schema_path: "${workspace.file_path}/conf/schemas/example_hub.ddl"
+  {{- else if eq .source_format "snapshot"}}
+    source_path_dev: "/Volumes/{{.uc_catalog_name}}/landing/snapshots/example_table/"
+    snapshot_format: delta
+  {{- end}}
+  {{- if or (eq .layer "bronze") (eq .layer "bronze_silver")}}
+  bronze_database_dev: "{{.uc_catalog_name}}.{{.bronze_target_schema}}"
+  bronze_table: example_table
+  bronze_table_comment: "bronze table for example_table"
+  bronze_reader_options:
+  {{- if eq .source_format "cloudFiles"}}
+    cloudFiles.format: "json"
+    cloudFiles.inferColumnTypes: "true"
+    cloudFiles.rescuedDataColumn: "_rescued_data"
+  {{- else}}
+    {}
+  {{- end}}
+  bronze_table_path_dev: ""
+  bronze_partition_columns: ""
+  bronze_data_quality_expectations_json_dev: "${workspace.file_path}/conf/dqe/example_table/bronze_expectations.yml"
+  {{- end}}
+  {{- if or (eq .layer "silver") (eq .layer "bronze_silver")}}
+  silver_database_dev: "{{.uc_catalog_name}}.{{.silver_target_schema}}"
+  silver_table: example_table
+  silver_table_comment: "silver table for example_table"
+  silver_partition_columns: ""
+  silver_table_path_dev: ""
+  silver_transformation_json_dev: "${workspace.file_path}/conf/silver_transformations.yml"
+  {{- end}}
+{{- else}}
+[
+  {
+    "data_flow_id": "100",
+    "data_flow_group": "{{.dataflow_group}}",
+    "source_system": "example_source",
+    "source_format": "{{.source_format}}",
+    "source_details": {
+    {{- if eq .source_format "cloudFiles"}}
+      "source_database": "example_db",
+      "source_table": "example_table",
+      "source_path_dev": "/Volumes/{{.uc_catalog_name}}/landing/files/example_table/",
+      "source_schema_path": "${workspace.file_path}/conf/schemas/example_table.ddl"
+    {{- else if eq .source_format "delta"}}
+      "source_database": "{{.uc_catalog_name}}.landing",
+      "source_table": "example_table",
+      "source_path_dev": ""
+    {{- else if eq .source_format "kafka"}}
+      "kafka.bootstrap.servers": "<your-kafka-host>:9092",
+      "subscribe": "example_topic",
+      "startingOffsets": "earliest",
+      "source_schema_path": "${workspace.file_path}/conf/schemas/example_topic.ddl"
+    {{- else if eq .source_format "eventhub"}}
+      "eventhub.namespace": "<your-eventhub-namespace>",
+      "eventhub.name": "example-hub",
+      "eventhub.port": "9093",
+      "eventhub.accessKeyName": "<your-sas-policy-name>",
+      "eventhub.accessKeySecretName": "<your-secret-name>",
+      "eventhub.secretsScopeName": "<your-secret-scope>",
+      "kafka.sasl.mechanism": "PLAIN",
+      "kafka.security.protocol": "SASL_SSL",
+      "source_schema_path": "${workspace.file_path}/conf/schemas/example_hub.ddl"
+    {{- else if eq .source_format "snapshot"}}
+      "source_path_dev": "/Volumes/{{.uc_catalog_name}}/landing/snapshots/example_table/",
+      "snapshot_format": "delta"
+    {{- end}}
+    }
+    {{- if or (eq .layer "bronze") (eq .layer "bronze_silver")}},
+    "bronze_database_dev": "{{.uc_catalog_name}}.{{.bronze_target_schema}}",
+    "bronze_table": "example_table",
+    "bronze_table_comment": "bronze table for example_table",
+    "bronze_reader_options": {{if eq .source_format "cloudFiles"}}{
+      "cloudFiles.format": "json",
+      "cloudFiles.inferColumnTypes": "true",
+      "cloudFiles.rescuedDataColumn": "_rescued_data"
+    }{{else}}{}{{end}},
+    "bronze_table_path_dev": "",
+    "bronze_partition_columns": "",
+    "bronze_data_quality_expectations_json_dev": "${workspace.file_path}/conf/dqe/example_table/bronze_expectations.json"
+    {{- end}}
+    {{- if or (eq .layer "silver") (eq .layer "bronze_silver")}},
+    "silver_database_dev": "{{.uc_catalog_name}}.{{.silver_target_schema}}",
+    "silver_table": "example_table",
+    "silver_table_comment": "silver table for example_table",
+    "silver_partition_columns": "",
+    "silver_table_path_dev": "",
+    "silver_transformation_json_dev": "${workspace.file_path}/conf/silver_transformations.json"
+    {{- end}}
+  }
+]
+{{- end}}

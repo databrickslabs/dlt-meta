@@ -1,8 +1,8 @@
 """Test for MetastoreOps class."""
-from tests.utils import DLTFrameworkTestCase
+from tests.utils import SDPFrameworkTestCase
 
 
-class MetastoreOpsTests(DLTFrameworkTestCase):
+class MetastoreOpsTests(SDPFrameworkTestCase):
     """Test for MetastoreOps class."""
 
     def test_createDatabase(self):
