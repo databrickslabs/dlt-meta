@@ -108,7 +108,7 @@ Local-dev shortcut: build the wheel from the working tree and push it to a UC vo
 ```commandline
 python demo/launch_interactive_demo.py \
     --profile <your_profile> \
-    --uc-catalog-name <your_catalog> \
+    --uc-catalog-name <your_catalog>  \
     --build-and-upload-whl \
     --uc-schema-name <wheel_volume_schema> \
     --uc-volume-name sdp_meta_wheels \
@@ -131,7 +131,7 @@ Run `python demo/launch_interactive_demo.py --help` for the full flag surface. S
 | `--cleanup` | `cleanup` | `false` (default) or `true`. Set `true` for CI runs that need to leave the workspace clean. |
 | `--timeout-minutes` | n/a (driver) | Max wall-clock for the launcher to wait on the job. Default 90; for cold workspaces with all 4 pipelines, 20-25 is comfortable. |
 
-Each launch gets a unique, scannable name in the workspace **Job Runs** UI of the form `sdp-meta-demo-<UTC-timestamp>-<catalog>-<run-id>`, e.g. `sdp-meta-demo-20260427T201235Z-ravi_dlt_meta_uc-57f84fe925a1`. The same `<run-id>` flows through the per-run workspace path (`/Users/<me>/sdp_meta_demo_runs/<run-id>/demo/...`) and the per-run schema (`sdp_meta_demo_<run-id>`) so concurrent runs never collide on bronze / silver tables.
+Each launch gets a unique, scannable name in the workspace **Job Runs** UI of the form `sdp-meta-demo-<UTC-timestamp>-<catalog>-<run-id>`, e.g. `sdp-meta-demo-20260427T201235Z-my_catalog-57f84fe925a1`. The same `<run-id>` flows through the per-run workspace path (`/Users/<me>/sdp_meta_demo_runs/<run-id>/demo/...`) and the per-run schema (`sdp_meta_demo_<run-id>`) so concurrent runs never collide on bronze / silver tables.
 
 ## Cleanup
 

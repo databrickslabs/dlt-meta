@@ -586,7 +586,12 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
                 "silver_append_flows": [
                     {
                         "name": "af1",
-                        "source_format": "csv",  # not in supported set
+                        # ``hudi`` stands in for "format the bronze readers
+                        # don't know about" — historically this test used
+                        # ``csv``, but ``csv`` is now in the supported
+                        # file-source family (routes through
+                        # ``read_dlt_file_source``).
+                        "source_format": "hudi",
                         "create_streaming_table": False,
                         "source_details": {"source_path_dev": "/tmp/af"},
                     },
@@ -803,8 +808,12 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
             "bronze_append_flows": [
                 {
                     "name": "af1",
-                    # Unsupported append-flow source_format.
-                    "source_format": "parquet",
+                    # ``hudi`` stands in for "format the bronze readers
+                    # don't know about" — historically this test used
+                    # ``parquet``, but ``parquet`` is now in the
+                    # supported file-source family (routes through
+                    # ``read_dlt_file_source``).
+                    "source_format": "hudi",
                     "source_details": {"source_path_dev": "/tmp/af"},
                 }
             ],
@@ -1703,12 +1712,19 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
         self.assertEqual(quarantine_target_details.get("cluster_by_auto"), False)
 
     def test_unsupported_source_format_raises_exception(self):
-        """Test that unsupported source_format raises an Exception during bronze onboarding."""
+        """Test that unsupported source_format raises an Exception during bronze onboarding.
+
+        Uses ``hudi`` as the stand-in for "format the bronze readers don't
+        know about" — historically this test used ``parquet``, but
+        ``parquet`` is now in the supported file-source family
+        (``json``/``csv``/``parquet``/``orc``/``text``/``avro`` route
+        through ``read_dlt_file_source``).
+        """
         onboard_dfs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
         onboarding_row = {
             "data_flow_id": "test_flow",
             "data_flow_group": "A1",
-            "source_format": "parquet",
+            "source_format": "hudi",
             "source_system": "TEST",
             "bronze_table": "test_table",
             "bronze_database_dev": "bronze_db",
@@ -1720,3 +1736,40 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
                 onboarding_df, "dev"
             )
         self.assertIn("not supported in SDP-META", str(context.exception))
+
+    def test_vanilla_file_source_without_schema_path_raises_at_onboarding(self):
+        """Vanilla streaming file sources (json/csv/parquet/orc/text/avro)
+        cannot infer their schema at ``readStream.load()`` time, so
+        onboarding must fail fast when ``source_schema_path`` is absent —
+        before the spec is ever deployed — rather than deferring to an
+        opaque ``AnalysisException`` at pipeline runtime.
+
+        ``cloudFiles`` is exempt (Auto Loader infers via
+        ``cloudFiles.inferColumnTypes``); that exemption is covered by the
+        happy-path flow tests. This pins the negative path for the vanilla
+        family and asserts the message is self-remediating (names
+        ``source_schema_path``).
+        """
+        from pyspark.sql import Row
+        onboard_dfs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
+        # ``source_details`` must be a nested struct (Row), not a plain
+        # dict — a dict infers as MapType and the parser's ``.asDict()``
+        # would raise before our schema guard is reached. A file source
+        # with a path but deliberately NO ``source_schema_path``.
+        onboarding_row = Row(
+            data_flow_id="test_flow",
+            data_flow_group="A1",
+            source_format="json",
+            source_system="TEST",
+            bronze_table="test_table",
+            bronze_database_dev="bronze_db",
+            source_details=Row(source_path_dev="/tmp/test_json_landing"),
+        )
+        onboarding_df = self.spark.createDataFrame([onboarding_row])
+        with self.assertRaises(Exception) as context:
+            onboard_dfs._OnboardDataflowspec__get_bronze_dataflow_spec_dataframe(
+                onboarding_df, "dev"
+            )
+        msg = str(context.exception)
+        self.assertIn("source_schema_path", msg)
+        self.assertIn("json", msg)

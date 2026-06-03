@@ -12,8 +12,11 @@ from __future__ import annotations
 import unittest
 
 from databricks.labs.sdp_meta.identifiers import (
+    AUTO_LOADER_FORMAT,
+    FILE_SOURCE_FORMATS,
     SUPPORTED_SCD_TYPES,
     SUPPORTED_SOURCE_FORMATS,
+    VANILLA_FILE_SOURCE_FORMATS,
     is_regular_identifier,
     validate_scd_type,
     validate_source_format,
@@ -208,10 +211,17 @@ class ValidateSourceFormatTests(unittest.TestCase):
     def test_supported_set_matches_expected(self):
         # Hard-coded so any drift between this module and dataflow_pipeline.py
         # / pipeline_readers.py shows up as a test failure rather than a
-        # silently broken pipeline.
+        # silently broken pipeline. The file-source family
+        # (``cloudFiles``/``json``/``csv``/``parquet``/``orc``/``text``/
+        # ``avro``) all flow through ``read_dlt_cloud_files`` (a thin
+        # wrapper around ``spark.readStream.format(<fmt>).load(<path>)``),
+        # which is why they're all in the same set.
         self.assertEqual(
             SUPPORTED_SOURCE_FORMATS,
-            frozenset({"cloudFiles", "delta", "kafka", "eventhub", "snapshot"}),
+            frozenset({
+                "cloudFiles", "json", "csv", "parquet", "orc", "text", "avro",
+                "delta", "kafka", "eventhub", "snapshot",
+            }),
         )
 
     def test_each_supported_format_accepted(self):
@@ -238,9 +248,13 @@ class ValidateSourceFormatTests(unittest.TestCase):
 
     def test_error_lists_allowed_values(self):
         # Allowed values must appear in the error so the user can fix it
-        # without going to docs.
+        # without going to docs. ``hudi`` is a stand-in for "format the
+        # bronze readers don't know about" — historically this test used
+        # ``parquet``, but ``parquet`` is now in the supported file-source
+        # family (it routes through ``spark.readStream.format("parquet")
+        # .load(<path>)`` like ``json``/``csv``/...).
         with self.assertRaises(ValueError) as ctx:
-            validate_source_format("parquet")
+            validate_source_format("hudi")
         msg = str(ctx.exception)
         for fmt in SUPPORTED_SOURCE_FORMATS:
             self.assertIn(fmt, msg)
@@ -248,6 +262,67 @@ class ValidateSourceFormatTests(unittest.TestCase):
     def test_kind_appears_in_error(self):
         with self.assertRaisesRegex(ValueError, r"my_field"):
             validate_source_format("nope", kind="my_field")
+
+
+class FileSourceFormatsTests(unittest.TestCase):
+    """``FILE_SOURCE_FORMATS`` is the union of two disjoint subsets the
+    bronze-read dispatcher in ``DataflowPipeline.read_bronze`` (and the
+    parallel append-flow dispatch) splits on:
+
+    * ``AUTO_LOADER_FORMAT`` (``"cloudFiles"``) — Lakeflow-only,
+      routed to ``PipelineReaders.read_dlt_cloud_files`` so the
+      autoloader-specific reader options + the
+      ``add_cloudfiles_metadata`` post-read enrichment apply.
+    * ``VANILLA_FILE_SOURCE_FORMATS`` (``json``/``csv``/``parquet``/
+      ``orc``/``text``/``avro``) — work on Lakeflow + OSS Apache Spark,
+      routed to ``PipelineReaders.read_dlt_file_source`` which is
+      deliberately autoloader-free.
+
+    The split is the contract surface for the OSS code path; pinning
+    membership here means the OSS demo and ``oss_onboarding.json``
+    can rely on ``json`` going through the OSS reader, not the
+    Auto Loader reader."""
+
+    def test_auto_loader_format_value(self):
+        # The literal string Spark recognises for the Databricks
+        # Auto Loader source. Hard-coded so a typo here surfaces as a
+        # test failure rather than a silently broken bronze read.
+        self.assertEqual(AUTO_LOADER_FORMAT, "cloudFiles")
+
+    def test_vanilla_file_source_formats_membership(self):
+        self.assertEqual(
+            VANILLA_FILE_SOURCE_FORMATS,
+            frozenset({"json", "csv", "parquet", "orc", "text", "avro"}),
+        )
+
+    def test_auto_loader_not_in_vanilla_set(self):
+        # The two subsets MUST be disjoint or the bronze-read
+        # dispatcher would send ``cloudFiles`` through both readers.
+        self.assertNotIn(AUTO_LOADER_FORMAT, VANILLA_FILE_SOURCE_FORMATS)
+
+    def test_file_source_formats_is_union(self):
+        # ``FILE_SOURCE_FORMATS`` is exposed for the validator,
+        # onboarding pre-flight, and the bundle CLI — they don't care
+        # which reader the format eventually lands in, just that it's
+        # a file source. Verifying the union shape here means callers
+        # can safely treat it as "any file source format".
+        self.assertEqual(
+            FILE_SOURCE_FORMATS,
+            frozenset({AUTO_LOADER_FORMAT}) | VANILLA_FILE_SOURCE_FORMATS,
+        )
+
+    def test_subset_of_supported(self):
+        # Every file source format must also be in the supported set
+        # so the validator accepts it.
+        self.assertTrue(FILE_SOURCE_FORMATS.issubset(SUPPORTED_SOURCE_FORMATS))
+
+    def test_no_overlap_with_table_or_message_sources(self):
+        # ``delta``/``snapshot`` route through ``read_dlt_delta``;
+        # ``kafka``/``eventhub`` route through ``read_kafka``. These
+        # must not be in the file-source set or the dispatcher would
+        # send them to the wrong reader.
+        for fmt in ("delta", "snapshot", "kafka", "eventhub"):
+            self.assertNotIn(fmt, FILE_SOURCE_FORMATS)
 
 
 class ValidateScdTypeTests(unittest.TestCase):

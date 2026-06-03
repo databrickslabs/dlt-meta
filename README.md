@@ -21,6 +21,8 @@
 
 In practice, a single generic pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads. This approach streamlines the development and management of data pipelines, allowing for a more efficient and scalable data processing workflow
 
+**Supported runtimes.** SDP-META runs on **Databricks Lakeflow** (the superset runtime) and on **OSS Apache Spark 4.1+** (`pyspark.pipelines`, the public subset) — no Unity Catalog or Databricks workspace required for the OSS path. Runtime selection is automatic (override with `SDP_META_RUNTIME={databricks,oss}`). See the [OSS Apache Spark guide](https://databrickslabs.github.io/sdp-meta/getting_started/oss_spark/) for the parity matrix and what's Lakeflow-only (Auto Loader / `cloudFiles`, AutoCDC, Kafka/EventHub).
+
 [Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines and `SDP-META`  are designed to complement each other.  [Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines provide a declarative, intent-driven foundation for building and managing data workflows, while SDP-META adds a powerful configuration-driven layer that automates and scales pipeline creation. By combining these approaches, teams can move beyond manual coding to achieve true enterprise-level agility, governance, and efficiency, templatizing and automating pipelines for any scale of modern data-driven business
 
 ### Components:

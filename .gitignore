@@ -9,6 +9,11 @@ integration-test-output*
 
 #spark
 spark-warehouse
+# Belt-and-suspenders for the OSS integration test suite: the
+# conftest moves its warehouse into pytest's tmp_path_factory tree
+# so it should never land here, but pin the safety net in case a
+# prior run (or local debugging) left one behind.
+.pytest_oss_warehouse/
 
 # C extensions
 *.so

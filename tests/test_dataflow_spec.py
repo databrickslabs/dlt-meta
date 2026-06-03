@@ -52,6 +52,90 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         self.spark.conf.unset("layer")
         self.spark.conf.unset(f"{layer}.dataflowspecTable")
 
+    def _addCleanup_conf_unset(self, *keys: str) -> None:
+        """Register a cleanup that unsets each spark conf key.
+
+        Robust to assertion failures inside the test body — manual
+        ``self.spark.conf.unset(...)`` at the end of the test body
+        leaks state on the failure path and contaminates subsequent
+        tests with stale ``layer`` / ``<layer>.*`` conf values.
+        """
+        for key in keys:
+            self.addCleanup(self.spark.conf.unset, key)
+
+    def test_checkSparkDataFlowpipelineSparkConfParams_path_only(self):
+        """``dataflowspecPath`` alone (no ``dataflowspecTable``) is valid.
+
+        Used by the OSS path-based runner that addresses dataflowspec
+        Delta data by location instead of by registered-table name.
+        """
+        layer = "bronze"
+        self._addCleanup_conf_unset(
+            "layer", f"{layer}.dataflowspecPath", f"{layer}.group"
+        )
+        self.spark.conf.set("layer", layer)
+        self.spark.conf.set(f"{layer}.dataflowspecPath", "/tmp/sdp_meta_smoke/bronze")
+        self.spark.conf.set(f"{layer}.group", "A1")
+        DataflowSpecUtils.check_spark_dataflowpipeline_conf_params(self.spark, layer)
+
+    def test_get_dataflow_spec_via_path(self):
+        """``_get_dataflow_spec`` reads from ``<layer>.dataflowspecPath``.
+
+        Onboards the bronze dataflowspec to a Delta path, sets the new
+        ``bronze.dataflowspecPath`` conf (and deliberately leaves
+        ``bronze.dataflowspecTable`` unset), and confirms the framework
+        round-trips the spec rows back via ``spark.read.format("delta")``.
+        """
+        opm = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        del opm["silver_dataflowspec_table"]
+        del opm["silver_dataflowspec_path"]
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, opm)
+        onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
+
+        bronze_dataflowSpec_path = self.onboarding_spec_paths + "/bronze"
+
+        # Drive the reader purely via path — no table registration, no
+        # CREATE TABLE LOCATION. This is the OSS scenario.
+        self._addCleanup_conf_unset(
+            "layer", "bronze.group", "bronze.dataflowspecPath"
+        )
+        self.spark.conf.set("layer", "bronze")
+        self.spark.conf.set("bronze.group", "A1")
+        self.spark.conf.set("bronze.dataflowspecPath", bronze_dataflowSpec_path)
+
+        dataflowspec_list = DataflowSpecUtils.get_bronze_dataflow_spec(self.spark)
+        self.assertEqual(len(dataflowspec_list), 2)
+        self.assertEqual(type(dataflowspec_list[0]), BronzeDataflowSpec)
+
+    def test_get_dataflow_spec_path_takes_precedence_over_table(self):
+        """When both ``dataflowspecPath`` and ``dataflowspecTable`` are set,
+        path wins.
+
+        We point ``dataflowspecTable`` at a name that does not exist so
+        the test fails loudly if the framework falls back to it.
+        """
+        opm = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        del opm["silver_dataflowspec_table"]
+        del opm["silver_dataflowspec_path"]
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, opm)
+        onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
+
+        bronze_dataflowSpec_path = self.onboarding_spec_paths + "/bronze"
+
+        self._addCleanup_conf_unset(
+            "layer",
+            "bronze.group",
+            "bronze.dataflowspecPath",
+            "bronze.dataflowspecTable",
+        )
+        self.spark.conf.set("layer", "bronze")
+        self.spark.conf.set("bronze.group", "A1")
+        self.spark.conf.set("bronze.dataflowspecPath", bronze_dataflowSpec_path)
+        self.spark.conf.set("bronze.dataflowspecTable", "nonexistent_db.nonexistent_table")
+
+        dataflowspec_list = DataflowSpecUtils.get_bronze_dataflow_spec(self.spark)
+        self.assertEqual(len(dataflowspec_list), 2)
+
     def test_getBronzeDataflowSpec_positive(self):
         """Test Dataflowspec for Bronze layer."""
         opm = copy.deepcopy(self.onboarding_bronze_silver_params_map)

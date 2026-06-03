@@ -841,6 +841,73 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
             expected_quarantine_table = f"{q_cl_name}{q_db}.{q_table_name}"
             self.assertEqual(quarantine_kwargs["name"], expected_quarantine_table)
 
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_dataflowpipeline_bronze_quarantine_only_registers_target(self, mock_dlt):
+        """Regression: quarantine-only DQE must still register the target table.
+
+        Old code's expectation cascade in ``write_layer_with_dqe`` only
+        called ``dp.table`` for the bronze TARGET when at least one of
+        ``expect_all`` / ``expect_or_fail`` / ``expect_or_drop`` was
+        truthy. A spec with ``dataQualityExpectations`` containing ONLY
+        ``expect_or_quarantine`` would silently SKIP the bronze target
+        registration (only the quarantine table got registered).
+
+        The new ``_register_table_with_dqe`` helper unconditionally
+        calls ``dp.table`` for the target. This test pins the fixed
+        behavior: both the target table AND the quarantine table are
+        registered.
+        """
+        mock_dlt.table = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all_or_fail = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all_or_drop = MagicMock(return_value=lambda func: func)
+
+        spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
+        spec_map["dataQualityExpectations"] = json.dumps({
+            "expect_or_quarantine": {
+                "valid_id": "id IS NOT NULL",
+            }
+        })
+        bronze_spec = BronzeDataflowSpec(**spec_map)
+        view_name = f"{bronze_spec.targetDetails['table']}_inputview"
+        quarantine_view_name = f"{bronze_spec.targetDetails['table']}_inputview_quarantine"
+        pipeline = DataflowPipeline(self.spark, bronze_spec, view_name, quarantine_view_name)
+
+        pipeline.write_bronze()
+
+        # Two ``dp.table(...)`` calls expected: bronze target + quarantine.
+        # Old code with this spec would have produced only one (quarantine).
+        registered_names = [
+            call.kwargs["name"] for call in mock_dlt.table.call_args_list
+        ]
+        target_path, target_table, _ = pipeline._get_target_table_info()
+        quarantine_target_details = pipeline._get_quarantine_target_details()
+        q_cl = quarantine_target_details.get("catalog")
+        q_cl_name = f"{q_cl}." if q_cl is not None else ""
+        q_db = quarantine_target_details["database"]
+        q_table = quarantine_target_details["table"]
+        expected_quarantine_table = f"{q_cl_name}{q_db}.{q_table}"
+
+        self.assertIn(
+            target_table, registered_names,
+            "Bronze TARGET table missing from dp.table calls — old "
+            "expectation-cascade bug regressed (quarantine-only spec "
+            "must still register the target).",
+        )
+        self.assertIn(expected_quarantine_table, registered_names)
+        # No expect_* decorators stack when only ``expect_or_quarantine``
+        # is set on the target — the quarantine constraints flow into
+        # the SEPARATE quarantine table's ``expect_all_or_drop``.
+        # ``expect_all`` and ``expect_all_or_fail`` on the target should
+        # never have been called.
+        mock_dlt.expect_all.assert_not_called()
+        mock_dlt.expect_all_or_fail.assert_not_called()
+        # ``expect_all_or_drop`` is called once — for the quarantine
+        # table (with the quarantine constraints).
+        mock_dlt.expect_all_or_drop.assert_called_once()
+        ((dropped_arg,), _) = mock_dlt.expect_all_or_drop.call_args_list[0]
+        self.assertEqual(dropped_arg, {"valid_id": "id IS NOT NULL"})
+
     @patch.object(DataflowPipeline, 'get_silver_schema', new_callable=MagicMock)
     @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
@@ -1742,6 +1809,127 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         with self.assertRaises(Exception) as context:
             pipeline.read_bronze()
         self.assertIn("unsupported_format source format not supported", str(context.exception))
+
+    def test_cloudfiles_routes_to_autoloader_reader(self):
+        """``cloudFiles`` (Databricks Auto Loader) must dispatch to
+        ``PipelineReaders.read_dlt_cloud_files`` and NOT to
+        ``read_dlt_file_source`` — the autoloader reader is where the
+        Auto Loader-specific reader options + the
+        ``add_cloudfiles_metadata`` post-read enrichment happen, and
+        sending ``cloudFiles`` through the vanilla file-source path
+        would silently drop both behaviours.
+        """
+        sentinel_df = MagicMock(name="bronze_input_df")
+        bronze_spec_map = copy.deepcopy(
+            DataflowPipelineTests.bronze_dataflow_spec_map)
+        bronze_spec_map["sourceFormat"] = "cloudFiles"
+        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+        pipeline = DataflowPipeline(
+            self.spark, bronze_dataflow_spec, "test_view")
+        with patch.object(
+            PipelineReaders, "read_dlt_cloud_files",
+            return_value=sentinel_df,
+        ) as mock_autoloader, patch.object(
+            PipelineReaders, "read_dlt_file_source",
+        ) as mock_vanilla:
+            result = pipeline.read_bronze()
+        mock_autoloader.assert_called_once()
+        mock_vanilla.assert_not_called()
+        # apply_custom_transform_fun is identity when
+        # custom_transform_func is None, so the reader's return value
+        # falls through unchanged.
+        self.assertIs(result, sentinel_df)
+
+    def test_vanilla_file_source_without_schema_raises_clear_error(self):
+        """Vanilla streaming file sources (json/csv/parquet/orc/text/avro)
+        cannot infer schema at ``readStream.load()`` time. Without a
+        schema, Spark raises an opaque ``AnalysisException`` deep in the
+        plan; the runtime guard in ``PipelineReaders.read_dlt_file_source``
+        pre-checks and raises a clear, actionable ``ValueError`` instead.
+
+        The message must point the user at ``source_schema_path`` (the
+        onboarding-spec key) and mention the cloudFiles alternative,
+        so the error is self-remediating.
+        """
+        from databricks.labs.sdp_meta.identifiers import VANILLA_FILE_SOURCE_FORMATS
+        from databricks.labs.sdp_meta.pipeline_readers import PipelineReaders
+        for fmt in VANILLA_FILE_SOURCE_FORMATS:
+            with self.subTest(source_format=fmt):
+                reader = PipelineReaders(
+                    spark=self.spark,
+                    source_format=fmt,
+                    source_details={"path": "/tmp/x"},
+                    reader_config_options={},
+                    schema_json=None,
+                )
+                with self.assertRaises(ValueError) as ctx:
+                    reader.read_dlt_file_source()
+                msg = str(ctx.exception)
+                self.assertIn(fmt, msg)
+                self.assertIn("source_schema_path", msg)
+                self.assertIn("cloudFiles", msg)
+
+    def test_cloudfiles_without_schema_does_not_raise_at_reader(self):
+        """Auto Loader (``cloudFiles``) infers schema via
+        ``cloudFiles.inferColumnTypes`` and must NOT trip the vanilla
+        guard. Regression check that the guard is correctly scoped to
+        ``read_dlt_file_source`` only (not ``read_dlt_cloud_files``).
+        """
+        from databricks.labs.sdp_meta.pipeline_readers import PipelineReaders
+        # Don't actually call readStream — that needs a Spark Connect
+        # session in this test env. We just confirm the function
+        # progresses past the schema check by inspecting where it fails:
+        # the failure should happen inside ``_read_file_source_dataframe``
+        # (spark.readStream...), NOT in a ValueError from our guard.
+        reader = PipelineReaders(
+            spark=MagicMock(),
+            source_format="cloudFiles",
+            source_details={"path": "/tmp/x"},
+            reader_config_options={},
+            schema_json=None,
+        )
+        # MagicMock spark.readStream chain returns sentinels — call
+        # succeeds without raising ValueError.
+        try:
+            reader.read_dlt_cloud_files()
+        except ValueError as ve:
+            self.fail(f"cloudFiles reader incorrectly raised ValueError: {ve}")
+
+    def test_vanilla_file_formats_route_to_file_source_reader(self):
+        """Vanilla Spark streaming file formats (``json``, ``csv``,
+        ``parquet``, ``orc``, ``text``, ``avro``) must dispatch to
+        ``PipelineReaders.read_dlt_file_source`` and NOT to
+        ``read_dlt_cloud_files``.
+
+        Regression test for the OSS demo failure where
+        ``source_format='json'`` was rejected by the dispatcher.
+        Routing a vanilla file source through the Auto Loader reader
+        would (a) leak Lakeflow-only Auto Loader semantics into the
+        OSS code path and (b) silently apply ``add_cloudfiles_metadata``
+        to formats that don't carry the autoloader metadata config,
+        which is the kind of "looks like it works" footgun this split
+        exists to prevent.
+        """
+        from databricks.labs.sdp_meta.identifiers import VANILLA_FILE_SOURCE_FORMATS
+        sentinel_df = MagicMock(name="bronze_input_df")
+        for fmt in VANILLA_FILE_SOURCE_FORMATS:
+            with self.subTest(source_format=fmt):
+                bronze_spec_map = copy.deepcopy(
+                    DataflowPipelineTests.bronze_dataflow_spec_map)
+                bronze_spec_map["sourceFormat"] = fmt
+                bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
+                pipeline = DataflowPipeline(
+                    self.spark, bronze_dataflow_spec, "test_view")
+                with patch.object(
+                    PipelineReaders, "read_dlt_file_source",
+                    return_value=sentinel_df,
+                ) as mock_vanilla, patch.object(
+                    PipelineReaders, "read_dlt_cloud_files",
+                ) as mock_autoloader:
+                    result = pipeline.read_bronze()
+                mock_vanilla.assert_called_once()
+                mock_autoloader.assert_not_called()
+                self.assertIs(result, sentinel_df)
 
     def test_read_exception_for_unsupported_dataflow(self):
         """Test read method exception for unsupported dataflow without next_snapshot_and_version."""

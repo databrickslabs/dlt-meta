@@ -11,6 +11,18 @@ from databricks.labs.sdp_meta.dataflow_spec import BronzeDataflowSpec, SilverDat
 from databricks.labs.sdp_meta.pipeline_writers import AppendFlowWriter, DLTSinkWriter
 from databricks.labs.sdp_meta.__about__ import __version__
 from databricks.labs.sdp_meta.pipeline_readers import PipelineReaders
+from databricks.labs.sdp_meta.identifiers import (
+    AUTO_LOADER_FORMAT,
+    VANILLA_FILE_SOURCE_FORMATS,
+)
+# Intentionally eager (not routed through the lazy ``_LAZY_EXPORTS`` in
+# ``__init__.py``): :meth:`DataflowPipeline.__new__` calls
+# ``oss_dp.is_oss()`` on every construction to decide whether to
+# dispatch to :class:`OSSDataflowPipeline`. ``is_oss()`` is cheap to
+# call repeatedly — it consults the ``SDP_META_RUNTIME`` env override
+# live and reuses a memoized ``pyspark.pipelines`` probe — so the
+# factory pays the symbol reflection at most once per process.
+from databricks.labs.sdp_meta import oss_pipelines as oss_dp
 
 logger = logging.getLogger('databricks.labs.sdp_meta')
 logger.setLevel(logging.INFO)
@@ -19,12 +31,52 @@ logger.setLevel(logging.INFO)
 class DataflowPipeline:
     """This class uses dataflowSpec to launch Lakeflow Spark Declarative Pipelines.
 
+    The base class targets the Databricks Lakeflow runtime — the superset
+    of ``pyspark.pipelines`` that ships ``expect_all`` /
+    ``create_auto_cdc_flow`` plus Lakeflow-only kwargs such as
+    ``cluster_by_auto`` and ``path``. The OSS Apache Spark 4.1+ subset is
+    handled by :class:`OSSDataflowPipeline` (subclass) which overrides
+    only the methods that diverge.
+
+    Selection is automatic: ``DataflowPipeline(...)`` returns an
+    :class:`OSSDataflowPipeline` instance when the runtime probe lands on
+    OSS (see :mod:`databricks.labs.sdp_meta.oss_pipelines`). Existing call
+    sites do not need to change. Force a runtime via the
+    ``SDP_META_RUNTIME`` env var (``databricks`` / ``oss``).
+
     Raises:
         Exception: "Dataflow not supported!"
 
     Returns:
         [type]: [description]
     """
+
+    def __new__(cls, *args, **kwargs):
+        """Dispatch to :class:`OSSDataflowPipeline` on OSS Spark.
+
+        Keeps existing call sites that instantiate ``DataflowPipeline``
+        directly working unchanged. Subclasses (including
+        :class:`OSSDataflowPipeline` itself) bypass the dispatch so they
+        always get their own concrete type.
+
+        ``*args`` / ``**kwargs`` are intentionally not forwarded to
+        ``object.__new__`` (which only accepts ``cls``); Python re-invokes
+        ``__init__`` on the returned instance with the original arguments,
+        so they're not lost. The returned instance's ``__init__`` is
+        responsible for any runtime-vs-class consistency check
+        (see :class:`OSSDataflowPipeline.__init__`).
+
+        ``OSSDataflowPipeline`` is imported lazily inside this method —
+        not at module top — to break the
+        ``dataflow_pipeline → oss_dataflow_pipeline → dataflow_pipeline``
+        import cycle (``oss_dataflow_pipeline.py`` subclasses
+        ``DataflowPipeline``, so it can't be imported during this
+        module's own import).
+        """
+        if cls is DataflowPipeline and oss_dp.is_oss():
+            from databricks.labs.sdp_meta.oss_dataflow_pipeline import OSSDataflowPipeline
+            return object.__new__(OSSDataflowPipeline)
+        return object.__new__(cls)
 
     def __init__(self, spark, dataflow_spec, view_name, view_name_quarantine=None,
                  custom_transform_func: Optional[Callable] = None,
@@ -84,6 +136,38 @@ class DataflowPipeline:
     def _get_table_properties(self):
         """Get table properties as a proper dictionary."""
         return self._get_dict_as_dict(self.dataflowSpec.tableProperties)
+
+    def _register_table_with_dqe(
+        self,
+        query_function,
+        *,
+        name,
+        expect_all=None,
+        expect_all_or_drop=None,
+        expect_all_or_fail=None,
+        **table_kwargs,
+    ):
+        """Register a table on Lakeflow and stack DQE decorators.
+
+        ``dp.table(qf, **kwargs)`` is called exactly once (regardless of
+        how many DQE flavours are set), and ``dp.expect_all`` /
+        ``dp.expect_all_or_fail`` / ``dp.expect_all_or_drop`` are stacked
+        on top in deterministic order. Lakeflow-only kwargs
+        (``cluster_by_auto``, ``path``) flow through unchanged.
+
+        :class:`~databricks.labs.sdp_meta.oss_dataflow_pipeline.OSSDataflowPipeline`
+        overrides this method to inline DQE constraints into the query
+        function (the OSS ``pyspark.pipelines`` API does not expose
+        ``expect_*`` decorators).
+        """
+        decorated = dp.table(query_function, name=name, **table_kwargs)
+        if expect_all:
+            decorated = dp.expect_all(expect_all)(decorated)
+        if expect_all_or_fail:
+            decorated = dp.expect_all_or_fail(expect_all_or_fail)(decorated)
+        if expect_all_or_drop:
+            decorated = dp.expect_all_or_drop(expect_all_or_drop)(decorated)
+        return decorated
 
     def __initialize_dataflow_pipeline(
         self, spark, dataflow_spec, view_name, view_name_quarantine, custom_transform_func: Callable,
@@ -183,8 +267,17 @@ class DataflowPipeline:
                     append_flow.reader_options,
                     json.loads(flow_schema) if flow_schema else None
                 )
-                if append_flow.source_format == "cloudFiles":
+                # Mirror the ``read_bronze`` dispatch: ``cloudFiles``
+                # (Auto Loader) and vanilla file sources go through
+                # different readers so the OSS code path stays free of
+                # Lakeflow-only behaviour.
+                if append_flow.source_format == AUTO_LOADER_FORMAT:
                     dp.temporary_view(pipeline_reader.read_dlt_cloud_files,
+                                      name=f"{append_flow.name}_view",
+                                      comment=f"append flow input dataset view for {append_flow.name}_view"
+                                      )
+                elif append_flow.source_format in VANILLA_FILE_SOURCE_FORMATS:
+                    dp.temporary_view(pipeline_reader.read_dlt_file_source,
                                       name=f"{append_flow.name}_view",
                                       comment=f"append flow input dataset view for {append_flow.name}_view"
                                       )
@@ -198,6 +291,11 @@ class DataflowPipeline:
                                       name=f"{append_flow.name}_view",
                                       comment=f"append flow input dataset view for {append_flow.name}_view"
                                       )
+                else:
+                    raise Exception(
+                        f"append flow {append_flow.name}: "
+                        f"{append_flow.source_format} source format not supported"
+                    )
         else:
             raise Exception(f"Append Flows not found for dataflowSpec={self.dataflowSpec}")
 
@@ -246,7 +344,10 @@ class DataflowPipeline:
             else False
         )
 
-        dp.table(
+        # Routed through the helper so OSS Spark transparently drops the
+        # Lakeflow-only ``cluster_by_auto`` and ``path`` kwargs that OSS
+        # ``pyspark.pipelines.table`` does not accept.
+        self._register_table_with_dqe(
             self.write_to_delta,
             name=f"{target_table}",
             partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
@@ -322,8 +423,15 @@ class DataflowPipeline:
         )
         bronze_dataflow_spec: BronzeDataflowSpec = self.dataflowSpec
         input_df = None
-        if bronze_dataflow_spec.sourceFormat == "cloudFiles":
+        # ``cloudFiles`` (Auto Loader) is Lakeflow-only and gets its
+        # own reader so the autoloader-specific options + metadata
+        # helper stay out of the OSS code path. Vanilla file formats
+        # go through ``read_dlt_file_source`` which works on both
+        # Lakeflow and OSS Apache Spark.
+        if bronze_dataflow_spec.sourceFormat == AUTO_LOADER_FORMAT:
             input_df = pipeline_reader.read_dlt_cloud_files()
+        elif bronze_dataflow_spec.sourceFormat in VANILLA_FILE_SOURCE_FORMATS:
+            input_df = pipeline_reader.read_dlt_file_source()
         elif bronze_dataflow_spec.sourceFormat == "delta" or bronze_dataflow_spec.sourceFormat == "snapshot":
             input_df = pipeline_reader.read_dlt_delta()
         elif bronze_dataflow_spec.sourceFormat == "eventhub" or bronze_dataflow_spec.sourceFormat == "kafka":
@@ -464,7 +572,6 @@ class DataflowPipeline:
         is_bronze = isinstance(self.dataflowSpec, BronzeDataflowSpec)
         data_quality_expectations_json = json.loads(self.dataflowSpec.dataQualityExpectations)
 
-        dlt_table_with_expectation = None
         expect_or_quarantine_dict = None
         expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = self.get_dq_expectations()
         # Both bronze and silver layers support quarantine tables
@@ -484,54 +591,19 @@ class DataflowPipeline:
                 else False
             )
 
-            # Create base table with expectations
-            if expect_all_dict:
-                dlt_table_with_expectation = dp.expect_all(expect_all_dict)(
-                    dp.table(
-                        self.write_to_delta,
-                        name=f"{target_table}",
-                        table_properties=self.dataflowSpec.tableProperties,
-                        partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
-                        cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
-                        cluster_by_auto=cluster_by_auto,
-                        path=target_path,
-                        comment=target_comment,
-                    )
-                )
-            if expect_all_or_fail_dict:
-                if expect_all_dict is None:
-                    dlt_table_with_expectation = dp.expect_all_or_fail(expect_all_or_fail_dict)(
-                        dp.table(
-                            self.write_to_delta,
-                            name=f"{target_table}",
-                            table_properties=self.dataflowSpec.tableProperties,
-                            partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
-                            cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
-                            cluster_by_auto=cluster_by_auto,
-                            path=target_path,
-                            comment=target_comment,
-                        )
-                    )
-                else:
-                    dlt_table_with_expectation = dp.expect_all_or_fail(expect_all_or_fail_dict)(
-                        dlt_table_with_expectation)
-            if expect_all_or_drop_dict:
-                if expect_all_dict is None and expect_all_or_fail_dict is None:
-                    dlt_table_with_expectation = dp.expect_all_or_drop(expect_all_or_drop_dict)(
-                        dp.table(
-                            self.write_to_delta,
-                            name=f"{target_table}",
-                            table_properties=self.dataflowSpec.tableProperties,
-                            partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
-                            cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
-                            cluster_by_auto=cluster_by_auto,
-                            path=target_path,
-                            comment=target_comment,
-                        )
-                    )
-                else:
-                    dlt_table_with_expectation = dp.expect_all_or_drop(expect_all_or_drop_dict)(
-                        dlt_table_with_expectation)
+            self._register_table_with_dqe(
+                self.write_to_delta,
+                name=f"{target_table}",
+                table_properties=self.dataflowSpec.tableProperties,
+                partition_cols=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.partitionColumns),
+                cluster_by=DataflowSpecUtils.get_partition_cols(self.dataflowSpec.clusterBy),
+                cluster_by_auto=cluster_by_auto,
+                path=target_path,
+                comment=target_comment,
+                expect_all=expect_all_dict,
+                expect_all_or_drop=expect_all_or_drop_dict,
+                expect_all_or_fail=expect_all_or_fail_dict,
+            )
             # Handle quarantine table (Bronze and Silver layers)
         if expect_or_quarantine_dict:
             q_partition_cols = None
@@ -585,17 +657,16 @@ class DataflowPipeline:
             else:
                 q_cluster_by_auto = bool(q_cluster_by_auto_value) if q_cluster_by_auto_value else False
 
-            dp.expect_all_or_drop(expect_or_quarantine_dict)(
-                dp.table(
-                    self.write_to_delta,
-                    name=f"{quarantine_table}",
-                    table_properties=self.dataflowSpec.quarantineTableProperties,
-                    partition_cols=q_partition_cols,
-                    cluster_by=q_cluster_by,
-                    cluster_by_auto=q_cluster_by_auto,
-                    path=quarantine_path,
-                    comment=quarantine_comment,
-                )
+            self._register_table_with_dqe(
+                self.write_to_delta,
+                name=f"{quarantine_table}",
+                table_properties=self.dataflowSpec.quarantineTableProperties,
+                partition_cols=q_partition_cols,
+                cluster_by=q_cluster_by,
+                cluster_by_auto=q_cluster_by_auto,
+                path=quarantine_path,
+                comment=quarantine_comment,
+                expect_all_or_drop=expect_or_quarantine_dict,
             )
 
     def write_append_flows(self):
@@ -732,6 +803,15 @@ class DataflowPipeline:
         return struct_schema
 
     def create_streaming_table(self, struct_schema, target_path=None):
+        """Create a streaming table on Lakeflow with DQE expectations.
+
+        :class:`~databricks.labs.sdp_meta.oss_dataflow_pipeline.OSSDataflowPipeline`
+        overrides this to filter out Lakeflow-only kwargs that OSS
+        ``pyspark.pipelines.create_streaming_table`` rejects
+        (``cluster_by_auto``, ``path``, ``expect_*``). DQE on a streaming
+        table is unreachable on the OSS code path because the AutoCDC
+        callers raise :class:`NotImplementedError` upstream.
+        """
         expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = self.get_dq_expectations()
 
         target_cl = self.dataflowSpec.targetDetails.get('catalog', None)
@@ -799,6 +879,17 @@ class DataflowPipeline:
         self.read()
         self.write()
 
+    def run(self, *args, **kwargs):
+        """Rebrand-friendly alias for :meth:`run_dlt`.
+
+        Defined as a method (not a class-level attribute reference) so
+        subclasses that override ``run_dlt`` are picked up via normal
+        method resolution. ``DataflowPipeline.run = DataflowPipeline.run_dlt``
+        would bind the base function object on the class and bypass any
+        subclass override.
+        """
+        return self.run_dlt(*args, **kwargs)
+
     @staticmethod
     def invoke_dlt_pipeline(spark,
                             layer,
@@ -835,6 +926,31 @@ class DataflowPipeline:
                 spark, "silver", silver_dataflowspec_list, silver_custom_transform_func,
                 silver_next_snapshot_and_version
             )
+
+    @staticmethod
+    def invoke_pipeline(spark,
+                        layer,
+                        bronze_custom_transform_func: Callable = None,
+                        silver_custom_transform_func: Callable = None,
+                        bronze_next_snapshot_and_version: Callable = None,
+                        silver_next_snapshot_and_version: Callable = None):
+        """Rebrand-friendly alias for :meth:`invoke_dlt_pipeline`.
+
+        Defined as a real ``@staticmethod`` (not a class-level attribute
+        reference) so external callers and the OSS ``spark-pipelines``
+        entry point template can use the new name. The factory in
+        :meth:`__new__` still dispatches to :class:`OSSDataflowPipeline`
+        when the runtime probe lands on OSS, so this entry point Just
+        Works on both runtimes.
+        """
+        return DataflowPipeline.invoke_dlt_pipeline(
+            spark,
+            layer,
+            bronze_custom_transform_func=bronze_custom_transform_func,
+            silver_custom_transform_func=silver_custom_transform_func,
+            bronze_next_snapshot_and_version=bronze_next_snapshot_and_version,
+            silver_next_snapshot_and_version=silver_next_snapshot_and_version,
+        )
 
     @staticmethod
     def _launch_dlt_flow(
@@ -934,3 +1050,16 @@ class DataflowPipeline:
                 for clause in where_clause:
                     df = df.where(clause)
         return df
+
+
+# --- Public name aliases -----------------------------------------------------
+# ``run_dlt`` and ``invoke_dlt_pipeline`` carry the legacy product name. The
+# repo has rebranded to "Spark Declarative Pipelines"; the legacy names stay
+# canonical (30+ external callers in examples, demo notebooks,
+# integration_tests, docs, and ``tests/test_dataflow_pipeline.py`` pin them
+# via ``@patch.object(DataflowPipeline, "run_dlt", ...)``). The new names
+# (:meth:`DataflowPipeline.run` / :meth:`DataflowPipeline.invoke_pipeline`)
+# are defined as proper methods on the class so subclass overrides of the
+# legacy methods are picked up via normal MRO. ``DataflowPipeline.run =
+# DataflowPipeline.run_dlt`` would have bound the base function object on
+# the class and bypassed any subclass override.

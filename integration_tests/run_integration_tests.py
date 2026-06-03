@@ -1050,7 +1050,7 @@ class SDPMETARunner:
                     for table in tables_list:
                         print(f"Deleting table: {table.full_name}")
                         self.ws.tables.delete(table.full_name)
-                    self.ws.schemas.delete(schema.full_name)
+                    self.ws.schemas.delete(schema.full_name, force=True)
         print("Cleaning up complete!!!")
 
     def run(self, runner_conf: SDPMetaRunnerConf):
@@ -1062,8 +1062,20 @@ class SDPMETARunner:
         except Exception as e:
             print(e)
             traceback.print_exc()
-        # finally:
-        #     self.clean_up(runner_conf)
+        finally:
+            # Skip cleanup when ``SDP_META_KEEP_ARTIFACTS`` is set so the
+            # caller can inspect failed-run artifacts (schemas, tables,
+            # volumes, jobs). Accepts ``1``/``true``/``yes``/``on``
+            # case-insensitively. Cleanup runs by default.
+            keep = os.environ.get("SDP_META_KEEP_ARTIFACTS", "").strip().lower()
+            if keep in ("1", "true", "yes", "on"):
+                print(
+                    "SDP_META_KEEP_ARTIFACTS is set; skipping clean_up. "
+                    "Run integration_tests/cleanup_script.py to remove "
+                    "artifacts when you're done debugging."
+                )
+            else:
+                self.clean_up(runner_conf)
 
 
 def process_arguments() -> dict[str:str]:

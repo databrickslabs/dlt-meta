@@ -1,0 +1,41 @@
+"""Top-level source file for the OSS Spark Declarative Pipelines runtime.
+
+Discovered by the SDP graph builder via ``libraries.glob`` in
+``spark-pipeline.yml``. The OSS planner imports this module at planning
+time, which is when ``DataflowPipeline.invoke_pipeline`` walks the
+dataflow spec table and registers the corresponding ``@dp.table`` /
+``@dp.append_flow`` / ``@dp.create_sink`` calls into the pipeline graph.
+
+The Lakeflow path uses a near-identical runner notebook
+(``init_sdp_meta_pipeline.py.tmpl`` under ``templates/dab/``); the only
+difference is how the planner loads it (notebook vs. ``.py`` library)
+and how ``layer`` is plumbed in (notebook widget vs. spec configuration).
+"""
+from pyspark.sql import SparkSession
+
+from databricks.labs.sdp_meta.dataflow_pipeline import DataflowPipeline
+from databricks.labs.sdp_meta import is_oss
+
+
+def main() -> None:
+    """Realise the dataflow spec into the active SDP pipeline graph."""
+    spark = SparkSession.builder.getOrCreate()
+    layer = spark.conf.get("layer", "bronze_silver")
+    if not is_oss():
+        # The OSS template should only run on OSS Spark. If detection
+        # somehow lands on Lakeflow (e.g. someone copied this file into a
+        # notebook by accident), fall through anyway — invoke_pipeline
+        # behaves identically across runtimes; this is just a sanity
+        # warning so the operator notices.
+        spark.sparkContext.setJobDescription(
+            "[sdp-meta] WARNING: OSS template running on a non-OSS runtime. "
+            "Set SDP_META_RUNTIME=databricks to silence this if intentional."
+        )
+    DataflowPipeline.invoke_pipeline(spark, layer)
+
+
+# OSS SDP runs the file at module-import time; calling main() here
+# triggers graph registration. Wrap in __name__ guard so unit tests can
+# import this module without side effects.
+if __name__ == "__main__" or __name__.endswith("run_pipeline"):
+    main()

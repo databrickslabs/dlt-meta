@@ -56,7 +56,7 @@ def main():
             for table in tables_list:
                 print(f"Deleting table:{table.full_name}")
                 workspace_client.tables.delete(table.full_name)
-            workspace_client.schemas.delete(schema.full_name)
+            workspace_client.schemas.delete(schema.full_name, force=True)
 
 
 if __name__ == "__main__":

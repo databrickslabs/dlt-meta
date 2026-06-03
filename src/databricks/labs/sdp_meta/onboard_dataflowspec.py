@@ -15,7 +15,9 @@ from pyspark.sql.types import ArrayType, MapType, StringType, StructField, Struc
 
 from databricks.labs.sdp_meta.dataflow_spec import BronzeDataflowSpec, DataflowSpecUtils, SilverDataflowSpec
 from databricks.labs.sdp_meta.identifiers import (
+    FILE_SOURCE_FORMATS,
     SUPPORTED_SOURCE_FORMATS,
+    VANILLA_FILE_SOURCE_FORMATS,
     validate_scd_type,
     validate_source_format,
     validate_uc_column_list,
@@ -58,15 +60,35 @@ _SNAPSHOT_COL_FIELDS = (
 
 # Lower-cased mirror of :data:`SUPPORTED_SOURCE_FORMATS` for the
 # case-insensitive runtime check inside
-# ``__get_bronze_dataflow_spec_dataframe``. The canonical set
-# (``cloudFiles``, ``delta``, ``kafka``, ``eventhub``, ``snapshot``)
-# is case-sensitive because that's how DLT and Spark spell these
+# ``__get_bronze_dataflow_spec_dataframe``. The canonical set is
+# case-sensitive because that's how DLT and Spark spell these
 # strings, but historically the per-row check here has been lenient
 # about ``"CloudFiles"`` / ``"cloudfiles"`` / ``"CLOUDFILES"`` and we
 # don't want to break callers who relied on that. Built once at module
 # scope so we're not rebuilding the set on every (row x layer) pass.
 _SUPPORTED_SOURCE_FORMATS_LOWER = frozenset(
     s.lower() for s in SUPPORTED_SOURCE_FORMATS
+)
+
+# Same lower-cased treatment for :data:`FILE_SOURCE_FORMATS` so the
+# source-details parser below can route any vanilla file source
+# (``cloudfiles``/``json``/``csv``/``parquet``/``orc``/``text``/
+# ``avro``) through the same ``source_path``/``source_catalog``/
+# ``source_database``/``source_table``/``source_metadata`` extraction
+# branch that historically only handled ``cloudfiles``.
+_FILE_SOURCE_FORMATS_LOWER = frozenset(
+    s.lower() for s in FILE_SOURCE_FORMATS
+)
+
+# Vanilla streaming file sources require an explicit schema. Auto Loader
+# (``cloudFiles``) can infer it via ``cloudFiles.inferColumnTypes``; the
+# generic Spark ``readStream.format("json"|"csv"|...).load(path)`` cannot
+# and raises an opaque ``AnalysisException`` at runtime. The onboarding-
+# time check below uses this lower-cased mirror to enforce the rule
+# upfront so users discover the missing ``source_schema_path`` before
+# the pipeline is deployed.
+_VANILLA_FILE_SOURCE_FORMATS_LOWER = frozenset(
+    s.lower() for s in VANILLA_FILE_SOURCE_FORMATS
 )
 
 
@@ -1027,6 +1049,23 @@ class OnboardDataflowspec:
                     onboarding_row, env
                 )
             )
+            # Vanilla streaming file sources (json/csv/parquet/orc/text/
+            # avro) cannot infer their schema at ``readStream.load()`` time
+            # — Spark raises an opaque AnalysisException. Fail at
+            # onboarding instead of deferring to runtime so the user
+            # learns about the missing schema before deploying the
+            # pipeline. ``cloudFiles`` is exempted (Auto Loader's
+            # ``cloudFiles.inferColumnTypes`` covers schema inference).
+            if (
+                source_format.lower() in _VANILLA_FILE_SOURCE_FORMATS_LOWER
+                and not schema
+            ):
+                raise Exception(
+                    f"source_format={source_format!r} requires "
+                    "``source_schema_path`` in source_details (vanilla "
+                    "streaming file sources cannot infer schema). "
+                    f"row={onboarding_row}"
+                )
             bronze_target_format = "delta"
             bronze_target_details = {
                 "database": onboarding_row["bronze_database_{}".format(env)],
@@ -1454,7 +1493,7 @@ class OnboardDataflowspec:
         source_details_json = onboarding_row["source_details"]
         if source_details_json:
             source_details_file = self.__delete_none(source_details_json.asDict())
-            if (source_format.lower() == "cloudfiles"
+            if (source_format.lower() in _FILE_SOURCE_FORMATS_LOWER
                     or source_format.lower() == "delta"
                     or source_format.lower() == "snapshot"):
                 if f"source_path_{env}" in source_details_file:
@@ -1467,6 +1506,21 @@ class OnboardDataflowspec:
                     ]
                 if "source_table" in source_details_file:
                     source_details["source_table"] = source_details_file["source_table"]
+                # ``source_metadata`` carries the Auto Loader-specific
+                # autoloader-metadata config block (``select_metadata_cols``
+                # / ``include_autoloader_metadata_column`` /
+                # ``autoloader_metadata_col_name``). It is consumed at
+                # runtime by ``PipelineReaders.add_cloudfiles_metadata``,
+                # which is only called from
+                # ``PipelineReaders.read_dlt_cloud_files`` (i.e. only
+                # when ``source_format == "cloudFiles"``). We still
+                # parse and persist it here for any file source so the
+                # spec round-trips losslessly and audit tooling can
+                # inspect it, but the runtime treats it as a no-op for
+                # vanilla file formats (``json``/``csv``/``parquet``/...).
+                # See ``read_dlt_file_source`` in pipeline_readers.py
+                # for the explicit "intentionally ignored on OSS"
+                # docstring.
                 if "source_metadata" in source_details_file:
                     source_metadata_dict = self.__delete_none(
                         source_details_file["source_metadata"].asDict()

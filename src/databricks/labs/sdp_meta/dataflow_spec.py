@@ -227,7 +227,22 @@ class DataflowSpecUtils:
         """Get DataflowSpec for given parameters.
 
         Can be configured using spark config values, used for optionally filtering
-        the returned data to a group or list of DataflowIDs
+        the returned data to a group or list of DataflowIDs.
+
+        Two equivalent ways to point at the dataflowspec data:
+
+        - ``<layer>.dataflowspecTable`` — fully qualified table name
+          (``database.table`` or ``catalog.database.table``). Read via
+          ``spark.read.table(...)``. Requires the table to be registered
+          in a catalog (UC, Hive, or local Spark Catalog).
+        - ``<layer>.dataflowspecPath`` — filesystem path to the Delta
+          location that holds the dataflowspec data. Read via
+          ``spark.read.format("delta").load(path)``. Useful for OSS
+          Apache Spark runs that don't have UC and don't want to depend
+          on a Hive metastore — the path is the only thing the run
+          needs.
+
+        ``dataflowspecPath`` takes precedence if both are set.
         """
         if not group:
             group = spark.conf.get(f"{layer}.group", None)
@@ -236,8 +251,12 @@ class DataflowSpecUtils:
             dataflow_ids = spark.conf.get(f"{layer}.dataflowIds", None)
 
         if not dataflow_spec_df:
-            dataflow_spec_table = spark.conf.get(f"{layer}.dataflowspecTable")
-            dataflow_spec_df = spark.read.table(dataflow_spec_table)
+            dataflow_spec_path = spark.conf.get(f"{layer}.dataflowspecPath", None)
+            if dataflow_spec_path:
+                dataflow_spec_df = spark.read.format("delta").load(dataflow_spec_path)
+            else:
+                dataflow_spec_table = spark.conf.get(f"{layer}.dataflowspecTable")
+                dataflow_spec_df = spark.read.table(dataflow_spec_table)
 
         if group or dataflow_ids:
             dataflow_spec_df = dataflow_spec_df.where(
@@ -292,7 +311,13 @@ class DataflowSpecUtils:
 
     @staticmethod
     def check_spark_dataflowpipeline_conf_params(spark, layer_arg):
-        """Check dataflowpipine config params."""
+        """Check dataflowpipine config params.
+
+        Accepts either ``<layer_arg>.dataflowspecTable`` (fully qualified
+        table name) or ``<layer_arg>.dataflowspecPath`` (Delta location).
+        At least one of the two must be set; ``dataflowspecPath`` takes
+        precedence when both are provided.
+        """
         layer = spark.conf.get("layer", None)
         if layer is None:
             raise Exception(
@@ -300,10 +325,13 @@ class DataflowSpecUtils:
                  Please set spark.conf.set({layer_arg},'silver') """
             )
         dataflow_spec_table = spark.conf.get(f"{layer_arg}.dataflowspecTable", None)
-        if dataflow_spec_table is None:
+        dataflow_spec_path = spark.conf.get(f"{layer_arg}.dataflowspecPath", None)
+        if dataflow_spec_table is None and dataflow_spec_path is None:
             raise Exception(
-                f"""parameter {layer_arg}.dataflowspecTable is missing in sparkConf
-                Please set spark.conf.set('{layer_arg}.dataflowspecTable'='database.dataflowSpecTableName')"""
+                f"""parameter {layer_arg}.dataflowspecTable or {layer_arg}.dataflowspecPath
+                is missing in sparkConf. Please set one of:
+                  spark.conf.set('{layer_arg}.dataflowspecTable', 'database.dataflowSpecTableName')
+                  spark.conf.set('{layer_arg}.dataflowspecPath', '/path/to/delta/location')"""
             )
 
         group = spark.conf.get(f"{layer_arg}.group", None)

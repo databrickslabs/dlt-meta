@@ -1,0 +1,73 @@
+# OSS Apache Spark Declarative Pipelines spec for an SDP-META pipeline.
+#
+# Consumed by ``spark-pipelines run --spec spark-pipeline.yml``. Conforms
+# to the canonical pipeline-projects spec:
+# https://spark.apache.org/docs/latest/declarative-pipelines-programming-guide.html#pipeline-projects
+#
+# The canonical spec recognises five top-level fields:
+#   - libraries     (required) — paths to source files
+#   - storage       (required) — checkpoint directory
+#   - catalog       (optional) — default target catalog for pipeline outputs
+#   - database      (optional) — default target database; ``schema`` is an alias
+#   - configuration (optional) — Spark / app config map
+#
+# SDP-META fully qualifies every ``dp.table(name=...)`` call from the
+# onboarding spec (``<catalog>.<database>.<table>`` when catalog is set,
+# ``<database>.<table>`` otherwise), so the pipeline-level ``catalog`` /
+# ``database`` defaults are not required for SDP-META to work and are
+# left commented out below.
+
+# Required: human-readable display name for the pipeline.
+# Unlike templates/dab/, the OSS templates are copied and hand-edited
+# (not rendered through a template engine), so set this to a literal
+# name. See the README for the copy-and-strip-.tmpl workflow.
+name: __PIPELINE_NAME__
+
+# Required: where to find the pipeline source files. ``run_pipeline.py``
+# is the SDP-META entry point — it calls
+# ``DataflowPipeline.invoke_pipeline(spark, layer)`` at module-import
+# time, which is when the OSS planner discovers the @dp.table decorators
+# that SDP-META registers per dataflow spec row.
+libraries:
+  - glob:
+      include: run_pipeline.py
+
+# Required: directory where SDP keeps streaming checkpoints. For shared
+# clusters use a path on a distributed filesystem (S3, ABFS, GCS, HDFS).
+storage: ./_pipeline_storage
+
+# Optional. Set only if you want every fully-unqualified table reference
+# in the pipeline to resolve through a specific catalog. SDP-META always
+# fully qualifies its outputs, so leave commented out unless you also
+# author hand-written ``@dp.table`` files alongside SDP-META.
+# catalog: my_catalog
+
+# Optional. Same caveat as ``catalog`` above. ``schema`` is an accepted
+# alias of ``database`` per the SDP spec.
+# database: my_db
+# schema: my_db
+
+# Optional: Spark / SDP-META configuration map.
+configuration:
+  # ``layer`` controls which set of dataflow specs are realised. Must be
+  # one of ``bronze`` / ``silver`` / ``bronze_silver``.
+  layer: bronze_silver
+
+  # Where SDP-META reads the dataflow spec from. OSS runs are typically
+  # path-based (no Unity Catalog, no Hive Metastore) — point at the Delta
+  # location that ``OnboardDataflowspec`` wrote with
+  # ``bronze_dataflowspec_path`` / ``silver_dataflowspec_path``:
+  bronze.dataflowspecPath: __SET_ME__
+  silver.dataflowspecPath: __SET_ME__
+  # If you onboarded into a real catalog/metastore instead, swap the two
+  # lines above for ``*.dataflowspecTable``. ``dataflowspecPath`` takes
+  # precedence when both are set.
+  # bronze.dataflowspecTable: __SET_ME__
+  # silver.dataflowspecTable: __SET_ME__
+
+  # Force the OSS code path even if the runtime probing is wrong (e.g.
+  # when running against a Databricks-installed Python locally).
+  spark.executorEnv.SDP_META_RUNTIME: oss
+
+  # Tune as appropriate for the workload size.
+  spark.sql.shuffle.partitions: "200"

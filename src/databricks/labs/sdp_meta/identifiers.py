@@ -33,13 +33,60 @@ _REGULAR_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 _MAX_IDENT_LEN = 255
 
+# The Databricks Auto Loader format. Lakeflow-only — depends on the
+# proprietary ``cloudFiles`` source which ships with DBR/Lakeflow but
+# is NOT in OSS Apache Spark. The ``read_bronze`` dispatcher routes
+# this exact string to ``PipelineReaders.read_dlt_cloud_files``,
+# which applies Auto Loader-specific behavior (the
+# ``cloudFiles.format``/``cloudFiles.inferColumnTypes``/... reader
+# options and the ``add_cloudfiles_metadata`` autoloader-metadata
+# helper). Treat as a single string, not a set; the rest of the
+# code that needs a set membership check uses ``{AUTO_LOADER_FORMAT}``
+# explicitly so the literal "this is the Auto Loader" intent reads
+# clearly at the call site.
+AUTO_LOADER_FORMAT = "cloudFiles"
+
+# Vanilla Spark streaming file sources. These all work on both
+# Databricks Lakeflow and OSS Apache Spark via the generic
+# ``spark.readStream.format(<fmt>).load(<path>)`` code path in
+# ``PipelineReaders.read_dlt_file_source``. They do NOT get the
+# Auto Loader-specific reader options or the ``add_cloudfiles_metadata``
+# helper — those are ``cloudFiles``-only semantics, intentionally
+# kept out of this code path so OSS callers don't get a confusing
+# "this option does nothing" surprise. The OSS demo and
+# ``oss_onboarding.json`` use ``json`` from this set instead of
+# ``cloudFiles``. If you add a new vanilla file format here, you
+# do NOT need to add a new branch in ``read_bronze`` — the
+# dispatcher already routes any member of this set through
+# ``read_dlt_file_source``.
+VANILLA_FILE_SOURCE_FORMATS = frozenset(
+    {"json", "csv", "parquet", "orc", "text", "avro"}
+)
+
+# Union of both. Used by the validator (``validate_source_format``),
+# the onboarding pre-flight, and the bundle CLI to accept any
+# file-source format regardless of which dispatch branch it lands in.
+# The dispatcher in ``DataflowPipeline.read_bronze`` (and the
+# parallel append-flow dispatch) does NOT use this set; it gates on
+# ``AUTO_LOADER_FORMAT`` vs ``VANILLA_FILE_SOURCE_FORMATS``
+# separately so the Auto Loader path stays distinct from the OSS
+# path.
+FILE_SOURCE_FORMATS = (
+    frozenset({AUTO_LOADER_FORMAT}) | VANILLA_FILE_SOURCE_FORMATS
+)
+
 # Source formats supported by the bronze readers in
-# ``dataflow_pipeline.py`` and ``pipeline_readers.py`` (the
-# ``if/elif source_format == ...`` chains). Pinned here so the bundle CLI,
-# DAB template, and onboarding pre-flight all agree on the same set; if
-# you add a reader, add the format here too.
-SUPPORTED_SOURCE_FORMATS = frozenset(
-    {"cloudFiles", "delta", "kafka", "eventhub", "snapshot"}
+# ``dataflow_pipeline.py`` and ``pipeline_readers.py``. Union of:
+#   * :data:`FILE_SOURCE_FORMATS` — generic file sources via
+#     ``spark.readStream.format(<fmt>).load(<path>)``;
+#   * ``delta`` / ``snapshot`` — table-style reads via
+#     ``read_dlt_delta`` (Delta-only, batch for snapshots);
+#   * ``kafka`` / ``eventhub`` — message-bus reads via ``read_kafka``.
+# Pinned here so the bundle CLI, DAB template, and onboarding
+# pre-flight all agree on the same set; if you add a new reader,
+# add the format to the appropriate subset above.
+SUPPORTED_SOURCE_FORMATS = (
+    FILE_SOURCE_FORMATS | frozenset({"delta", "kafka", "eventhub", "snapshot"})
 )
 
 # SCD types DLT's apply_changes / apply_changes_from_snapshot accept.

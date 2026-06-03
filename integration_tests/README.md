@@ -129,6 +129,67 @@
 
 ---
 
+## OSS Apache Spark integration tests
+
+The runner above (`run_integration_tests.py`) drives the **Databricks Lakeflow** code path and requires a workspace + UC catalog. SDP-META also has an **OSS Apache Spark** code path (`OSSDataflowPipeline`, the `pyspark.pipelines` runtime probe, the `ensure_external_delta_table` side-channel, DQE inlining via `wrap_dqe`, etc.), and that path has its own end-to-end flow integration suite under [`integration_tests/oss/`](oss/README.md).
+
+The OSS suite mirrors the Databricks flow shape (`onboarding → bronze pipeline → silver pipeline → row-count validation`) but runs entirely locally — **no Databricks workspace, no UC catalog, no notebooks**, just local Spark 3.5+ with `delta-spark`.
+
+Two equivalent entry points:
+
+- **Standalone runner** (mirrors `run_integration_tests.py` CLI shape, produces a result CSV):
+    ```commandline
+    # All scenarios in sequence
+    PYTHONPATH=. python integration_tests/run_oss_integration_tests.py --source=all
+
+    # Single scenario
+    PYTHONPATH=. python integration_tests/run_oss_integration_tests.py --source=json
+    ```
+
+- **Pytest harness** (same coverage, native pytest reporting):
+    ```commandline
+    PYTHONPATH=. python -m pytest integration_tests/oss/ -v
+    ```
+
+Both entry points cover the same scenarios: `json`, `csv`, `parquet`, `delta`, `dqe` (DQE `expect_or_drop` row filtering), and `cdc_raises` (CDC raises `NotImplementedError` because `create_auto_cdc_flow` is Lakeflow-only). The standalone runner additionally writes `integration_test_output_<run_id>.csv` in the same shape as the Databricks runner's output.
+
+See [`integration_tests/oss/README.md`](oss/README.md) for the full scenario matrix, the `FakeOSSPipelineExecutor` design that lets the suite validate row counts on plain Spark 3.5 (without requiring Spark 4.1+ `pyspark[pipelines]`), and what's intentionally out of scope (cloudFiles, Kafka, EventHub, snapshot — all Lakeflow-only, covered by the Databricks runner above).
+
+`SDP_META_KEEP_ARTIFACTS=1` and `--keep_artifacts` work identically on the OSS runner — see the next section.
+
+---
+
+## Debugging failed runs — keeping artifacts
+
+By default, the runner's `finally` block calls `clean_up()` after every run (success **or** failure), which drops the bronze/silver schemas, volumes, tables, and the workflow created for the test. This is great for CI, but painful when you're trying to inspect what a failed run actually wrote.
+
+Set `SDP_META_KEEP_ARTIFACTS` before invoking the runner to skip cleanup:
+
+```commandline
+SDP_META_KEEP_ARTIFACTS=1 python integration_tests/run_integration_tests.py \
+    --source=cloudfiles --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
+```
+
+Accepted truthy values (case-insensitive): `1`, `true`, `yes`, `on`. Anything else — including unset — runs the default cleanup.
+
+When the env var is honored you'll see this in the runner's stdout:
+
+```
+SDP_META_KEEP_ARTIFACTS is set; skipping clean_up. Run integration_tests/cleanup_script.py to remove artifacts when you're done debugging.
+```
+
+Once you're done inspecting:
+
+```commandline
+python integration_tests/cleanup_script.py
+```
+
+…tears down the leftover schemas, volumes, and tables in the catalog. (Edit the script's catalog/profile constants at the top if your run used non-default values.)
+
+**Tip:** `export SDP_META_KEEP_ARTIFACTS=1` for the whole shell session if you're iterating on a flaky test — every subsequent run will leave its artifacts in place, and a single `cleanup_script.py` invocation at the end clears them all together.
+
+---
+
 ## Onboarding file format (JSON or YAML)
 
 The integration test runner can drive every supported source (`cloudfiles`, `eventhub`, `kafka`, `snapshot`) with either a JSON or a YAML onboarding spec. The format is selected per-run with a single CLI flag:

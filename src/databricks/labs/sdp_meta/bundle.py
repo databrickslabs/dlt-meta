@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import yaml
 
 from databricks.labs.sdp_meta.identifiers import (
+    FILE_SOURCE_FORMATS,
     SUPPORTED_SOURCE_FORMATS,
     prompt_uc_identifier,
     validate_source_format,
@@ -816,7 +817,7 @@ def _flow_to_dict(spec: FlowSpec, variables: Dict[str, Any], assigned_id: str) -
 
 def _build_source_details(spec: FlowSpec, catalog: str) -> Dict[str, Any]:
     sf = spec.source_format
-    if sf == "cloudFiles":
+    if sf in FILE_SOURCE_FORMATS:
         details: Dict[str, Any] = {
             "source_database": spec.source_database or "landing",
             "source_table": spec.source_table or (spec.bronze_table or "example_table"),
@@ -876,6 +877,12 @@ def _build_source_details(spec: FlowSpec, catalog: str) -> Dict[str, Any]:
 
 
 def _bronze_reader_options(spec: FlowSpec) -> Dict[str, Any]:
+    # cloudFiles needs the Auto Loader-specific options that translate
+    # to ``spark.readStream.format("cloudFiles").options(...)`` at
+    # runtime; vanilla file formats (json/csv/parquet/...) have no
+    # equivalent always-on options, so we leave reader options empty
+    # and let the user add format-specific ones (``multiLine``,
+    # ``inferSchema``, etc.) by editing the generated YAML directly.
     if spec.source_format != "cloudFiles":
         return {}
     return {
@@ -1208,7 +1215,7 @@ def _load_bundle_add_flow_config(wsi) -> BundleAddFlowCommand:
         "data_flow_group": data_flow_group or None,
     }
 
-    if source_format == "cloudFiles":
+    if source_format in FILE_SOURCE_FORMATS:
         spec_kwargs["source_path"] = wsi._question(
             "Source path (e.g. /Volumes/raw/landing/orders/)", default=""
         ) or None

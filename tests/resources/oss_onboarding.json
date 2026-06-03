@@ -1,0 +1,69 @@
+[
+    {
+        "data_flow_id": "200",
+        "data_flow_group": "OSS",
+        "source_system": "FILE",
+        "source_format": "json",
+        "source_details": {
+            "source_database": "APP",
+            "source_table": "CUSTOMERS",
+            "source_path_dev": "tests/resources/data/customers",
+            "source_schema_path": "tests/resources/schema/customer_schema.ddl"
+        },
+        "bronze_database_dev": "bronze",
+        "bronze_table": "customers",
+        "bronze_table_comment": "Bronze customers table (OSS smoke test)",
+        "bronze_reader_options": {
+            "multiline": "true",
+            "inferSchema": "true"
+        },
+        "bronze_table_path_dev": "__BRONZE_CUSTOMERS_PATH__",
+        "bronze_table_properties": {
+            "pipelines.reset.allowed": "false"
+        },
+        "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/customers/bronze_data_quality_expectations.json",
+        "bronze_quarantine_table": null,
+        "silver_database_dev": "silver",
+        "silver_table": "customers",
+        "silver_table_comment": "Silver customers table (OSS smoke test)",
+        "silver_table_path_dev": "__SILVER_CUSTOMERS_PATH__",
+        "silver_table_properties": {
+            "pipelines.reset.allowed": "false"
+        },
+        "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
+        "silver_quarantine_table": null
+    },
+    {
+        "data_flow_id": "201",
+        "data_flow_group": "OSS",
+        "source_system": "FILE",
+        "source_format": "json",
+        "source_details": {
+            "source_database": "APP",
+            "source_table": "TRANSACTIONS",
+            "source_path_dev": "tests/resources/data/transactions",
+            "source_schema_path": "tests/resources/schema/transactions_schema.ddl"
+        },
+        "bronze_database_dev": "bronze",
+        "bronze_table": "transactions",
+        "bronze_table_comment": "Bronze transactions table (OSS smoke test)",
+        "bronze_reader_options": {
+            "multiline": "true",
+            "inferSchema": "true"
+        },
+        "bronze_table_path_dev": "__BRONZE_TRANSACTIONS_PATH__",
+        "bronze_table_properties": {
+            "pipelines.reset.allowed": "false"
+        },
+        "bronze_quarantine_table": null,
+        "silver_database_dev": "silver",
+        "silver_table": "transactions",
+        "silver_table_comment": "Silver transactions table (OSS smoke test)",
+        "silver_table_path_dev": "__SILVER_TRANSACTIONS_PATH__",
+        "silver_table_properties": {
+            "pipelines.reset.allowed": "false"
+        },
+        "silver_transformation_json_dev": "tests/resources/silver_transformations.json",
+        "silver_quarantine_table": null
+    }
+]

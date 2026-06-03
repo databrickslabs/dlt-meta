@@ -23,32 +23,116 @@ class PipelineReaders:
         self.reader_config_options = reader_config_options
         self.schema_json = schema_json
 
-    def read_dlt_cloud_files(self) -> DataFrame:
-        """Read dlt cloud files.
+    def _read_file_source_dataframe(self) -> DataFrame:
+        """Format-agnostic file-source read.
 
-        Returns:
-            DataFrame: _description_
+        Wraps the ``spark.readStream.format(<fmt>).options(...).load(<path>)``
+        call shared by the Auto Loader path (``read_dlt_cloud_files``)
+        and the vanilla file-source path (``read_dlt_file_source``).
+        Honours ``self.schema_json`` when supplied — Spark requires a
+        schema for non-Delta streaming reads in many cases, and the two
+        public entry points both want this same gating.
+
+        Private (leading-underscore) so the dispatcher in
+        ``DataflowPipeline.read_bronze`` keeps using the public
+        ``read_dlt_cloud_files`` / ``read_dlt_file_source`` methods —
+        the split between Auto Loader and OSS-friendly file sources
+        is a contract surface, not a refactor opportunity.
         """
-        logger.info("In read_dlt_cloud_files func")
-        input_df = None
         source_path = self.source_details["path"]
+        reader = self.spark.readStream.format(self.source_format).options(
+            **self.reader_config_options
+        )
+        # ``self.source_format != "delta"`` mirrors the original guard
+        # before the autoloader / vanilla-file-source split — Delta
+        # reads have their own schema discovery via the table log,
+        # so we only attach a user-supplied schema for non-Delta
+        # streaming reads.
         if self.schema_json and self.source_format != "delta":
-            schema = StructType.fromJson(self.schema_json)
-            input_df = (
-                self.spark.readStream.format(self.source_format)
-                .options(**self.reader_config_options)
-                .schema(schema)
-                .load(source_path)
-            )
-        else:
-            input_df = (
-                self.spark.readStream.format(self.source_format)
-                .options(**self.reader_config_options)
-                .load(source_path)
-            )
+            reader = reader.schema(StructType.fromJson(self.schema_json))
+        return reader.load(source_path)
+
+    def read_dlt_cloud_files(self) -> DataFrame:
+        """Read a Databricks Auto Loader (``cloudFiles``) source.
+
+        Lakeflow / DBR only — the ``cloudFiles`` source is the
+        Databricks-proprietary Auto Loader and does NOT exist in
+        OSS Apache Spark. The ``read_bronze`` dispatcher in
+        ``DataflowPipeline`` routes ``cloudFiles`` here, and only
+        here, so the Auto Loader-specific behaviour stays out of
+        the OSS code path:
+
+        * the ``cloudFiles.format`` / ``cloudFiles.inferColumnTypes``
+          / ``cloudFiles.rescuedDataColumn`` reader options are passed
+          through verbatim by the generic ``_read_file_source_dataframe``
+          helper, but they only mean something to the Auto Loader
+          source itself;
+        * the ``add_cloudfiles_metadata`` post-read enrichment is
+          gated on the Auto Loader-specific ``source_metadata``
+          block in ``source_details`` (keys like
+          ``include_autoloader_metadata_column`` /
+          ``autoloader_metadata_col_name``).
+
+        For vanilla streaming file sources (``json``, ``csv``,
+        ``parquet``, ``orc``, ``text``, ``avro``) use
+        ``read_dlt_file_source`` instead — that path skips both the
+        Auto Loader option assumptions and the autoloader metadata
+        helper.
+        """
+        logger.info("In read_dlt_cloud_files func (Auto Loader / cloudFiles)")
+        input_df = self._read_file_source_dataframe()
         if self.source_details and "source_metadata" in self.source_details.keys():
             input_df = PipelineReaders.add_cloudfiles_metadata(self.source_details, input_df)
         return input_df
+
+    def read_dlt_file_source(self) -> DataFrame:
+        """Read a vanilla Spark streaming file source.
+
+        Handles the OSS-friendly file formats — ``json``, ``csv``,
+        ``parquet``, ``orc``, ``text``, ``avro`` — via
+        ``spark.readStream.format(<fmt>).load(<path>)``. Works on
+        both Databricks Lakeflow and OSS Apache Spark, which is why
+        ``oss_onboarding.json`` and the OSS demo use this path.
+
+        Deliberately does NOT call ``add_cloudfiles_metadata``: the
+        ``source_metadata`` config block (with keys like
+        ``include_autoloader_metadata_column`` /
+        ``autoloader_metadata_col_name``) is Auto Loader-specific
+        and silently doing nothing on vanilla sources would be the
+        worst kind of footgun. If you set ``source_metadata`` on a
+        non-``cloudFiles`` source it is intentionally ignored at the
+        reader; the onboarding parser still records it for auditing
+        but the runtime treats it as a no-op for this format. Use
+        ``read_dlt_cloud_files`` if you need autoloader metadata
+        behaviour.
+
+        For Auto Loader (``cloudFiles``) use ``read_dlt_cloud_files``.
+
+        Raises:
+            ValueError: when ``schema_json`` is missing. Vanilla
+                streaming file sources (unlike ``cloudFiles``)
+                cannot infer schema and raise an opaque
+                ``AnalysisException`` deep inside Spark at
+                ``readStream.load()`` time. We pre-check and raise
+                a clear, actionable message pointing at
+                ``source_schema_path`` instead.
+        """
+        if not self.schema_json:
+            raise ValueError(
+                f"source_format={self.source_format!r} requires a schema, "
+                "but none was supplied. Vanilla streaming file sources "
+                "(json / csv / parquet / orc / text / avro) cannot infer "
+                "their schema at readStream time the way Auto Loader "
+                "(cloudFiles) can. Set ``source_schema_path`` in the "
+                "onboarding spec's ``source_details`` to point at a DDL "
+                "file describing the source columns, or migrate to "
+                "``source_format: cloudFiles`` on Databricks Lakeflow."
+            )
+        logger.info(
+            "In read_dlt_file_source func (vanilla Spark file source: %s)",
+            self.source_format,
+        )
+        return self._read_file_source_dataframe()
 
     @staticmethod
     def add_cloudfiles_metadata(sourceDetails, input_df):

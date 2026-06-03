@@ -959,10 +959,13 @@ class BundleIdentifierValidationTests(unittest.TestCase):
             )
 
     def test_flow_to_dict_rejects_unknown_source_format(self):
-        # The five-format set is pinned in identifiers.SUPPORTED_SOURCE_FORMATS;
-        # _flow_to_dict must reject anything outside it (e.g. "parquet")
-        # so a hand-edited bundle can't ship a flow that the bronze
-        # readers in dataflow_pipeline.py have no branch for.
+        # The supported set is pinned in identifiers.SUPPORTED_SOURCE_FORMATS;
+        # _flow_to_dict must reject anything outside it so a hand-edited
+        # bundle can't ship a flow that the bronze readers in
+        # dataflow_pipeline.py have no branch for. ``hudi`` is a
+        # stand-in for "format the bronze readers don't know about" —
+        # historically this test used ``parquet``, but ``parquet`` is
+        # now in the supported file-source family.
         from databricks.labs.sdp_meta.bundle import _flow_to_dict
         variables = {
             "uc_catalog_name": {"default": "main"},
@@ -973,13 +976,13 @@ class BundleIdentifierValidationTests(unittest.TestCase):
         }
         with self.assertRaises(ValueError) as ctx:
             _flow_to_dict(
-                FlowSpec(source_format="parquet", bronze_table="t"),
+                FlowSpec(source_format="hudi", bronze_table="t"),
                 variables,
                 assigned_id="100",
             )
         msg = str(ctx.exception)
         # Allowed values must be inlined for the user.
-        self.assertIn("parquet", msg)
+        self.assertIn("hudi", msg)
         self.assertIn("cloudFiles", msg)
 
 

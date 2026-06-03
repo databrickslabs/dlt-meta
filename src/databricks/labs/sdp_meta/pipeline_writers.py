@@ -8,6 +8,13 @@ Classes:
 
 """
 from databricks.labs.sdp_meta.dataflow_spec import DataflowSpecUtils, DLTSink
+# Intentionally eager: ``AppendFlowWriter.write_flow`` calls
+# ``oss_dp.filter_table_kwargs`` on every flow registration to strip
+# Lakeflow-only kwargs on the OSS code path. Routing through the lazy
+# ``_LAZY_EXPORTS`` in ``__init__.py`` would re-resolve the import on
+# every call without any benefit (pyspark is already loaded by the
+# ``from pyspark import pipelines as dp`` line below).
+from databricks.labs.sdp_meta import oss_pipelines as oss_dp
 from pyspark import pipelines as dp
 
 
@@ -36,17 +43,24 @@ class AppendFlowWriter:
             # Default cluster_by_auto to False if None
             cluster_by_auto = self.cluster_by_auto if self.cluster_by_auto is not None else False
 
-            dp.create_streaming_table(
-                name=self.target,
-                table_properties=self.table_properties,
-                partition_cols=DataflowSpecUtils.get_partition_cols(self.partition_cols),
-                cluster_by=DataflowSpecUtils.get_partition_cols(self.cluster_by),
-                cluster_by_auto=cluster_by_auto,
-                schema=self.struct_schema,
-                expect_all=None,
-                expect_all_or_drop=None,
-                expect_all_or_fail=None,
+            # ``cluster_by_auto`` and the ``expect_*`` kwargs are Lakeflow-
+            # only; the shim drops them on the OSS code path so OSS Spark's
+            # ``pyspark.pipelines.create_streaming_table`` (which rejects
+            # them) keeps working.
+            st_kwargs = oss_dp.filter_table_kwargs(
+                dict(
+                    table_properties=self.table_properties,
+                    partition_cols=DataflowSpecUtils.get_partition_cols(self.partition_cols),
+                    cluster_by=DataflowSpecUtils.get_partition_cols(self.cluster_by),
+                    cluster_by_auto=cluster_by_auto,
+                    schema=self.struct_schema,
+                    expect_all=None,
+                    expect_all_or_drop=None,
+                    expect_all_or_fail=None,
+                ),
+                also_drop_dqe=True,
             )
+            dp.create_streaming_table(name=self.target, **st_kwargs)
         comment = (
             self.append_flow.comment
             if self.append_flow.comment
@@ -92,3 +106,12 @@ class DLTSinkWriter:
             target=self.dlt_sink.name,
             comment=f"Sink flow for {self.dlt_sink.name}"
         )(self.read_input_view)
+
+
+# --- Public name alias -------------------------------------------------------
+# ``DLTSinkWriter`` carries the legacy product name. The repo has rebranded
+# to "Spark Declarative Pipelines"; ``DLTSinkWriter`` stays canonical (the
+# compat package re-exports it, and ``tests/test_compat.py`` /
+# ``tests/test_pipeline_writers.py`` pin the symbol). ``SinkWriter`` is an
+# additive alias for new callers.
+SinkWriter = DLTSinkWriter
