@@ -23,16 +23,26 @@
 #
 # Usage
 # ─────
-#   ./scripts/deploy_app.sh                    # uses defaults below
-#   PROFILE=other ./scripts/deploy_app.sh      # override via env
-#   ./scripts/deploy_app.sh --profile other --app foo --path /Workspace/...
+#   ./scripts/deploy_app.sh \
+#       --profile <DATABRICKS_CLI_PROFILE> \
+#       --path    /Workspace/Users/<you>/<app-folder>
+#
+#   # Or via env vars:
+#   PROFILE=<profile> WORKSPACE_PATH=/Workspace/Users/<you>/<app-folder> \
+#       ./scripts/deploy_app.sh
+#
+# --profile and --path are required; the script aborts otherwise. --app and
+# --mode are optional (defaults below).
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
 # ── Defaults (override with env vars or CLI flags) ───────────────────────────
-PROFILE="${PROFILE:-e2-demo}"
+# Empty defaults force callers to pass --profile / --path explicitly, so a
+# fresh clone of the public repo never deploys against someone else's
+# workspace. The script aborts below if either is missing.
+PROFILE="${PROFILE:-}"
 APP_NAME="${APP_NAME:-demo-sdp-meta}"
-WORKSPACE_PATH="${WORKSPACE_PATH:-/Workspace/Users/ravi.gawai@databricks.com/demo-sdp-meta}"
+WORKSPACE_PATH="${WORKSPACE_PATH:-}"
 DEPLOY_MODE="${DEPLOY_MODE:-SNAPSHOT}"
 
 # ── CLI flag parsing ─────────────────────────────────────────────────────────
@@ -43,7 +53,7 @@ while [[ $# -gt 0 ]]; do
         --path)    WORKSPACE_PATH="$2"; shift 2 ;;
         --mode)    DEPLOY_MODE="$2"; shift 2 ;;
         -h|--help)
-            sed -n '2,30p' "$0"  # print header comment as help
+            sed -n '2,36p' "$0"  # print header comment as help
             exit 0
             ;;
         *)
@@ -56,6 +66,18 @@ done
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
+
+# ── Required-argument guard ──────────────────────────────────────────────────
+# Done after CLI parsing so flag-value > env-var > (no default). Keeps a
+# fresh clone from accidentally targeting someone else's workspace.
+missing=()
+[[ -z "$PROFILE"        ]] && missing+=("--profile / \$PROFILE")
+[[ -z "$WORKSPACE_PATH" ]] && missing+=("--path / \$WORKSPACE_PATH")
+if (( ${#missing[@]} > 0 )); then
+    echo "Error: missing required argument(s): ${missing[*]}" >&2
+    echo "Run with -h for usage." >&2
+    exit 2
+fi
 
 echo "──────────────────────────────────────────────────────────────────────"
 echo " Repo root      : $REPO_ROOT"

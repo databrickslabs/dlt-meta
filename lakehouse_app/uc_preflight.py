@@ -67,7 +67,9 @@ class PreflightResult:
     """The grant-target identifier (App SP application_id or user_name)."""
 
     sp_display_name: str
-    """Human-friendly SP name (e.g. ``app-40zbx9 demo-sdp-meta``).
+    """Human-friendly SP name (e.g. ``app-XXXXXX <app-name>``, where the
+    suffix is the App resource name and the prefix is the platform-assigned
+    handle).
 
     Shown in the UI alongside the UUID so the operator can sanity-check
     *which* App they're being asked to grant access to.
@@ -112,7 +114,7 @@ def _resolve_app_sp_identity(ws) -> tuple[str, str]:
     ``grant_principal`` is what we pass to :meth:`grants.get_effective`
     AND splice into the GRANT SQL — for an Apps SP this is the OAuth
     ``application_id`` UUID. ``display_name`` is the friendlier label
-    (``app-40zbx9 demo-sdp-meta``) shown in the UI alongside the UUID.
+    (``app-XXXXXX <app-name>``) shown in the UI alongside the UUID.
 
     Falls back to ``user_name`` for either field if the SDK doesn't
     populate the typical SP attributes (regular user accounts running

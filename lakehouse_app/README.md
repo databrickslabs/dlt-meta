@@ -152,7 +152,9 @@ Catalog name and click a demo card to launch it.
 
 ### App service principal permissions
 
-The app runs as a dedicated service principal (e.g. `app-40zbx9_demo-dlt-meta`).
+The app runs as a dedicated service principal whose name follows the form
+`app-XXXXXX_<app-name>` (the prefix is platform-assigned, the suffix matches
+the App resource name).
 Grant it the following in your Unity Catalog:
 
 - `USE CATALOG` on the target catalog
