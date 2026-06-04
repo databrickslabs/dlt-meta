@@ -88,7 +88,7 @@ Open the URL shown in step 2, or navigate:
 
 ---
 
-## Run locally
+## Run locally (macOS / Linux)
 
 ### 1. Clone and install
 
@@ -96,31 +96,105 @@ Open the URL shown in step 2, or navigate:
 git clone https://github.com/databrickslabs/dlt-meta.git
 cd dlt-meta
 
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
-# Install Flask
-pip install -r requirements.txt
+# Flask + the small set of runtime deps the App needs
+pip install -r lakehouse_app/requirements.txt
 
-# Build and install the sdp-meta wheel
-python setup.py bdist_wheel
-pip install dist/databricks_labs_sdp_meta-*.whl
+# Install sdp-meta in editable mode so the App and demos can import it
+# without rebuilding a wheel on every restart.
+pip install -e .
 ```
 
-### 2. Configure Databricks
+### 2. Authenticate to Databricks
+
+`app.py` constructs `WorkspaceClient()` with no arguments and lets the SDK's
+default credential chain resolve auth. Pick **one** of the options below; the
+demo subprocesses inherit the same env vars automatically.
+
+| Option | Setup | When to use |
+|---|---|---|
+| **A. `[DEFAULT]` profile** *(recommended)* | `databricks auth login --host <WORKSPACE_HOST>` (OAuth U2M) — caches into `~/.databrickscfg [DEFAULT]`. Nothing else to set. | You only ever target one workspace. |
+| **B. Named profile** | `databricks configure --profile <name> --host <WORKSPACE_HOST> --token <PAT>` then `export DATABRICKS_CONFIG_PROFILE=<name>` | You switch between workspaces. |
+| **C. PAT env vars** | `export DATABRICKS_HOST=<WORKSPACE_HOST>` and `export DATABRICKS_TOKEN=<PAT>` | Throwaway shells, CI. |
+
+Resolution order is: PAT env vars → `DATABRICKS_CONFIG_PROFILE` → `[DEFAULT]`
+in `~/.databrickscfg`. **No `--profile` flag is needed** — if nothing is set
+the SDK falls back to `[DEFAULT]` automatically.
+
+Verify before launching the App:
 
 ```bash
-databricks configure --host <WORKSPACE_HOST> --token <PAT>
+python -c "from databricks.sdk import WorkspaceClient; \
+  w = WorkspaceClient(); \
+  print('host=', w.config.host, 'auth=', w.config.auth_type, \
+        'as=', w.current_user.me().user_name)"
 ```
 
-### 3. Start the server from the repo root
+If that prints your workspace host and your username, the App will work.
+
+### 3. Start Flask from the repo root
 
 ```bash
-# Must run from repo root so demo/ and integration_tests/ are on sys.path
-flask --app lakehouse_app/app.py run
+# Tell app.py where the repo root is (so demo/, src/, integration_tests/ resolve)
+export DLT_META_HOME="$PWD"
+
+# Suppress browser tabs that the CLI would otherwise pop after onboard/deploy
+export SDP_META_NO_BROWSER=1
+
+# Optional: hot reload on code edits
+export FLASK_DEBUG=true
+
+# Optional: pick a non-default profile (matches the Apps "--profile" semantic)
+# export DATABRICKS_CONFIG_PROFILE=<name>
+
+flask --app lakehouse_app/app.py run --host 127.0.0.1 --port 8000
 ```
 
-Access the app at **http://127.0.0.1:5000**
+Open **http://127.0.0.1:8000**.
+
+> Port 8000 mirrors the production `start.sh` default (which binds
+> `${DATABRICKS_APP_PORT:-8000}`). Use any free port if 8000 is taken.
+
+### 4. Identity caveat (local vs Apps)
+
+| Context | Identity that issues UC / job / pipeline calls |
+|---|---|
+| Databricks Apps container | App service principal (`app-XXXXXX_<app-name>`) |
+| Local Mac/Linux | **You** (the user whose PAT or OAuth tokens are on disk) |
+
+This means:
+
+- The **Test App access** button (`/check-uc-grants`) probes **your** grants
+  on the catalog, not an App SP's. Demos run if you have `USE CATALOG` +
+  `CREATE SCHEMA` on the target catalog (you usually do).
+- To exercise the production "grant required" failure path locally, point
+  the App at a catalog where your user lacks `CREATE SCHEMA`.
+
+### 5. Common gotchas
+
+- **`ModuleNotFoundError: databricks.labs.sdp_meta`** — you skipped
+  `pip install -e .` in step 1.
+- **Browser tab opens after every CLI action** — set
+  `export SDP_META_NO_BROWSER=1` (already in step 3 above).
+- **Port already in use** — `lsof -i :8000` to find the holder, or pass a
+  different `--port`.
+- **`demo/SDP_META_INTERACTIVE_DEMO.py` not found** — only happens if
+  `scripts/deploy_app.sh` ran against your tree and renamed it to
+  `.nbsource`. Restore with `git checkout demo/SDP_META_INTERACTIVE_DEMO.py`.
+
+### 6. Mirror the App container's full boot path (optional)
+
+To exercise the exact code path the production runtime uses (wheel build +
+install + Flask launch), run `start.sh` directly:
+
+```bash
+bash lakehouse_app/start.sh
+```
+
+Slower (rebuilds the wheel every time), but it's the closest you can get to
+production locally short of deploying.
 
 ---
 
