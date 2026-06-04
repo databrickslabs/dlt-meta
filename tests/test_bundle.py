@@ -48,6 +48,16 @@ from databricks.labs.sdp_meta.bundle import (
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
+def _bundle_init_env() -> dict:
+    env = os.environ.copy()
+    env.update({
+        "DATABRICKS_AUTH_TYPE": "pat",
+        "DATABRICKS_HOST": "https://example.cloud.databricks.com",
+        "DATABRICKS_TOKEN": "not-a-real-token-for-tests",
+    })
+    return env
+
+
 class TemplateLayoutTests(unittest.TestCase):
     """Shape assertions on the packaged template. Offline."""
 
@@ -1057,11 +1067,25 @@ class EndToEndRenderTests(unittest.TestCase):
                 "--output-dir", str(out),
                 "--config-file", str(cfg),
             ],
+            env=_bundle_init_env(),
             check=True,
         )
         rendered = out / answers["bundle_name"]
         self.assertTrue(rendered.is_dir(), f"rendered bundle not found: {rendered}")
         return rendered
+
+    @patch("subprocess.run")
+    def test_render_uses_isolated_pat_auth_env(self, run):
+        def fake_bundle_init(_argv, **kwargs):
+            env = kwargs["env"]
+            self.assertEqual(env["DATABRICKS_AUTH_TYPE"], "pat")
+            self.assertEqual(env["DATABRICKS_HOST"], "https://example.cloud.databricks.com")
+            self.assertEqual(env["DATABRICKS_TOKEN"], "not-a-real-token-for-tests")
+            Path(_argv[_argv.index("--output-dir") + 1], "demo_bundle").mkdir()
+
+        run.side_effect = fake_bundle_init
+        with _tempdir() as tmp:
+            self._render(self._common_answers(), tmp)
 
     def _strip_placeholders(self, onboarding: Path, ext: str) -> None:
         """Replace every `<your-...>` value in the rendered onboarding file
@@ -1205,6 +1229,7 @@ class EndToEndRenderTests(unittest.TestCase):
                     "--output-dir", str(tmp),
                     "--config-file", str(cfg),
                 ],
+                env=_bundle_init_env(),
                 check=True,
             )
             rendered = tmp / QUICKSTART_BUNDLE_INIT_DEFAULTS["bundle_name"]

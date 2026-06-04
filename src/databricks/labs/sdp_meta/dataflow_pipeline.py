@@ -420,11 +420,7 @@ class DataflowPipeline:
                 )
         if select_exp:
             bronze_df = bronze_df.selectExpr(*select_exp)
-        if where_clause:
-            where_clause_str = " ".join(where_clause)
-            if len(where_clause_str.strip()) > 0:
-                for where_clause in where_clause:
-                    bronze_df = bronze_df.where(where_clause)
+        bronze_df = self.__apply_where_clause(where_clause, bronze_df)
         bronze_df = self.apply_custom_transform_fun(bronze_df)
         return bronze_df
 
@@ -873,64 +869,3 @@ class DataflowPipeline:
                 next_snapshot_and_version
             )
             dlt_data_flow.run_dlt()
-
-    # Additional optimization methods for common patterns
-    def _build_table_name(self, catalog, database, table):
-        """Build a fully qualified table name."""
-        catalog_prefix = f"{catalog}." if catalog else ''
-        return f"{catalog_prefix}{database}.{table}"
-
-    def _get_source_table_info(self):
-        """Extract source table information."""
-        source_details = self._get_source_details()
-        catalog = source_details.get('catalog', None)
-        database = source_details["database"]
-        table = source_details["table"]
-        return self._build_table_name(catalog, database, table), source_details
-
-    def _get_target_table_name(self):
-        """Get the fully qualified target table name."""
-        target_details = self._get_target_details()
-        catalog = target_details.get('catalog', None)
-        database = target_details['database']
-        table = target_details['table']
-        return self._build_table_name(catalog, database, table)
-
-    def _create_dataframe_reader(self, is_streaming=True, reader_options=None):
-        """Create a DataFrame reader with common configuration."""
-        if reader_options is None:
-            reader_options = {}
-        if is_streaming:
-            reader = self.spark.readStream
-        else:
-            reader = self.spark.read
-        if reader_options:
-            reader = reader.options(**reader_options)
-        return reader
-
-    def _read_from_source(self, source_format, is_streaming=True):
-        """Generic method to read from different source formats."""
-        source_table_name, source_details = self._get_source_table_info()
-        reader_options = self._get_reader_config_options()
-        reader = self._create_dataframe_reader(is_streaming, reader_options)
-        if source_format == "snapshot" or not is_streaming:
-            if self.uc_enabled:
-                return reader.table(source_table_name)
-            else:
-                return reader.load(path=source_details.get("path"), format="delta")
-        else:
-            if self.uc_enabled:
-                return reader.table(source_table_name)
-            else:
-                return reader.load(path=source_details.get("path"), format="delta")
-
-    def _apply_transformations(self, df, select_exp=None, where_clause=None):
-        """Apply common transformations (select and where) to a DataFrame."""
-        if select_exp:
-            df = df.selectExpr(*select_exp)
-        if where_clause:
-            where_clause_str = " ".join(where_clause)
-            if len(where_clause_str.strip()) > 0:
-                for clause in where_clause:
-                    df = df.where(clause)
-        return df

@@ -89,7 +89,6 @@ from databricks.labs.sdp_meta.bundle import (  # noqa: E402
     BundlePrepareWheelCommand,
     BundleValidateCommand,
     _flows_from_csv,
-    _sdp_meta_sanity_checks,
     bundle_add_flow,
     bundle_init,
     bundle_prepare_wheel,
@@ -259,6 +258,13 @@ _CLOUDFILES_SCENARIO_NAMES = {"cloudfiles", "cloudfiles_combined"}
 # UC schema. The launcher auto-seeds those tables before STAGE 4 when
 # --apply-recipe is set (see `_seed_demo_delta_source`).
 _DELTA_SCENARIO_NAMES = {"delta"}
+
+# Scenarios whose seeded `data_flow_id: "100"` placeholder onboarding entry
+# carries unedited `<your-...>` source fields. STAGE 5's bundle-validate
+# rejects those placeholders, so the launcher strips the seed entry for these
+# scenarios after `bundle-init` and lets STAGE 3's CSV / STAGE 4's recipe
+# populate the file instead.
+_STRIP_EXAMPLE_SCENARIO_NAMES = _DELTA_SCENARIO_NAMES | {"kafka", "eventhub"}
 
 
 # ---------------------------------------------------------------------------
@@ -863,14 +869,13 @@ def stage_bundle_init(scenario: Scenario, out_dir: Path, uc_catalog_name: str,
     # bundle so DAB stops there and only honors the bundle's own .gitignore.
     _ensure_bundle_git_boundary(bundle_dir)
 
-    # The DAB template seeds a placeholder `data_flow_id: "100"` /
-    # `example_table` onboarding entry pointing at `<catalog>.landing.example_table`.
-    # For the `delta` scenario that table doesn't exist (and the launcher
-    # never seeds it), so leaving it in produces an extra dataflow spec
-    # that fails at pipeline runtime with `TABLE_OR_VIEW_NOT_FOUND`.
-    # Strip it so STAGE 4's `from_uc.py` (which mirrors the real source
-    # schema) is the only thing populating onboarding.yml.
-    if scenario.name in _DELTA_SCENARIO_NAMES:
+    # The DAB template seeds a placeholder `data_flow_id: "100"` / `example_table`
+    # onboarding entry. For the `delta` scenario the example table doesn't exist
+    # and would fail at pipeline runtime with `TABLE_OR_VIEW_NOT_FOUND`; for the
+    # `kafka` / `eventhub` scenarios the seed carries unedited `<your-...>`
+    # placeholders that STAGE 5's bundle-validate rejects. Strip it so STAGE 3/4
+    # populate onboarding.* from the scenario CSV / recipe instead.
+    if scenario.name in _STRIP_EXAMPLE_SCENARIO_NAMES:
         _strip_example_onboarding_entry(bundle_dir)
 
     print(f"\n[STAGE 1] Bundle scaffolded at {bundle_dir}")
@@ -1103,13 +1108,6 @@ def stage_recipe(scenario: Scenario, bundle_dir: Path, *, apply_recipe: bool,
 
 def stage_validate(bundle_dir: Path, profile: Optional[str]) -> None:
     _banner("STAGE 5", "bundle-validate  (sdp-meta sanity checks + databricks validate)")
-    errors = _sdp_meta_sanity_checks(bundle_dir)
-    if errors:
-        print("[STAGE 5] sdp-meta sanity checks reported issues:")
-        for e in errors:
-            print(f"  - {e}")
-    else:
-        print("[STAGE 5] sdp-meta sanity checks: clean")
     rc = bundle_validate(BundleValidateCommand(
         bundle_dir=str(bundle_dir),
         profile=profile,

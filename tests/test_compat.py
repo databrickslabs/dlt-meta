@@ -4,14 +4,24 @@ These tests verify that the old dlt_meta package (compat/) properly
 re-exports symbols from databricks.labs.sdp_meta with deprecation warnings.
 """
 import os
+import subprocess
 import sys
 import unittest
 import warnings
 from unittest.mock import MagicMock
 
-# Mock the pyspark.pipelines module before importing runtime modules (the
-# legacy ``dlt`` module has been replaced by ``pyspark.pipelines``).
+# Mock the pyspark.pipelines module (and parent + sibling submodules used by
+# the runtime classes) before importing them. `from pyspark import pipelines`
+# requires pyspark itself in sys.modules as the parent package.
+sys.modules['pyspark'] = MagicMock()
 sys.modules['pyspark.pipelines'] = MagicMock()
+sys.modules['pyspark.sql'] = MagicMock()
+sys.modules['pyspark.sql.functions'] = MagicMock()
+sys.modules['pyspark.sql.types'] = MagicMock()
+sys.modules['pyspark.sql.session'] = MagicMock()
+sys.modules['pyspark.sql.window'] = MagicMock()
+sys.modules['delta'] = MagicMock()
+sys.modules['delta.tables'] = MagicMock()
 
 # Ensure the compat directory is on the Python path so `import dlt_meta` works
 _compat_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "compat")
@@ -99,6 +109,62 @@ class TestCompatReExports(unittest.TestCase):
         )
         self.assertIs(AppendFlowWriter, OrigAppend)
         self.assertIs(DLTSinkWriter, OrigSink)
+
+    def test_pyspark_pipeline_stubs_do_not_hide_non_pipeline_exports(self):
+        """Missing pyspark.pipelines should only stub symbols that require it."""
+        repo_root = os.path.dirname(os.path.dirname(__file__))
+        script = r"""
+import importlib.abc
+import os
+import sys
+import warnings
+
+repo_root = os.environ["REPO_ROOT"]
+sys.path.insert(0, os.path.join(repo_root, "src"))
+sys.path.insert(0, os.path.join(repo_root, "compat"))
+
+class BlockPipelines(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "pyspark.pipelines":
+            raise ImportError("cannot import name 'pipelines' from 'pyspark'")
+        return None
+
+sys.meta_path.insert(0, BlockPipelines())
+sys.modules.pop("pyspark.pipelines", None)
+import pyspark
+if hasattr(pyspark, "pipelines"):
+    delattr(pyspark, "pipelines")
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    import dlt_meta
+
+from databricks.labs.sdp_meta.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec
+from databricks.labs.sdp_meta.onboard_dataflowspec import OnboardDataflowspec
+from databricks.labs.sdp_meta.pipeline_readers import PipelineReaders
+
+assert dlt_meta.BronzeDataflowSpec is BronzeDataflowSpec
+assert dlt_meta.SilverDataflowSpec is SilverDataflowSpec
+assert dlt_meta.OnboardDataflowspec is OnboardDataflowspec
+assert dlt_meta.PipelineReaders is PipelineReaders
+
+try:
+    dlt_meta.DataflowPipeline()
+except ImportError as exc:
+    assert "pyspark>=4.1.0" in str(exc), str(exc)
+else:
+    raise AssertionError("DataflowPipeline should be stubbed when pyspark.pipelines is missing")
+"""
+        env = os.environ.copy()
+        env["REPO_ROOT"] = repo_root
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
 
 
 if __name__ == '__main__':

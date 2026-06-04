@@ -130,7 +130,7 @@ class CliTests(unittest.TestCase):
         mock_workspace_client.dbfs.mkdirs.assert_called_once_with("/dbfs/sdp_meta_conf/")
         mock_workspace_client.dbfs.upload.assert_called_with(
             "/dbfs/sdp_meta_conf/onboarding.json",
-            mock_open.return_value,
+            mock_open.return_value.__enter__.return_value,
             overwrite=True
         )
         mock_workspace_client.jobs.create.assert_called_once()
@@ -208,7 +208,7 @@ class CliTests(unittest.TestCase):
         expected_named_parameters = {
             "onboard_layer": "bronze_silver",
             "database": "uc_catalog.sdp_meta" if cmd.uc_enabled else "sdp_meta",
-            "onboarding_file_path": "uc_catalog/sdp_meta/files/sdp_meta_conf/tests/resources/onboarding.json",
+            "onboarding_file_path": "uc_catalog/sdp_meta/files/sdp_meta_conf/onboarding.json",
             "import_author": "Ravi Gawai",
             "version": "1.0",
             "overwrite": "True",
@@ -218,6 +218,52 @@ class CliTests(unittest.TestCase):
             "silver_dataflowspec_table": "silver_dataflowspec",
         }
         self.assertEqual(named_parameters, expected_named_parameters)
+
+    @patch("webbrowser.open")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_onboard_with_uc_uploads_named_onboarding_file_path(self, mock_file, _mock_webbrowser):
+        mock_ws = MagicMock()
+        mock_ws.jobs.create.return_value = MagicMock(job_id="job_id")
+        mock_ws.jobs.run_now.return_value = MagicMock(run_id="run_id")
+        mock_ws.config.host = "https://example.cloud.databricks.com"
+        mock_ws.get_workspace_id.return_value = "123"
+
+        cmd = OnboardCommand(
+            onboarding_file_path="/local/demo/conf/json/onboarding.template",
+            onboarding_files_dir_path="file:/local/demo",
+            onboard_layer="bronze",
+            env="dev",
+            import_author="Ravi Gawai",
+            version="1.0",
+            sdp_meta_schema="sdp_meta",
+            uc_enabled=True,
+            uc_catalog_name="uc_catalog",
+            overwrite=True,
+            bronze_dataflowspec_table="bronze_dataflowspec",
+            update_paths=True,
+        )
+        sdp_meta = SDPMeta(mock_ws)
+        sdp_meta.create_uc_schema = MagicMock()
+        sdp_meta.create_uc_volume = MagicMock(return_value="/Volumes/uc_catalog/sdp_meta/files")
+        sdp_meta.copy_to_uc_volume = MagicMock()
+
+        def rewrite_onboarding_path(onboard_cmd):
+            onboard_cmd.onboarding_file_path = "/local/demo/conf/json/onboarding.json"
+
+        sdp_meta.update_ws_onboarding_paths = MagicMock(side_effect=rewrite_onboarding_path)
+
+        sdp_meta.onboard(cmd)
+
+        mock_ws.files.upload.assert_called_once_with(
+            file_path="/Volumes/uc_catalog/sdp_meta/files/sdp_meta_conf/onboarding.json",
+            contents=mock_file.return_value.__enter__.return_value,
+            overwrite=True,
+        )
+        created_task = mock_ws.jobs.create.call_args.kwargs["tasks"][0]
+        self.assertEqual(
+            created_task.python_wheel_task.named_parameters["onboarding_file_path"],
+            "/Volumes/uc_catalog/sdp_meta/files/sdp_meta_conf/onboarding.json",
+        )
 
     @patch("databricks.labs.sdp_meta.cli.WorkspaceClient")
     def test_create_uc_volume(self, mock_workspace_client):

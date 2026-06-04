@@ -16,29 +16,68 @@ warnings.warn(
     stacklevel=2
 )
 
-# Re-export everything from databricks.labs.sdp_meta
-# This maintains full backwards compatibility
+from databricks.labs.sdp_meta import *  # noqa: F401, F403, E402
+from databricks.labs.sdp_meta.cli import (  # noqa: F401, E402
+    SDPMeta as DLTMeta,
+    OnboardCommand,
+    DeployCommand,
+    SDP_META_RUNNER_NOTEBOOK as DLT_META_RUNNER_NOTEBOOK,
+    onboard,
+    deploy,
+    main,
+)
+from databricks.labs.sdp_meta.install import WorkspaceInstaller  # noqa: F401, E402
+from databricks.labs.sdp_meta.config import WorkspaceConfig  # noqa: F401, E402
+
+
+def _optional_runtime_import_error(exc):
+    message = str(exc)
+    return "pyspark" in message or "pipelines" in message or "delta" in message
+
+
+def _make_stub(name, error):
+    def _raise(*_a, **_kw):
+        raise ImportError(
+            f"{name} requires pyspark>=4.1.0 (for pyspark.pipelines), "
+            f"or use it only inside Databricks runtime. "
+            f"Original error: {error}"
+        )
+    return _raise
+
+
+def _stub_missing(names, error):
+    for name in names:
+        globals()[name] = _make_stub(name, error)
+
+
 try:
-    from databricks.labs.sdp_meta import *  # noqa: F401, F403
-    from databricks.labs.sdp_meta.cli import (  # noqa: F401
-        SDPMeta as DLTMeta,  # Alias for backwards compatibility
-        OnboardCommand,
-        DeployCommand,
-        SDP_META_RUNNER_NOTEBOOK as DLT_META_RUNNER_NOTEBOOK,
-        onboard,
-        deploy,
-        main,
-    )
-    from databricks.labs.sdp_meta.dataflow_pipeline import DataflowPipeline  # noqa: F401
     from databricks.labs.sdp_meta.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec  # noqa: F401
+except ImportError as _exc:
+    if not _optional_runtime_import_error(_exc):
+        raise
+    _stub_missing(("BronzeDataflowSpec", "SilverDataflowSpec"), str(_exc))
+
+try:
     from databricks.labs.sdp_meta.onboard_dataflowspec import OnboardDataflowspec  # noqa: F401
+except ImportError as _exc:
+    if not _optional_runtime_import_error(_exc):
+        raise
+    _stub_missing(("OnboardDataflowspec",), str(_exc))
+
+try:
     from databricks.labs.sdp_meta.pipeline_readers import PipelineReaders  # noqa: F401
+except ImportError as _exc:
+    if not _optional_runtime_import_error(_exc):
+        raise
+    _stub_missing(("PipelineReaders",), str(_exc))
+
+try:
+    from databricks.labs.sdp_meta.dataflow_pipeline import DataflowPipeline  # noqa: F401
     from databricks.labs.sdp_meta.pipeline_writers import AppendFlowWriter, DLTSinkWriter  # noqa: F401
-    from databricks.labs.sdp_meta.install import WorkspaceInstaller  # noqa: F401
-    from databricks.labs.sdp_meta.config import WorkspaceConfig  # noqa: F401
-except ImportError:
-    # If databricks.labs.sdp_meta module not available, this is being run standalone
-    pass
+except ImportError as _exc:
+    if not _optional_runtime_import_error(_exc):
+        raise
+    _stub_missing(("DataflowPipeline", "AppendFlowWriter", "DLTSinkWriter"), str(_exc))
 
 
 def _deprecated_wrapper(func, old_name, new_name):
