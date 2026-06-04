@@ -2,1285 +2,1353 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <meta content="frame-src 'self' *.cloud.databricks.com;" http-equiv="Content-Security-Policy">
-    <title>SDP-META Configuration Portal</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- CSP is set as an HTTP response header by Flask (add_security_headers). -->
+    <title>DLT-META Configuration Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Reset and Base Styles */
-        * {
-            margin: 0;
-            padding: 0;
-        / / box-sizing: border-box;
+        /* ── Reset ──────────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* ── Design tokens ──────────────────────────────────────────── */
+        :root {
+            --brand:         #FF3621;
+            --brand-mid:     #E8300F;
+            --brand-glow:    rgba(255,54,33,.20);
+            --brand-subtle:  rgba(255,54,33,.07);
+
+            --accent:        #1E88E5;
+            --accent-glow:   rgba(30,136,229,.16);
+
+            --ink:           #0E1420;
+            --ink-80:        #2B3547;
+            --ink-60:        #4A5568;
+            --ink-40:        #718096;
+            --ink-20:        #A0AEC0;
+            --ink-10:        #CBD5E0;
+            --ink-05:        #EDF2F7;
+
+            --bg:            #F0F2F8;
+            --surface:       #FFFFFF;
+            --border:        rgba(0,0,0,.08);
+            --border-em:     rgba(0,0,0,.13);
+
+            --sidebar-w:     230px;
+            --header-h:      58px;
+
+            --radius-sm:     6px;
+            --radius:        10px;
+            --radius-lg:     14px;
+            --radius-xl:     20px;
+
+            --shadow-sm:     0 1px 4px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+            --shadow-md:     0 4px 20px rgba(0,0,0,.09), 0 1px 6px rgba(0,0,0,.05);
+            --shadow-lg:     0 12px 40px rgba(0,0,0,.13), 0 4px 14px rgba(0,0,0,.07);
         }
 
+        /* ── Base ───────────────────────────────────────────────────── */
+        html, body { height: 100%; }
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--ink);
             line-height: 1.6;
-            color: #333;
-            background-color: #fafafa;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Modern Layout Components */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 15px;
+        /* ── Top header ─────────────────────────────────────────────── */
+        .topbar {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: var(--header-h);
+            background: linear-gradient(135deg, #0A1018 0%, #192038 100%);
+            border-bottom: 1px solid rgba(255,255,255,.06);
+            display: flex; align-items: center;
+            padding: 0 24px;
+            z-index: 300;
+            box-shadow: 0 2px 16px rgba(0,0,0,.28);
         }
-
-        /* Lightweight Header */
-        header {
-            background-color: #fff;
-            padding: 16px 0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            font-size: 1.4rem;
-            font-weight: 600;
-        }
-
-        .logo img {
-            height: 28px;
-            margin-right: 12px;
-        }
-
-        .logo span {
-            color: #3498db;
-        }
-
-        nav ul {
-            display: flex;
-            list-style: none;
-            gap: 24px;
-        }
-
-        nav ul li a {
-            color: #555;
-            text-decoration: none;
-            font-size: 0.95rem;
-            font-weight: 500;
-            transition: color 0.2s ease;
-        }
-
-        nav ul li a:hover, nav ul li a.active {
-            color: #3498db;
-        }
-
-        /* Modern Tab Design */
-        .tab-container {
-            margin: 32px 0;
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-            overflow: hidden;
-        }
-
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid #f0f0f0;
-            padding: 0 16px;
-        }
-
-        .tab {
-            padding: 16px 24px;
-            cursor: pointer;
-            font-weight: 500;
-            color: #666;
-            position: relative;
-            transition: all 0.2s ease;
-        }
-
-        .tab.active {
-            color: #3498db;
-        }
-
-        .tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
+        .topbar-inner {
             width: 100%;
-            height: 2px;
-            background-color: #3498db;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .logo {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none;
+        }
+        .logo-word { font-size: 1.1rem; font-weight: 700; color: #fff; letter-spacing: -.01em; }
+        .logo-word em { color: var(--brand); font-style: normal; }
+        .logo-tag {
+            background: var(--brand);
+            color: #fff; font-size: .58rem; font-weight: 700;
+            padding: 2px 8px; border-radius: 20px;
+            letter-spacing: .07em; text-transform: uppercase;
+            box-shadow: 0 2px 8px var(--brand-glow);
+        }
+        .topbar-nav { display: flex; align-items: center; gap: 4px; }
+        .topbar-nav a {
+            color: rgba(255,255,255,.6);
+            text-decoration: none; font-size: .84rem; font-weight: 500;
+            padding: 6px 12px; border-radius: var(--radius-sm);
+            transition: color .15s, background .15s;
+        }
+        .topbar-nav a:hover { color: #fff; background: rgba(255,255,255,.09); }
+        .topbar-nav .nav-pill {
+            background: rgba(255,255,255,.10);
+            color: rgba(255,255,255,.80);
+            border: 1px solid rgba(255,255,255,.12);
+            margin-left: 6px;
+        }
+        .topbar-nav .nav-pill:hover { background: rgba(255,255,255,.18); }
+
+        /* ── App shell ──────────────────────────────────────────────── */
+        .shell {
+            display: flex;
+            padding-top: var(--header-h);
+            min-height: 100vh;
         }
 
-        .tab:hover:not(.active) {
-            color: #333;
-            background-color: #f9f9f9;
-        }
-
-        .tab-content {
-            display: none;
-            padding: 24px;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* Form Styling - Lighter version */
-        .form-container {
+        /* ── Sidebar ─────────────────────────────────────────────────── */
+        .sidebar {
+            width: var(--sidebar-w);
+            flex-shrink: 0;
+            background: #0E1420;
+            min-height: calc(100vh - var(--header-h));
+            position: sticky;
+            top: var(--header-h);
+            align-self: flex-start;
+            height: calc(100vh - var(--header-h));
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 5px;
-        / / max-width: 800 px;
-            margin: 0 auto;
-            border: 1px solid #f0f0f0;
+            padding: 24px 12px 32px;
+            border-right: 1px solid rgba(255,255,255,.05);
         }
-
-        .form-row {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
+        .sidebar-section-label {
+            font-size: .67rem; font-weight: 700;
+            color: rgba(255,255,255,.28);
+            text-transform: uppercase; letter-spacing: .10em;
+            padding: 0 10px;
+            margin-bottom: 6px;
+            margin-top: 20px;
         }
+        .sidebar-section-label:first-child { margin-top: 0; }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 10px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background .15s;
+            margin-bottom: 2px;
+            border: none; background: none; width: 100%; text-align: left;
+        }
+        .nav-item:hover { background: rgba(255,255,255,.06); }
+        .nav-item.active { background: rgba(255,54,33,.15); }
+        .nav-item-icon {
+            width: 30px; height: 30px;
+            border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            font-size: .85rem;
+            flex-shrink: 0;
+            background: rgba(255,255,255,.06);
+        }
+        .nav-item.active .nav-item-icon {
+            background: var(--brand);
+        }
+        .nav-item-text { display: flex; flex-direction: column; }
+        .nav-item-label {
+            font-size: .82rem; font-weight: 600;
+            color: rgba(255,255,255,.55);
+            line-height: 1.2;
+        }
+        .nav-item.active .nav-item-label { color: #fff; }
+        .nav-item-sub {
+            font-size: .70rem;
+            color: rgba(255,255,255,.28);
+            line-height: 1.3;
+        }
+        .nav-item.active .nav-item-sub { color: rgba(255,255,255,.50); }
 
-        .form-group {
-            flex: 1;
-            min-width: 200px;
+        .sidebar-divider {
+            border: none; border-top: 1px solid rgba(255,255,255,.07);
+            margin: 16px 0;
+        }
+        .sidebar-footer {
+            margin-top: auto;
             padding: 10px;
-            border-radius: 4px;
-        / / border: 1 px solid #f0f0f0;
-            transition: all 0.2s ease;
-            margin-bottom: 5px;
         }
-
-        .form-group:hover {
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-        }
-
-        .form-group label {
-            font-size: 0.9rem;
-            margin-bottom: 3px;
-            display: block;
-            font-weight: 500;
-            color: #444;
-        }
-
-        .full-width {
-            flex-basis: 100%;
-        }
-
-        .option-number {
-            background-color: #e8f4fd;
-            color: #3498db;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 8px;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        input[type="text"], select {
-            width: 80%;
-            padding: 10px 12px;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: all 0.2s ease;
-            background-color: #fff;
-        }
-
-        input[type="text"]:focus, select:focus {
-            border-color: #3498db;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-        }
-
-        .radio-group {
-            display: flex;
-            flex-direction: row;
-            margin-top: 10px;
-        }
-
-        .radio-option {
-            margin-right: 20px;
-            display: flex;
-            align-items: center;
-        }
-
-        .radio-option input[type="radio"] {
-            margin-right: 8px;
-        }
-
-        button[type="submit"] {
-            background-color: #87CEFA;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
-            display: block;
-            margin: 30px auto;
-            width: 200px;
-            transition: all 0.2s ease;
-        }
-
-        button[type="submit"]:hover {
-            background-color: #2980b9;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Terminal/CLI Styling */
-        .terminal {
-            background-color: #1e1e1e;
-            border-radius: 8px;
-            padding: 16px;
-            height: 600px;
-            overflow-y: auto;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-            color: #f0f0f0;
-        }
-
-        .command-input {
-            display: flex;
-            margin-bottom: 15px;
-            gap: 8px;
-        }
-
-        .command-input input {
-            flex-grow: 1;
-            background-color: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            color: #333;
-            padding: 10px 12px;
-            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-        }
-
-        .command-button2 {
-            background-color: #f5f5f5;
-            color: #333;
-            border: none;
-            border-radius: 6px;
-            padding: 8px 12px;
-            margin: 5px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.2s ease;
-        }
-
-        .command-button {
-            background-color: #3498db;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
-            display: block;
-            margin: 10px;
-        / / width: 200 px;
-            transition: all 0.2s ease;
-        }
-
-        .command-button:hover {
-            background-color: #e0e0e0;
-            color: #3498db;
-        }
-
-        /* Footer Styling */
-        footer {
-            background-color: #f5f5f5;
-            color: #666;
-            text-align: center;
-            padding: 24px 0;
-            margin-top: 40px;
-            font-size: 14px;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .header-content {
-                flex-direction: column;
-                gap: 16px;
-            }
-
-            nav ul {
-                gap: 16px;
-            }
-
-            .tab {
-                padding: 12px 16px;
-                font-size: 14px;
-            }
-
-            .form-row {
-                flex-direction: column;
-            }
-
-            .form-group {
-                min-width: 100%;
-            }
-
-            button[type="submit"] {
-                width: 100%;
-            }
-        }
-
-        .step-heading {
-            color: #3366cc;
-            font-size: 15px;
-            margin-bottom: 15px;
-        / / text-transform: uppercase;
-            font-weight: 500;
-        }
-
-        .modal-content {
-            font-family: Arial, Helvetica, sans-serif;
-            font-weight: 300;
-            font-size: 16px;
+        .sidebar-footer p {
+            font-size: .68rem;
+            color: rgba(255,255,255,.22);
             line-height: 1.5;
-            color: #333;
-            padding: 20px;
-            background-color: #fff;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
-        .modal-content h2 {
-            font-weight: 400;
-            margin-bottom: 15px;
+        /* ── Content area ───────────────────────────────────────────── */
+        .content {
+            flex: 1;
+            min-width: 0;
+            padding: 36px 40px 80px;
         }
 
-        .modal-content p {
-            margin-bottom: 10px;
+        /* ── Panels ──────────────────────────────────────────────────── */
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        /* ── Panel header ────────────────────────────────────────────── */
+        .panel-header {
+            margin-bottom: 32px;
+        }
+        .panel-header h1 {
+            font-size: 1.4rem; font-weight: 700;
+            color: var(--ink); letter-spacing: -.02em;
+            margin-bottom: 4px;
+        }
+        .panel-header p {
+            font-size: .9rem; color: var(--ink-40);
+        }
+        .panel-header-bar {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 8px;
+        }
+        .step-badge {
+            display: inline-flex; align-items: center;
+            background: var(--brand-subtle);
+            color: var(--brand);
+            font-size: .70rem; font-weight: 700;
+            padding: 3px 10px; border-radius: 20px;
+            text-transform: uppercase; letter-spacing: .07em;
+            border: 1px solid rgba(255,54,33,.18);
         }
 
-        #waitingDialog {
-            display: none;
-            position: fixed;
-            z-index: 9999;
-            left: 0;
-            top: 0;
+        /* ── Form card ───────────────────────────────────────────────── */
+        .form-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            padding: 28px 32px 32px;
+            margin-bottom: 24px;
+        }
+        .form-card-title {
+            font-size: .82rem; font-weight: 700;
+            color: var(--ink-40);
+            text-transform: uppercase; letter-spacing: .07em;
+            margin-bottom: 20px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .form-card-title::before {
+            content: '';
+            width: 3px; height: 14px;
+            background: var(--brand);
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        /* ── Form layout ─────────────────────────────────────────────── */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 18px;
+        }
+        .form-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+        .form-group { display: flex; flex-direction: column; gap: 7px; }
+        .form-label {
+            font-size: .74rem; font-weight: 600;
+            color: var(--ink-40);
+            text-transform: uppercase; letter-spacing: .06em;
+        }
+        .form-input {
+            padding: 9px 12px;
+            border: 1.5px solid var(--border-em);
+            border-radius: var(--radius-sm);
+            font-size: .88rem; font-family: inherit;
+            background: var(--ink-05);
+            color: var(--ink);
+            transition: border-color .15s, box-shadow .15s, background .15s;
             width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
         }
-
-        .modal-dialog {
-            position: relative;
-            width: auto;
-            margin: 10% auto;
-            max-width: 300px;
+        .form-input:hover { border-color: var(--ink-20); }
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+            background: var(--surface);
         }
+        .form-input::placeholder { color: var(--ink-20); }
 
-        .modal-content {
-            background-color: #fff;
-            border-radius: 5px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        /* ── Radio pill toggles ──────────────────────────────────────── */
+        .radio-toggle { display: flex; gap: 6px; }
+        .radio-toggle input[type="radio"] { display: none; }
+        .radio-toggle label {
+            display: inline-flex; align-items: center;
+            padding: 7px 16px;
+            border: 1.5px solid var(--border-em);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: .84rem; font-weight: 500;
+            color: var(--ink-60);
+            background: var(--ink-05);
+            transition: all .15s;
+            user-select: none;
         }
-
-        .modal-header {
-            padding: 15px;
-            border-bottom: 1px solid #e5e5e5;
-        }
-
-        .modal-title {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 500;
-            color: #333;
-        }
-
-        .modal-body {
-            padding: 15px;
-        }
-
-        .progress {
-            height: 20px;
-            margin-bottom: 0;
-            overflow: hidden;
-            background-color: #f5f5f5;
-            border-radius: 4px;
-            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-
-        .progress-bar {
-            float: left;
-            width: 0;
-            height: 100%;
-            font-size: 12px;
-            line-height: 20px;
+        .radio-toggle label:hover { border-color: var(--ink-20); color: var(--ink); }
+        .radio-toggle input[type="radio"]:checked + label {
+            background: var(--accent);
+            border-color: var(--accent);
             color: #fff;
+            box-shadow: 0 2px 8px var(--accent-glow);
+        }
+
+        /* ── Buttons ─────────────────────────────────────────────────── */
+        .btn-row { display: flex; gap: 12px; align-items: center; margin-top: 28px; }
+        .btn-primary {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-mid) 100%);
+            color: #fff;
+            padding: 11px 28px;
+            border: none; border-radius: var(--radius-sm);
+            font-size: .9rem; font-weight: 600; font-family: inherit;
+            cursor: pointer;
+            box-shadow: 0 3px 12px var(--brand-glow);
+            transition: opacity .15s, transform .12s, box-shadow .15s;
+            letter-spacing: .01em;
+        }
+        .btn-primary:hover {
+            opacity: .92; transform: translateY(-1px);
+            box-shadow: 0 6px 18px var(--brand-glow);
+        }
+        .btn-primary:active { transform: none; opacity: 1; }
+        .btn-secondary {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--surface);
+            color: var(--ink-60);
+            padding: 10px 22px;
+            border: 1.5px solid var(--border-em);
+            border-radius: var(--radius-sm);
+            font-size: .88rem; font-weight: 500; font-family: inherit;
+            cursor: pointer;
+            transition: border-color .15s, color .15s;
+        }
+        .btn-secondary:hover { border-color: var(--ink-20); color: var(--ink); }
+
+        /* ── Demo panel ──────────────────────────────────────────────── */
+        .uc-callout {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 18px;
+            background: rgba(30,136,229,.07);
+            border: 1.5px solid rgba(30,136,229,.22);
+            border-radius: var(--radius);
+            margin-bottom: 28px;
+        }
+        .uc-callout label {
+            font-size: .74rem; font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase; letter-spacing: .07em;
+            white-space: nowrap;
+        }
+        .uc-callout input {
+            flex: 1; max-width: 380px;
+            padding: 9px 12px;
+            border: 1.5px solid var(--border-em);
+            border-radius: var(--radius-sm);
+            font-size: .9rem; font-family: inherit;
+            background: var(--surface); color: var(--ink);
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .uc-callout input:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .uc-callout input::placeholder { color: var(--ink-20); }
+
+        /* ── "Test App access" button + inline status ───────────────── */
+        .btn-test-access {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 9px 14px;
+            background: var(--surface);
+            color: var(--accent);
+            border: 1.5px solid var(--accent);
+            border-radius: var(--radius-sm);
+            font-size: .82rem; font-weight: 600;
+            cursor: pointer; white-space: nowrap;
+            transition: background .15s, color .15s;
+        }
+        .btn-test-access:hover { background: var(--accent); color: #fff; }
+        .btn-test-access:disabled {
+            opacity: .55; cursor: not-allowed;
+            background: var(--surface); color: var(--accent);
+        }
+        .uc-access-status {
+            margin: -16px 0 24px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            font-size: .85rem;
+            line-height: 1.5;
+            display: flex; align-items: center; gap: 10px;
+            border: 1px solid var(--border);
+        }
+        .uc-access-status.ok    { background: rgba(46,160,67,.08); border-color: rgba(46,160,67,.30); color: #1B5E20; }
+        .uc-access-status.warn  { background: rgba(255,54,33,.08); border-color: rgba(255,54,33,.30); color: #B22A19; }
+        .uc-access-status.info  { background: rgba(30,136,229,.07); border-color: rgba(30,136,229,.25); color: #0D47A1; }
+        .uc-access-status code  { font-size: .8rem; background: rgba(0,0,0,.05); padding: 1px 6px; border-radius: 4px; }
+
+        /* ── Grant-required panel (rendered inside the response modal) */
+        .grant-panel { display: flex; flex-direction: column; gap: 14px; }
+        .grant-panel .grant-warning {
+            padding: 12px 14px;
+            background: rgba(255,54,33,.08);
+            border: 1px solid rgba(255,54,33,.30);
+            border-left: 4px solid var(--brand);
+            border-radius: var(--radius-sm);
+            font-size: .9rem; line-height: 1.5; color: var(--ink-80);
+        }
+        .grant-panel dl.grant-dl {
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            gap: 6px 16px;
+            font-size: .85rem;
+            margin: 0;
+        }
+        .grant-panel dl.grant-dl dt { color: var(--ink-40); font-weight: 600; }
+        .grant-panel dl.grant-dl dd { margin: 0; color: var(--ink); word-break: break-all; }
+        .grant-panel dl.grant-dl code {
+            font-size: .82rem; background: var(--ink-05);
+            padding: 1px 6px; border-radius: 4px;
+        }
+        .grant-sql-row { position: relative; }
+        .grant-sql-block {
+            background: #0E1420; color: #E2E8F0;
+            border-radius: var(--radius-sm);
+            padding: 14px 60px 14px 14px;
+            font-family: 'Menlo','Consolas',monospace;
+            font-size: .83rem; line-height: 1.6;
+            white-space: pre-wrap; word-break: break-all;
+            max-height: 220px; overflow-y: auto;
+            border: 1px solid var(--border);
+        }
+        .btn-copy {
+            position: absolute; top: 8px; right: 8px;
+            padding: 5px 10px;
+            background: rgba(255,255,255,.08);
+            color: #E2E8F0;
+            border: 1px solid rgba(255,255,255,.18);
+            border-radius: 4px;
+            font-size: .72rem; font-weight: 600;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .btn-copy:hover { background: rgba(255,255,255,.18); }
+        .btn-copy.copied { background: rgba(46,160,67,.40); border-color: rgba(46,160,67,.55); }
+        .grant-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+            gap: 16px;
+        }
+        .demo-card {
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            padding: 22px 18px 18px;
+            cursor: pointer;
+            transition: border-color .18s, box-shadow .18s, transform .18s;
+            display: flex; flex-direction: column; gap: 10px;
+            position: relative; overflow: hidden;
+        }
+        .demo-card::before {
+            content: ''; position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--brand) 0%, #FF7A5C 100%);
+            opacity: 0; transition: opacity .18s;
+        }
+        .demo-card:hover {
+            border-color: var(--brand);
+            box-shadow: 0 6px 24px var(--brand-glow);
+            transform: translateY(-2px);
+        }
+        .demo-card:hover::before { opacity: 1; }
+        .demo-card:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        .demo-icon {
+            width: 42px; height: 42px;
+            border-radius: var(--radius-sm);
+            background: var(--brand-subtle);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem;
+        }
+        .demo-card h4 {
+            font-size: .875rem; font-weight: 700;
+            color: var(--ink); letter-spacing: -.01em;
+        }
+        .demo-card p {
+            font-size: .79rem; color: var(--ink-40); line-height: 1.5;
+            flex: 1;
+        }
+        .demo-cta {
+            font-size: .76rem; font-weight: 600;
+            color: var(--brand);
+            opacity: 0; transition: opacity .18s;
+        }
+        .demo-card:hover .demo-cta { opacity: 1; }
+
+        /* ── Loading overlay ─────────────────────────────────────────── */
+        #loadingOverlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(10,16,24,.56);
+            backdrop-filter: blur(6px);
+            z-index: 9000;
+            align-items: center; justify-content: center;
+        }
+        #loadingOverlay.visible { display: flex; }
+        .spinner-box {
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            padding: 40px 56px;
             text-align: center;
-            background-color: #337ab7;
-            box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.15);
-            transition: width 0.6s ease;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border);
         }
-
-        .progress-bar-striped {
-            background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
-            background-size: 40px 40px;
+        .spinner {
+            width: 46px; height: 46px;
+            border: 4px solid var(--ink-05);
+            border-top-color: var(--brand);
+            border-radius: 50%;
+            animation: spin .72s linear infinite;
+            margin: 0 auto 18px;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-label { font-size: .9rem; font-weight: 500; color: var(--ink-40); }
+        .spinner-sub   { font-size: .78rem; color: var(--ink-20); margin-top: 4px; }
 
-        .active.progress-bar-striped {
-            animation: progress-bar-stripes 2s linear infinite;
-        }
-
-        @keyframes progress-bar-stripes {
-            from {
-                background-position: 40px 0;
-            }
-            to {
-                background-position: 0 0;
-            }
-        }
-
+        /* ── Response modal ──────────────────────────────────────────── */
         #responseModal {
             display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            backdrop-filter: blur(5px);
-            transition: all 0.3s ease;
+            position: fixed; inset: 0;
+            background: rgba(10,16,24,.52);
+            backdrop-filter: blur(6px);
+            z-index: 9500;
+            align-items: center; justify-content: center;
+            padding: 24px;
         }
-
-        #responseModal > div {
-            position: relative;
-            width: 90%;
-            max-width: 600px;
-            margin: 5% auto;
-            background-color: #ffffff;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            transform: translateY(-20px);
-            transition: transform 0.3s ease;
+        #responseModal.visible { display: flex; }
+        .modal-box {
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            width: 100%; max-width: 640px;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            animation: modal-in .22s ease;
         }
-
-        #responseModal.active > div {
-            transform: translateY(0);
+        @keyframes modal-in {
+            from { opacity: 0; transform: scale(.96) translateY(10px); }
+            to   { opacity: 1; transform: none; }
         }
-
-        #responseModal span {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
-            font-size: 1.5rem;
-            color: #666;
+        .modal-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 26px;
+            background: linear-gradient(135deg, var(--ink) 0%, var(--ink-80) 100%);
+        }
+        .modal-head h3 { font-size: .95rem; font-weight: 700; color: #fff; }
+        .modal-close {
+            width: 30px; height: 30px;
+            background: rgba(255,255,255,.10);
+            border: none; border-radius: 50%;
+            font-size: 1.1rem; color: rgba(255,255,255,.75);
             cursor: pointer;
-            transition: color 0.2s ease;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .15s, color .15s;
         }
-
-        #responseModal span:hover {
-            color: #333;
-        }
-
-        #responseModal h3 {
-            font-size: 1.5rem;
-            color: #333;
-            margin-bottom: 1rem;
-        }
-
-        #responseContent {
-            margin-top: 1rem;
-            max-height: 400px;
+        .modal-close:hover { background: rgba(255,255,255,.20); color: #fff; }
+        .modal-body {
+            padding: 28px;
+            max-height: 58vh;
             overflow-y: auto;
-            padding-right: 1rem;
         }
-
-        #responseContent::-webkit-scrollbar {
-            width: 8px;
+        .modal-body pre {
+            background: var(--ink-05);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 18px;
+            font-size: .80rem;
+            white-space: pre-wrap; word-break: break-all;
+            color: var(--ink-60); line-height: 1.6;
         }
-
-        #responseContent::-webkit-scrollbar-thumb {
-            background-color: #ddd;
-            border-radius: 4px;
+        .job-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--ink-05);
+            border: 1px solid var(--border-em);
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-size: .85rem; color: var(--ink-60);
+            margin-bottom: 16px;
         }
-
-        #responseContent::-webkit-scrollbar-thumb:hover {
-            background-color: #ccc;
+        .job-chip strong { color: var(--ink); }
+        .result-link {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, var(--accent) 0%, #42A5F5 100%);
+            color: #fff; text-decoration: none;
+            border-radius: var(--radius-sm);
+            font-size: .875rem; font-weight: 600;
+            box-shadow: 0 4px 12px var(--accent-glow);
+            transition: opacity .15s, transform .12s;
         }
+        .result-link:hover { opacity: .9; transform: translateY(-1px); }
 
+        /* ── Footer ──────────────────────────────────────────────────── */
+        .content-footer {
+            font-size: .78rem; color: var(--ink-20);
+            margin-top: 48px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+        .content-footer a { color: var(--ink-40); text-decoration: none; }
+        .content-footer a:hover { color: var(--brand); }
 
+        /* ── Responsive ──────────────────────────────────────────────── */
+        @media (max-width: 800px) {
+            .sidebar { display: none; }
+            .content { padding: 20px 16px 60px; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-grid-2 { grid-template-columns: 1fr; }
+            .demo-grid { grid-template-columns: 1fr 1fr; }
+            .uc-callout { flex-direction: column; align-items: flex-start; }
+            .form-card { padding: 20px; }
+        }
     </style>
 </head>
 <body>
-<!-- Header Section -->
-<header>
-    <div class="container header-content">
-        <div class="logo">
-            <!-- img alt="Databricks Logo" src="https://upload.wikimedia.org/wikipedia/commons/6/63/Databricks_Logo.png" -->
-            <div>DLT-<span>META</span></div>
-        </div>
-        <nav>
-            <ul>
-                <li><a class="active" href="#">Home</a></li>
-                <li><a href="https://databrickslabs.github.io/sdp-meta/index.html">Documentation</a></li>
-                <li><a href="https://github.com/databrickslabs/sdp-meta?tab=readme-ov-file#project-overview">About</a>
-                </li>
-            </ul>
+
+<!-- ── Top bar ─────────────────────────────────────────────── -->
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="logo" href="#">
+            <span class="logo-word">DLT<em>-META</em></span>
+            <span class="logo-tag">Lakehouse App</span>
+        </a>
+        <nav class="topbar-nav">
+            <a href="#">Home</a>
+            <a href="https://databrickslabs.github.io/dlt-meta/index.html" target="_blank" rel="noopener noreferrer">Docs</a>
+            <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer" class="nav-pill">GitHub &#8599;</a>
         </nav>
     </div>
 </header>
 
-<!-- Main Content -->
-<main class="container">
-    <div style="height: 20px;"></div>
-    <div class="command-suggestions" id="setupDlt">
-        <button class="command-button" data-command="setup">Click here to setup "sdp-meta" project environment</button>
-    </div>
-    <!-- Tab Layout -->
-    <section class="tab-container" id="tab-layout">
-        <div class="tabs">
-            <div class="tab active" onclick="openTab(event, 'form')">UI</div>
-            <div class="tab" onclick="openTab(event, 'demo')">Demo</div>
-            <div class="tab" onclick="openTab(event, 'setup')">CLI</div>
+<!-- ── App shell ───────────────────────────────────────────── -->
+<div class="shell">
 
+    <!-- ── Sidebar ─────────────────────────────────────────── -->
+    <aside class="sidebar" aria-label="Navigation">
+
+        <span class="sidebar-section-label">Pipeline</span>
+
+        <button class="nav-item active" onclick="showPanel('onboarding', this)">
+            <div class="nav-item-icon">&#9731;</div>
+            <div class="nav-item-text">
+                <span class="nav-item-label">Onboarding</span>
+                <span class="nav-item-sub">Step 1 &mdash; Register spec</span>
+            </div>
+        </button>
+
+        <button class="nav-item" onclick="showPanel('deployment', this)">
+            <div class="nav-item-icon">&#9654;</div>
+            <div class="nav-item-text">
+                <span class="nav-item-label">Deployment</span>
+                <span class="nav-item-sub">Step 2 &mdash; Launch pipeline</span>
+            </div>
+        </button>
+
+        <hr class="sidebar-divider">
+
+        <span class="sidebar-section-label">Explore</span>
+
+        <button class="nav-item" onclick="showPanel('demos', this)">
+            <div class="nav-item-icon">&#127381;</div>
+            <div class="nav-item-text">
+                <span class="nav-item-label">Demos</span>
+                <span class="nav-item-sub">Pre-built examples</span>
+            </div>
+        </button>
+
+        <div class="sidebar-footer">
+            <p>DLT-META v2 &mdash; Databricks Labs</p>
         </div>
-        <div class="tab-content active" id="form">
-            <div style="display: grid; grid-template-columns: 1fr; gap: 5px;">
-                <div style="width: 100%;"> <!-- Column 1 content -->
-                    <h2 class='step-heading'>Step 1 : Onboarding</h2>
-                    <form id="onboardingForm"> <!-- Insert the first half of the form fields here -->
-                        <div class="form-container">
-                            <!-- Unity Catalog Settings -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Run onboarding with unity catalog enabled?</label>
-                                    <div class="radio-group">
 
-                                        <div class="radio-option">
-                                            <input checked id="unity_catalog_true" name="unity_catalog_enabled"
-                                                   type="radio" value="1">
-                                            <label for="unity_catalog_true"> True</label>
-                                        </div>
-                                        <div class="radio-option">
-                                            <input id="unity_catalog_false" name="unity_catalog_enabled" type="radio"
-                                                   value="0">
-                                            <label for="unity_catalog_false"> False</label>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="form-group" id="unity_catalog_name_group">
-                                    <label>Provide unity catalog name:</label>
-                                    <input id="unity_catalog_name" name="unity_catalog_name"
-                                           placeholder="Enter unity catalog name" type="text">
-                                </div>
-                                <div class="form-group">
-                                    <label>Run onboarding with serverless?</label>
-                                    <div class="radio-group">
-                                        <div class="radio-option">
-                                            <input checked id="serverless_true" name="serverless" type="radio"
-                                                   value="1">
-                                            <label for="serverless_true"> True</label>
-                                        </div>
-                                        <div class="radio-option">
-                                            <input id="serverless_false" name="serverless" type="radio" value="0">
-                                            <label for="serverless_false"> False</label>
-                                        </div>
+    </aside>
 
-                                    </div>
-                                </div>
-                            </div>
+    <!-- ── Main content ────────────────────────────────────── -->
+    <main class="content">
 
-                            <!-- File Path Configuration -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Provide onboarding file path:</label>
-                                    <input id="onboarding_file_path" name="onboarding_file_path"
-                                           placeholder="Enter file path"
-                                           type="text" value="demo/conf/json/onboarding.template">
-                                </div>
-                                <div class="form-group">
-                                    <label>Provide onboarding files local directory:</label>
-                                    <input id="local_directory" name="local_directory"
-                                           placeholder="Enter local directory"
-                                           type="text" value="/app/python/source_code/sdp-meta/demo/">
-                                </div>
-                            </div>
+        <!-- ══════════════ Onboarding panel ══════════════════ -->
+        <section class="panel active" id="onboarding" aria-label="Onboarding">
+            <div class="panel-header">
+                <div class="panel-header-bar">
+                    <span class="step-badge">Step 1</span>
+                </div>
+                <h1>Pipeline Onboarding</h1>
+                <p>Register your pipeline metadata into the DLT-META dataflow spec tables</p>
+            </div>
 
-                            <!-- Schema Configuration -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Provide dlt meta schema name:</label>
-                                    <input id="sdp_meta_schema" name="sdp_meta_schema" placeholder="Enter schema name"
-                                           type="text" value="sdp_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14">
-                                </div>
-                                <div class="form-group">
-                                    <label>Provide dlt meta bronze layer schema name:</label>
-                                    <input id="bronze_schema" name="bronze_schema"
-                                           placeholder="Enter bronze schema name"
-                                           type="text" value="sdp_meta_bronze_9c1aa383b36a49198d3e99d25f7180a4">
-                                </div>
-                            </div>
+            <form id="onboardingForm" novalidate>
 
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Provide dlt meta silver layer schema name:</label>
-                                    <input id="silver_schema" name="silver_schema"
-                                           placeholder="Enter silver schema name"
-                                           type="text" value="sdp_meta_silver_7b4e981029b843c799bf61a0a121b3ca">
-                                </div>
-                                <div class="form-group">
-                                    <label>Provide dlt meta layer:</label>
-                                    <select id="sdp_meta_layer" name="sdp_meta_layer">
-                                        <option value="0">bronze</option>
-                                        <option value="1">bronze_silver</option>
-                                        <option value="2">silver</option>
-                                    </select>
-                                </div>
-                            </div>
+                <div class="form-card">
+                    <div class="form-card-title">Catalog &amp; Compute</div>
+                    <div class="form-grid">
 
-                            <!-- Table and Version Settings -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Provide bronze dataflow spec table name:</label>
-                                    <input id="bronze_table" name="bronze_table" placeholder="Enter bronze table name"
-                                           type="text" value="bronze_dataflowspec">
-                                </div>
-                                <div class="form-group">
-                                    <label>Provide silver dataflow spec table name:</label>
-                                    <input id="silver_table" name="silver_table" placeholder="Enter silver table name"
-                                           type="text" value="silver_dataflowspec">
-                                </div>
-                                <div class="form-group">
-                                    <label>Overwrite dataflow spec?</label>
-                                    <div class="radio-group">
-                                        <div class="radio-option">
-                                            <input id="overwrite_false" name="overwrite" type="radio" value="0">
-                                            <label for="overwrite_false"> False</label>
-                                        </div>
-                                        <div class="radio-option">
-                                            <input checked id="overwrite_true" name="overwrite" type="radio" value="1">
-                                            <label for="overwrite_true"> True</label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Provide dataflow spec version:</label>
-                                    <input id="version" name="version" placeholder="Enter version" type="text"
-                                           value="v1">
-                                </div>
-                                <div class="form-group">
-                                    <label>Provide environment name:</label>
-                                    <input id="environment" name="environment" placeholder="Enter environment name"
-                                           type="text" value="prod">
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Provide import author name:</label>
-                                    <input id="author" name="author" placeholder="Enter author name" type="text"
-                                           value="app-40zbx9 meta-dlt">
-                                </div>
-                            </div>
-
-                            <!-- Path Update Option -->
-                            <div class="form-row">
-                                <div class="form-group full-width">
-                                    <label>Update workspace/dbfs uc volume paths, unity catalog name, bronze/silver
-                                        schema names in onboarding file?</label>
-                                    <div class="radio-group">
-                                        <div class="radio-option">
-                                            <input checked id="update_paths_false" name="update_paths" type="radio"
-                                                   value="0">
-                                            <label for="update_paths_false"> False</label>
-                                        </div>
-                                        <div class="radio-option">
-                                            <input id="update_paths_true" name="update_paths" type="radio" value="1">
-                                            <label for="update_paths_true"> True</label>
-                                        </div>
-                                    </div>
-                                </div>
+                        <div class="form-group">
+                            <span class="form-label">Unity Catalog</span>
+                            <div class="radio-toggle">
+                                <input type="radio" id="uc_on" name="unity_catalog_enabled" value="1" checked>
+                                <label for="uc_on">Enabled</label>
+                                <input type="radio" id="uc_off" name="unity_catalog_enabled" value="0">
+                                <label for="uc_off">Disabled</label>
                             </div>
                         </div>
 
-                        <button type="submit">Run Onboarding</button>
-                    </form>
-                </div>
-                <div style="width: 100%;">
-                    <!-- Column 2 content -->
-                    <form id="deploymentForm"> <!-- Insert the second half of the form fields here -->
-                        <h2 class='step-heading'>Step 2 : Deployment</h2>
-                        <div class="form-container">
-                            <!-- Unity Catalog Settings -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Run onboarding with unity catalog enabled?</label>
-                                    <div class="radio-group">
-                                        <div class="radio-option">
-                                            <input checked id="unity_catalog_true" name="uc_enabled" type="radio"
-                                                   value="1">
-                                            <label for="unity_catalog_true"> True</label>
-                                        </div>
-                                        <div class="radio-option">
-                                            <input id="unity_catalog_false" name="uc_enabled" type="radio" value="0">
-                                            <label for="unity_catalog_false"> False</label>
-                                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="unity_catalog_name">Unity Catalog Name</label>
+                            <input class="form-input" type="text" id="unity_catalog_name" name="unity_catalog_name"
+                                   placeholder="my_catalog">
+                        </div>
 
-                                    </div>
-                                </div>
-                                <div class="form-group" id="unity_catalog_name_group">
-                                    <label>Provide unity catalog name:</label>
-                                    <input id="uc_catalog_name" name="uc_catalog_name"
-                                           placeholder="Enter unity catalog name" type="text">
-                                </div>
-                                <div class="form-group">
-                                    <label>Run onboarding with serverless?</label>
-                                    <div class="radio-group">
-                                        <div class="radio-option">
-                                            <input checked id="serverless_true" name="serverless" type="radio"
-                                                   value="1">
-                                            <label for="serverless_true"> True</label>
-                                        </div>
-                                        <div class="radio-option">
-                                            <input id="serverless_false" name="serverless" type="radio" value="0">
-                                            <label for="serverless_false"> False</label>
-                                        </div>
-
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Schema Configuration -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>DataFlow Schema Name:</label>
-                                    <input id="spc_schema_name" name="spc_schema_name"
-                                           placeholder="Enter spec schema name"
-                                           type="text">
-                                </div>
-                                <div class="form-group">
-                                    <label>Target Schema Name:</label>
-                                    <input id="dlt_target_schema" name="dlt_target_schema"
-                                           placeholder="Enter target schema name"
-                                           type="text">
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Onboard Bronze Group Name:</label>
-                                    <input id="group_name" name="onboard_bronze_group"
-                                           placeholder="Enter bronze group name"
-                                           type="text" value="A1">
-                                </div>
-                                <div class="form-group">
-                                    <label>Onboard Silver Group Name:</label>
-                                    <input id="group_name" name="onboard_silver_group"
-                                           placeholder="Enter silver group name"
-                                           type="text" value="A1">
-                                </div>
-                                <div class="form-group">
-                                    <label>Provide dlt meta layer:</label>
-                                    <select id="sdp_meta_layer" name="deploylayer">
-                                        <option value="bronze">bronze</option>
-                                        <option value="bronze_silver">bronze_silver</option>
-                                        <option value="silver">silver</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <!-- Table and Version Settings -->
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label> Dataflow Spec Bronze Table Name:</label>
-                                    <input id="bronze_dataflowspec_table" name="bronze_dataflowspec_table"
-                                           placeholder="Enter bronze spec table name"
-                                           type="text">
-                                </div>
-                                <div class="form-group">
-                                    <label> Dataflow Spec Silver Table Name:</label>
-                                    <input id="silver_dataflowspec_table" name="silver_dataflowspec_table"
-                                           placeholder="Enter silver spec table name"
-                                           type="text">
-                                </div>
-
-                                <div class="form-group">
-                                    <label>Pipeline Name:</label>
-                                    <input id="pipeline_name" name="pipeline_name" placeholder="Enter pipeline name"
-                                           type="text">
-                                </div>
+                        <div class="form-group">
+                            <span class="form-label">Serverless</span>
+                            <div class="radio-toggle">
+                                <input type="radio" id="sl_on" name="serverless" value="1" checked>
+                                <label for="sl_on">Enabled</label>
+                                <input type="radio" id="sl_off" name="serverless" value="0">
+                                <label for="sl_off">Disabled</label>
                             </div>
                         </div>
 
-                        <button type="submit">Deploy</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- Demo TAB-->
-        <div class="tab-content" id="demo">
-            <div id="demo-content">
-
-                <h3 class='step-heading'>Available Demos</h3>
-                <div class="command-input">
-                    <input id="demo_uc_name" placeholder="Enter unity catalog name for demo" required
-                           type="text"> </input>
-                </div>
-                <div style="height: 20px;"></div>
-                <div class="command-suggestions">
-                    <button class="command-button2" data-command="demo_cloudfiles">Demo Cloud Files</button>
-                    <button class="command-button2" data-command="demo_acf">Demo Apply Changes Snapshot</button>
-                    <button class="command-button2" data-command="demo_silverfanout">Demo Silver fanout</button>
-                    <button class="command-button2" data-command="demo_dias">Demo Dias</button>
-                    <button class="command-button2" data-command="demo_dlt_sink">Demo Sink</button>
-
-
+                    </div>
                 </div>
 
+                <div class="form-card">
+                    <div class="form-card-title">Source &amp; Paths</div>
+                    <div class="form-grid">
 
-            </div>
-        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="onboarding_file_path">Onboarding File Path</label>
+                            <input class="form-input" type="text" id="onboarding_file_path" name="onboarding_file_path"
+                                   value="demo/conf/json/onboarding.template"
+                                   placeholder="demo/conf/onboarding.template">
+                        </div>
 
-        <!-- CLI TAB-->
-        <div class="tab-content" id="setup">
-            <div id="setup-content">
-                <div class="command-suggestions">
-                    <h3 class='step-heading'>Reference Commands</h3>
-                    
-                    <button class="command-button2" data-command="pip install databricks-sdk">Step 2. pip install
-                        databricks-sdk (optional in case any failure)
+                        <div class="form-group">
+                            <label class="form-label" for="local_directory">Local Directory</label>
+                            <input class="form-input" type="text" id="local_directory" name="local_directory"
+                                   value="/app/python/source_code/dlt-meta/demo/"
+                                   placeholder="/path/to/dlt-meta/demo/">
+                        </div>
+
+                        <div class="form-group">
+                            <span class="form-label">Update Workspace / DBFS / UC Volume Paths</span>
+                            <div class="radio-toggle">
+                                <input type="radio" id="up_no" name="update_paths" value="0" checked>
+                                <label for="up_no">No</label>
+                                <input type="radio" id="up_yes" name="update_paths" value="1">
+                                <label for="up_yes">Yes</label>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="form-card">
+                    <div class="form-card-title">Schema &amp; Tables</div>
+                    <div class="form-grid">
+
+                        <div class="form-group">
+                            <label class="form-label" for="dlt_meta_schema">DLT Meta Schema</label>
+                            <input class="form-input" type="text" id="dlt_meta_schema" name="dlt_meta_schema"
+                                   value="dlt_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14"
+                                   placeholder="dlt_meta_dataflowspecs_...">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="bronze_schema">Bronze Schema</label>
+                            <input class="form-input" type="text" id="bronze_schema" name="bronze_schema"
+                                   value="dltmeta_bronze_9c1aa383b36a49198d3e99d25f7180a4"
+                                   placeholder="dltmeta_bronze_...">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="silver_schema">Silver Schema</label>
+                            <input class="form-input" type="text" id="silver_schema" name="silver_schema"
+                                   value="dltmeta_silver_7b4e981029b843c799bf61a0a121b3ca"
+                                   placeholder="dltmeta_silver_...">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="dlt_meta_layer">DLT Meta Layer</label>
+                            <select class="form-input" id="dlt_meta_layer" name="dlt_meta_layer">
+                                <option value="0">bronze</option>
+                                <option value="1" selected>bronze_silver</option>
+                                <option value="2">silver</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="bronze_table">Bronze Dataflow Spec Table</label>
+                            <input class="form-input" type="text" id="bronze_table" name="bronze_table"
+                                   value="bronze_dataflowspec" placeholder="bronze_dataflowspec">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="silver_table">Silver Dataflow Spec Table</label>
+                            <input class="form-input" type="text" id="silver_table" name="silver_table"
+                                   value="silver_dataflowspec" placeholder="silver_dataflowspec">
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="form-card">
+                    <div class="form-card-title">Metadata</div>
+                    <div class="form-grid">
+
+                        <div class="form-group">
+                            <span class="form-label">Overwrite Dataflow Spec</span>
+                            <div class="radio-toggle">
+                                <input type="radio" id="ow_yes" name="overwrite" value="1" checked>
+                                <label for="ow_yes">Yes</label>
+                                <input type="radio" id="ow_no" name="overwrite" value="0">
+                                <label for="ow_no">No</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="version">Spec Version</label>
+                            <input class="form-input" type="text" id="version" name="version" value="v1" placeholder="v1">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="environment">Environment</label>
+                            <input class="form-input" type="text" id="environment" name="environment" value="prod" placeholder="prod">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="author">Import Author</label>
+                            <input class="form-input" type="text" id="author" name="author"
+                                   value="app-40zbx9 meta-dlt" placeholder="author name">
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn-primary" type="submit">&#9654; Run Onboarding</button>
+                    <button class="btn-secondary" type="button" onclick="showPanel('deployment', document.querySelector('.nav-item:nth-child(2)'))">
+                        Continue to Deployment &#8594;
                     </button>
+                </div>
 
-                </div>
-                <div style="height: 20px;"></div>
-                <div class="command-input">
-                    <input autocomplete="off" id="input" placeholder="Enter command or response..." type="text">
-                    <button id="sendBtn">Send</button>
-                </div>
-                <div class="terminal" id="terminal"></div>
+            </form>
+
+            <div class="content-footer">
+                &copy; 2026 DLT-META Lakehouse App &mdash;
+                <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer">Databricks Labs</a>
             </div>
-        </div>
+        </section>
 
+        <!-- ══════════════ Deployment panel ══════════════════ -->
+        <section class="panel" id="deployment" aria-label="Deployment">
+            <div class="panel-header">
+                <div class="panel-header-bar">
+                    <span class="step-badge">Step 2</span>
+                </div>
+                <h1>Pipeline Deployment</h1>
+                <p>Create and launch the Lakeflow Declarative Pipeline from the registered spec</p>
+            </div>
 
-    </section>
-</main>
+            <form id="deploymentForm" novalidate>
 
-<!-- Footer Section -->
-<footer>
-    <div class="container">
-        <p>&copy; 2025 SDP-META Configuration Portal. All rights reserved.</p>
-    </div>
-</footer>
+                <div class="form-card">
+                    <div class="form-card-title">Catalog &amp; Compute</div>
+                    <div class="form-grid">
 
-<!-- Add this at the end of your body tag but before any scripts -->
-<div id="responseModal">
-    <div>
-        <span onclick="closeModal()">&times;</span>
-        <h3 class='step-heading'>Response</h3>
-        <div id="responseContent">
+                        <div class="form-group">
+                            <span class="form-label">Unity Catalog</span>
+                            <div class="radio-toggle">
+                                <input type="radio" id="d_uc_on" name="uc_enabled" value="1" checked>
+                                <label for="d_uc_on">Enabled</label>
+                                <input type="radio" id="d_uc_off" name="uc_enabled" value="0">
+                                <label for="d_uc_off">Disabled</label>
+                            </div>
+                        </div>
 
-        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="uc_catalog_name">Unity Catalog Name</label>
+                            <input class="form-input" type="text" id="uc_catalog_name" name="uc_catalog_name"
+                                   placeholder="my_catalog">
+                        </div>
+
+                        <div class="form-group">
+                            <span class="form-label">Serverless</span>
+                            <div class="radio-toggle">
+                                <input type="radio" id="d_sl_on" name="serverless" value="1" checked>
+                                <label for="d_sl_on">Enabled</label>
+                                <input type="radio" id="d_sl_off" name="serverless" value="0">
+                                <label for="d_sl_off">Disabled</label>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="form-card">
+                    <div class="form-card-title">Spec &amp; Schema</div>
+                    <div class="form-grid">
+
+                        <div class="form-group">
+                            <label class="form-label" for="spc_schema_name">DataFlow Spec Schema</label>
+                            <input class="form-input" type="text" id="spc_schema_name" name="spc_schema_name"
+                                   placeholder="dataflowspec schema">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="dlt_target_schema">Target Schema</label>
+                            <input class="form-input" type="text" id="dlt_target_schema" name="dlt_target_schema"
+                                   placeholder="target schema">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="deploy_layer">Layer</label>
+                            <select class="form-input" id="deploy_layer" name="deploylayer">
+                                <option value="bronze" selected>bronze</option>
+                                <option value="bronze_silver">bronze_silver</option>
+                                <option value="silver">silver</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="bronze_dataflowspec_table">Bronze Dataflow Spec Table</label>
+                            <input class="form-input" type="text" id="bronze_dataflowspec_table" name="bronze_dataflowspec_table"
+                                   placeholder="bronze_dataflowspec">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="silver_dataflowspec_table">Silver Dataflow Spec Table</label>
+                            <input class="form-input" type="text" id="silver_dataflowspec_table" name="silver_dataflowspec_table"
+                                   placeholder="silver_dataflowspec">
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="form-card">
+                    <div class="form-card-title">Pipeline</div>
+                    <div class="form-grid">
+
+                        <div class="form-group">
+                            <label class="form-label" for="pipeline_name">Pipeline Name</label>
+                            <input class="form-input" type="text" id="pipeline_name" name="pipeline_name"
+                                   placeholder="dlt_meta_pipeline">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="onboard_bronze_group">Bronze Group</label>
+                            <input class="form-input" type="text" id="onboard_bronze_group" name="onboard_bronze_group"
+                                   value="A1" placeholder="A1">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="onboard_silver_group">Silver Group</label>
+                            <input class="form-input" type="text" id="onboard_silver_group" name="onboard_silver_group"
+                                   value="A1" placeholder="A1">
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn-primary" type="submit">&#9658; Deploy Pipeline</button>
+                    <button class="btn-secondary" type="button" onclick="showPanel('onboarding', document.querySelector('.nav-item:first-child'))">
+                        &#8592; Back to Onboarding
+                    </button>
+                </div>
+
+            </form>
+
+            <div class="content-footer">
+                &copy; 2026 DLT-META Lakehouse App &mdash;
+                <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer">Databricks Labs</a>
+            </div>
+        </section>
+
+        <!-- ══════════════ Demos panel ════════════════════════ -->
+        <section class="panel" id="demos" aria-label="Demos">
+            <div class="panel-header">
+                <h1>Run a Demo</h1>
+                <p>Explore DLT-META features with pre-configured end-to-end examples on your Databricks workspace</p>
+            </div>
+
+            <div class="uc-callout">
+                <label for="demo_uc_name">Unity Catalog</label>
+                <input type="text" id="demo_uc_name" placeholder="Enter your UC catalog name" required>
+                <button type="button" class="btn-test-access" id="btnTestAccess" onclick="checkUcGrants()" title="Verify the App service principal can CREATE SCHEMA on this catalog before launching a demo">Test App access</button>
+            </div>
+            <div id="ucAccessStatus" class="uc-access-status info" hidden></div>
+
+            <div class="demo-grid">
+                <div class="demo-card" data-command="demo_cloudfiles" role="button" tabindex="0">
+                    <div class="demo-icon">&#9729;&#65039;</div>
+                    <h4>Cloud Files</h4>
+                    <p>Ingest streaming data using Auto Loader with cloud file sources</p>
+                    <span class="demo-cta">Run demo &#8594;</span>
+                </div>
+                <div class="demo-card" data-command="demo_acf" role="button" tabindex="0">
+                    <div class="demo-icon">&#128247;</div>
+                    <h4>Apply Changes Snapshot</h4>
+                    <p>CDC with SCD Type 1 apply changes from full data snapshots</p>
+                    <span class="demo-cta">Run demo &#8594;</span>
+                </div>
+                <div class="demo-card" data-command="demo_silverfanout" role="button" tabindex="0">
+                    <div class="demo-icon">&#128256;</div>
+                    <h4>Silver Fanout</h4>
+                    <p>Fan-out bronze data into multiple silver tables in one pipeline</p>
+                    <span class="demo-cta">Run demo &#8594;</span>
+                </div>
+                <div class="demo-card" data-command="demo_dias" role="button" tabindex="0">
+                    <div class="demo-icon">&#129504;</div>
+                    <h4>DAIS Demo</h4>
+                    <p>Databricks AI Summit end-to-end pipeline walkthrough</p>
+                    <span class="demo-cta">Run demo &#8594;</span>
+                </div>
+                <div class="demo-card" data-command="demo_interactive" role="button" tabindex="0">
+                    <div class="demo-icon">&#128214;</div>
+                    <h4>Interactive Notebook</h4>
+                    <p>End-to-end notebook walkthrough &mdash; submits the SDP-META Interactive Demo as a serverless job (Option B headless launcher)</p>
+                    <span class="demo-cta">Run demo &#8594;</span>
+                </div>
+            </div>
+
+            <div class="content-footer">
+                &copy; 2026 DLT-META Lakehouse App &mdash;
+                <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer">Databricks Labs</a>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- ── Loading overlay ──────────────────────────────────────── -->
+<div id="loadingOverlay">
+    <div class="spinner-box">
+        <div class="spinner"></div>
+        <p class="spinner-label" id="loadingMessage">Processing&hellip;</p>
+        <p class="spinner-sub">This may take a moment</p>
     </div>
 </div>
 
-<!-- waiting dialog modal -->
-<div class="modal" id="waitingDialog" role="dialog" tabindex="-1">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Please wait...</h5>
-            </div>
-            <div class="modal-body">
-                <div class="progress">
-                    <div aria-valuemax="100" aria-valuemin="0" aria-valuenow="100"
-                         class="progress-bar progress-bar-striped active" role="progressbar" style="width: 100%"></div>
-                </div>
-            </div>
+<!-- ── Response modal ───────────────────────────────────────── -->
+<div id="responseModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-box">
+        <div class="modal-head">
+            <h3 id="modalTitle">Response</h3>
+            <button class="modal-close" onclick="closeModal()" aria-label="Close">&times;</button>
         </div>
+        <div class="modal-body" id="responseContent"></div>
     </div>
 </div>
 
-<!-- JavaScript for Tab Functionality -->
 <script>
-
-
-    function showWaitingDialog() {
-        document.getElementById('waitingDialog').style.display = 'block';
+    /* ── Security helpers ───────────────────────────────────── */
+    function escapeHtml(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+    function isValidHttpsUrl(str) {
+        try { var u = new URL(str); return u.protocol === 'https:'; }
+        catch (_) { return false; }
     }
 
-    function hideWaitingDialog() {
-        document.getElementById('waitingDialog').style.display = 'none';
+    /* ── Sidebar navigation ─────────────────────────────────── */
+    function showPanel(panelId, btn) {
+        document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+        document.querySelectorAll('.nav-item').forEach(function(b) { b.classList.remove('active'); });
+        document.getElementById(panelId).classList.add('active');
+        if (btn) btn.classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-
-    // Function to show modal with content
-    function showModal(content) {
-        document.getElementById('responseContent').innerHTML = content;
-        document.getElementById('responseModal').style.display = 'block';
+    /* ── Loading ────────────────────────────────────────────── */
+    function showLoading(msg) {
+        document.getElementById('loadingMessage').textContent = msg || 'Processing…';
+        document.getElementById('loadingOverlay').classList.add('visible');
+    }
+    function hideLoading() {
+        document.getElementById('loadingOverlay').classList.remove('visible');
     }
 
-    // Function to close modal
+    /* ── Modal ──────────────────────────────────────────────── */
+    function showModal(html, title) {
+        document.getElementById('modalTitle').textContent = title || 'Response';
+        document.getElementById('responseContent').innerHTML = html;
+        document.getElementById('responseModal').classList.add('visible');
+    }
     function closeModal() {
-        document.getElementById('responseModal').style.display = 'none';
-        document.getElementById('embedContent').src = '';
+        document.getElementById('responseModal').classList.remove('visible');
+        document.getElementById('responseContent').innerHTML = '';
     }
-
-    // Handle form submissions
-    document.getElementById('onboardingForm').addEventListener('submit', function (event) {
-        event.preventDefault();
-
-        // Create FormData object
-        const formData = new FormData(this);
-        showWaitingDialog();
-        // Send form data to server
-        fetch('/onboarding', {
-            method: 'POST',
-            body: formData
-        })
-            .then(response => response.json())
-            .then(data => {
-                hideWaitingDialog()
-                // Display the response in a popup window
-
-                if (data.modal_content) {
-
-                    var url = data.modal_content.job_url
-
-                    const modalContent = `
-                                <div class="modal-content">
-                                <h3 class='step-heading'>${data.modal_content.title}</h3>
-                                ${data.modal_content.job_id ? `<p>Job ID: ${data.modal_content.job_id}</p>`:""}
-                                
-                                <p><a href="${url}" target="_blank">Open Job in Databricks</a></p >
-                               
-                                </div>
-                            `;
-                    showModal(modalContent);
-                } else {
-                    // Handle case when modal_content is not present
-                    showModal('<pre>' + JSON.stringify(data, null, 2) + '</pre>');
-                }
-            })
-            .catch(error => {
-                hideWaitingDialog()
-                showModal('<p style="color:red;">Error: ' + error.message + '</p>');
-            });
+    document.getElementById('responseModal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
     });
 
-    // Also handle the deployment form
-    document.getElementById('deploymentForm').addEventListener('submit', function (event) {
-        event.preventDefault();
-
-        const formData = new FormData(this);
-        showWaitingDialog();
-        fetch('/deploy', {
-            method: 'POST',
-            body: formData
-        })
-            .then(response => response.json())
-            .then(data => {
-                hideWaitingDialog()
-                if (data.modal_content) {
-
-                    var url = data.modal_content.job_url
-
-                    const modalContent = `
-                                <div class="modal-content">
-                                <h3 class='step-heading'>${data.modal_content.title}</h3>
-                    ${data.modal_content.job_id ? `<p>Job ID: ${data.modal_content.job_id}</p>
-                `:""}
-                                
-                                <p><a href="${url}" target="_blank">Open Job in Databricks</a></p >
-                               
-                                </div>
-                            `;
-                    showModal(modalContent);
-                } else {
-                    // Handle case when modal_content is not present
-                    showModal('<pre>' + JSON.stringify(data, null, 2) + '</pre>');
-                }
-            })
-            .catch(error => {
-                hideWaitingDialog()
-                showModal('<p style="color:red;">Error: ' + error.message + '</p>');
-            });
-    });
-
-    function openTab(evt, tabName) {
-        // Hide all tab content
-        var tabContents = document.getElementsByClassName("tab-content");
-        for (var i = 0; i < tabContents.length; i++) {
-            tabContents[i].classList.remove("active");
-        }
-
-        // Remove active class from all tabs
-        var tabs = document.getElementsByClassName("tab");
-        for (var i = 0; i < tabs.length; i++) {
-            tabs[i].classList.remove("active");
-        }
-
-        // Show the selected tab content and add active class to the button
-        document.getElementById(tabName).classList.add("active");
-        evt.currentTarget.classList.add("active");
-    }
-
-
-    // Wait for DOM to be fully loaded
-    document.addEventListener('DOMContentLoaded', function () {
-
-        document.getElementById("demo").querySelectorAll('.command-button2').forEach(button => {
-            const demo_uc_name = document.getElementById('demo_uc_name');
-
-            button.addEventListener('click', function () {
-                const command = this.getAttribute('data-command');
-
-                if (!demo_uc_name.value.trim()) {
-                    event.preventDefault(); // Prevent any default action
-                    alert('Please enter a unity catalog name for the demo');
-                    demo_uc_name.focus(); // Focus on the input field
-                    return false;
-                }
-                showWaitingDialog();
-                // Send the command to Flask backend
-                fetch('/rundemo', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({"demo_name": command, "uc_name": demo_uc_name.value.trim()})
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        hideWaitingDialog()
-                        // Display the response in a popup window
-
-                        if (data.modal_content) {
-
-                            var url = data.modal_content.job_url
-
-                            const modalContent = `
-                                <div class="modal-content">
-                                <h3 class='step-heading'>${data.modal_content.title}</h3>
-                                 ${data.modal_content.job_id ? `<p>Job ID: ${data.modal_content.job_id}</p>`:""}
-                                
-                                <p><a href="${url}" target="_blank">Open Job in Databricks</a></p >
-                               
-                                </div>
-                            `;
-                            showModal(modalContent);
-                        } else {
-                            // Handle case when modal_content is not present
-                            showModal('<pre>' + JSON.stringify(data, null, 2) + '</pre>');
-                        }
-                    })
-                    .catch(error => {
-                        hideWaitingDialog()
-                        showModal('<p style="color:red;">Error: ' + error.message + '</p>');
-                    });
-            });
-        });
-
-
-        let currentCommandId = null;
-        const terminal = document.getElementById('terminal');
-        const inputField = document.getElementById('input');
-        const sendBtn = document.getElementById('sendBtn');
-
-        // Fix for command buttons - use event delegation
-        document.getElementById("setup").querySelectorAll('.command-button2').forEach(button => {
-            button.addEventListener('click', function () {
-                const command = this.getAttribute('data-command');
-                setCommand(command);
-            });
-        });
-
-        document.getElementById("setupDlt").querySelectorAll('.command-button').forEach(button => {
-            button.addEventListener('click', function () {
-                const command = this.getAttribute('data-command');
-                startCommand(command);
-            });
-        });
-
-        function ansiToHtml(text) {
-            // Handle bold text
-            text = text.replace(/\[1m(.*?)\[0m/g, '<strong>$1</strong>');
-
-            // Handle colored text
-            text = text.replace(/\[36m(.*?)\[0m/g, '<span style="color:cyan">$1</span>');
-            text = text.replace(/\[31m(.*?)\[0m/g, '<span style="color:red">$1</span>');
-            text = text.replace(/\[32m(.*?)\[0m/g, '<span style="color:green">$1</span>');
-
-            // Remove any remaining escape sequences
-            text = text.replace(/\[\d+m/g, '');
-
-            return text;
-        }
-
-        function appendToTerminal(text, className = '') {
-            const line = document.createElement('div');
-            line.className = `output-line ${className}`;
-
-            // Convert ANSI escape codes to HTML
-            const htmlContent = ansiToHtml(text);
-
-            // Use innerHTML instead of textContent
-            line.innerHTML = htmlContent;
-
-            terminal.appendChild(line);
-            terminal.scrollTop = terminal.scrollHeight;
-        }
-
-        function setCommand(command) {
-            inputField.value = command;
-            inputField.focus();
-        }
-
-        async function startCommand(command) {
-            try {
-                showWaitingDialog();
-                const response = await fetch('/start_command', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({command})
-                });
-
-                const data = await response.json();
-                currentCommandId = data.command_id;
-
-                // Start polling for output
-                pollOutput();
-
-                appendToTerminal(`$ ${command}`, 'input-line');
-                inputField.value = '';
-                hideWaitingDialog();
-            } catch (error) {
-                hideWaitingDialog();
-                appendToTerminal(`Error: ${error.message}`, 'error-line');
+    /* ── API response renderer ──────────────────────────────── */
+    function renderApiResponse(data, defaultTitle) {
+        if (data.modal_content) {
+            var safeUrl = isValidHttpsUrl(data.modal_content.job_url) ? data.modal_content.job_url : null;
+            var html = '';
+            if (data.modal_content.job_id) {
+                html += '<div class="job-chip">Job ID&nbsp;<strong>' + escapeHtml(data.modal_content.job_id) + '</strong></div><br>';
             }
+            if (safeUrl) {
+                html += '<a class="result-link" href="' + escapeHtml(safeUrl) + '" target="_blank" rel="noopener noreferrer">Open in Databricks &#8599;</a>';
+            }
+            showModal(html, escapeHtml(data.modal_content.title) || defaultTitle);
+        } else {
+            showModal('<pre>' + escapeHtml(JSON.stringify(data, null, 2)) + '</pre>', defaultTitle);
         }
+    }
+    function handleError(err, title) {
+        showModal('<p style="color:var(--brand);font-weight:500">Error: ' + escapeHtml(err.message) + '</p>', title);
+    }
 
-        async function sendInput(input) {
-            if (!currentCommandId) {
-                appendToTerminal('No active command session', 'error-line');
+    /* ── Onboarding form ────────────────────────────────────── */
+    document.getElementById('onboardingForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        showLoading('Running onboarding…');
+        fetch('/onboarding', { method: 'POST', body: new FormData(this) })
+            .then(function(r) { return r.json(); })
+            .then(function(d) { hideLoading(); renderApiResponse(d, 'Onboarding Result'); })
+            .catch(function(e) { hideLoading(); handleError(e, 'Onboarding Error'); });
+    });
+
+    /* ── Deployment form ────────────────────────────────────── */
+    document.getElementById('deploymentForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        showLoading('Deploying pipeline…');
+        fetch('/deploy', { method: 'POST', body: new FormData(this) })
+            .then(function(r) { return r.json(); })
+            .then(function(d) { hideLoading(); renderApiResponse(d, 'Deploy Result'); })
+            .catch(function(e) { hideLoading(); handleError(e, 'Deploy Error'); });
+    });
+
+    /* ── UC catalog access pre-flight ───────────────────────── */
+    /* Tracks the most recent demo command the user clicked so the
+       "Verify and retry" button inside the grant-required modal can
+       re-issue the same /rundemo call after the grant is applied. */
+    var __lastDemoCommand = null;
+
+    function _setUcStatus(kind, html) {
+        var el = document.getElementById('ucAccessStatus');
+        el.className = 'uc-access-status ' + kind;
+        el.innerHTML = html;
+        el.hidden = false;
+    }
+    function _clearUcStatus() {
+        var el = document.getElementById('ucAccessStatus');
+        el.hidden = true;
+        el.innerHTML = '';
+    }
+
+    function _flashUcInputInvalid() {
+        var ucInput = document.getElementById('demo_uc_name');
+        ucInput.focus();
+        ucInput.style.borderColor = '#FF3621';
+        ucInput.style.boxShadow   = '0 0 0 3px rgba(255,54,33,.16)';
+        setTimeout(function() {
+            ucInput.style.borderColor = '';
+            ucInput.style.boxShadow   = '';
+        }, 1800);
+    }
+
+    /* "Test App access" button — non-blocking probe. Calls
+       /check-uc-grants and renders the result inline above the demo
+       grid. On missing privileges, also opens the grant-required modal
+       so the SQL block + Copy button are immediately usable. */
+    function checkUcGrants() {
+        var ucInput = document.getElementById('demo_uc_name');
+        var ucName = ucInput.value.trim();
+        if (!ucName) { _flashUcInputInvalid(); return; }
+
+        var btn = document.getElementById('btnTestAccess');
+        btn.disabled = true;
+        var originalLabel = btn.textContent;
+        btn.textContent = 'Checking…';
+        _setUcStatus('info', 'Checking access on <code>' + escapeHtml(ucName) + '</code>…');
+
+        fetch('/check-uc-grants?uc_name=' + encodeURIComponent(ucName))
+            .then(function(r) { return r.json().then(function(d) { return { status: r.status, body: d }; }); })
+            .then(function(resp) {
+                btn.disabled = false; btn.textContent = originalLabel;
+                if (resp.status >= 400 || (resp.body.error && !resp.body.grant_sql)) {
+                    _setUcStatus('warn', '<strong>Error:</strong> ' + escapeHtml(resp.body.error || ('HTTP ' + resp.status)));
+                    return;
+                }
+                var d = resp.body;
+                if (d.ok) {
+                    _setUcStatus('ok',
+                        '<strong>✓ Access OK.</strong> App SP <code>' + escapeHtml(d.sp_display_name) +
+                        '</code> has ' + (d.have || []).map(escapeHtml).join(', ') +
+                        ' on <code>' + escapeHtml(d.uc_name) + '</code>.');
+                } else {
+                    _setUcStatus('warn',
+                        '<strong>Grant required.</strong> Missing ' + (d.missing || []).map(escapeHtml).join(', ') +
+                        ' on <code>' + escapeHtml(d.uc_name) + '</code>. See modal for SQL.');
+                    showGrantRequiredModal(d);
+                }
+            })
+            .catch(function(e) {
+                btn.disabled = false; btn.textContent = originalLabel;
+                _setUcStatus('warn', '<strong>Error:</strong> ' + escapeHtml(e.message));
+            });
+    }
+
+    /* Renders the grant-required panel inside the response modal.
+       Used for both the manual "Test App access" path (when missing)
+       and the /rundemo 400 blocker path. */
+    function showGrantRequiredModal(d) {
+        var html = '';
+        html += '<div class="grant-panel">';
+        html += '<div class="grant-warning"><strong>Grant required.</strong> ' + escapeHtml(d.error || 'The App service principal is missing required privileges on the catalog.') + '</div>';
+        html += '<dl class="grant-dl">';
+        html += '<dt>App identity</dt><dd>' + escapeHtml(d.sp_display_name || '') + ' <code>' + escapeHtml(d.sp_principal || '') + '</code></dd>';
+        html += '<dt>Catalog</dt><dd><code>' + escapeHtml(d.uc_name || '') + '</code></dd>';
+        html += '<dt>Missing</dt><dd>' + (d.missing || []).map(escapeHtml).join(', ') + '</dd>';
+        if (d.have && d.have.length) {
+            html += '<dt>Already has</dt><dd>' + d.have.map(escapeHtml).join(', ') + '</dd>';
+        }
+        html += '</dl>';
+        html += '<p style="font-size:.88rem;color:var(--ink-60);margin:0">Run this SQL in a Databricks SQL editor as the catalog owner (not as the App). Then click <em>Verify and retry</em>.</p>';
+        html += '<div class="grant-sql-row">';
+        html += '<pre class="grant-sql-block" id="grantSqlBlock">' + escapeHtml(d.grant_sql || '') + '</pre>';
+        html += '<button type="button" class="btn-copy" id="btnCopyGrantSql" onclick="copyGrantSql()">Copy</button>';
+        html += '</div>';
+        html += '<div class="grant-actions">';
+        html += '<button type="button" class="btn-primary" onclick="verifyAndRetry()">Verify and retry</button>';
+        html += '<button type="button" class="btn-secondary" onclick="closeModal()">Close</button>';
+        html += '</div>';
+        html += '</div>';
+        showModal(html, 'Grant required for App service principal');
+    }
+
+    function copyGrantSql() {
+        var pre = document.getElementById('grantSqlBlock');
+        var btn = document.getElementById('btnCopyGrantSql');
+        if (!pre) return;
+        var text = pre.innerText;
+        var done = function() {
+            btn.textContent = 'Copied';
+            btn.classList.add('copied');
+            setTimeout(function() {
+                btn.textContent = 'Copy';
+                btn.classList.remove('copied');
+            }, 1600);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, function() {
+                /* fall through to manual selection on failure */
+                var range = document.createRange(); range.selectNode(pre);
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+            });
+        } else {
+            var range = document.createRange(); range.selectNode(pre);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            try { document.execCommand('copy'); done(); } catch (_) {}
+        }
+    }
+
+    /* Re-runs /check-uc-grants for the current input. If access is now
+       OK and we got here from a /rundemo blocker, automatically launches
+       the demo the user originally tried to run. */
+    function verifyAndRetry() {
+        var ucName = document.getElementById('demo_uc_name').value.trim();
+        if (!ucName) { _flashUcInputInvalid(); return; }
+        showLoading('Verifying access…');
+        fetch('/check-uc-grants?uc_name=' + encodeURIComponent(ucName))
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                hideLoading();
+                if (d.ok) {
+                    _setUcStatus('ok',
+                        '<strong>✓ Access OK.</strong> App SP <code>' + escapeHtml(d.sp_display_name) +
+                        '</code> can now use <code>' + escapeHtml(d.uc_name) + '</code>.');
+                    if (__lastDemoCommand) {
+                        var cmd = __lastDemoCommand;
+                        closeModal();
+                        runDemo(cmd);
+                    } else {
+                        closeModal();
+                    }
+                } else {
+                    /* Re-render the panel with the latest probe state.
+                       The grant likely hasn't been applied yet. */
+                    showGrantRequiredModal(d);
+                }
+            })
+            .catch(function(e) { hideLoading(); handleError(e, 'Verify Error'); });
+    }
+
+    /* ── Demo cards ─────────────────────────────────────────── */
+    function runDemo(command) {
+        var ucInput = document.getElementById('demo_uc_name');
+        if (!ucInput.value.trim()) { _flashUcInputInvalid(); return; }
+
+        __lastDemoCommand = command;
+        showLoading('Launching demo…');
+        fetch('/rundemo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ demo_name: command, uc_name: ucInput.value.trim() })
+        })
+        .then(function(r) { return r.json().then(function(d) { return { status: r.status, body: d }; }); })
+        .then(function(resp) {
+            hideLoading();
+            /* /rundemo returns 400 + grant_required:true when the App SP
+               lacks privileges on the user's catalog. Surface the panel
+               instead of dumping the raw JSON into a generic modal. */
+            if (resp.status === 400 && resp.body && resp.body.grant_required) {
+                _setUcStatus('warn',
+                    '<strong>Grant required.</strong> ' + escapeHtml(resp.body.error || ''));
+                showGrantRequiredModal(resp.body);
                 return;
             }
+            renderApiResponse(resp.body, 'Demo Result');
+        })
+        .catch(function(e) { hideLoading(); handleError(e, 'Demo Error'); });
+    }
 
-            try {
-                await fetch('/send_input', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        command_id: currentCommandId,
-                        input
-                    })
-                });
-
-                inputField.value = '';
-            } catch (error) {
-                appendToTerminal(`Error: ${error.message}`, 'error-line');
-            }
-        }
-
-        async function pollOutput() {
-            if (!currentCommandId) return;
-
-            try {
-                const response = await fetch(`/get_output?command_id=${currentCommandId}`);
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    for (const item of data.output) {
-                        if (item.type === 'output') {
-                            appendToTerminal(item.content);
-                        } else if (item.type === 'error') {
-                            appendToTerminal(item.content, 'error-line');
-                        } else if (item.type === 'input') {
-                            appendToTerminal(`> ${item.content}`, 'input-line');
-                        } else if (item.type === 'prompt') {
-                            // For prompts, make sure they're highlighted
-                            appendToTerminal(item.content, 'prompt-line');
-                        } else if (item.type === 'exit') {
-                            if (item.content !== 0) {
-                                appendToTerminal(`Command exited with code ${item.content}`, 'error-line');
-                            }
-                            await cleanup();
-                            appendToTerminal('$ ', 'prompt');
-                            return;
-                        }
-                    }
-                }
-
-                // Continue polling
-                setTimeout(pollOutput, 500);
-            } catch (error) {
-                appendToTerminal(`Error polling output: ${error.message}`, 'error-line');
-                setTimeout(pollOutput, 2000);  // Retry after a longer delay
-            }
-        }
-
-        async function cleanup() {
-            if (!currentCommandId) return;
-
-            try {
-                await fetch('/cleanup', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        command_id: currentCommandId
-                    })
-                });
-
-                currentCommandId = null;
-            } catch (error) {
-                appendToTerminal(`Error during cleanup: ${error.message}`, 'error-line');
-            }
-        }
-
-        sendBtn.addEventListener('click', () => {
-            const input = inputField.value.trim();
-            if (!input) return;
-
-            if (!currentCommandId) {
-                startCommand(input);
-            } else {
-                sendInput(input);
-            }
+    document.querySelectorAll('.demo-card').forEach(function(card) {
+        card.addEventListener('click', function() { runDemo(this.dataset.command); });
+        card.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); runDemo(this.dataset.command); }
         });
-
-        inputField.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                sendBtn.click();
-            }
-        });
-
-        // Initialize with a prompt
-        appendToTerminal('Welcome to the Databricks SDP-META CLI Browser Interface', 'input-line');
-        appendToTerminal('Type a command or click one of the suggestions below', 'input-line');
-        appendToTerminal('$ ', 'prompt');
-
-
     });
+
+    /* Clear the inline access status when the user edits the catalog
+       name — a stale "OK" indicator for a different catalog name would
+       be misleading. */
+    document.getElementById('demo_uc_name').addEventListener('input', _clearUcStatus);
 </script>
 </body>
 </html>
-

@@ -1,324 +1,170 @@
 from flask import Flask, render_template, request, jsonify
+from werkzeug.exceptions import HTTPException
+from dataclasses import asdict
 import subprocess
-import threading
-import queue
-import time
+import sys
 import os
 import logging
-import errno
 import re
-import pty
-import select
-import fcntl
-import termios
-import struct
-import signal
 import json
+
+# UC identifier validation. The sdp-meta wheel is built and installed by
+# lakehouse_app/start.sh in the App container, so this import succeeds at
+# request-handling time. Local-dev runs that haven't installed the wheel
+# (`pip install -e .` skipped) get a graceful no-op fallback so /onboarding
+# and /deploy still respond instead of 500-ing on import.
+try:
+    from databricks.labs.sdp_meta.identifiers import validate_uc_identifier
+except ImportError:  # pragma: no cover — only hit when the wheel is missing.
+    def validate_uc_identifier(name, *, kind: str = "identifier") -> str:
+        return name
+
+# UC catalog pre-flight (Apps-SP grants). Lives next to app.py so the
+# probe + GRANT SQL builder ship in the same source tree and can be
+# imported without any PYTHONPATH gymnastics.
+from uc_preflight import check_app_sp_grants_on_catalog  # noqa: E402
+
+# Always log to stdout/stderr (captured by the Apps runtime). Add a file
+# handler only if the target path is writable — the App container's working
+# directory can be read-only, and a FileHandler that can't open its file
+# raises during basicConfig and takes down the whole app at import time.
+_log_handlers: list[logging.Handler] = [logging.StreamHandler()]
+try:
+    _log_file = os.path.join(os.environ.get("TMPDIR", "/tmp"), "dlt-meta-app.log")
+    _log_handlers.append(logging.FileHandler(_log_file))
+except OSError:
+    pass  # read-only FS — stdout/stderr capture is enough.
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    handlers=[logging.FileHandler("sdp-meta-app.log"),
-                              logging.StreamHandler()])
+                    handlers=_log_handlers)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-command_queues = {}
-response_queues = {}
 
 
-def run_command(command_id, command, input_queue, output_queue, SHELL_FLG=False):
+def _repo_root() -> str:
+    """Return the dlt-meta repo root (no trailing slash).
 
-    # Handle export commands
-    if command.startswith('export'):
-        try:
-            var, value = command.split(' ', 1)[1].split('=', 1)
-            os.environ[var] = value
-            print(f"env var: {os.environ[var]}")
-            output_queue.put(('output', f"Exported {var}={value}\n"))
-            output_queue.put(('exit', 0))
-        except Exception as e:
-            output_queue.put(('error', str(e)))
-            output_queue.put(('exit', 1))
-        return
-    # Handle cd commands
-    if command.startswith('cd'):
-        try:
-            path = command.split(' ', 1)[1]
-            os.chdir(path)
-            output_queue.put(('output', f"Changed directory to {os.getcwd()}\n"))
-            output_queue.put(('exit', 0))
-        except Exception as e:
-            output_queue.put(('error', str(e)))
-            output_queue.put(('exit', 1))
-        return
+    On Databricks Apps the container layout after deploying from the repo root is:
+        /app/python/source_code/          ← repo root (PYTHONPATH set here by platform)
+            setup.py
+            app.yaml
+            requirements.txt
+            src/                          ← sdp-meta package (installed by start.sh)
+            demo/                         ← demo scripts
+            integration_tests/            ← imported by demo scripts
+            lakehouse_app/
+                app.py                    ← this file
 
-    # If command is a Python script, ensure unbuffered output
-    if command.startswith('python'):
-        command = command.replace('python', 'python -u', 1)
-    # Create a pseudo-terminal
-    master, slave = pty.openpty()
-    # Set the terminal size
-    term_size = struct.pack('HHHH', 24, 80, 0, 0)
-    fcntl.ioctl(slave, termios.TIOCSWINSZ, term_size)
-    # Start the process
-    process = subprocess.Popen(
-        ["bash", "-c", command],
-        shell=SHELL_FLG,
-        stdin=slave,
-        stdout=slave,
-        stderr=slave,
-        preexec_fn=os.setsid,
-        text=False,
-        bufsize=0,
-        env=os.environ.copy()
+    So: os.path.dirname(os.path.dirname(__file__)) == /app/python/source_code/
+    which is exactly the repo root where demo/ and integration_tests/ live.
+
+    Resolution order:
+    1. DLT_META_HOME env var — explicit override for non-standard layouts.
+    2. __file__ — one directory up from lakehouse_app/.
+    """
+    override = os.environ.get('DLT_META_HOME', '').strip().rstrip('/')
+    if override:
+        logger.info("DLT_META_HOME override: %s", override)
+        return override
+
+    # app.py lives in lakehouse_app/, parent is the repo root
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    logger.info("Repo root derived from __file__: %s", root)
+
+    # Warn loudly if expected directories are absent so the log is actionable
+    for expected in ('demo', 'integration_tests', 'src'):
+        if not os.path.isdir(os.path.join(root, expected)):
+            logger.warning(
+                "Expected directory '%s/' not found under repo root '%s'. "
+                "Make sure the full dlt-meta repo was deployed (not just lakehouse_app/).",
+                expected, root,
+            )
+    return root
+
+
+@app.errorhandler(Exception)
+def handle_exception(exc):
+    """Catch all unhandled exceptions and return JSON instead of an HTML 500 page.
+    Standard HTTP errors (404, 405, etc.) are passed through normally so Flask
+    can return the correct status code without logging them as application errors."""
+    if isinstance(exc, HTTPException):
+        return exc  # let Flask render the normal HTTP error response
+    logger.exception("Unhandled exception in route: %s", exc)
+    return jsonify({
+        'error': str(exc),
+        'stdout': '',
+        'stderr': '',
+        'returncode': -1,
+        'modal_content': None,
+    }), 500
+
+
+@app.after_request
+def add_security_headers(response):
+    """Attach HTTP security headers to every response (fix M4)."""
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "frame-src 'self' *.cloud.databricks.com; "
+        "object-src 'none';"
     )
-    # Close the slave fd, as the child process has it
-    os.close(slave)
-    # Set master to non-blocking mode
-    fl = fcntl.fcntl(master, fcntl.F_GETFL)
-    fcntl.fcntl(master, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-    # Variables for tracking state
-    waiting_for_input = False
-    buffer = ""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    return response
 
-    # Create events for signaling
-    stop_event = threading.Event()
-    last_prompt = None
-    last_prompt_time = 0
 
-    def output_reader():
-        nonlocal buffer, waiting_for_input, last_prompt, last_prompt_time
-        while not stop_event.is_set() and process.poll() is None:
-            try:
-                # Check if there's data to read
-                r, _, _ = select.select([master], [], [], 0.1)
-                if master in r:
-                    # Read data
-                    data = os.read(master, 1024)
-                    if not data:
-                        break
-                    # Decode the data
-                    try:
-                        text = data.decode('utf-8')
-                    except UnicodeDecodeError:
-                        text = data.decode('latin-1')
-                    # Add to output queue
-                    output_queue.put(('output', text))
-                    # Add to buffer for prompt detection
-                    buffer += text
-                    # Check for prompts in the buffer
-                    lines = buffer.splitlines(True)
-                    buffer = ""
-                    for line in lines:
-                        if line.endswith('\n'):
-                            buffer = ""
-                        else:
-                            buffer += line
-                        # Check if line looks like a prompt
-                        if (('?' in line or ':' in line
-                             or line.strip().endswith('>')
-                             or '[y/n]' in line
-                             or 'input' in line.lower()
-                             or 'select' in line.lower()
-                             or 'choose' in line.lower()
-                             or 'continue' in line.lower()
-                             or 'press' in line.lower()) and not line.strip().endswith('\\')):
-                            # output_queue.put(('prompt', line))
-                            # waiting_for_input = True
-
-                            # Deduplicate prompts
-                            current_time = time.time()
-                            if last_prompt != line or current_time - last_prompt_time > 1.0:
-                                output_queue.put(('prompt', line))
-                                waiting_for_input = True
-                                last_prompt = line
-                                last_prompt_time = current_time
-            except (OSError, IOError) as e:
-                if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
-                    output_queue.put(('error', f"Output error: {str(e)}"))
-                    break
-            except Exception as e:
-                output_queue.put(('error', f"Output error: {str(e)}"))
-                break
-            time.sleep(0.01)
-    # Start output reader thread
-    output_thread = threading.Thread(target=output_reader)
-    output_thread.daemon = True
-    output_thread.start()
-    # Main loop for handling input
-    try:
-        while process.poll() is None:
-            try:
-                # Check if we have user input to send
-                if not input_queue.empty():
-                    user_input = input_queue.get()
-                    # Add newline and encode
-                    input_data = (user_input + '\n').encode('utf-8')
-                    # Write to the master fd
-                    os.write(master, input_data)
-                    # Add to output queue
-                    output_queue.put(('input', user_input))
-                    # Reset state
-                    waiting_for_input = False
-                    last_prompt = None
-                # If we're waiting for input but none is available, sleep briefly
-                elif waiting_for_input:
-                    time.sleep(0.1)
-                # Otherwise just wait a bit
-                else:
-                    time.sleep(0.1)
-            except Exception as e:
-                output_queue.put(('error', f"Input error: {str(e)}"))
-                time.sleep(0.1)
-    except KeyboardInterrupt:
-        # Handle keyboard interrupt
-        pass
-    finally:
-        # Signal the output thread to stop
-        stop_event.set()
-        # Try to terminate the process gracefully
-        try:
-            if process.poll() is None:
-                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-                process.wait(timeout=1)
-        except Exception:
-            # Force kill if necessary
-            try:
-                if process.poll() is None:
-                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-            except Exception:
-                pass
-        # Close the master fd
-        try:
-            os.close(master)
-        except Exception:
-            pass
-        # Wait for output thread to finish
-        output_thread.join(timeout=1)
-        # Process has ended
-        exit_code = process.poll() if process.poll() is not None else -1
-        output_queue.put(('exit', exit_code))
-
+# ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.route('/')
 def index():
-    return render_template('index.html')
-
-
-@app.route('/start_command', methods=['POST'])
-def start_command():
-    data = request.json
-    command = data.get('command')
-
-    if command == 'setup':
-        try:
-            current_directory = os.getcwd()
-            print(f"Current directory: {current_directory}")
-        except FileNotFoundError:
-            print("The current working directory is no longer accessible.")
-            # Optionally, set a default directory
-            os.chdir("/")  # Change to root directory
-            current_directory = os.getcwd()
-
-        command_id = None
-        # Chain commands with && to ensure they run in sequence
-        if 'PYTHONPATH' not in os.environ or not os.path.isdir(os.environ.get('PYTHONPATH', '')):
-            commands = [
-                "pip install databricks-cli",
-                "git clone https://github.com/databrickslabs/sdp-meta.git",
-                f"python -m venv {current_directory}/sdp-meta/.venv",
-                f"export HOME={current_directory}",
-                "cd sdp-meta",
-                "source .venv/bin/activate",
-                f"export PYTHONPATH={current_directory}/sdp-meta/",
-                "pwd",
-                "pip install databricks-sdk",
-                "pip install PyYAML",
-            ]
-            print("Start setting up sdp-meta environment")
-            for c in commands:
-                try:
-                    command_id = str(time.time())
-
-                    input_queue = queue.Queue()
-                    output_queue = queue.Queue()
-
-                    command_queues[command_id] = input_queue
-                    response_queues[command_id] = output_queue
-                    run_command(command_id, c, input_queue, output_queue, False)
-                    print(f"complete setup command : {c}")
-                except Exception as e:
-                    logger.error(f"Error starting command: {str(e)}")
-                    print(f"Error starting command: {str(e)}")
-            print("Completed setting up sdp-meta environment")
-
-    else:
-        command_id = str(time.time())
-        input_queue = queue.Queue()
-        output_queue = queue.Queue()
-        command_queues[command_id] = input_queue
-        response_queues[command_id] = output_queue
-        thread = threading.Thread(target=run_command, args=(command_id, command, input_queue, output_queue))
-        thread.daemon = True
-        thread.start()
-    return jsonify({'command_id': command_id})
-
-
-@app.route('/send_input', methods=['POST'])
-def send_input():
-    data = request.json
-    command_id = data.get('command_id')
-    user_input = data.get('input')
-    if command_id in command_queues:
-        command_queues[command_id].put(user_input)
-        return jsonify({'status': 'success'})
-    else:
-        return jsonify({'status': 'error', 'message': 'Command not found'})
-
-
-@app.route('/get_output', methods=['GET'])
-def get_output():
-    command_id = request.args.get('command_id')
-    if command_id in response_queues:
-        output_queue = response_queues[command_id]
-        result = []
-        while not output_queue.empty():
-            output_type, content = output_queue.get()
-            result.append({'type': output_type, 'content': content})
-        return jsonify({'status': 'success', 'output': result})
-    else:
-        return jsonify({'status': 'error', 'message': 'Command not found'})
-
-
-@app.route('/cleanup', methods=['POST'])
-def cleanup():
-    data = request.json
-    command_id = data.get('command_id')
-    if command_id in command_queues:
-        del command_queues[command_id]
-    if command_id in response_queues:
-        del response_queues[command_id]
-    return jsonify({'status': 'success'})
+    return render_template('landingPage.html')
 
 
 @app.route('/onboarding', methods=['POST'])
 def handle_onboard_form():
 
-    print(f"onboard details: {request.form}")
-    current_directory = os.environ['PYTHONPATH']  # os.getcwd()
+    logger.info("onboard details: %s", dict(request.form))
+    current_directory = _repo_root()
+
+    uc_enabled = request.form.get('unity_catalog_enabled') == "1"
+    uc_name = request.form.get('unity_catalog_name', '')
+
+    # Validate UC identifier at the App boundary so a malformed name surfaces
+    # as an actionable 400 instead of a generic ``cli.py`` traceback. The
+    # underlying onboarding code splices catalog / schema names into SQL
+    # strings unquoted (issue #261), so this is also a defense-in-depth
+    # check against SQL-identifier injection via the form. Only enforced
+    # when UC is enabled — the non-UC HMS path doesn't take a catalog.
+    if uc_enabled and uc_name:
+        try:
+            validate_uc_identifier(uc_name, kind="unity_catalog_name")
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
 
     # Create JSON object from form data
     json_data = {
-        "unity_catalog_enabled": "1" if request.form.get('unity_catalog_enabled') == "1" else "0",
-        "unity_catalog_name": request.form.get('unity_catalog_name', ''),
+        "unity_catalog_enabled": "1" if uc_enabled else "0",
+        "unity_catalog_name": uc_name,
         "serverless": "1" if request.form.get('serverless') == "1" else "0",
-        "onboarding_file_path": request.form.get('onboarding_file_path', 'demo/conf/json/onboarding.template'),
-        "local_directory": request.form.get('local_directory', '/app/python/source_code/sdp-meta/demo/'),
-        "sdp_meta_schema": request.form.get('sdp_meta_schema',
-                                            'sdp_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14'),
-        "bronze_schema": request.form.get('bronze_schema', 'sdp_meta_bronze_9c1aa383b36a49198d3e99d25f7180a4'),
-        "silver_schema": request.form.get('silver_schema', 'sdp_meta_silver_7b4e981029b843c799bf61a0a121b3ca'),
-        "sdp_meta_layer": request.form.get('sdp_meta_layer', '1'),
+        "onboarding_file_path": request.form.get('onboarding_file_path', 'demo/conf/onboarding.template'),
+        # Default to the demo/ directory under the repo root that
+        # ``_repo_root()`` discovered. The previous hardcoded default
+        # ``/app/python/source_code/dlt-meta/demo/`` was wrong for the
+        # current Mode A layout (the App mounts the repo at
+        # ``/app/python/source_code/`` directly — no ``dlt-meta/`` segment).
+        "local_directory": request.form.get(
+            'local_directory',
+            os.path.join(current_directory, 'demo') + os.sep,
+        ),
+        "dlt_meta_schema": request.form.get('dlt_meta_schema',
+                                            'dlt_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14'),
+        "bronze_schema": request.form.get('bronze_schema', 'dltmeta_bronze_9c1aa383b36a49198d3e99d25f7180a4'),
+        "silver_schema": request.form.get('silver_schema', 'dltmeta_silver_7b4e981029b843c799bf61a0a121b3ca'),
+        "dlt_meta_layer": request.form.get('dlt_meta_layer', '1'),
         "bronze_table": request.form.get('bronze_table', 'bronze_dataflowspec'),
         "silver_table": request.form.get('silver_table', 'silver_dataflowspec'),
         "overwrite": "1" if request.form.get('overwrite') == "1" else "0",
@@ -331,117 +177,302 @@ def handle_onboard_form():
     }
 
     json_string = json.dumps(json_data)
-    result = subprocess.run(f"python {current_directory}src/cli.py '{json_string}'",
-                            shell=True,
-                            capture_output=True,
-                            text=True
-                            )
+    # Fix C2: use argument list with shell=False to prevent shell injection via
+    # user-supplied form values. json.dumps does not escape single-quotes, so
+    # passing json_string inside a shell-quoted string is exploitable.
+    result = subprocess.run(
+        [sys.executable, os.path.join(current_directory, 'src', 'cli.py'), json_string],
+        shell=False,
+        capture_output=True,
+        text=True,
+    )
     return extract_command_output(result)
 
 
 @app.route('/deploy', methods=['POST'])
 def handle_deploy_form():
-    # Create JSON object from form data
-    print(f"deploy details: {request.form}")
-    current_directory = os.environ['PYTHONPATH']  # os.getcwd()
+    logger.info("deploy details: %s", dict(request.form))
+    current_directory = _repo_root()
+
+    uc_enabled = request.form.get('uc_enabled') == "1"
+    uc_name = request.form.get('uc_catalog_name', '')
+
+    # Validate UC identifier at the App boundary — same reasoning as
+    # /onboarding. Only enforced when UC is enabled.
+    if uc_enabled and uc_name:
+        try:
+            validate_uc_identifier(uc_name, kind="uc_catalog_name")
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
 
     json_data = {
-        "uc_enabled": "1" if request.form.get('uc_enabled') == "1" else "0",
-        "uc_catalog_name": request.form.get('uc_catalog_name', ''),
+        "uc_enabled": "1" if uc_enabled else "0",
+        "uc_catalog_name": uc_name,
         "serverless": "1" if request.form.get('serverless') == "1" else "0",
         "layer": request.form.get('deploylayer', 'bronze'),
-        "pipeline_name": request.form.get('pipeline_name', 'sdp_meta_pipeline'),
+        "pipeline_name": request.form.get('pipeline_name', 'dlt_meta_pipeline'),
         "dlt_target_schema": request.form.get("dlt_target_schema"),
         "command": "deploy_ui",
         "flags": {"log_level": "info"},
         "onboard_bronze_group": request.form.get("onboard_bronze_group"),
         "onboard_silver_group": request.form.get("onboard_silver_group"),
-        "sdp_meta_schema": request.form.get("spc_schema_name"),
+        "dlt_meta_schema": request.form.get("spc_schema_name"),
         "bronze_dataflowspec_table": request.form.get("bronze_dataflowspec_table"),
         "dataflowspec_silver_table": request.form.get("silver_dataflowspec_table"),
     }
 
     json_string = json.dumps(json_data)
-    result = subprocess.run(f"python {current_directory}/src/cli.py '{json_string}'",
-                            shell=True,
-                            capture_output=True,
-                            text=True
-                            )
+    # Fix C2: use argument list with shell=False — same reasoning as /onboarding
+    result = subprocess.run(
+        [sys.executable, os.path.join(current_directory, 'src', 'cli.py'), json_string],
+        shell=False,
+        capture_output=True,
+        text=True,
+    )
     return extract_command_output(result)
+
+
+@app.route('/check-uc-grants', methods=['GET'])
+def check_uc_grants():
+    """Probe whether the App SP has the privileges every demo needs on a UC catalog.
+
+    Front-end "Test App access" button calls this to verify a catalog
+    BEFORE the user clicks any demo. Returns 200 with the structured
+    :class:`uc_preflight.PreflightResult` payload regardless of outcome —
+    the ``ok`` flag tells the UI whether to render the success indicator
+    or the "Grant required" panel. The same probe runs as a 400-blocker
+    inside ``/rundemo`` (see below).
+    """
+    uc_name = (request.args.get('uc_name') or '').strip()
+    if not uc_name:
+        return jsonify({'error': 'uc_name query parameter is required'}), 400
+    try:
+        validate_uc_identifier(uc_name, kind='uc_name')
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    result = check_app_sp_grants_on_catalog(uc_name)
+    return jsonify(asdict(result))
 
 
 @app.route('/rundemo', methods=['POST'])
 def run_demo():
-    code_to_run = request.json.get('demo_name', '')
-    print(f"processing demo for :{request.json}")
-    current_directory = os.environ['PYTHONPATH']
-    demo_dict = {"demo_cloudfiles": "demo/launch_af_cloudfiles_demo.py",
-                 "demo_acf": "demo/launch_acfs_demo.py",
-                 "demo_silverfanout": "demo/launch_silver_fanout_demo.py",
-                 "demo_dias": "demo/launch_dais_demo.py",
-                 "demo_dlt_sink": "demo/launch_dlt_sink_demo.py",
-                 "demo_dabs": "demo/generate_dabs_resources.py"
-                 }
-    demo_file = demo_dict.get(code_to_run, None)
-    uc_name = request.json.get('uc_name', '')
+    payload = request.get_json(silent=True) or {}
+    code_to_run = payload.get('demo_name', '')
+    logger.info("processing demo: %s", payload)
+    current_directory = _repo_root()
+    # Allow-list of demos exposed by /rundemo. Each entry maps the UI
+    # ``data-command`` token to the launcher script + how to pass the UC
+    # catalog name on its CLI:
+    #
+    #   ``file``     — path to the launcher (relative to repo root).
+    #   ``uc_arg``   — flag the launcher's argparse expects for the UC
+    #                  catalog. The legacy ``launch_*_demo.py`` scripts use
+    #                  underscored ``--uc_catalog_name``;
+    #                  ``launch_interactive_demo.py`` uses hyphenated
+    #                  ``--uc-catalog-name`` (issue #261-era convention).
+    #   ``extra_args`` — fixed positional/flag args appended after the UC
+    #                  catalog. Used for the interactive demo so it returns
+    #                  promptly with the run URL instead of blocking the
+    #                  Flask request for the default 90-minute job timeout.
+    #
+    # Removed demos:
+    #
+    #   - ``demo_dabs`` (generate_dabs_resources.py) — shells out to
+    #     ``databricks bundle deploy/run`` which uses Terraform under the
+    #     hood. The Apps container ships only the SDK + CLI + sdp-meta
+    #     wheel; pulling in Terraform for one demo isn't worth the
+    #     runtime weight. Use the bundle CLI from a local terminal.
+    #   - ``demo_dlt_sink`` (launch_dlt_sink_demo.py) — requires Kafka /
+    #     Event Hubs source + secret-scope wiring that isn't available
+    #     to the App's service principal in this workspace. Run via the
+    #     CLI launcher with ``--profile`` instead.
+    demo_dict = {
+        "demo_cloudfiles": {
+            "file": "demo/launch_af_cloudfiles_demo.py",
+            "uc_arg": "--uc_catalog_name",
+        },
+        "demo_acf": {
+            "file": "demo/launch_acfs_demo.py",
+            "uc_arg": "--uc_catalog_name",
+        },
+        "demo_silverfanout": {
+            "file": "demo/launch_silver_fanout_demo.py",
+            "uc_arg": "--uc_catalog_name",
+        },
+        "demo_dias": {
+            "file": "demo/launch_dais_demo.py",
+            "uc_arg": "--uc_catalog_name",
+        },
+        "demo_interactive": {
+            "file": "demo/launch_interactive_demo.py",
+            "uc_arg": "--uc-catalog-name",
+            # The interactive launcher submits a serverless job, prints
+            # the run URL EARLY (before polling), and then blocks on
+            # ``waiter.result(timeout=timedelta(minutes=N))``. We pass a
+            # 1-minute timeout so the Flask request unblocks shortly
+            # after submission with the run URL captured in stdout; the
+            # actual demo job continues running in the workspace and the
+            # user clicks through via the surfaced URL.
+            "extra_args": ["--timeout-minutes", "1"],
+        },
+    }
+    demo_entry = demo_dict.get(code_to_run, None)
+    uc_name = payload.get('uc_name', '')
 
-    if code_to_run == 'demo_dabs':
+    # Fix C3: reject unknown demo names (demo_entry already validated by dict lookup)
+    if demo_entry is None:
+        return jsonify({'error': 'Unknown demo name'}), 400
 
-        # Step 1: Generate Databricks resources
-        subprocess.run(f"python {current_directory}/{demo_file} --uc_catalog_name {uc_name} "
-                       f"--source=cloudfiles --profile DEFAULT",
-                       shell=True,
-                       capture_output=True,
-                       text=True
-                       )
+    demo_file = demo_entry["file"]
+    demo_uc_arg = demo_entry["uc_arg"]
+    demo_extra_args = demo_entry.get("extra_args", [])
 
-        # Step 2: Change working directory to demo/dabs for all next commands
-        subprocess.run("databricks bundle validate --profile=DEFAULT", cwd=f"{current_directory}/demo/dabs",
-                       shell=True,
-                       capture_output=True,
-                       text=True)
+    # ── UC catalog pre-flight ───────────────────────────────────────────────
+    # Validate the catalog name shape and confirm the App SP has the
+    # privileges every demo launcher transitively needs (USE_CATALOG +
+    # CREATE_SCHEMA — the demos all CREATE SCHEMA <cat>.<schema>).
+    #
+    # Without this check, a missing grant surfaces inside the demo
+    # subprocess as a generic ``PermissionDenied`` traceback in stderr —
+    # actionable but ugly. Returning 400 here lets the front-end render
+    # the "Grant required" panel with the exact GRANT SQL the catalog
+    # owner needs to run, plus a "Verify and retry" button.
+    try:
+        validate_uc_identifier(uc_name, kind="uc_catalog_name")
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
 
-        # Step 4: Deploy the bundle
-        subprocess.run("databricks bundle deploy --target dev --profile=DEFAULT",
-                       cwd=f"{current_directory}/demo/dabs", shell=True,
-                       capture_output=True,
-                       text=True)
+    preflight = check_app_sp_grants_on_catalog(uc_name)
+    if not preflight.ok:
+        # 400 — client-correctable: the catalog owner needs to run SQL.
+        # Front-end pattern-matches on ``grant_required: True`` so the
+        # demo modal can render the panel instead of a generic error.
+        body = asdict(preflight)
+        body['grant_required'] = True
+        body['error'] = (
+            f"App service principal '{preflight.sp_display_name}' "
+            f"({preflight.sp_principal}) is missing "
+            f"{', '.join(preflight.missing)} on catalog '{uc_name}'. "
+            "Run the GRANT SQL below as the catalog owner and retry."
+        )
+        return jsonify(body), 400
 
-        # Step 5: Run 'onboard_people' task
-        rs1 = subprocess.run("databricks bundle run onboard_people -t dev --profile=DEFAULT",
-                             cwd=f"{current_directory}/demo/dabs", shell=True,
-                             capture_output=True,
-                             text=True)
-        print(f"onboarding completed: {rs1.stdout}")
-        # Step 6: Run 'execute_pipelines_people' task
-        result = subprocess.run("databricks bundle run execute_pipelines_people -t dev --profile=DEFAULT",
-                                cwd=f"{current_directory}/demo/dabs",
-                                shell=True,
-                                capture_output=True,
-                                text=True
-                                )
-        print(f"execution of pipeline completed: {result.stdout}")
-    else:
-        result = subprocess.run(f"python {current_directory}/{demo_file} --uc_catalog_name {uc_name} "
-                                f"--profile DEFAULT",
-                                shell=True,
-                                capture_output=True,
-                                text=True
-                                )
+    # Build subprocess environment.
+    #
+    # PYTHONPATH entries (order matters — earlier wins on import resolution):
+    #   1. lakehouse_app/  — Python's `site` module auto-imports a top-level
+    #      module called `sitecustomize` from sys.path on every interpreter
+    #      startup. lakehouse_app/sitecustomize.py installs the App-mode
+    #      shim that strips trailing ".py" from notebook_path arguments on
+    #      WorkspaceClient.pipelines.create / .jobs.create. The shim is a
+    #      no-op outside the App container; see lakehouse_app/sitecustomize.py
+    #      for the full rationale. Putting lakehouse_app/ on PYTHONPATH is
+    #      what activates it in the demo subprocess, without any change to
+    #      demo/ or integration_tests/.
+    #   2. repo root — so demo scripts can import `integration_tests` (lives
+    #      at the repo root, not inside the demo/ directory that Python adds
+    #      automatically as sys.path[0]).
+    demo_env = os.environ.copy()
+    lakehouse_app_dir = os.path.dirname(os.path.abspath(__file__))
+    existing_pypath = demo_env.get('PYTHONPATH', '')
+    pypath_entries = [lakehouse_app_dir, current_directory]
+    if existing_pypath:
+        pypath_entries.append(existing_pypath)
+    demo_env['PYTHONPATH'] = ':'.join(pypath_entries)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            os.path.join(current_directory, demo_file),
+            demo_uc_arg,
+            uc_name,
+            *demo_extra_args,
+        ],
+        shell=False,
+        capture_output=True,
+        text=True,
+        cwd=current_directory,
+        env=demo_env,
+    )
     return extract_command_output(result)
 
 
 def extract_command_output(result):
     stdout = result.stdout
-    job_id_match = re.search(r"job_id=(\d+) | pipeline=(\d+)", stdout)
-    url_match = re.search(r"(https?://[^\s]+)", stdout)
 
-    job_id = job_id_match.group(1) or job_id_match.group(2) if job_id_match else None
-    job_url = url_match.group(1) if url_match else None
+    # Pipeline IDs are UUIDs (e.g. a1b2c3d4-…); job IDs are numeric.
+    # Try UUID-style pipeline_id first, then fall back to numeric ids.
+    pipeline_id_match = re.search(
+        r"pipeline_id[=:\s]+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
+        stdout, re.IGNORECASE,
+    )
+    job_id_match = re.search(r"job_id=(\d+)|pipeline=(\d+)", stdout)
+
+    if pipeline_id_match:
+        pipeline_id = pipeline_id_match.group(1)
+    elif job_id_match:
+        pipeline_id = job_id_match.group(1) or job_id_match.group(2)
+    else:
+        pipeline_id = None
+
+    # ── URL extraction ───────────────────────────────────────────────────────
+    # Resolve the job/pipeline URL the user should click on, in priority order:
+    #
+    #   1. The explicit ``url=https://...`` printed by SDPMETARunner.open_job_url
+    #      (and the demo helpers that mimic it). Most authoritative.
+    #   2. Any URL containing ``/jobs/`` or ``/pipelines/`` — what the demos
+    #      ultimately want to surface.
+    #   3. Any URL in stdout, EXCLUDING SDK-internal endpoints (``/oidc/...``,
+    #      ``/api/...``). Inside a Databricks Apps container the SDK logs the
+    #      OAuth token endpoint (``{host}/oidc/v1/token``) when it acquires a
+    #      service-principal token; without this filter the previous "last URL
+    #      wins" heuristic would surface that endpoint as the deploy result.
+    SDK_INTERNAL_PATHS = ('/oidc/', '/api/')
+
+    def _strip_trailing_punct(u: str) -> str:
+        return re.sub(r'[,;:.)+]+$', '', u)
+
+    job_url = None
+
+    explicit_match = re.search(
+        r"(?:job created successfully|pipeline created successfully|launched).*?url=(https?://\S+)",
+        stdout,
+        re.IGNORECASE,
+    )
+    if explicit_match:
+        job_url = _strip_trailing_punct(explicit_match.group(1))
+    else:
+        all_urls = [_strip_trailing_punct(u) for u in re.findall(r"https?://\S+", stdout)]
+        # Only surface URLs that actually point at a job or pipeline. Anything
+        # else in stdout (workspace root, OIDC token endpoint, REST API base,
+        # docs links, etc.) is not a valid "open in Databricks" target and
+        # would otherwise dress up a silent demo failure as a success.
+        job_pipeline_urls = [
+            u for u in all_urls
+            if ('/jobs/' in u or '/pipelines/' in u)
+            and not any(p in u for p in SDK_INTERNAL_PATHS)
+        ]
+        if job_pipeline_urls:
+            job_url = job_pipeline_urls[-1]
+
+    # If we extracted a pipeline UUID but the URL is missing/wrong, build the
+    # direct pipeline URL from any workspace-host URL we did find.
+    if pipeline_id and (not job_url or ('/pipelines/' not in job_url and '/jobs/' not in job_url)):
+        # Match AWS (*.cloud.databricks.com), Azure (*.azuredatabricks.net),
+        # and GCP (*.gcp.databricks.com) workspace hosts — restricting to AWS
+        # would silently drop the success modal on Azure/GCP workspaces.
+        all_hosts = re.findall(
+            r"(https?://[a-zA-Z0-9.\-]+\."
+            r"(?:cloud\.databricks\.com|azuredatabricks\.net|gcp\.databricks\.com))",
+            stdout,
+        )
+        if all_hosts:
+            job_url = f"{all_hosts[0]}/pipelines/{pipeline_id}"
 
     if job_url:
-        modal_html = {'title': 'Job Created Successfully',
-                      'job_id': job_id,
+        modal_html = {'title': 'Pipeline Created Successfully',
+                      'job_id': pipeline_id,
                       'job_url': job_url
                       }
     else:
@@ -456,4 +487,6 @@ def extract_command_output(result):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Fix C4: never run the Werkzeug interactive debugger in production.
+    # To enable debug mode locally: export FLASK_DEBUG=true
+    app.run(debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true')

@@ -23,6 +23,53 @@ from databricks.labs.sdp_meta.install import WorkspaceInstaller
 logger = logging.getLogger('databricks.labs.sdp_meta')
 
 
+def _maybe_open_url(url: str) -> None:
+    """Best-effort browser launch — safe in tests, CI, and headless contexts.
+
+    Calling :func:`webbrowser.open` unconditionally from CLI code is a
+    portability hazard:
+
+    * Unit tests that mock :class:`WorkspaceClient` build the URL from
+      MagicMock attributes and the bare ``webbrowser.open`` happily
+      hands the resulting garbage string to the OS, popping a real
+      browser tab on every test run (see ``tests/test_cli.py`` cases
+      that exercise ``create_onnboarding_job`` /
+      ``_create_sdp_meta_pipeline``).
+    * Inside the Databricks Apps container (``lakehouse_app``)
+      there's no display, so ``webbrowser.open`` either silently
+      fails or — worse, on some platforms — falls back to printing
+      to stdout, which corrupts the JSON the Flask route returns to
+      the browser-side caller.
+    * On CI / SSH / sandboxed Linux runners ``webbrowser.open`` can
+      raise ``Error: could not locate runnable browser``.
+
+    This helper makes the launch opt-out: callers that DO want a browser
+    (interactive ``sdp-meta`` invocations on a developer's laptop) get
+    one, everyone else stays quiet.
+
+    Suppression triggers:
+      * ``SDP_META_NO_BROWSER=1`` — explicit opt-out (set by
+        ``tests/conftest.py`` for the whole pytest session, and
+        recommended for CI).
+      * ``DATABRICKS_APP_PORT`` — set by the Databricks Apps runtime
+        whenever this code runs inside an App container. Implies
+        "no display, definitely no browser".
+      * Any exception from :func:`webbrowser.open` (no $DISPLAY on
+        Linux, missing default browser, etc.) — swallowed and logged
+        at DEBUG so a stray failure can't crash the CLI.
+    """
+    if os.environ.get("SDP_META_NO_BROWSER") == "1":
+        logger.debug("Skipping webbrowser.open: SDP_META_NO_BROWSER=1")
+        return
+    if os.environ.get("DATABRICKS_APP_PORT"):
+        logger.debug("Skipping webbrowser.open: running inside Databricks Apps")
+        return
+    try:
+        webbrowser.open(url)
+    except Exception as exc:  # pragma: no cover — platform-specific.
+        logger.debug("webbrowser.open(%r) failed: %s", url, exc)
+
+
 def _normalize_file_uri_to_path(file_uri: str) -> str:
     """Convert a file URI to a normalized local filesystem path.
 
@@ -416,7 +463,7 @@ class SDPMeta:
         print(
             f"Job created successfully. job_id={created_job.job_id}, url={job_url}"
         )
-        webbrowser.open(f"{self._ws.config.host}/jobs/{created_job.job_id}?o={self._ws.get_workspace_id()}")
+        _maybe_open_url(f"{self._ws.config.host}/jobs/{created_job.job_id}?o={self._ws.get_workspace_id()}")
 
     def create_uc_schema(self, uc_catalog_name, sdp_meta_schema):
         try:
@@ -605,7 +652,7 @@ class SDPMeta:
             f"sdp-meta pipeline={pipeline_id} created and launched with update_id={update_response.update_id}, "
             f"url={self._ws.config.host}/#joblist/pipelines/{pipeline_id}?o={self._ws.get_workspace_id()}/"
         )
-        webbrowser.open(f"{self._ws.config.host}/#joblist/pipelines/{pipeline_id}?o={self._ws.get_workspace_id()}/")
+        _maybe_open_url(f"{self._ws.config.host}/#joblist/pipelines/{pipeline_id}?o={self._ws.get_workspace_id()}/")
 
     def _load_onboard_config(self) -> OnboardCommand:
         onboard_cmd_dict = {}
