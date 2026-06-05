@@ -1,6 +1,4 @@
 command: [
-  "flask",
-  "--app",
-  "app.py",
-  "run"
+  "bash",
+  "start.sh"
 ]

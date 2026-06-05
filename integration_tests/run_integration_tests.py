@@ -1271,14 +1271,36 @@ def process_arguments() -> dict[str:str]:
 
 
 def get_workspace_api_client(profile=None) -> WorkspaceClient:
-    """Get api client with config."""
+    """Get a ``WorkspaceClient`` configured for the current runtime.
+
+    Resolution order:
+
+    1. **Databricks Apps container** — when ``DATABRICKS_APP_PORT`` is set
+       the platform has injected ``DATABRICKS_HOST`` plus the app's
+       service-principal OAuth credentials (``DATABRICKS_CLIENT_ID`` /
+       ``DATABRICKS_CLIENT_SECRET``) into the environment. The SDK's
+       default credentials provider picks these up automatically when
+       ``WorkspaceClient()`` is constructed with no arguments — no
+       profile, no interactive prompts. The explicit ``profile`` argument
+       is intentionally ignored in this branch: ``~/.databrickscfg``
+       does not exist in the container, and falling back to it would
+       fail the exact way Apps callers are trying to avoid.
+    2. **Local CLI with ``--profile``** — uses the named
+       ``~/.databrickscfg`` entry. This is the path
+       ``run_integration_tests.py`` and the ``launch_*_demo.py`` scripts
+       take when invoked from a developer's terminal.
+    3. **Interactive fallback** — prompts for host + token via ``input()``
+       so ad-hoc local runs without a configured profile still work.
+       Requires a real stdin; do NOT route App / CI traffic through
+       this branch (it raises ``EOFError`` when stdin is not a TTY).
+    """
+    if os.environ.get("DATABRICKS_APP_PORT"):
+        return WorkspaceClient()
     if profile:
-        workspace_client = WorkspaceClient(profile=profile)
-    else:
-        workspace_client = WorkspaceClient(
-            host=input("Databricks Workspace URL: "), token=input("Token: ")
-        )
-    return workspace_client
+        return WorkspaceClient(profile=profile)
+    return WorkspaceClient(
+        host=input("Databricks Workspace URL: "), token=input("Token: ")
+    )
 
 
 def main():
