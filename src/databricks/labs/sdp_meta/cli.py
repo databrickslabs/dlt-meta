@@ -3,7 +3,9 @@
 import logging
 import json
 import os
+import subprocess
 import sys
+import tempfile
 import uuid
 import webbrowser
 from dataclasses import dataclass
@@ -12,6 +14,7 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import jobs, pipelines, compute
 from databricks.sdk.service.pipelines import PipelineLibrary, NotebookLibrary
 from databricks.sdk.core import DatabricksError
+from databricks.sdk.errors import NotFound
 from databricks.sdk.service.catalog import SchemasAPI, VolumeType
 from databricks.labs.sdp_meta import __about__
 from databricks.labs.sdp_meta.identifiers import (
@@ -89,10 +92,16 @@ def _path_to_file_uri(local_path: str) -> str:
     return f"file:{local_path}"
 
 
-# Runner notebook template for DLT pipeline
+# Runner notebook template for the SDP/DLT pipeline. The ``{dependency}``
+# placeholder is replaced at deploy time with either:
+#   * a PyPI spec, e.g. ``databricks-labs-sdp-meta==0.0.11``
+#   * a UC Volumes wheel path, e.g.
+#     ``/Volumes/<catalog>/<schema>/<volume>/databricks_labs_sdp_meta-<ver>-py3-none-any.whl``
+# The latter is the recommended path for air-gapped workspaces / private
+# preview rings without PyPI access.
 SDP_META_RUNNER_NOTEBOOK = """
 # Databricks notebook source
-# MAGIC %pip install databricks-labs-sdp-meta=={version}
+# MAGIC %pip install {dependency}
 # MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
@@ -132,6 +141,7 @@ class OnboardCommand:
     bronze_dataflowspec_path: str = None
     silver_dataflowspec_path: str = None
     update_paths: bool = True
+    sdp_meta_dependency: str = None
 
     def __post_init__(self):
         if not self.onboarding_file_path or self.onboarding_file_path == "":
@@ -220,6 +230,7 @@ class DeployCommand:
     uc_enabled: bool = False
     serverless: bool = False
     dbfs_path: str = None
+    sdp_meta_dependency: str = None
 
     def __post_init__(self):
         if self.uc_enabled and not self.uc_catalog_name:
@@ -451,11 +462,12 @@ class SDPMeta:
                 }
             )
         named_parameters = self._get_onboarding_named_parameters(cmd)
+        sdp_meta_dependency = cmd.sdp_meta_dependency or f"sdp-meta=={self.version}"
         sdp_meta_environments = [
             jobs.JobEnvironment(
                 environment_key="sdp_meta_cli_env",
                 spec=compute.Environment(client="1",
-                                         dependencies=[f"sdp-meta=={self.version}"]
+                                         dependencies=[sdp_meta_dependency]
                                          )
             )
         ]
@@ -474,14 +486,20 @@ class SDPMeta:
                         entry_point="run",
                         named_parameters=named_parameters,
                     ),
-                    libraries=[
-                        jobs.compute.Library(
-                            pypi=compute.PythonPyPiLibrary(package=f"sdp-meta=={self.version}")
-                        )
-                    ] if not cmd.serverless else None,
+                    libraries=self._onboarding_job_libraries(sdp_meta_dependency)
+                    if not cmd.serverless else None,
                 ),
             ]
         )
+
+    def _onboarding_job_libraries(self, sdp_meta_dependency: str):
+        if sdp_meta_dependency.startswith("/Volumes/") or sdp_meta_dependency.endswith(".whl"):
+            return [jobs.compute.Library(whl=sdp_meta_dependency)]
+        return [
+            jobs.compute.Library(
+                pypi=compute.PythonPyPiLibrary(package=sdp_meta_dependency)
+            )
+        ]
 
     def _get_onboarding_named_parameters(self, cmd: OnboardCommand):
         named_parameters = {
@@ -520,7 +538,12 @@ class SDPMeta:
 
     def _create_sdp_meta_pipeline(self, cmd: DeployCommand):
         """Create the SDP-META pipeline."""
-        runner_notebook_py = SDP_META_RUNNER_NOTEBOOK.format(version=self.version).encode("utf8")
+        # ``sdp_meta_dependency`` lets users replace the default PyPI install
+        # (``databricks-labs-sdp-meta==<version>``) with a UC-volume wheel
+        # path or any other pip-installable spec — see ``deploy()`` for the
+        # resolution order (CLI flag > onboarding_job_details.json > PyPI).
+        dependency = cmd.sdp_meta_dependency or f"databricks-labs-sdp-meta=={self.version}"
+        runner_notebook_py = SDP_META_RUNNER_NOTEBOOK.format(dependency=dependency).encode("utf8")
         runner_notebook_path = f"{self._install_folder()}/init_sdp_meta_pipeline.py"
         try:
             self._ws.workspace.mkdirs(self._install_folder())
@@ -942,9 +965,46 @@ class SDPMeta:
         cmd.onboarding_file_path = updated_ob_file_path
 
 
-def onboard(sdp_meta: SDPMeta):
+def onboard(sdp_meta: SDPMeta, flags: dict = None):
     logger.info("Please answer a couple of questions to for launching SDP META onboarding job")
+    flags = flags or {}
+    # The `databricks labs` CLI registers every declared flag as a pflag
+    # *string* flag (no boolean type). When users invoke a boolean-style
+    # flag like `--build-and-upload-whl --profile e2-demo`, pflag eats the
+    # next token (`--profile`) as the value, so we receive
+    # flags["build-and-upload-whl"] == "--profile". We detect that here,
+    # treat it as truthy presence, and tell the user the canonical syntax.
     cmd = sdp_meta._load_onboard_config()
+    whl_file_path = _flag_value(flags, "whl-file-path", "whl_file_path")
+    build_raw = _flag_value(flags, "build-and-upload-whl", "build_and_upload_whl")
+    build_and_upload = _is_truthy_flag(build_raw)
+    if build_and_upload and isinstance(build_raw, str) and build_raw.startswith("-"):
+        print(
+            "Warning: --build-and-upload-whl appears to have consumed the next CLI token "
+            f"({build_raw!r}) as its value, because the `databricks labs` CLI treats every "
+            "flag as a string flag. Use the '=' syntax to avoid surprises, e.g.:\n"
+            "  databricks labs sdp-meta onboard --build-and-upload-whl=true --profile=<name>"
+        )
+    if whl_file_path and build_and_upload:
+        raise ValueError("--whl-file-path and --build-and-upload-whl are mutually exclusive")
+    if whl_file_path:
+        cmd.sdp_meta_dependency = whl_file_path
+    elif build_and_upload:
+        if not cmd.uc_enabled:
+            raise ValueError("--build-and-upload-whl requires onboarding with unity catalog enabled")
+        cmd.sdp_meta_dependency = _build_and_upload_onboard_wheel(sdp_meta, cmd, flags)
+    # Only act on a real, non-empty string dependency. The isinstance() guard
+    # keeps us safe in unit tests where ``cmd`` is a MagicMock (its attributes
+    # auto-create truthy MagicMock values that aren't JSON-serializable).
+    if isinstance(cmd.sdp_meta_dependency, str) and cmd.sdp_meta_dependency:
+        print(f"Using sdp-meta dependency for onboarding job: {cmd.sdp_meta_dependency}")
+        # Persist the resolved dependency back into onboarding_job_details.json
+        # so a follow-up `databricks labs sdp-meta deploy` (run from the same
+        # working directory) auto-discovers the wheel and bakes it into the
+        # SDP runner notebook's `%pip install`. Without this, deploy would
+        # silently fall back to `databricks-labs-sdp-meta==<version>` on PyPI
+        # — exactly the failure mode that motivated this whole feature.
+        _persist_dependency_to_onboarding_json(cmd.sdp_meta_dependency)
     sdp_meta.onboard(cmd)
 
 
@@ -954,9 +1014,43 @@ def onboard_ui(sdp_meta: SDPMeta, form_data):
     sdp_meta.onboard(cmd)
 
 
-def deploy(sdp_meta: SDPMeta):
+def deploy(sdp_meta: SDPMeta, flags: dict = None):
     logger.info("Please answer a couple of questions to for launching SDP META deployment job")
+    flags = flags or {}
     cmd = sdp_meta._load_deploy_config()
+    # Resolution order for the SDP runner notebook's `%pip install` target:
+    #   1. --whl-file-path=...                         (explicit override)
+    #   2. --build-and-upload-whl=true                  (build+upload now)
+    #   3. sdp_meta_dependency from onboarding_job_details.json
+    #      (auto-set by `onboard --build-and-upload-whl=true`)
+    #   4. databricks-labs-sdp-meta==<self.version>     (PyPI default)
+    whl_file_path = _flag_value(flags, "whl-file-path", "whl_file_path")
+    build_raw = _flag_value(flags, "build-and-upload-whl", "build_and_upload_whl")
+    build_and_upload = _is_truthy_flag(build_raw)
+    if build_and_upload and isinstance(build_raw, str) and build_raw.startswith("-"):
+        print(
+            "Warning: --build-and-upload-whl appears to have consumed the next CLI token "
+            f"({build_raw!r}) as its value, because the `databricks labs` CLI treats every "
+            "flag as a string flag. Use the '=' syntax to avoid surprises, e.g.:\n"
+            "  databricks labs sdp-meta deploy --build-and-upload-whl=true --profile=<name>"
+        )
+    if whl_file_path and build_and_upload:
+        raise ValueError("--whl-file-path and --build-and-upload-whl are mutually exclusive")
+    if whl_file_path:
+        cmd.sdp_meta_dependency = whl_file_path
+    elif build_and_upload:
+        cmd.sdp_meta_dependency = _build_and_upload_deploy_wheel(sdp_meta, cmd, flags)
+    elif not (isinstance(cmd.sdp_meta_dependency, str) and cmd.sdp_meta_dependency):
+        # Auto-pickup from onboarding_job_details.json (written by onboard()
+        # when it built/uploaded a wheel). Falls through silently if missing.
+        # The isinstance() check keeps unit tests with MagicMock cmd objects
+        # from accidentally short-circuiting the auto-pickup path.
+        cmd.sdp_meta_dependency = _read_dependency_from_onboarding_json()
+    if isinstance(cmd.sdp_meta_dependency, str) and cmd.sdp_meta_dependency:
+        print(
+            "Using sdp-meta dependency for SDP runner notebook "
+            f"%pip install: {cmd.sdp_meta_dependency}"
+        )
     sdp_meta.deploy(cmd)
 
 
@@ -964,6 +1058,260 @@ def deploy_ui(sdp_meta: SDPMeta, form_data):
     logger.info("Please answer a couple of questions to for launching SDP META deployment job")
     cmd = sdp_meta._load_deploy_config_ui(form_data)
     sdp_meta.deploy(cmd)
+
+
+def _persist_dependency_to_onboarding_json(dependency: str) -> None:
+    """Best-effort write of ``sdp_meta_dependency`` into the local
+    ``onboarding_job_details.json`` file so the subsequent ``deploy`` command
+    inherits it. Silently ignored if the file is missing or unreadable —
+    this is a convenience hook, not a hard contract.
+    """
+    path = "onboarding_job_details.json"
+    if not os.path.isfile(path):
+        return
+    try:
+        with open(path) as fh:
+            data = json.load(fh)
+        if not isinstance(data, dict):
+            return
+        if data.get("sdp_meta_dependency") == dependency:
+            return
+        data["sdp_meta_dependency"] = dependency
+        with open(path, "w") as fh:
+            json.dump(data, fh, indent=4)
+    except (OSError, ValueError) as exc:
+        logger.warning("Unable to update %s with sdp_meta_dependency: %s", path, exc)
+
+
+def _read_dependency_from_onboarding_json() -> str:
+    """Return ``sdp_meta_dependency`` from local ``onboarding_job_details.json``
+    if present and non-empty, else ``None``."""
+    path = "onboarding_job_details.json"
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    dep = data.get("sdp_meta_dependency")
+    if isinstance(dep, str) and dep.strip():
+        return dep
+    return None
+
+
+def _build_and_upload_wheel(sdp_meta: SDPMeta, *, uc_catalog: str,
+                            default_schema: str, default_volume: str = None,
+                            flags: dict) -> str:
+    """Shared wheel-build / UC-volume-upload helper for `onboard` and `deploy`.
+
+    Resolves ``uc_schema`` / ``uc_volume`` from CLI flags (with the demo
+    launcher's hyphenated *and* underscored aliases) falling back to the
+    caller-provided defaults. When ``--git-url`` / ``--git-branch`` is set
+    the wheel is built from that Git source instead of the local checkout.
+    """
+    from databricks.labs.sdp_meta.bundle import (
+        BundlePrepareWheelCommand,
+        bundle_prepare_wheel as _run,
+    )
+    uc_schema = (
+        _flag_value(flags, "uc-schema", "uc-schema-name", "uc_schema_name")
+        or default_schema
+    )
+    uc_volume = (
+        _flag_value(flags, "uc-volume", "uc-volume-name", "uc_volume_name")
+        or default_volume
+        or uc_schema
+    )
+    git_source = _git_wheel_source(flags)
+    if git_source:
+        return _build_and_upload_git_wheel(
+            sdp_meta._ws,
+            uc_catalog=uc_catalog,
+            uc_schema=uc_schema,
+            uc_volume=uc_volume,
+            source=git_source,
+            flags=flags,
+        )
+    return _run(BundlePrepareWheelCommand(
+        uc_catalog=uc_catalog,
+        uc_schema=uc_schema,
+        uc_volume=uc_volume,
+        profile=_flag_value(flags, "profile"),
+        pip_index_url=_flag_value(flags, "pip-index-url", "pip_index_url") or None,
+        pip_extra_index_urls=_split_flag_values(
+            _flag_value(flags, "pip-extra-index-url", "pip_extra_index_url")
+        ),
+        create_if_missing=not _has_flag(flags, "no-create-missing-uc", "no_create_missing_uc"),
+    ))
+
+
+def _build_and_upload_onboard_wheel(sdp_meta: SDPMeta, cmd: OnboardCommand, flags: dict) -> str:
+    """Build/upload a local wheel for regular `onboard` local-dev testing."""
+    return _build_and_upload_wheel(
+        sdp_meta,
+        uc_catalog=cmd.uc_catalog_name,
+        default_schema=cmd.sdp_meta_schema,
+        flags=flags,
+    )
+
+
+def _build_and_upload_deploy_wheel(sdp_meta: SDPMeta, cmd: DeployCommand, flags: dict) -> str:
+    """Build/upload a local wheel for `deploy` so the SDP runner notebook can
+    ``%pip install`` it instead of pulling from PyPI. Uses the deploy's UC
+    catalog and a sensible default schema (bronze > silver > target schema).
+    """
+    if not cmd.uc_catalog_name:
+        raise ValueError(
+            "--build-and-upload-whl requires deployment with unity catalog enabled"
+        )
+    default_schema = (
+        cmd.sdp_meta_bronze_schema
+        or cmd.sdp_meta_silver_schema
+        or cmd.dlt_target_schema
+    )
+    if not default_schema:
+        raise ValueError(
+            "Cannot infer a UC schema for the wheel volume; pass --uc-schema=<name> "
+            "or run `onboard --build-and-upload-whl=true ...` first so deploy can "
+            "pick the wheel up from onboarding_job_details.json."
+        )
+    return _build_and_upload_wheel(
+        sdp_meta,
+        uc_catalog=cmd.uc_catalog_name,
+        default_schema=default_schema,
+        flags=flags,
+    )
+
+
+def _git_wheel_source(flags: dict) -> str:
+    git_url = _flag_value(flags, "git-url", "git_url")
+    git_branch = _flag_value(flags, "git-branch", "git_branch")
+    if not git_url and not git_branch:
+        return None
+    if not git_url:
+        git_url = "https://github.com/databrickslabs/dlt-meta.git"
+    source = git_url if git_url.startswith("git+") else f"git+{git_url}"
+    if git_branch:
+        source = f"{source}@{git_branch}"
+    return source
+
+
+def _build_and_upload_git_wheel(ws: WorkspaceClient, *, uc_catalog: str,
+                                uc_schema: str, uc_volume: str,
+                                source: str, flags: dict) -> str:
+    """Build a wheel from ``source`` (local path or git URL) and upload it to a UC volume.
+
+    .. warning::
+        Building from an arbitrary git URL or local path causes ``pip`` to
+        execute that project's build backend (``pyproject.toml`` build hooks,
+        ``setup.py``, etc.). Treat ``--git-url <url>`` and local-path sources
+        as equivalent to running their build code: only point this at git
+        repositories and paths you trust. The downstream UC volume upload
+        also overwrites any wheel at the destination path (see the warning
+        emitted below).
+    """
+    _ensure_uc_schema_and_volume(
+        ws, uc_catalog, uc_schema, uc_volume,
+        create_if_missing=not _has_flag(flags, "no-create-missing-uc", "no_create_missing_uc"),
+    )
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        pip_cmd = [
+            sys.executable, "-m", "pip", "wheel", "--no-deps",
+            "--wheel-dir", tmp_dir,
+        ]
+        pip_index_url = _flag_value(flags, "pip-index-url", "pip_index_url")
+        if pip_index_url:
+            pip_cmd.extend(["--index-url", pip_index_url])
+        for extra in _split_flag_values(
+            _flag_value(flags, "pip-extra-index-url", "pip_extra_index_url")
+        ) or []:
+            pip_cmd.extend(["--extra-index-url", extra])
+        pip_cmd.append(source)
+        subprocess.run(pip_cmd, check=True)
+        wheels = sorted(Path(tmp_dir).glob("*.whl"))
+        if not wheels:
+            raise RuntimeError(f"pip wheel produced no wheel for {source!r}")
+        wheel = wheels[-1]
+        volume_path = f"/Volumes/{uc_catalog}/{uc_schema}/{uc_volume}/{wheel.name}"
+        existed = _volume_path_exists(ws, volume_path)
+        with wheel.open("rb") as fh:
+            ws.files.upload(file_path=volume_path, contents=fh, overwrite=True)
+        if existed:
+            print(
+                f"\n⚠️  Overwriting existing wheel at {volume_path}. "
+                "Any in-flight pipeline pinned to this exact path will pick up "
+                "the new build on its next run.\n"
+            )
+        print(f"\nUploaded wheel to:\n  {volume_path}\n")
+        return volume_path
+
+
+def _volume_path_exists(ws: WorkspaceClient, volume_path: str) -> bool:
+    """Best-effort probe for whether a UC volume file exists.
+
+    Returns ``False`` on any error (NotFound, transient SDK error, etc.) so
+    overwrite warnings never block the upload — the warning is purely
+    informational.
+    """
+    try:
+        ws.files.get_metadata(file_path=volume_path)
+        return True
+    except NotFound:
+        return False
+    except DatabricksError:
+        return False
+
+
+def _ensure_uc_schema_and_volume(ws: WorkspaceClient, uc_catalog: str,
+                                 uc_schema: str, uc_volume: str,
+                                 *, create_if_missing: bool) -> None:
+    try:
+        SchemasAPI(ws.api_client).get(full_name=f"{uc_catalog}.{uc_schema}")
+    except NotFound:
+        if not create_if_missing:
+            raise
+        SchemasAPI(ws.api_client).create(
+            catalog_name=uc_catalog,
+            name=uc_schema,
+            comment="sdp_meta wheel schema",
+        )
+    try:
+        ws.volumes.read(name=f"{uc_catalog}.{uc_schema}.{uc_volume}")
+    except NotFound:
+        if not create_if_missing:
+            raise
+        ws.volumes.create(
+            catalog_name=uc_catalog,
+            schema_name=uc_schema,
+            name=uc_volume,
+            volume_type=VolumeType.MANAGED,
+        )
+
+
+def _is_truthy_flag(value) -> bool:
+    """Return True when a labs-CLI flag should be treated as "set".
+
+    The `databricks labs` CLI exposes every declared flag as a pflag *string*
+    flag, so there is no native boolean type and an unsupplied flag arrives as
+    ``""`` (the registered default). We therefore treat the *empty* / *None*
+    case as false, the explicit falsy keywords as false, and any other
+    non-empty value as truthy presence. That keeps the canonical
+    ``--flag=true`` invocation working *and* recovers the common spillover
+    case where pflag eats the next CLI token as the value (e.g. value ends up
+    being ``"--profile"`` because the user typed
+    ``--build-and-upload-whl --profile e2-demo``).
+    """
+    if value is None or value is False:
+        return False
+    sv = str(value).strip()
+    if sv == "":
+        return False
+    if sv.lower() in ("0", "false", "no", "off"):
+        return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -1038,6 +1386,37 @@ def bundle_prepare_wheel(sdp_meta: SDPMeta, flags: dict = None):
     _run(_load_bundle_prepare_wheel_config(sdp_meta._wsi))
 
 
+def _flag_value(flags: dict, *names: str):
+    """Return the first non-empty value for any of the given flag spellings."""
+    for name in names:
+        value = flags.get(name)
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def _has_flag(flags: dict, *names: str) -> bool:
+    """Return True only if the flag was supplied with a *truthy* value.
+
+    The `databricks labs` CLI registers every declared flag in the JSON
+    payload with its registered default (an empty string), so plain key
+    presence (`name in flags`) is *always* True for a declared flag and
+    cannot be used to detect whether the user actually passed it. We
+    therefore route through ``_is_truthy_flag``, which accepts the canonical
+    ``--flag=true`` form, treats explicit falsy keywords as false, and
+    recovers the pflag spillover case (value starts with ``-``).
+    """
+    return any(_is_truthy_flag(flags.get(name)) for name in names)
+
+
+def _split_flag_values(value):
+    if value in (None, ""):
+        return None
+    if isinstance(value, list):
+        return [str(v) for v in value if str(v)]
+    return [v for v in str(value).split() if v]
+
+
 def bundle_validate(sdp_meta: SDPMeta, flags: dict = None):
     del flags
     logger.info("Validating the sdp-meta DAB (databricks bundle validate + sanity checks).")
@@ -1092,15 +1471,20 @@ def main(raw):
         databricks_logger.setLevel(log_level.upper())
     version = __about__.__version__
     # Support both old and new product names
-    ws = WorkspaceClient(product='sdp-meta', product_version=version)
+    ws_kwargs = {"product": "sdp-meta", "product_version": version}
+    if flags.get("profile"):
+        ws_kwargs["profile"] = flags["profile"]
+    ws = WorkspaceClient(**ws_kwargs)
     sdp_meta = SDPMeta(ws)
     if command in ["onboard_ui", "deploy_ui"]:
         MAPPING[command](sdp_meta, payload)
-    elif command.startswith("bundle-"):
-        # Bundle wrappers receive `flags` so they can opt into non-interactive
-        # behavior (e.g. `bundle-init --quickstart`). Wrappers that ignore
-        # flags accept them as a `flags=None` keyword arg, which keeps the
-        # wrapper callable in tests without constructing a fake payload.
+    elif command in ("onboard", "deploy") or command.startswith("bundle-"):
+        # Flag-aware wrappers receive `flags` so they can opt into
+        # non-interactive behavior (e.g. `bundle-init --quickstart`, or
+        # `onboard --build-and-upload-whl`, or `deploy --whl-file-path=...`).
+        # Wrappers that ignore flags accept them as a `flags=None` keyword
+        # arg, which keeps the wrapper callable in tests without constructing
+        # a fake payload.
         MAPPING[command](sdp_meta, flags=flags)
     else:
         MAPPING[command](sdp_meta)
