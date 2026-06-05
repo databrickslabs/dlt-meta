@@ -1488,6 +1488,25 @@ def bundle_add_flow(sdp_meta: SDPMeta, flags: dict = None):
         sys.exit(rc)
 
 
+def mcp(sdp_meta: SDPMeta, flags: dict = None):
+    """Run the sdp-meta MCP server over stdio.
+
+    Requires the `mcp` extra. The server exposes a curated subset of
+    sdp-meta operations as MCP tools so an MCP client (Claude Code,
+    Cursor, Claude Desktop) can drive sdp-meta workflows.
+    """
+    del flags
+    try:
+        from databricks.labs.sdp_meta.mcp.server import run_stdio
+    except ImportError as exc:
+        msg = (
+            "The `mcp` extra is not installed. "
+            "Install it with: pip install 'databricks-labs-sdp-meta[mcp]'"
+        )
+        raise ImportError(msg) from exc
+    run_stdio(sdp_meta)
+
+
 MAPPING = {
     "onboard": onboard,
     "deploy": deploy,
@@ -1497,6 +1516,7 @@ MAPPING = {
     "bundle-prepare-wheel": bundle_prepare_wheel,
     "bundle-validate": bundle_validate,
     "bundle-add-flow": bundle_add_flow,
+    "mcp": mcp,
 }
 
 
