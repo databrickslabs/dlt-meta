@@ -43,6 +43,15 @@ class BronzeDataflowSpec:
     clusterBy: list
     clusterByAuto: bool
     sinks: str
+    # Multi-source AUTO CDC (issue #294): JSON-encoded
+    # ``CDCApplyChangesFlowGroup`` describing N create_auto_cdc_flow calls
+    # targeting this bronze table, plus a per-flow schema map keyed by
+    # ``flow.name`` (mirrors ``appendFlowsSchemas``). Older dataflowspec
+    # Delta tables that pre-date this feature are forward-compatible via
+    # :attr:`DataflowSpecUtils.additional_bronze_df_columns`, which fills
+    # missing columns with ``None`` at read time.
+    cdcApplyChangesFlows: str
+    cdcApplyChangesFlowsSchemas: map
 
 
 @dataclass
@@ -75,6 +84,14 @@ class SilverDataflowSpec:
     clusterBy: list
     clusterByAuto: bool
     sinks: str
+    # Multi-source AUTO CDC (issue #294): JSON-encoded
+    # ``CDCApplyChangesFlowGroup`` describing N create_auto_cdc_flow calls
+    # targeting this silver table. Silver has no per-flow schema map
+    # because silver flows always read from Delta upstream where schema
+    # is inferred from the source table. Older dataflowspec Delta tables
+    # are forward-compatible via
+    # :attr:`DataflowSpecUtils.additional_silver_df_columns`.
+    cdcApplyChangesFlows: str
 
 
 @dataclass
@@ -118,6 +135,53 @@ class AppendFlow:
     reader_options: map
     spark_conf: map
     once: bool
+
+
+@dataclass
+class CDCApplyChangesFlow:
+    """One AUTO CDC flow inside a multi-source CDC group.
+
+    Each flow becomes a separate dp.create_auto_cdc_flow call against the
+    same target streaming table. The CDC config (keys/sequence_by/scd_type
+    etc.) is shared across flows at the group level — DLT requires those
+    to be identical when multiple create_auto_cdc_flow calls target one
+    streaming table — so only the read-side and per-flow normalization
+    fields live here.
+    """
+    name: str
+    source_format: str
+    source_details: map
+    reader_options: map
+    select_exp: list
+    where_clause: list
+    once: bool
+
+
+@dataclass
+class CDCApplyChangesFlowGroup:
+    """N AUTO CDC flows landing in one streaming table.
+
+    The shared CDC config lives at the group level because DLT requires
+    identical keys / sequence_by / scd_type / etc. across all
+    create_auto_cdc_flow calls targeting the same streaming table. Flow
+    definitions in :attr:`flows` carry only the read-side surface that
+    legitimately varies per source (source_format, source_details,
+    reader_options, select_exp, where_clause, once).
+    """
+    keys: list
+    sequence_by: str
+    scd_type: str
+    where: str
+    ignore_null_updates: bool
+    apply_as_deletes: str
+    apply_as_truncates: str
+    column_list: list
+    except_column_list: list
+    track_history_column_list: list
+    track_history_except_column_list: list
+    ignore_null_updates_column_list: list
+    ignore_null_updates_except_column_list: list
+    flows: list  # list[CDCApplyChangesFlow]
 
 
 @dataclass
@@ -178,6 +242,30 @@ class DataflowSpecUtils:
         "once": False
     }
 
+    # Multi-source AUTO CDC (issue #294). Per-flow fields mirror
+    # ``AppendFlow`` (name + source_format + source_details +
+    # reader_options + once) plus the per-flow select_exp / where_clause
+    # used for normalizing each source's schema before the merge. The
+    # group-level CDC config (keys / sequence_by / scd_type / etc.) reuses
+    # ``cdc_applychanges_api_attributes`` and the same defaults map above.
+    cdc_apply_changes_flow_mandatory_attributes = [
+        "name",
+        "source_format",
+        "source_details",
+    ]
+    cdc_apply_changes_flow_attributes_defaults = {
+        "reader_options": None,
+        "select_exp": None,
+        "where_clause": None,
+        "once": False,
+    }
+    cdc_apply_changes_flows_group_mandatory_attributes = [
+        "keys",
+        "sequence_by",
+        "scd_type",
+        "flows",
+    ]
+
     sink_attributes_defaults = {
         "select_exp": None,
         "where_clause": None
@@ -189,7 +277,12 @@ class DataflowSpecUtils:
         "applyChangesFromSnapshot",
         "clusterBy",
         "clusterByAuto",
-        "sinks"
+        "sinks",
+        # Multi-source AUTO CDC (issue #294). Both default to ``None`` on
+        # spec rows written before v0.0.11 so old dataflowspec tables load
+        # without rewriting.
+        "cdcApplyChangesFlows",
+        "cdcApplyChangesFlowsSchemas",
     ]
     additional_silver_df_columns = [
         "dataQualityExpectations",
@@ -200,7 +293,11 @@ class DataflowSpecUtils:
         "applyChangesFromSnapshot",
         "clusterBy",
         "clusterByAuto",
-        "sinks"
+        "sinks",
+        # Multi-source AUTO CDC (issue #294). Silver has no per-flow
+        # schemas map; defaults to ``None`` for spec rows written before
+        # v0.0.11.
+        "cdcApplyChangesFlows",
     ]
     additional_cdc_apply_changes_columns = ["flow_name", "once"]
     apply_changes_from_snapshot_api_attributes = [
@@ -441,6 +538,171 @@ class DataflowSpecUtils:
             logger.info(f"final appendFlow={json_append_flow}")
             list_append_flows.append(AppendFlow(**json_append_flow))
         return list_append_flows
+
+    @staticmethod
+    def get_cdc_apply_changes_flows(cdc_apply_changes_flows) -> 'CDCApplyChangesFlowGroup':
+        """Parse multi-source AUTO CDC group payload (issue #294).
+
+        Accepts a JSON string or already-parsed dict shaped like::
+
+            {
+              "keys": [...], "sequence_by": "...", "scd_type": "1",
+              "where": "...", "ignore_null_updates": false,
+              "apply_as_deletes": "...", "apply_as_truncates": "...",
+              "column_list": [...], "except_column_list": [...],
+              ...,
+              "flows": [
+                {"name": "...", "source_format": "...",
+                 "source_details": {...}, "reader_options": {...},
+                 "select_exp": [...], "where_clause": [...],
+                 "once": false},
+                ...
+              ]
+            }
+
+        Validates:
+          * Group-level mandatory fields (``keys``, ``sequence_by``,
+            ``scd_type``, ``flows``) are present.
+          * ``flows`` is a non-empty list.
+          * Each flow has mandatory ``name`` / ``source_format`` /
+            ``source_details``.
+          * ``flow.name`` values are unique within the group (the runtime
+            uses them as DLT view names and ``flow_name``, so duplicates
+            would silently collide).
+
+        Fills defaults from
+        :attr:`cdc_applychanges_api_attributes_defaults` for the group
+        and :attr:`cdc_apply_changes_flow_attributes_defaults` per flow.
+
+        Returns:
+            CDCApplyChangesFlowGroup instance.
+
+        Raises:
+            Exception: When any of the validations above fail.
+        """
+        logger.info(cdc_apply_changes_flows)
+        if isinstance(cdc_apply_changes_flows, str):
+            json_group = json.loads(cdc_apply_changes_flows)
+        else:
+            json_group = dict(cdc_apply_changes_flows)
+        logger.info(f"actual cdc_apply_changes_flows group={json_group}")
+
+        # Group-level mandatory keys.
+        payload_keys = set(json_group.keys())
+        missing_mandatory = (
+            set(DataflowSpecUtils.cdc_apply_changes_flows_group_mandatory_attributes)
+            - payload_keys
+        )
+        if missing_mandatory:
+            raise Exception(
+                f"mandatory missing keys= {missing_mandatory} for "
+                f"cdc_apply_changes_flows group"
+            )
+
+        flows_raw = json_group.get("flows") or []
+        if not isinstance(flows_raw, list) or len(flows_raw) == 0:
+            raise Exception(
+                "cdc_apply_changes_flows.flows must be a non-empty list"
+            )
+
+        # Default-fill the group-level CDC config. We share the existing
+        # CDC defaults map so the runtime semantics stay identical to
+        # single-flow cdcApplyChanges (e.g. ``ignore_null_updates``
+        # defaults to False, ``where`` to None, etc.).
+        group_only_keys = (
+            set(DataflowSpecUtils.cdc_applychanges_api_attributes_defaults.keys())
+        )
+        for k in group_only_keys:
+            if k not in json_group:
+                json_group[k] = (
+                    DataflowSpecUtils.cdc_applychanges_api_attributes_defaults[k]
+                )
+
+        # Per-flow parse + dedupe.
+        seen_names = set()
+        list_flows = []
+        for idx, raw_flow in enumerate(flows_raw):
+            if not isinstance(raw_flow, dict):
+                raise Exception(
+                    f"cdc_apply_changes_flows.flows[{idx}] must be an object"
+                )
+            flow_keys = set(raw_flow.keys())
+            missing_flow_mandatory = (
+                set(DataflowSpecUtils.cdc_apply_changes_flow_mandatory_attributes)
+                - flow_keys
+            )
+            if missing_flow_mandatory:
+                raise Exception(
+                    f"mandatory missing keys= {missing_flow_mandatory} for "
+                    f"cdc_apply_changes_flows.flows[{idx}]"
+                )
+
+            name = raw_flow["name"]
+            if name in seen_names:
+                raise Exception(
+                    f"duplicate flow name {name!r} in cdc_apply_changes_flows; "
+                    f"each flow name must be unique within a group"
+                )
+            seen_names.add(name)
+
+            # Per-flow defaults. Only keep fields that belong to
+            # ``CDCApplyChangesFlow`` so any extra keys at the call site
+            # raise a clear TypeError ("unexpected keyword argument").
+            flow_payload = {
+                "name": raw_flow["name"],
+                "source_format": raw_flow["source_format"],
+                "source_details": raw_flow["source_details"],
+                "reader_options": raw_flow.get(
+                    "reader_options",
+                    DataflowSpecUtils.cdc_apply_changes_flow_attributes_defaults[
+                        "reader_options"
+                    ],
+                ),
+                "select_exp": raw_flow.get(
+                    "select_exp",
+                    DataflowSpecUtils.cdc_apply_changes_flow_attributes_defaults[
+                        "select_exp"
+                    ],
+                ),
+                "where_clause": raw_flow.get(
+                    "where_clause",
+                    DataflowSpecUtils.cdc_apply_changes_flow_attributes_defaults[
+                        "where_clause"
+                    ],
+                ),
+                "once": raw_flow.get(
+                    "once",
+                    DataflowSpecUtils.cdc_apply_changes_flow_attributes_defaults[
+                        "once"
+                    ],
+                ),
+            }
+            list_flows.append(CDCApplyChangesFlow(**flow_payload))
+
+        group_payload = {
+            "keys": json_group["keys"],
+            "sequence_by": json_group["sequence_by"],
+            "scd_type": json_group["scd_type"],
+            "where": json_group.get("where"),
+            "ignore_null_updates": json_group.get("ignore_null_updates", False),
+            "apply_as_deletes": json_group.get("apply_as_deletes"),
+            "apply_as_truncates": json_group.get("apply_as_truncates"),
+            "column_list": json_group.get("column_list"),
+            "except_column_list": json_group.get("except_column_list"),
+            "track_history_column_list": json_group.get("track_history_column_list"),
+            "track_history_except_column_list": json_group.get(
+                "track_history_except_column_list"
+            ),
+            "ignore_null_updates_column_list": json_group.get(
+                "ignore_null_updates_column_list"
+            ),
+            "ignore_null_updates_except_column_list": json_group.get(
+                "ignore_null_updates_except_column_list"
+            ),
+            "flows": list_flows,
+        }
+        logger.info(f"final cdc_apply_changes_flows group={group_payload}")
+        return CDCApplyChangesFlowGroup(**group_payload)
 
     def get_db_utils(spark):
         """Get databricks utils using DBUtils package."""

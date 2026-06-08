@@ -55,6 +55,8 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
     }
 
     bronze_eventhub_dataflow_spec_map = {
@@ -99,6 +101,8 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
     }
 
     bronze_eventhub_dataflow_spec_omit_secret_map = {
@@ -142,6 +146,8 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
     }
 
     bronze_kafka_dataflow_spec_map = {
@@ -177,6 +183,8 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
     }
 
     @classmethod

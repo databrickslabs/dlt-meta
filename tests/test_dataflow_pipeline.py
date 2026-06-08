@@ -71,7 +71,9 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
-        "sinks": []
+        "sinks": [],
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
     }
 
     bronze_dataflow_spec_map = {
@@ -109,6 +111,8 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
     }
     silver_cdc_apply_changes = {
         "keys": ["id"],
@@ -170,6 +174,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
     }
     silver_acfs_dataflow_spec_map = {
         "dataFlowId": "1",
@@ -217,6 +222,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
     }
     # @classmethod
     # def setUp(self):
@@ -2449,3 +2455,267 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
             reader_options={"inferSchema": "true"}
         )
         self.assertIsNotNone(reader)
+
+    # ------------------------------------------------------------------
+    # Multi-source AUTO CDC runtime tests (issue #294)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _bronze_cdc_flows_payload():
+        """Helper: minimal two-flow CDC group for bronze, with one flow
+        carrying ``select_exp`` / ``where_clause`` to exercise the per-
+        flow normalization path."""
+        return json.dumps({
+            "keys": ["customer_id"],
+            "sequence_by": "op_ts",
+            "scd_type": "1",
+            "apply_as_deletes": "operation = 'DELETE'",
+            "except_column_list": ["operation", "_rescued_data"],
+            "flows": [
+                {
+                    "name": "us_cdc",
+                    "source_format": "cloudFiles",
+                    "source_details": {
+                        "path": "/mnt/raw/us",
+                        "source_schema_path": "tests/resources/schema/customer_schema.ddl",
+                    },
+                    "reader_options": {"cloudFiles.format": "json"},
+                    "select_exp": [
+                        "customer_id AS customer_id",
+                        "operation",
+                        "op_ts",
+                        "_rescued_data",
+                    ],
+                    "where_clause": ["region = 'US'"],
+                    "once": True,
+                },
+                {
+                    "name": "eu_cdc",
+                    "source_format": "delta",
+                    "source_details": {
+                        "source_database": "raw",
+                        "source_table": "customers_eu",
+                    },
+                },
+            ],
+        })
+
+    def test_init_parses_cdc_apply_changes_flows(self):
+        """Init parses cdcApplyChangesFlows JSON into a typed group and
+        leaves ``cdcApplyChanges`` untouched. Reading the JSON inline
+        instead of via the parser guarantees the runtime is the failure
+        surface, not the test fixture."""
+        bmap = copy.deepcopy(self.bronze_dataflow_spec_map)
+        bmap["cdcApplyChanges"] = None
+        bmap["cdcApplyChangesFlows"] = self._bronze_cdc_flows_payload()
+        spec = BronzeDataflowSpec(**bmap)
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        self.assertIsNotNone(pipeline.cdcApplyChangesFlows)
+        self.assertEqual(len(pipeline.cdcApplyChangesFlows.flows), 2)
+        self.assertEqual(
+            [f.name for f in pipeline.cdcApplyChangesFlows.flows],
+            ["us_cdc", "eu_cdc"],
+        )
+        self.assertIsNone(pipeline.cdcApplyChanges)
+
+    def test_init_mutual_exclusion_raises(self):
+        """Both ``cdcApplyChanges`` AND ``cdcApplyChangesFlows`` set on
+        one spec must raise at init — defense in depth on top of the
+        onboarding pre-flight check (which a test or custom pipeline
+        could legitimately bypass)."""
+        bmap = copy.deepcopy(self.bronze_dataflow_spec_map)
+        bmap["cdcApplyChanges"] = json.dumps({
+            "keys": ["id"], "sequence_by": "op_ts", "scd_type": "1"
+        })
+        bmap["cdcApplyChangesFlows"] = self._bronze_cdc_flows_payload()
+        spec = BronzeDataflowSpec(**bmap)
+        with self.assertRaises(Exception):
+            DataflowPipeline(
+                self.spark, spec,
+                f"{spec.targetDetails['table']}_inputview", None,
+            )
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_read_cdc_flows_registers_one_view_per_flow(self, mock_dp):
+        """``read_cdc_flows`` must register exactly one ``dp.temporary_view``
+        per flow, named ``{flow.name}_cdc_view``. The view-factory test
+        in the next case exercises the per-flow normalization."""
+        mock_dp.temporary_view = MagicMock(return_value=None)
+        bmap = copy.deepcopy(self.bronze_dataflow_spec_map)
+        bmap["cdcApplyChanges"] = None
+        bmap["cdcApplyChangesFlows"] = self._bronze_cdc_flows_payload()
+        spec = BronzeDataflowSpec(**bmap)
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        pipeline.read_cdc_flows()
+        # Two flows -> two views.
+        self.assertEqual(mock_dp.temporary_view.call_count, 2)
+        names = sorted(
+            kwargs["name"]
+            for _args, kwargs in mock_dp.temporary_view.call_args_list
+        )
+        self.assertEqual(names, ["eu_cdc_cdc_view", "us_cdc_cdc_view"])
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_read_cdc_flows_view_factory_applies_select_and_where(self, mock_dp):
+        """The per-flow view factory must (1) read via PipelineReaders,
+        (2) apply selectExpr from ``select_exp``, (3) chain ``where``
+        clauses, (4) pass through the custom transform function. We
+        capture each registered view-factory closure and invoke it
+        against a MagicMock DataFrame to validate the call order."""
+        captured = {}
+
+        def _capture(view_factory, name, comment):
+            captured[name] = view_factory
+            return None
+
+        mock_dp.temporary_view = MagicMock(side_effect=_capture)
+
+        bmap = copy.deepcopy(self.bronze_dataflow_spec_map)
+        bmap["cdcApplyChanges"] = None
+        bmap["cdcApplyChangesFlows"] = self._bronze_cdc_flows_payload()
+        spec = BronzeDataflowSpec(**bmap)
+
+        captured_transform_inputs = []
+
+        def custom_transform(df, _spec):
+            captured_transform_inputs.append(df)
+            return df
+
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+            custom_transform_func=custom_transform,
+        )
+
+        # Replace PipelineReaders.read_dlt_cloud_files /
+        # read_dlt_delta with deterministic mock DataFrames so we can
+        # inspect the chained calls. Using ``patch.object`` here would
+        # require importing module paths; the simpler approach is to
+        # monkey-patch the methods on the instance the factory will
+        # construct. Because the factory creates a fresh PipelineReaders
+        # per call, we patch the class directly via mock.patch.
+        with patch.object(PipelineReaders, "read_dlt_cloud_files") as mock_cf, \
+                patch.object(PipelineReaders, "read_dlt_delta") as mock_delta:
+            mock_us_df = MagicMock()
+            mock_us_df.selectExpr.return_value = mock_us_df
+            mock_us_df.where.return_value = mock_us_df
+            mock_cf.return_value = mock_us_df
+
+            mock_eu_df = MagicMock()
+            mock_delta.return_value = mock_eu_df
+
+            pipeline.read_cdc_flows()
+
+            # Invoke the registered factories.
+            us_result = captured["us_cdc_cdc_view"]()
+            eu_result = captured["eu_cdc_cdc_view"]()
+
+        # us_cdc: selectExpr called with the four select_exp entries,
+        # then where called once with the region clause, then custom
+        # transform called on the result.
+        mock_us_df.selectExpr.assert_called_once_with(
+            "customer_id AS customer_id",
+            "operation",
+            "op_ts",
+            "_rescued_data",
+        )
+        mock_us_df.where.assert_called_once_with("region = 'US'")
+        self.assertIs(us_result, mock_us_df)
+
+        # eu_cdc has no select_exp or where_clause -> the raw delta read
+        # passes through to the custom transform unchanged.
+        mock_eu_df.selectExpr.assert_not_called()
+        mock_eu_df.where.assert_not_called()
+        self.assertIs(eu_result, mock_eu_df)
+
+        # custom_transform was called once per flow.
+        self.assertEqual(len(captured_transform_inputs), 2)
+        self.assertIn(mock_us_df, captured_transform_inputs)
+        self.assertIn(mock_eu_df, captured_transform_inputs)
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_cdc_apply_changes_flows_creates_streaming_table_once(self, mock_dp):
+        """A multi-flow CDC group must call ``dp.create_streaming_table``
+        ONCE — DLT mandates a single ``create_streaming_table`` per
+        target — and then one ``dp.create_auto_cdc_flow`` per flow."""
+        mock_dp.create_streaming_table = MagicMock()
+        mock_dp.create_auto_cdc_flow = MagicMock()
+        mock_dp.temporary_view = MagicMock(return_value=None)
+
+        bmap = copy.deepcopy(self.bronze_dataflow_spec_map)
+        bmap["cdcApplyChanges"] = None
+        bmap["cdcApplyChangesFlows"] = self._bronze_cdc_flows_payload()
+        bmap["dataQualityExpectations"] = None
+        spec = BronzeDataflowSpec(**bmap)
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        pipeline.cdc_apply_changes_flows()
+
+        self.assertEqual(mock_dp.create_streaming_table.call_count, 1)
+        self.assertEqual(mock_dp.create_auto_cdc_flow.call_count, 2)
+
+        # Every flow points at its own ``{flow.name}_cdc_view`` and the
+        # same fully-qualified target table.
+        sources = sorted(
+            kwargs["source"]
+            for _a, kwargs in mock_dp.create_auto_cdc_flow.call_args_list
+        )
+        targets = {
+            kwargs["target"]
+            for _a, kwargs in mock_dp.create_auto_cdc_flow.call_args_list
+        }
+        self.assertEqual(sources, ["eu_cdc_cdc_view", "us_cdc_cdc_view"])
+        self.assertEqual(len(targets), 1)  # single target table
+
+        # Group-level CDC config is propagated to every per-flow call.
+        for _a, kwargs in mock_dp.create_auto_cdc_flow.call_args_list:
+            self.assertEqual(kwargs["keys"], ["customer_id"])
+            self.assertEqual(kwargs["stored_as_scd_type"], "1")
+            self.assertEqual(kwargs["except_column_list"],
+                             ["operation", "_rescued_data"])
+
+        # Per-flow once is honoured: us_cdc=True, eu_cdc=False (default).
+        flow_once = {
+            kwargs["flow_name"]: kwargs["once"]
+            for _a, kwargs in mock_dp.create_auto_cdc_flow.call_args_list
+        }
+        self.assertEqual(flow_once, {"us_cdc": True, "eu_cdc": False})
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_write_layer_table_dispatches_to_cdc_flows(self, mock_dp):
+        """``write_layer_table`` must prefer the multi-source CDC path
+        when ``cdcApplyChangesFlows`` is set — even if
+        ``cdcApplyChanges`` was somehow also non-empty (the init-time
+        mutual-exclusion check should block that path entirely, so we
+        only reach this branch when CDC flows is the only one set)."""
+        mock_dp.create_streaming_table = MagicMock()
+        mock_dp.create_auto_cdc_flow = MagicMock()
+        mock_dp.temporary_view = MagicMock(return_value=None)
+        mock_dp.table = MagicMock(return_value=lambda func: func)
+
+        bmap = copy.deepcopy(self.bronze_dataflow_spec_map)
+        bmap["cdcApplyChanges"] = None
+        bmap["dataQualityExpectations"] = None
+        bmap["cdcApplyChangesFlows"] = self._bronze_cdc_flows_payload()
+        spec = BronzeDataflowSpec(**bmap)
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        pipeline.write_layer_table()
+        # Multi-source CDC path = one create_streaming_table + N
+        # create_auto_cdc_flow. No mock_dp.table call (that would mean
+        # the standard write path fired instead).
+        self.assertEqual(mock_dp.create_streaming_table.call_count, 1)
+        self.assertEqual(mock_dp.create_auto_cdc_flow.call_count, 2)
+        mock_dp.table.assert_not_called()

@@ -101,7 +101,21 @@
         python integration_tests/run_integration_tests.py --source=snapshot --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
         ```
 
-    > **Tip:** any of the four sources (`cloudfiles`, `eventhub`, `kafka`, `snapshot`) accepts ```--onboarding_file_format=yaml``` to run the same test against the YAML onboarding spec.
+    - 9e. Run the command for **multi_source_cdc** (issue [#294](https://github.com/databrickslabs/dlt-meta/issues/294))
+        ```commandline
+        python integration_tests/run_integration_tests.py --source=multi_source_cdc --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
+        ```
+
+        Same test, **YAML onboarding**:
+        ```commandline
+        python integration_tests/run_integration_tests.py --source=multi_source_cdc --uc_catalog_name=<<uc catalog name>> --onboarding_file_format=yaml --profile=<<DEFAULT>>
+        ```
+
+        End-to-end checks for the multi-source AUTO CDC code path. Seeds three regional bronze CDC tables (`customers_us_cdc`, `customers_eu_cdc`, `customers_apac_cdc`) — each with a different source column shape on purpose (US: `id`/`firstname`/`operation`; EU: `customer_id`/`given_name`/`change_type`; APAC: `cust_id`/`fname`/`op`) — then runs a single silver pipeline that merges all three into one unified `customers` SCD-1 table via `silver_cdc_apply_changes_flows` with per-flow `select_exp` normalization. The validator asserts per-region bronze counts, the silver live-row total, the per-region silver breakdown (proves each per-flow `select_exp` actually ran), and the exact surviving `customer_id` set.
+
+        The workflow is a minimal 3-task fan-in: `setup_sdp_meta_pipeline_spec → sdp-meta-pipeline → validate_results` (no A2 incremental step, no publish-events step). The `sdp-meta-pipeline` task runs **one** combined Lakeflow Spark Declarative Pipeline configured with `layer=bronze_silver` (groups `bronze.group=A1` and `silver.group=A1`), so all three regional bronze CDC tables AND the unified silver multi-source AUTO CDC merge execute inside a single observable DLT flow graph — matching Stage 11 of the interactive demo notebook and the standalone `demo/launch_multi_source_cdc_demo.py`. Seed data lives under [`integration_tests/resources/data/multi_source_cdc/`](resources/data/multi_source_cdc/) and the onboarding template is [`integration_tests/conf/json/multi-source-cdc-onboarding.template`](conf/json/multi-source-cdc-onboarding.template) (YAML sibling: [`conf/yml/multi-source-cdc-onboarding.template.yml`](conf/yml/multi-source-cdc-onboarding.template.yml)).
+
+    > **Tip:** any of the five sources (`cloudfiles`, `eventhub`, `kafka`, `snapshot`, `multi_source_cdc`) accepts ```--onboarding_file_format=yaml``` to run the same test against the YAML onboarding spec.
 
 
 10. Once finished integration output file will be copied locally to
@@ -131,7 +145,7 @@
 
 ## Onboarding file format (JSON or YAML)
 
-The integration test runner can drive every supported source (`cloudfiles`, `eventhub`, `kafka`, `snapshot`) with either a JSON or a YAML onboarding spec. The format is selected per-run with a single CLI flag:
+The integration test runner can drive every supported source (`cloudfiles`, `eventhub`, `kafka`, `snapshot`, `multi_source_cdc`) with either a JSON or a YAML onboarding spec. The format is selected per-run with a single CLI flag:
 
 ```commandline
 --onboarding_file_format=json   # default
@@ -150,6 +164,7 @@ integration_tests/conf/
 │   ├── eventhub-onboarding.template
 │   ├── kafka-onboarding.template
 │   ├── snapshot-onboarding.template
+│   ├── multi-source-cdc-onboarding.template
 │   ├── silver_transformations.json
 │   ├── silver_transformations_snapshot.json
 │   └── dqe/
@@ -162,6 +177,7 @@ integration_tests/conf/
     ├── eventhub-onboarding.template.yml
     ├── kafka-onboarding.template.yml
     ├── snapshot-onboarding.template.yml
+    ├── multi-source-cdc-onboarding.template.yml
     ├── silver_transformations.yml
     ├── silver_transformations_snapshot.yml
     └── dqe/
@@ -182,6 +198,7 @@ The dataclass defaults all point at the `/json/` tree. When the runner is starte
 | `integration_tests/conf/json/eventhub-onboarding.template`   | `integration_tests/conf/yml/eventhub-onboarding.template.yml`   |
 | `integration_tests/conf/json/kafka-onboarding.template`      | `integration_tests/conf/yml/kafka-onboarding.template.yml`      |
 | `integration_tests/conf/json/snapshot-onboarding.template`   | `integration_tests/conf/yml/snapshot-onboarding.template.yml`   |
+| `integration_tests/conf/json/multi-source-cdc-onboarding.template` | `integration_tests/conf/yml/multi-source-cdc-onboarding.template.yml` |
 | `integration_tests/conf/json/onboarding.json` *(generated)*  | `integration_tests/conf/yml/onboarding.yml` *(generated)*       |
 | `integration_tests/conf/json/onboarding_A2.json` *(generated)* | `integration_tests/conf/yml/onboarding_A2.yml` *(generated)*  |
 
@@ -193,7 +210,7 @@ The transformation rules are:
 
 There are two distinct kinds of paths:
 
-- **Templates (committed):** `cloudfiles_template`, `eventhub_template`, `kafka_template`, `snapshot_template`, `cloudfiles_A2_template`. Both `/json/*.template` and `/yml/*.template.yml` siblings exist on disk.
+- **Templates (committed):** `cloudfiles_template`, `eventhub_template`, `kafka_template`, `snapshot_template`, `cloudfiles_A2_template`, `multi_source_cdc_template`. Both `/json/*.template` and `/yml/*.template.yml` siblings exist on disk.
 - **Onboarding outputs (generated):** `onboarding_file_path`, `onboarding_A2_file_path`, `onboarding_fanout_file_path`. The runner reads the template, substitutes runtime placeholders (`{uc_volume_path}`, `{uc_catalog_name}`, `{bronze_schema}`, etc.) via `generate_onboarding_file()`, and writes the rendered result to the format-specific output path. These files are gitignored — they only exist after a test run.
 
 ### What happens after the file is written
