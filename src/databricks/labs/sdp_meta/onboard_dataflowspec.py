@@ -951,7 +951,9 @@ class OnboardDataflowspec:
             "appendFlowsSchemas",
             "sinks",
             "clusterBy",
-            "clusterByAuto"
+            "clusterByAuto",
+            "rowFilter",
+            "quarantineRowFilter"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -993,6 +995,8 @@ class OnboardDataflowspec:
                 StructField("sinks", StringType(), True),
                 StructField("clusterBy", ArrayType(StringType(), True), True),
                 StructField("clusterByAuto", T.BooleanType(), True),
+                StructField("rowFilter", StringType(), True),
+                StructField("quarantineRowFilter", StringType(), True),
             ]
         )
         data = []
@@ -1111,6 +1115,19 @@ class OnboardDataflowspec:
             append_flows, append_flows_schemas = self.get_append_flows_json(
                 onboarding_row, "bronze", env
             )
+            bronze_row_filter = (
+                onboarding_row["bronze_row_filter"]
+                if "bronze_row_filter" in onboarding_row and onboarding_row["bronze_row_filter"]
+                else None
+            )
+            bronze_quarantine_row_filter = (
+                onboarding_row["bronze_quarantine_row_filter"]
+                if (
+                    "bronze_quarantine_row_filter" in onboarding_row
+                    and onboarding_row["bronze_quarantine_row_filter"]
+                )
+                else None
+            )
             bronze_row = (
                 bronze_data_flow_spec_id,
                 bronze_data_flow_spec_group,
@@ -1131,7 +1148,9 @@ class OnboardDataflowspec:
                 append_flows_schemas,
                 dlt_sinks,
                 cluster_by,
-                cluster_by_auto
+                cluster_by_auto,
+                bronze_row_filter,
+                bronze_quarantine_row_filter
             )
             data.append(bronze_row)
             # logger.info(bronze_parition_columns)
@@ -1599,7 +1618,9 @@ class OnboardDataflowspec:
             "appendFlowsSchemas",
             "clusterBy",
             "clusterByAuto",
-            "sinks"
+            "sinks",
+            "rowFilter",
+            "quarantineRowFilter"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -1632,7 +1653,9 @@ class OnboardDataflowspec:
                 StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True),
                 StructField("clusterBy", ArrayType(StringType(), True), True),
                 StructField("clusterByAuto", T.BooleanType(), True),
-                StructField("sinks", StringType(), True)
+                StructField("sinks", StringType(), True),
+                StructField("rowFilter", StringType(), True),
+                StructField("quarantineRowFilter", StringType(), True),
             ]
         )
         data = []
@@ -1780,6 +1803,19 @@ class OnboardDataflowspec:
                     self.__delete_none(onboarding_row["silver_apply_changes_from_snapshot"].asDict())
                 )
                 source_format = "snapshot"
+            silver_row_filter = (
+                onboarding_row["silver_row_filter"]
+                if "silver_row_filter" in onboarding_row and onboarding_row["silver_row_filter"]
+                else None
+            )
+            silver_quarantine_row_filter = (
+                onboarding_row["silver_quarantine_row_filter"]
+                if (
+                    "silver_quarantine_row_filter" in onboarding_row
+                    and onboarding_row["silver_quarantine_row_filter"]
+                )
+                else None
+            )
             silver_row = (
                 silver_data_flow_spec_id,
                 silver_data_flow_spec_group,
@@ -1800,7 +1836,9 @@ class OnboardDataflowspec:
                 append_flow_schemas,
                 silver_cluster_by,
                 silver_cluster_by_auto,
-                dlt_sinks
+                dlt_sinks,
+                silver_row_filter,
+                silver_quarantine_row_filter
             )
             data.append(silver_row)
             logger.info(f"silver_data ==== {data}")

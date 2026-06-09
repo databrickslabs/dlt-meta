@@ -43,6 +43,8 @@ class BronzeDataflowSpec:
     clusterBy: list
     clusterByAuto: bool
     sinks: str
+    rowFilter: str
+    quarantineRowFilter: str
 
 
 @dataclass
@@ -75,6 +77,8 @@ class SilverDataflowSpec:
     clusterBy: list
     clusterByAuto: bool
     sinks: str
+    rowFilter: str
+    quarantineRowFilter: str
 
 
 @dataclass
@@ -189,7 +193,9 @@ class DataflowSpecUtils:
         "applyChangesFromSnapshot",
         "clusterBy",
         "clusterByAuto",
-        "sinks"
+        "sinks",
+        "rowFilter",
+        "quarantineRowFilter"
     ]
     additional_silver_df_columns = [
         "dataQualityExpectations",
@@ -200,7 +206,9 @@ class DataflowSpecUtils:
         "applyChangesFromSnapshot",
         "clusterBy",
         "clusterByAuto",
-        "sinks"
+        "sinks",
+        "rowFilter",
+        "quarantineRowFilter"
     ]
     additional_cdc_apply_changes_columns = ["flow_name", "once"]
     apply_changes_from_snapshot_api_attributes = [

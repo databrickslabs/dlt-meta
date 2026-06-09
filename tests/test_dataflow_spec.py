@@ -1,6 +1,9 @@
 """Test DataflowSpec script."""
 import copy
+import os
+import shutil
 import sys
+import tempfile
 from unittest.mock import MagicMock, patch
 import json
 from tests.utils import SDPFrameworkTestCase
@@ -121,6 +124,107 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         self.spark.conf.unset("layer")
         self.spark.conf.unset("silver.group")
         self.spark.conf.unset("silver.dataflowspecTable")
+
+    def _write_onboarding_with_row_filters(self):
+        """Write a temp onboarding file with row filters on the first record (data_flow_id 100, A1).
+
+        Uses the canonical Databricks UC row-filter clause format
+        ``ROW FILTER <catalog>.<schema>.<function> ON (<column>)``. The UDF
+        does not need to actually exist for these tests because they only
+        verify string round-tripping through the onboarding spec.
+
+        Also sets the sibling ``bronze_quarantine_row_filter`` /
+        ``silver_quarantine_row_filter`` fields with a *different* function
+        name. Quarantine row-filter is opt-in and independent from the main
+        row-filter (see ``DataflowPipeline._get_quarantine_row_filter`` for
+        the rationale); using a distinct function here proves the two
+        fields are persisted independently rather than aliased.
+        """
+        with open(self.onboarding_json_file) as f:
+            onboarding = json.load(f)
+        onboarding[0]["bronze_row_filter"] = (
+            "ROW FILTER main.bronze.region_filter ON (region)"
+        )
+        onboarding[0]["silver_row_filter"] = (
+            "ROW FILTER main.silver.department_filter ON (department)"
+        )
+        onboarding[0]["bronze_quarantine_row_filter"] = (
+            "ROW FILTER main.bronze.quarantine_region_filter ON (region)"
+        )
+        onboarding[0]["silver_quarantine_row_filter"] = (
+            "ROW FILTER main.silver.quarantine_department_filter ON (department)"
+        )
+        tmp_dir = tempfile.mkdtemp()
+        rf_file = os.path.join(tmp_dir, "onboarding_row_filter.json")
+        with open(rf_file, "w") as f:
+            json.dump(onboarding, f)
+        return tmp_dir, rf_file
+
+    def test_bronze_row_filter_onboarded_and_roundtrips(self):
+        """bronze_row_filter onboards into BronzeDataflowSpec.rowFilter; absent record -> None."""
+        tmp_dir, rf_file = self._write_onboarding_with_row_filters()
+        opm = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        opm["onboarding_file_path"] = rf_file
+        del opm["silver_dataflowspec_table"]
+        del opm["silver_dataflowspec_path"]
+        OnboardDataflowspec(self.spark, opm).onboard_bronze_dataflow_spec()
+        self.spark.sql("CREATE DATABASE if not exists " + opm["database"])
+
+        self.spark.conf.set("layer", "bronze")
+        self.spark.conf.set("bronze.group", "A1")
+        self.spark.conf.set("bronze.dataflowspecTable",
+                            f"{opm['database']}.{opm['bronze_dataflowspec_table']}")
+        bronze_specs = list(DataflowSpecUtils.get_bronze_dataflow_spec(self.spark))
+        bronze_filters = [s.rowFilter for s in bronze_specs]
+        bronze_quarantine_filters = [s.quarantineRowFilter for s in bronze_specs]
+        # A1 has two records; only data_flow_id 100 carries a filter, the other stays None.
+        self.assertIn(
+            "ROW FILTER main.bronze.region_filter ON (region)", bronze_filters
+        )
+        self.assertIn(None, bronze_filters)
+        # Quarantine row filter round-trips on the same record and stays
+        # independent of the main rowFilter.
+        self.assertIn(
+            "ROW FILTER main.bronze.quarantine_region_filter ON (region)",
+            bronze_quarantine_filters,
+        )
+        self.assertIn(None, bronze_quarantine_filters)
+
+        for conf in ["layer", "bronze.group", "bronze.dataflowspecTable"]:
+            self.spark.conf.unset(conf)
+        shutil.rmtree(tmp_dir)
+
+    def test_silver_row_filter_onboarded_and_roundtrips(self):
+        """silver_row_filter onboards into SilverDataflowSpec.rowFilter; absent record -> None."""
+        tmp_dir, rf_file = self._write_onboarding_with_row_filters()
+        opm = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        opm["onboarding_file_path"] = rf_file
+        del opm["bronze_dataflowspec_table"]
+        del opm["bronze_dataflowspec_path"]
+        self.spark.sql("CREATE DATABASE if not exists " + opm["database"])
+        OnboardDataflowspec(self.spark, opm).onboard_silver_dataflow_spec()
+
+        self.spark.conf.set("layer", "silver")
+        self.spark.conf.set("silver.group", "A1")
+        self.spark.conf.set("silver.dataflowspecTable",
+                            f"{opm['database']}.{opm['silver_dataflowspec_table']}")
+        silver_specs = list(DataflowSpecUtils.get_silver_dataflow_spec(self.spark))
+        silver_filters = [s.rowFilter for s in silver_specs]
+        silver_quarantine_filters = [s.quarantineRowFilter for s in silver_specs]
+        self.assertIn(
+            "ROW FILTER main.silver.department_filter ON (department)",
+            silver_filters,
+        )
+        self.assertIn(None, silver_filters)
+        self.assertIn(
+            "ROW FILTER main.silver.quarantine_department_filter ON (department)",
+            silver_quarantine_filters,
+        )
+        self.assertIn(None, silver_quarantine_filters)
+
+        for conf in ["layer", "silver.group", "silver.dataflowspecTable"]:
+            self.spark.conf.unset(conf)
+        shutil.rmtree(tmp_dir)
 
     def test_get_dataflow_spec_positive(self):
         opm = copy.deepcopy(self.onboarding_bronze_silver_params_map)

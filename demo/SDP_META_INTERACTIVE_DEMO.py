@@ -403,7 +403,6 @@ silver_schema = f"{uc_schema_name}_silver"
 # via DataflowSpec so nothing is ever written here.
 pipeline_target_schema = f"{uc_schema_name}_pipeline_default"
 
-spark.sql(f"CREATE CATALOG IF NOT EXISTS {uc_catalog_name}")
 spark.sql(f"USE CATALOG {uc_catalog_name}")
 spark.sql(f"CREATE SCHEMA IF NOT EXISTS {uc_schema_name}")
 spark.sql(f"CREATE SCHEMA IF NOT EXISTS {bronze_schema}")
@@ -411,6 +410,25 @@ spark.sql(f"CREATE SCHEMA IF NOT EXISTS {silver_schema}")
 spark.sql(f"CREATE SCHEMA IF NOT EXISTS {pipeline_target_schema}")
 spark.sql(f"USE SCHEMA {uc_schema_name}")
 spark.sql("CREATE VOLUME IF NOT EXISTS config")
+
+# Row-filter UDF (UC Row-Level Security). `bronze_row_filter` /
+# `silver_row_filter` in the onboarding spec is a *reference* to this
+# function, so it must exist before the pipeline first creates the
+# target table -- otherwise CREATE TABLE will fail.
+#
+# Predicate: admins see all rows; everyone else sees only customer_id
+# <= 100. With NUM_CUSTOMERS=200 in this demo, that's half the rows
+# for a non-admin reader -- a deterministic, visible signal that the
+# filter is in effect (Stage 11 verifies it).
+spark.sql(f"""
+    CREATE OR REPLACE FUNCTION
+        {uc_catalog_name}.{uc_schema_name}.customer_id_filter(cid INT)
+    RETURNS BOOLEAN
+    RETURN
+        is_account_group_member('admins')
+        OR cid IS NULL
+        OR cid <= 100
+""")
 
 uc_volume_path = (
     f"/Volumes/{uc_catalog_name}/{uc_schema_name}/config"
@@ -1410,6 +1428,7 @@ rendered_text = Template(sample_text).safe_substitute(
     dqe_path=dqe_path,
     transformation_path=transformation_path,
     uc_catalog_name=uc_catalog_name,
+    uc_schema_name=uc_schema_name,
     bronze_schema=bronze_schema,
     silver_schema=silver_schema,
 )
@@ -3213,6 +3232,89 @@ display(spark.createDataFrame(summary_rows))
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Stage 11: Row-Level Filtering (UC Row Filter)
+# MAGIC
+# MAGIC The `customers` flow in the onboarding spec has both
+# MAGIC `bronze_row_filter` and `silver_row_filter` set to:
+# MAGIC
+# MAGIC ```
+# MAGIC ROW FILTER ${uc_catalog_name}.${uc_schema_name}.customer_id_filter ON (customer_id)
+# MAGIC ```
+# MAGIC
+# MAGIC The UDF — created in **Stage 1.2** before the pipeline ran — is:
+# MAGIC
+# MAGIC ```sql
+# MAGIC CREATE FUNCTION customer_id_filter(cid INT) RETURNS BOOLEAN
+# MAGIC RETURN is_account_group_member('admins') OR cid IS NULL OR cid <= 100
+# MAGIC ```
+# MAGIC
+# MAGIC So a non-admin reader sees only `customer_id <= 100` (≈ 100 of
+# MAGIC the 200 generated rows); an admin sees all rows. Note: `bronze_row_filter`
+# MAGIC / `silver_row_filter` are UC-only — `_get_row_filter()` in
+# MAGIC `dataflow_pipeline.py` returns `None` when the pipeline is not
+# MAGIC UC-enabled, so legacy hive metastore runs are unaffected.
+
+# COMMAND ----------
+
+# DBTITLE 1,Verify the row filter is enforced
+print("Row filter UDF:")
+display(spark.sql(f"""
+    DESCRIBE FUNCTION EXTENDED
+    {uc_catalog_name}.{uc_schema_name}.customer_id_filter
+"""))
+
+print("\nFiltered customers — bronze (rows visible to current user):")
+bronze_filtered = spark.sql(f"""
+    SELECT
+        SUM(CASE WHEN customer_id <= 100 THEN 1 ELSE 0 END) AS within_filter,
+        SUM(CASE WHEN customer_id  > 100 THEN 1 ELSE 0 END) AS outside_filter,
+        COUNT(*)                                            AS total
+    FROM {uc_catalog_name}.{bronze_schema}.customers
+""").first()
+print(
+    f"  bronze.customers : within_filter={bronze_filtered.within_filter} "
+    f"outside_filter={bronze_filtered.outside_filter} "
+    f"total={bronze_filtered.total}"
+)
+
+print("\nFiltered customers — silver (rows visible to current user):")
+silver_filtered = spark.sql(f"""
+    SELECT
+        SUM(CASE WHEN customer_id <= 100 THEN 1 ELSE 0 END) AS within_filter,
+        SUM(CASE WHEN customer_id  > 100 THEN 1 ELSE 0 END) AS outside_filter,
+        COUNT(*)                                            AS total
+    FROM {uc_catalog_name}.{silver_schema}.customers
+""").first()
+print(
+    f"  silver.customers : within_filter={silver_filtered.within_filter} "
+    f"outside_filter={silver_filtered.outside_filter} "
+    f"total={silver_filtered.total}"
+)
+
+# Sanity check (only meaningful for non-admins; admins legitimately see
+# the unfiltered set, so we don't fail the demo for them).
+running_as_admin = spark.sql(
+    "SELECT is_account_group_member('admins') AS is_admin"
+).first().is_admin
+if not running_as_admin:
+    assert bronze_filtered.outside_filter == 0, (
+        f"row filter not enforced on bronze.customers — saw "
+        f"{bronze_filtered.outside_filter} rows with customer_id > 100"
+    )
+    assert silver_filtered.outside_filter == 0, (
+        f"row filter not enforced on silver.customers — saw "
+        f"{silver_filtered.outside_filter} rows with customer_id > 100"
+    )
+    print("\nRow filter enforced on bronze + silver customers tables.")
+else:
+    print(
+        "\nRunning as admin — UDF returned TRUE for every row; "
+        "filter wiring confirmed but cannot assert restriction."
+    )
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ---
 # MAGIC ## Summary
 # MAGIC
@@ -3231,6 +3333,7 @@ display(spark.createDataFrame(summary_rows))
 # MAGIC | **File metadata** | `_metadata.file_name`, `_metadata.file_path` |
 # MAGIC | **Apply Changes From Snapshot** | Snapshot-based SCD Type 1 & 2 |
 # MAGIC | **Pipeline Sink** | Write to external delta table via `dp.create_sink` |
+# MAGIC | **Row-level filtering** | `bronze_row_filter` / `silver_row_filter` → UC `ROW FILTER` |
 # MAGIC
 # MAGIC ### Learn More
 # MAGIC - [Full Documentation](https://databrickslabs.github.io/dlt-meta/)

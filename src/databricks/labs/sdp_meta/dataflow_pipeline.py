@@ -132,6 +132,36 @@ class DataflowPipeline:
         """Table has expectations check."""
         return self.dataflowSpec.dataQualityExpectations is not None
 
+    def _get_row_filter(self):
+        """Return rowFilter when UC is enabled — row filters are a UC-only feature.
+
+        Returns:
+            str | None: The row filter SQL clause, or None if not set or UC is disabled.
+        """
+        if not self.uc_enabled:
+            return None
+        return getattr(self.dataflowSpec, "rowFilter", None)
+
+    def _get_quarantine_row_filter(self):
+        """Return quarantineRowFilter when UC is enabled — UC-only feature.
+
+        The quarantine table holds rows that failed DQE expectations. Without
+        a filter the quarantine becomes a PII-bypass channel for restricted
+        main-table data; with the same filter as the main table ops loses
+        visibility into rejected rows. Operators must therefore opt in
+        explicitly via `bronze_quarantine_row_filter` /
+        `silver_quarantine_row_filter` in the onboarding spec, choosing the
+        right policy for their deployment (e.g. a looser filter that grants
+        the ops group full visibility while still hiding PII from end users).
+
+        Returns:
+            str | None: The quarantine row filter SQL clause, or None if not
+                set or UC is disabled.
+        """
+        if not self.uc_enabled:
+            return None
+        return getattr(self.dataflowSpec, "quarantineRowFilter", None)
+
     def is_create_view(self):
         """Determine if a view should be created based on source details and snapshot configuration.
 
@@ -255,6 +285,7 @@ class DataflowPipeline:
             table_properties=self.dataflowSpec.tableProperties,
             path=target_path,
             comment=comment,
+            row_filter=self._get_row_filter(),
         )
 
     def write_layer_table(self):
@@ -496,6 +527,7 @@ class DataflowPipeline:
                         cluster_by_auto=cluster_by_auto,
                         path=target_path,
                         comment=target_comment,
+                        row_filter=self._get_row_filter(),
                     )
                 )
             if expect_all_or_fail_dict:
@@ -510,6 +542,7 @@ class DataflowPipeline:
                             cluster_by_auto=cluster_by_auto,
                             path=target_path,
                             comment=target_comment,
+                            row_filter=self._get_row_filter(),
                         )
                     )
                 else:
@@ -527,6 +560,7 @@ class DataflowPipeline:
                             cluster_by_auto=cluster_by_auto,
                             path=target_path,
                             comment=target_comment,
+                            row_filter=self._get_row_filter(),
                         )
                     )
                 else:
@@ -595,6 +629,7 @@ class DataflowPipeline:
                     cluster_by_auto=q_cluster_by_auto,
                     path=quarantine_path,
                     comment=quarantine_comment,
+                    row_filter=self._get_quarantine_row_filter(),
                 )
             )
 
@@ -629,7 +664,8 @@ class DataflowPipeline:
                 self.dataflowSpec.tableProperties,
                 self.dataflowSpec.partitionColumns,
                 self.dataflowSpec.clusterBy,
-                self.dataflowSpec.clusterByAuto
+                self.dataflowSpec.clusterByAuto,
+                self._get_row_filter()
             )
             append_flow_writer.write_flow()
 
@@ -762,6 +798,7 @@ class DataflowPipeline:
             expect_all=expect_all_dict,
             expect_all_or_drop=expect_all_or_drop_dict,
             expect_all_or_fail=expect_all_or_fail_dict,
+            row_filter=self._get_row_filter(),
         )
 
     def get_dq_expectations(self):
