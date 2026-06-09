@@ -862,6 +862,16 @@ class DataflowPipeline:
 
         Source views are produced by :meth:`read_cdc_flows` at read-time
         and consumed here by name (``{flow.name}_cdc_view``).
+
+        Row filters: UC row filters bind at table-creation time, not at
+        write time. ``dp.create_auto_cdc_flow`` therefore has no
+        ``row_filter`` knob — every flow targeting the same streaming
+        table inherits the table-level filter. The spec-level
+        ``rowFilter`` is wired through :meth:`create_streaming_table`
+        below, so all N flows respect a single consistent policy on the
+        merged target. This is the correct shape: row filters express
+        WHO can read WHICH rows of the merged dataset, not how each
+        upstream flow should filter on write.
         """
         group = self.cdcApplyChangesFlows
         if group is None:

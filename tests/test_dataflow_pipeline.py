@@ -3003,3 +3003,108 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         self.assertEqual(mock_dp.create_streaming_table.call_count, 1)
         self.assertEqual(mock_dp.create_auto_cdc_flow.call_count, 2)
         mock_dp.table.assert_not_called()
+
+    # ------------------------------------------------------------------
+    # row_filter coverage on multi-source CDC + snapshot CDC paths
+    #
+    # The ``cdc_apply_changes_flows`` and ``apply_changes_from_snapshot``
+    # methods don't carry a ``row_filter`` kwarg of their own — they
+    # delegate target-table creation to ``create_streaming_table``,
+    # which already pins ``row_filter=self._get_row_filter()``. These
+    # tests guard the inheritance: future changes that route either CDC
+    # path AROUND ``create_streaming_table`` (e.g. by inlining
+    # ``dp.create_streaming_table`` directly) would break this contract
+    # silently otherwise.
+    # ------------------------------------------------------------------
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_cdc_apply_changes_flows_passes_row_filter_to_streaming_table(self, mock_dp):
+        """Multi-source CDC target table inherits the spec-level rowFilter via create_streaming_table."""
+        mock_dp.create_streaming_table = MagicMock()
+        mock_dp.create_auto_cdc_flow = MagicMock()
+        mock_dp.temporary_view = MagicMock(return_value=None)
+
+        bmap = copy.deepcopy(self.bronze_dataflow_spec_map)
+        bmap["cdcApplyChanges"] = None
+        bmap["dataQualityExpectations"] = None
+        bmap["cdcApplyChangesFlows"] = self._bronze_cdc_flows_payload()
+        bmap["rowFilter"] = self.ROW_FILTER_REGION
+        spec = BronzeDataflowSpec(**bmap)
+
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        pipeline.cdc_apply_changes_flows()
+
+        # Exactly one streaming table is created (single target — DLT
+        # mandate) and it carries the row_filter.
+        self.assertEqual(mock_dp.create_streaming_table.call_count, 1)
+        _, kwargs = mock_dp.create_streaming_table.call_args
+        self.assertEqual(kwargs["row_filter"], self.ROW_FILTER_REGION)
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_cdc_apply_changes_flows_row_filter_suppressed_without_uc(self, mock_dp):
+        """With UC disabled, multi-source CDC target table receives row_filter=None even if spec.rowFilter is set."""
+        mock_dp.create_streaming_table = MagicMock()
+        mock_dp.create_auto_cdc_flow = MagicMock()
+        mock_dp.temporary_view = MagicMock(return_value=None)
+
+        bmap = copy.deepcopy(self.bronze_dataflow_spec_map)
+        bmap["cdcApplyChanges"] = None
+        bmap["dataQualityExpectations"] = None
+        bmap["cdcApplyChangesFlows"] = self._bronze_cdc_flows_payload()
+        bmap["rowFilter"] = self.ROW_FILTER_REGION
+        spec = BronzeDataflowSpec(**bmap)
+
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "False")
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+        )
+        pipeline.cdc_apply_changes_flows()
+
+        _, kwargs = mock_dp.create_streaming_table.call_args
+        self.assertIsNone(kwargs["row_filter"])
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_apply_changes_from_snapshot_passes_row_filter_to_streaming_table(self, mock_dp):
+        """Snapshot-CDC target table inherits the spec-level rowFilter via create_streaming_table.
+
+        Parity with the multi-source CDC test above: both paths funnel
+        through ``create_streaming_table`` for the actual table mint,
+        so both must respect ``rowFilter``.
+        """
+        mock_dp.create_streaming_table = MagicMock()
+        mock_dp.create_auto_cdc_from_snapshot_flow = MagicMock()
+
+        bmap = copy.deepcopy(self.bronze_dataflow_spec_map)
+        bmap["cdcApplyChanges"] = None
+        bmap["cdcApplyChangesFlows"] = None
+        bmap["dataQualityExpectations"] = None
+        # applyChangesFromSnapshot drives the apply_changes_from_snapshot
+        # branch; the values mirror the single-source CDC shape.
+        bmap["applyChangesFromSnapshot"] = json.dumps({
+            "keys": ["customer_id"],
+            "scd_type": "1",
+        })
+        bmap["rowFilter"] = self.ROW_FILTER_DEPT
+        spec = BronzeDataflowSpec(**bmap)
+
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+        # apply_changes_from_snapshot needs a snapshot-version callback
+        # but doesn't care what it returns for this assertion path.
+        pipeline = DataflowPipeline(
+            self.spark, spec,
+            f"{spec.targetDetails['table']}_inputview", None,
+            next_snapshot_and_version=lambda *_a, **_k: None,
+        )
+        pipeline.apply_changes_from_snapshot()
+
+        self.assertEqual(mock_dp.create_streaming_table.call_count, 1)
+        _, kwargs = mock_dp.create_streaming_table.call_args
+        self.assertEqual(kwargs["row_filter"], self.ROW_FILTER_DEPT)

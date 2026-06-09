@@ -198,7 +198,14 @@ class SDPMETAMultiSourceCDCDemo(SDPMETARunner):
         self.open_job_url(runner_conf, created_job)
 
     def create_msc_workflow_spec(self, runner_conf: SDPMetaRunnerConf):
-        """3-task workflow: onboarding -> sdp-meta-pipeline -> validate.
+        """4-task workflow: setup_row_filter_udf -> onboarding ->
+        sdp-meta-pipeline -> validate.
+
+        The ``setup_row_filter_udf`` task runs FIRST and creates the
+        ``region_filter`` UDF in the silver schema. UC requires the
+        filter function to exist BEFORE the pipeline mints the merged
+        streaming target table inside ``cdc_apply_changes_flows``,
+        otherwise CREATE TABLE … WITH ROW FILTER fails at table-mint.
 
         The single ``sdp-meta-pipeline`` task runs the combined
         Lakeflow Spark Declarative Pipeline that processes BOTH bronze
@@ -217,11 +224,37 @@ class SDPMETAMultiSourceCDCDemo(SDPMETARunner):
         ]
         tasks = [
             jobs.Task(
+                # Mints the row-filter UDF in the silver schema BEFORE
+                # any DLT table is created. Required because the silver
+                # target carries `silver_row_filter` and UC CREATE TABLE
+                # validates the referenced function at mint time.
+                task_key="setup_row_filter_udf",
+                description=(
+                    "Create the silver_schema.region_filter UDF that "
+                    "the merged silver customers table attaches via "
+                    "silver_row_filter"
+                ),
+                timeout_seconds=0,
+                notebook_task=jobs.NotebookTask(
+                    notebook_path=(
+                        f"{runner_conf.runners_nb_path}/runners/"
+                        "setup_row_filter_udf.py"
+                    ),
+                    base_parameters={
+                        "uc_catalog_name": runner_conf.uc_catalog_name,
+                        "silver_schema": runner_conf.silver_schema,
+                    },
+                ),
+            ),
+            jobs.Task(
                 task_key="onboarding_job",
                 description=(
                     "Onboard bronze + silver dataflow specs from the "
                     "multi-source CDC template"
                 ),
+                depends_on=[
+                    jobs.TaskDependency(task_key="setup_row_filter_udf")
+                ],
                 environment_key="sdp_meta_msc_demo_env",
                 timeout_seconds=0,
                 python_wheel_task=jobs.PythonWheelTask(

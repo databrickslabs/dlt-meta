@@ -73,6 +73,7 @@
       "silver_table_properties": {
          "pipelines.reset.allowed": "false"
       },
+      "silver_row_filter": "ROW FILTER {uc_catalog_name}.{silver_schema}.region_filter ON (region)",
       "silver_cdc_apply_changes_flows": {
          "keys": ["customer_id"],
          "sequence_by": "operation_date",
