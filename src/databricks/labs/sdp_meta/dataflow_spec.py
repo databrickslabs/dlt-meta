@@ -52,6 +52,16 @@ class BronzeDataflowSpec:
     # missing columns with ``None`` at read time.
     cdcApplyChangesFlows: str
     cdcApplyChangesFlowsSchemas: map
+    # UC row-level security (issue #303): canonical
+    # ``ROW FILTER cat.schema.func ON (col)`` clause attached to the main
+    # bronze table and (optionally and independently) the quarantine table.
+    # Silently dropped on non-UC pipelines via
+    # :meth:`DataflowPipeline._get_row_filter` /
+    # :meth:`DataflowPipeline._get_quarantine_row_filter`. Forward-compatible
+    # with legacy Delta dataflowspec tables via
+    # :attr:`DataflowSpecUtils.additional_bronze_df_columns`.
+    rowFilter: str
+    quarantineRowFilter: str
 
 
 @dataclass
@@ -92,6 +102,12 @@ class SilverDataflowSpec:
     # are forward-compatible via
     # :attr:`DataflowSpecUtils.additional_silver_df_columns`.
     cdcApplyChangesFlows: str
+    # UC row-level security (issue #303). See the bronze docstring above for
+    # the full rationale; the silver version is wired through the same
+    # :meth:`DataflowPipeline._get_row_filter` /
+    # :meth:`DataflowPipeline._get_quarantine_row_filter` helpers.
+    rowFilter: str
+    quarantineRowFilter: str
 
 
 @dataclass
@@ -283,6 +299,10 @@ class DataflowSpecUtils:
         # without rewriting.
         "cdcApplyChangesFlows",
         "cdcApplyChangesFlowsSchemas",
+        # UC row-level security (issue #303). Both default to ``None`` for
+        # legacy dataflowspec rows.
+        "rowFilter",
+        "quarantineRowFilter",
     ]
     additional_silver_df_columns = [
         "dataQualityExpectations",
@@ -298,6 +318,9 @@ class DataflowSpecUtils:
         # schemas map; defaults to ``None`` for spec rows written before
         # v0.0.11.
         "cdcApplyChangesFlows",
+        # UC row-level security (issue #303). See bronze entry above.
+        "rowFilter",
+        "quarantineRowFilter",
     ]
     additional_cdc_apply_changes_columns = ["flow_name", "once"]
     apply_changes_from_snapshot_api_attributes = [

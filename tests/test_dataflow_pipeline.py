@@ -74,6 +74,8 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         "sinks": [],
         "cdcApplyChangesFlows": None,
         "cdcApplyChangesFlowsSchemas": None,
+        "rowFilter": None,
+        "quarantineRowFilter": None,
     }
 
     bronze_dataflow_spec_map = {
@@ -113,6 +115,8 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         "clusterByAuto": False,
         "cdcApplyChangesFlows": None,
         "cdcApplyChangesFlowsSchemas": None,
+        "rowFilter": None,
+        "quarantineRowFilter": None,
     }
     silver_cdc_apply_changes = {
         "keys": ["id"],
@@ -175,6 +179,8 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         "clusterBy": [""],
         "clusterByAuto": False,
         "cdcApplyChangesFlows": None,
+        "rowFilter": None,
+        "quarantineRowFilter": None,
     }
     silver_acfs_dataflow_spec_map = {
         "dataFlowId": "1",
@@ -223,6 +229,8 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         "clusterBy": [""],
         "clusterByAuto": False,
         "cdcApplyChangesFlows": None,
+        "rowFilter": None,
+        "quarantineRowFilter": None,
     }
     # @classmethod
     # def setUp(self):
@@ -2455,6 +2463,282 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
             reader_options={"inferSchema": "true"}
         )
         self.assertIsNotNone(reader)
+
+    # ------------------------------------------------------------------
+    # UC row-filter runtime tests (issue #303)
+    # ------------------------------------------------------------------
+
+    # Canonical UC row-filter clause used as the opaque pass-through token in
+    # the row-filter tests below. The framework treats `rowFilter` as a string
+    # forwarded verbatim to dp.table / dp.create_streaming_table, so the UDF
+    # does not need to actually exist for these mock-based assertions.
+    ROW_FILTER_REGION = "ROW FILTER main.bronze.region_filter ON (region)"
+    ROW_FILTER_DEPT = "ROW FILTER main.bronze.dept_filter ON (dept)"
+
+    def _build_bronze_pipeline(self, uc_enabled, row_filter):
+        """Helper: build a simple-path bronze DataflowPipeline with a given UC/row-filter setup."""
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True" if uc_enabled else "False")
+        # Test isolation: clear the UC conf override after this test finishes
+        # so the override doesn't leak into sibling tests in this module.
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+        spec = BronzeDataflowSpec(**copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map))
+        spec.cdcApplyChanges = None
+        spec.dataQualityExpectations = None
+        spec.appendFlows = []
+        spec.rowFilter = row_filter
+        view_name = f"{spec.targetDetails['table']}_inputview"
+        pipeline = DataflowPipeline(self.spark, spec, view_name, None)
+        pipeline.read_bronze = MagicMock()
+        pipeline.view_name = view_name
+        return pipeline
+
+    def test_get_row_filter_uc_enabled(self):
+        """_get_row_filter returns the rowFilter value when UC is enabled."""
+        pipeline = self._build_bronze_pipeline(uc_enabled=True, row_filter=self.ROW_FILTER_REGION)
+        self.assertEqual(pipeline._get_row_filter(), self.ROW_FILTER_REGION)
+
+    def test_get_row_filter_uc_disabled(self):
+        """_get_row_filter returns None when UC is disabled, even if rowFilter is set."""
+        pipeline = self._build_bronze_pipeline(uc_enabled=False, row_filter=self.ROW_FILTER_REGION)
+        self.assertIsNone(pipeline._get_row_filter())
+
+    def test_get_row_filter_not_set(self):
+        """_get_row_filter returns None when rowFilter is not set."""
+        pipeline = self._build_bronze_pipeline(uc_enabled=True, row_filter=None)
+        self.assertIsNone(pipeline._get_row_filter())
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_write_bronze_passes_row_filter(self, mock_dlt):
+        """write_bronze (simple path) passes row_filter to dp.table when UC is enabled and set."""
+        mock_dlt.table = MagicMock(return_value=lambda func: func)
+        pipeline = self._build_bronze_pipeline(uc_enabled=True, row_filter=self.ROW_FILTER_REGION)
+        pipeline.write_bronze()
+        _, kwargs = mock_dlt.table.call_args
+        self.assertEqual(kwargs["row_filter"], self.ROW_FILTER_REGION)
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_write_bronze_no_row_filter(self, mock_dlt):
+        """write_bronze passes row_filter=None when rowFilter is not set."""
+        mock_dlt.table = MagicMock(return_value=lambda func: func)
+        pipeline = self._build_bronze_pipeline(uc_enabled=True, row_filter=None)
+        pipeline.write_bronze()
+        _, kwargs = mock_dlt.table.call_args
+        self.assertIsNone(kwargs["row_filter"])
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_write_bronze_row_filter_suppressed_without_uc(self, mock_dlt):
+        """row_filter is suppressed (None) on the write path when UC is disabled."""
+        mock_dlt.table = MagicMock(return_value=lambda func: func)
+        pipeline = self._build_bronze_pipeline(uc_enabled=False, row_filter=self.ROW_FILTER_REGION)
+        pipeline.write_bronze()
+        _, kwargs = mock_dlt.table.call_args
+        self.assertIsNone(kwargs["row_filter"])
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_create_streaming_table_passes_row_filter(self, mock_dlt):
+        """create_streaming_table (CDC / snapshot path) passes row_filter to dp.create_streaming_table."""
+        mock_dlt.create_streaming_table = MagicMock()
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        # Same isolation guarantee as _build_bronze_pipeline: don't leak the
+        # UC conf override into other tests.
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+        spec = BronzeDataflowSpec(**copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map))
+        spec.dataQualityExpectations = None
+        spec.rowFilter = self.ROW_FILTER_DEPT
+        view_name = f"{spec.targetDetails['table']}_inputview"
+        pipeline = DataflowPipeline(self.spark, spec, view_name, None)
+        pipeline.create_streaming_table(None, None)
+        _, kwargs = mock_dlt.create_streaming_table.call_args
+        self.assertEqual(kwargs["row_filter"], self.ROW_FILTER_DEPT)
+
+    # ------------------------------------------------------------------
+    # quarantine_row_filter coverage
+    # ------------------------------------------------------------------
+
+    def test_get_quarantine_row_filter_uc_enabled(self):
+        """_get_quarantine_row_filter returns the quarantineRowFilter value when UC is enabled."""
+        pipeline = self._build_bronze_pipeline(uc_enabled=True, row_filter=None)
+        pipeline.dataflowSpec.quarantineRowFilter = self.ROW_FILTER_DEPT
+        self.assertEqual(pipeline._get_quarantine_row_filter(), self.ROW_FILTER_DEPT)
+
+    def test_get_quarantine_row_filter_uc_disabled(self):
+        """_get_quarantine_row_filter returns None when UC is disabled, even if quarantineRowFilter is set."""
+        pipeline = self._build_bronze_pipeline(uc_enabled=False, row_filter=None)
+        pipeline.dataflowSpec.quarantineRowFilter = self.ROW_FILTER_DEPT
+        self.assertIsNone(pipeline._get_quarantine_row_filter())
+
+    def test_get_quarantine_row_filter_not_set(self):
+        """_get_quarantine_row_filter returns None when quarantineRowFilter is not set."""
+        pipeline = self._build_bronze_pipeline(uc_enabled=True, row_filter=None)
+        pipeline.dataflowSpec.quarantineRowFilter = None
+        self.assertIsNone(pipeline._get_quarantine_row_filter())
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_quarantine_dp_table_passes_quarantine_row_filter(self, mock_dlt):
+        """The quarantine dp.table call carries `row_filter=quarantineRowFilter` (independent of the main rowFilter)."""
+        mock_dlt.expect_all = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all_or_drop = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all_or_fail = MagicMock(return_value=lambda func: func)
+        mock_dlt.table = MagicMock(return_value=lambda func: func)
+
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+
+        spec = BronzeDataflowSpec(**copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map))
+        spec.cdcApplyChanges = None
+        spec.applyChangesFromSnapshot = None
+        # Drive the quarantine branch in write_layer_with_dqe.
+        spec.dataQualityExpectations = json.dumps({
+            "expect_or_quarantine": {"valid_id": "id IS NOT NULL"}
+        })
+        # Distinct values prove the two filters are wired through independently.
+        spec.rowFilter = self.ROW_FILTER_REGION
+        spec.quarantineRowFilter = self.ROW_FILTER_DEPT
+
+        view_name = f"{spec.targetDetails['table']}_inputview"
+        pipeline = DataflowPipeline(self.spark, spec, view_name, None)
+        pipeline.write_layer_with_dqe()
+
+        # Quarantine table name comes from spec.quarantineTargetDetails (no catalog -> "<db>.<table>").
+        q_db = spec.quarantineTargetDetails["database"]
+        q_table = spec.quarantineTargetDetails["table"]
+        expected_quarantine_table = f"{q_db}.{q_table}"
+
+        quarantine_calls = [
+            call for call in mock_dlt.table.call_args_list
+            if call.kwargs.get("name") == expected_quarantine_table
+        ]
+        self.assertEqual(
+            len(quarantine_calls), 1,
+            f"expected exactly 1 dp.table call for quarantine `{expected_quarantine_table}`, "
+            f"saw call_args_list={mock_dlt.table.call_args_list}"
+        )
+        self.assertEqual(
+            quarantine_calls[0].kwargs["row_filter"], self.ROW_FILTER_DEPT
+        )
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_quarantine_dp_table_row_filter_suppressed_without_uc(self, mock_dlt):
+        """Quarantine dp.table receives row_filter=None when UC is disabled, even if quarantineRowFilter is set."""
+        mock_dlt.expect_all = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all_or_drop = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all_or_fail = MagicMock(return_value=lambda func: func)
+        mock_dlt.table = MagicMock(return_value=lambda func: func)
+
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "False")
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+
+        spec = BronzeDataflowSpec(**copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map))
+        spec.cdcApplyChanges = None
+        spec.applyChangesFromSnapshot = None
+        spec.dataQualityExpectations = json.dumps({
+            "expect_or_quarantine": {"valid_id": "id IS NOT NULL"}
+        })
+        spec.quarantineRowFilter = self.ROW_FILTER_DEPT
+
+        view_name = f"{spec.targetDetails['table']}_inputview"
+        pipeline = DataflowPipeline(self.spark, spec, view_name, None)
+        pipeline.write_layer_with_dqe()
+
+        q_db = spec.quarantineTargetDetails["database"]
+        q_table = spec.quarantineTargetDetails["table"]
+        expected_quarantine_table = f"{q_db}.{q_table}"
+        quarantine_calls = [
+            call for call in mock_dlt.table.call_args_list
+            if call.kwargs.get("name") == expected_quarantine_table
+        ]
+        self.assertEqual(len(quarantine_calls), 1)
+        self.assertIsNone(quarantine_calls[0].kwargs["row_filter"])
+
+    # ------------------------------------------------------------------
+    # DQE-path row_filter coverage
+    #
+    # write_layer_with_dqe has three exclusive-first branches that each
+    # construct the *main* dp.table separately (lines ~519, ~533, ~551 in
+    # dataflow_pipeline.py). The earlier `test_write_bronze_passes_row_filter`
+    # only covers the simple/no-DQE path; these tests pin the row_filter
+    # pass-through under each DQE wrapper so a future regression in any one
+    # branch is caught explicitly.
+    # ------------------------------------------------------------------
+
+    def _build_dqe_pipeline(self, dqe_dict):
+        """Helper: build a bronze pipeline with UC on and a DQE that exercises
+        a specific expect_* branch in write_layer_with_dqe."""
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+        spec = BronzeDataflowSpec(**copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map))
+        spec.cdcApplyChanges = None
+        spec.applyChangesFromSnapshot = None
+        spec.dataQualityExpectations = json.dumps(dqe_dict)
+        spec.rowFilter = self.ROW_FILTER_REGION
+        view_name = f"{spec.targetDetails['table']}_inputview"
+        pipeline = DataflowPipeline(self.spark, spec, view_name, None)
+        return pipeline, spec
+
+    def _expected_target_table_name(self, spec):
+        """Produce the fully-qualified target table name in the same shape
+        that `_get_target_table_info` uses (catalog optional)."""
+        td = spec.targetDetails
+        if td.get("catalog"):
+            return f"{td['catalog']}.{td['database']}.{td['table']}"
+        return f"{td['database']}.{td['table']}"
+
+    def _assert_main_table_row_filter(self, mock_dlt, spec, expected_filter):
+        target_table = self._expected_target_table_name(spec)
+        main_calls = [
+            call for call in mock_dlt.table.call_args_list
+            if call.kwargs.get("name") == target_table
+        ]
+        self.assertEqual(
+            len(main_calls), 1,
+            f"expected exactly 1 dp.table call for main target `{target_table}`, "
+            f"saw call_args_list={mock_dlt.table.call_args_list}"
+        )
+        self.assertEqual(main_calls[0].kwargs["row_filter"], expected_filter)
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_write_layer_with_dqe_expect_all_passes_row_filter(self, mock_dlt):
+        """`expect_all` branch wraps dp.table and passes row_filter through."""
+        mock_dlt.expect_all = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all_or_drop = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all_or_fail = MagicMock(return_value=lambda func: func)
+        mock_dlt.table = MagicMock(return_value=lambda func: func)
+
+        pipeline, spec = self._build_dqe_pipeline(
+            {"expect_all": {"valid_id": "id IS NOT NULL"}}
+        )
+        pipeline.write_layer_with_dqe()
+        self._assert_main_table_row_filter(mock_dlt, spec, self.ROW_FILTER_REGION)
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_write_layer_with_dqe_expect_all_or_fail_passes_row_filter(self, mock_dlt):
+        """`expect_all_or_fail` branch (when expect_all is absent) constructs
+        dp.table itself and passes row_filter through."""
+        mock_dlt.expect_all = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all_or_drop = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all_or_fail = MagicMock(return_value=lambda func: func)
+        mock_dlt.table = MagicMock(return_value=lambda func: func)
+
+        pipeline, spec = self._build_dqe_pipeline(
+            {"expect_all_or_fail": {"valid_id": "id IS NOT NULL"}}
+        )
+        pipeline.write_layer_with_dqe()
+        self._assert_main_table_row_filter(mock_dlt, spec, self.ROW_FILTER_REGION)
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    def test_write_layer_with_dqe_expect_all_or_drop_passes_row_filter(self, mock_dlt):
+        """`expect_all_or_drop` branch (when expect_all and expect_all_or_fail
+        are both absent) constructs dp.table itself and passes row_filter through."""
+        mock_dlt.expect_all = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all_or_drop = MagicMock(return_value=lambda func: func)
+        mock_dlt.expect_all_or_fail = MagicMock(return_value=lambda func: func)
+        mock_dlt.table = MagicMock(return_value=lambda func: func)
+
+        pipeline, spec = self._build_dqe_pipeline(
+            {"expect_all_or_drop": {"valid_id": "id IS NOT NULL"}}
+        )
+        pipeline.write_layer_with_dqe()
+        self._assert_main_table_row_filter(mock_dlt, spec, self.ROW_FILTER_REGION)
 
     # ------------------------------------------------------------------
     # Multi-source AUTO CDC runtime tests (issue #294)

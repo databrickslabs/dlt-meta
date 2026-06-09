@@ -464,10 +464,23 @@ class SDPMETARunner:
                 depends_on=[
                     jobs.TaskDependency(
                         task_key=(
-                            "setup_sdp_meta_pipeline_spec"
-                            if runner_conf.source
-                            in ("cloudfiles", "snapshot", "multi_source_cdc")
-                            else "publish_events"
+                            # The cloudfiles customers flow declares a
+                            # bronze_row_filter that references the
+                            # `customer_op_filter` UDF (issue #303); that UDF
+                            # must exist before DLT can CREATE TABLE
+                            # bronze.customers, so the bronze pipeline depends
+                            # on the pre-pipeline UDF setup task specifically
+                            # for cloudfiles. snapshot and multi_source_cdc
+                            # (issue #294) chain off the standard spec setup;
+                            # everything else still chains off publish_events.
+                            "setup_row_filter_udf"
+                            if runner_conf.source == "cloudfiles"
+                            else (
+                                "setup_sdp_meta_pipeline_spec"
+                                if runner_conf.source
+                                in ("snapshot", "multi_source_cdc")
+                                else "publish_events"
+                            )
                         )
                     )
                 ],
@@ -507,6 +520,29 @@ class SDPMETARunner:
         if runner_conf.source == "cloudfiles":
             tasks.extend(
                 [
+                    jobs.Task(
+                        # Creates `<catalog>.<bronze_schema>.customer_op_filter`
+                        # so that the bronze + silver `customers` tables (which
+                        # reference it via ROW FILTER in the onboarding spec)
+                        # can be created by the bronze DLT pipeline. Predicate:
+                        # admins see all rows; non-admins see APPEND+UPDATE only.
+                        task_key="setup_row_filter_udf",
+                        depends_on=[
+                            jobs.TaskDependency(
+                                task_key="setup_sdp_meta_pipeline_spec"
+                            )
+                        ],
+                        notebook_task=jobs.NotebookTask(
+                            notebook_path=(
+                                f"{runner_conf.runners_nb_path}"
+                                "/runners/setup_row_filter_udf.py"
+                            ),
+                            base_parameters={
+                                "uc_catalog_name": runner_conf.uc_catalog_name,
+                                "bronze_schema": runner_conf.bronze_schema,
+                            },
+                        ),
+                    ),
                     jobs.Task(
                         task_key="onboard_spec_A2",
                         depends_on=[

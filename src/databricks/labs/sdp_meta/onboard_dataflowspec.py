@@ -1063,6 +1063,10 @@ class OnboardDataflowspec:
             # source_schema_path the same way append flows do.
             "cdcApplyChangesFlows",
             "cdcApplyChangesFlowsSchemas",
+            # UC row-level security (issue #303). Both fields are optional
+            # and silently dropped on non-UC pipelines.
+            "rowFilter",
+            "quarantineRowFilter",
         ]
         data_flow_spec_schema = StructType(
             [
@@ -1110,6 +1114,8 @@ class OnboardDataflowspec:
                     MapType(StringType(), StringType(), True),
                     True,
                 ),
+                StructField("rowFilter", StringType(), True),
+                StructField("quarantineRowFilter", StringType(), True),
             ]
         )
         data = []
@@ -1244,6 +1250,19 @@ class OnboardDataflowspec:
             cdc_apply_changes_flows, cdc_apply_changes_flows_schemas = (
                 self.get_cdc_apply_changes_flows_json(onboarding_row, "bronze", env)
             )
+            bronze_row_filter = (
+                onboarding_row["bronze_row_filter"]
+                if "bronze_row_filter" in onboarding_row and onboarding_row["bronze_row_filter"]
+                else None
+            )
+            bronze_quarantine_row_filter = (
+                onboarding_row["bronze_quarantine_row_filter"]
+                if (
+                    "bronze_quarantine_row_filter" in onboarding_row
+                    and onboarding_row["bronze_quarantine_row_filter"]
+                )
+                else None
+            )
             bronze_row = (
                 bronze_data_flow_spec_id,
                 bronze_data_flow_spec_group,
@@ -1267,6 +1286,8 @@ class OnboardDataflowspec:
                 cluster_by_auto,
                 cdc_apply_changes_flows,
                 cdc_apply_changes_flows_schemas,
+                bronze_row_filter,
+                bronze_quarantine_row_filter,
             )
             data.append(bronze_row)
             # logger.info(bronze_parition_columns)
@@ -1970,6 +1991,10 @@ class OnboardDataflowspec:
             # per-flow schema map because silver flows always read from
             # Delta upstream, which carries its own schema.
             "cdcApplyChangesFlows",
+            # UC row-level security (issue #303). Both fields are optional
+            # and silently dropped on non-UC pipelines.
+            "rowFilter",
+            "quarantineRowFilter",
         ]
         data_flow_spec_schema = StructType(
             [
@@ -2004,6 +2029,8 @@ class OnboardDataflowspec:
                 StructField("clusterByAuto", T.BooleanType(), True),
                 StructField("sinks", StringType(), True),
                 StructField("cdcApplyChangesFlows", StringType(), True),
+                StructField("rowFilter", StringType(), True),
+                StructField("quarantineRowFilter", StringType(), True),
             ]
         )
         data = []
@@ -2207,6 +2234,19 @@ class OnboardDataflowspec:
                     self.__delete_none(onboarding_row["silver_apply_changes_from_snapshot"].asDict())
                 )
                 source_format = "snapshot"
+            silver_row_filter = (
+                onboarding_row["silver_row_filter"]
+                if "silver_row_filter" in onboarding_row and onboarding_row["silver_row_filter"]
+                else None
+            )
+            silver_quarantine_row_filter = (
+                onboarding_row["silver_quarantine_row_filter"]
+                if (
+                    "silver_quarantine_row_filter" in onboarding_row
+                    and onboarding_row["silver_quarantine_row_filter"]
+                )
+                else None
+            )
             silver_row = (
                 silver_data_flow_spec_id,
                 silver_data_flow_spec_group,
@@ -2229,6 +2269,8 @@ class OnboardDataflowspec:
                 silver_cluster_by_auto,
                 dlt_sinks,
                 silver_cdc_apply_changes_flows,
+                silver_row_filter,
+                silver_quarantine_row_filter,
             )
             data.append(silver_row)
             logger.info(f"silver_data ==== {data}")
