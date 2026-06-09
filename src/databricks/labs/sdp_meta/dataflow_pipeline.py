@@ -104,6 +104,27 @@ class DataflowPipeline:
             self.cdcApplyChanges = DataflowSpecUtils.get_cdc_apply_changes(self.dataflowSpec.cdcApplyChanges)
         else:
             self.cdcApplyChanges = None
+        # Multi-source AUTO CDC (issue #294). Parse the group once at init
+        # so downstream read/write paths get a typed CDCApplyChangesFlowGroup
+        # rather than a JSON string. We use ``getattr`` defensively because
+        # older dataflowspec rows (pre-issue-#294) deserialize without this
+        # field via ``populate_additional_df_cols``, but a hand-built spec
+        # object in a unit test could legitimately omit the attribute.
+        if getattr(dataflow_spec, "cdcApplyChangesFlows", None):
+            # Mutual exclusion is mirrored by onboarding pre-flight; this
+            # second check catches programmatic spec construction that
+            # bypasses onboarding (e.g. tests, custom pipelines).
+            if dataflow_spec.cdcApplyChanges:
+                raise Exception(
+                    f"Both cdcApplyChanges and cdcApplyChangesFlows are set "
+                    f"on dataFlowId={dataflow_spec.dataFlowId}; use one or "
+                    f"the other."
+                )
+            self.cdcApplyChangesFlows = DataflowSpecUtils.get_cdc_apply_changes_flows(
+                dataflow_spec.cdcApplyChangesFlows
+            )
+        else:
+            self.cdcApplyChangesFlows = None
         if dataflow_spec.appendFlows:
             self.appendFlows = DataflowSpecUtils.get_append_flows(dataflow_spec.appendFlows)
         else:
@@ -181,6 +202,17 @@ class DataflowPipeline:
     def read(self):
         """Read DLT."""
         logger.info("In read function")
+        # When the spec uses multi-source CDC (cdcApplyChangesFlows), the
+        # primary view is irrelevant — every CDC flow has its own view
+        # built by ``read_cdc_flows``. We skip the primary
+        # ``dp.temporary_view`` to avoid declaring an unused view, but
+        # still register the per-flow views below. Append flows on the
+        # same spec are still honoured (they're orthogonal to CDC flows).
+        if self.cdcApplyChangesFlows:
+            self.read_cdc_flows()
+            if self.appendFlows:
+                self.read_append_flows()
+            return
         if isinstance(self.dataflowSpec, BronzeDataflowSpec) and self.is_create_view():
             dp.temporary_view(
                 self.read_bronze,
@@ -230,6 +262,84 @@ class DataflowPipeline:
                                       )
         else:
             raise Exception(f"Append Flows not found for dataflowSpec={self.dataflowSpec}")
+
+    def read_cdc_flows(self):
+        """Create a DLT temporary view per CDC flow (issue #294).
+
+        Each flow becomes ``{flow.name}_cdc_view``. We use the same
+        ``PipelineReaders`` dispatcher as append flows so per-flow source
+        formats (cloudFiles / delta / kafka / eventhub) behave identically.
+        Per-flow ``select_exp`` runs as ``selectExpr(*flow.select_exp)``
+        and per-flow ``where_clause`` runs as a chain of ``.where(...)``
+        calls — the same normalization shape silver dataflows use today,
+        but pinned per source so each flow can normalize its own schema
+        into the shared target shape before the merge.
+
+        For bronze, per-flow source schemas are looked up in
+        ``dataflowSpec.cdcApplyChangesFlowsSchemas`` (mirrors
+        ``appendFlowsSchemas`` and is keyed by ``flow.name``). Silver has
+        no per-flow schema map because silver flows always read Delta
+        upstream where schema is inferred.
+
+        The user's ``custom_transform_func`` is applied to each flow's
+        view, consistent with how primary reads and append flows are
+        treated, so per-source transformations stay composable.
+        """
+        if not self.cdcApplyChangesFlows:
+            return
+        is_bronze = isinstance(self.dataflowSpec, BronzeDataflowSpec)
+        schemas_map = (
+            self.dataflowSpec.cdcApplyChangesFlowsSchemas if is_bronze else None
+        )
+        for flow in self.cdcApplyChangesFlows.flows:
+            flow_schema_json = None
+            if schemas_map and schemas_map.get(flow.name):
+                flow_schema_json = json.loads(schemas_map[flow.name])
+
+            pipeline_reader = PipelineReaders(
+                self.spark,
+                flow.source_format,
+                flow.source_details,
+                flow.reader_options or {},
+                flow_schema_json,
+            )
+            sf = flow.source_format.lower()
+            if sf == "cloudfiles":
+                base_reader = pipeline_reader.read_dlt_cloud_files
+            elif sf == "delta":
+                base_reader = pipeline_reader.read_dlt_delta
+            elif sf in ("kafka", "eventhub"):
+                base_reader = pipeline_reader.read_kafka
+            else:
+                # Should be unreachable — onboarding pre-flight rejects
+                # other formats. Surface a clear runtime error rather than
+                # an opaque AttributeError if a stale spec snuck through.
+                raise Exception(
+                    f"cdcApplyChangesFlows.flows[{flow.name}].source_format"
+                    f"={flow.source_format!r} is not supported by the "
+                    f"runtime; allowed: cloudFiles, delta, kafka, eventhub"
+                )
+
+            def _make_view_factory(reader=base_reader, f=flow):
+                # Per-flow factory closure. Capturing ``reader`` and ``f``
+                # as default args pins each closure to its own flow — the
+                # late-binding bug of capturing the loop variable would
+                # otherwise have every closure read the LAST flow.
+                def _view_factory():
+                    df = reader()
+                    if f.select_exp:
+                        df = df.selectExpr(*f.select_exp)
+                    if f.where_clause:
+                        for clause in f.where_clause:
+                            df = df.where(clause)
+                    return self.apply_custom_transform_fun(df)
+                return _view_factory
+
+            dp.temporary_view(
+                _make_view_factory(),
+                name=f"{flow.name}_cdc_view",
+                comment=f"cdc flow input view for {flow.name}",
+            )
 
     def write(self):
         """Write DLT."""
@@ -319,8 +429,14 @@ class DataflowPipeline:
                 self.write_layer_with_dqe()
                 self._handle_append_flows()
                 return
-        # Handle CDC apply changes (common to both)
-        if self.dataflowSpec.cdcApplyChanges and not self.dataflowSpec.dataQualityExpectations:
+        # Multi-source AUTO CDC (issue #294) takes precedence over the
+        # single-flow ``cdcApplyChanges`` branch and the standard write —
+        # the init-time mutual-exclusion check guarantees only one of the
+        # two CDC modes is set, but we still check first so the standard
+        # write branch never fires when CDC flows are present.
+        if self.cdcApplyChangesFlows:
+            self.cdc_apply_changes_flows()
+        elif self.dataflowSpec.cdcApplyChanges and not self.dataflowSpec.dataQualityExpectations:
             self.cdc_apply_changes()
         else:
             # Write standard table
@@ -725,6 +841,78 @@ class DataflowPipeline:
             ignore_null_updates_column_list=cdc_apply_changes.ignore_null_updates_column_list,
             ignore_null_updates_except_column_list=cdc_apply_changes.ignore_null_updates_except_column_list
         )
+
+    def cdc_apply_changes_flows(self):
+        """Run N AUTO CDC flows into a single target table (issue #294).
+
+        Creates the target streaming table ONCE — DLT mandates a single
+        ``create_streaming_table`` call per target — then registers one
+        ``dp.create_auto_cdc_flow`` per flow in the group. Every
+        flow-specific call inherits the group's CDC configuration
+        (``keys`` / ``sequence_by`` / ``scd_type`` / etc.) since DLT
+        requires those to be identical across flows targeting the same
+        streaming table. Per-flow overrides are limited to ``flow_name``
+        and ``once``, which DLT supports on a per-call basis.
+
+        Schema derivation reuses :meth:`modify_schema_for_cdc_changes`
+        which duck-types on ``except_column_list``, ``sequence_by``,
+        and ``scd_type`` — all present on
+        :class:`CDCApplyChangesFlowGroup` — so the SCD2 ``__START_AT`` /
+        ``__END_AT`` append logic stays identical.
+
+        Source views are produced by :meth:`read_cdc_flows` at read-time
+        and consumed here by name (``{flow.name}_cdc_view``).
+        """
+        group = self.cdcApplyChangesFlows
+        if group is None:
+            raise Exception("cdcApplyChangesFlows is None! ")
+
+        struct_schema = None
+        # Bronze derives the streaming-table schema from
+        # ``self.schema_json`` if set; silver from ``self.silver_schema``.
+        # The single-source path conditions on ``self.schema_json``;
+        # ``modify_schema_for_cdc_changes`` then checks both possibilities
+        # internally and returns ``None`` when no schema is available.
+        if self.schema_json or self.silver_schema:
+            struct_schema = self.modify_schema_for_cdc_changes(group)
+
+        target_path = None if self.uc_enabled else self.dataflowSpec.targetDetails["path"]
+        self.create_streaming_table(struct_schema, target_path)
+
+        apply_as_deletes = expr(group.apply_as_deletes) if group.apply_as_deletes else None
+        apply_as_truncates = expr(group.apply_as_truncates) if group.apply_as_truncates else None
+
+        # Composite sequence_by ("ts,id") => struct(ts, id), same as the
+        # single-flow path. The first column is also what
+        # ``modify_schema_for_cdc_changes`` uses for the SCD2 timestamp
+        # dtype lookup, so the two stay aligned.
+        sequence_by = group.sequence_by
+        if ',' in sequence_by:
+            sequence_cols = [c.strip() for c in sequence_by.split(',')]
+            sequence_by = struct(*sequence_cols)
+
+        target_table = self._get_target_table_name()
+
+        for flow in group.flows:
+            dp.create_auto_cdc_flow(
+                target=target_table,
+                source=f"{flow.name}_cdc_view",
+                keys=group.keys,
+                sequence_by=sequence_by,
+                where=group.where,
+                ignore_null_updates=group.ignore_null_updates,
+                apply_as_deletes=apply_as_deletes,
+                apply_as_truncates=apply_as_truncates,
+                column_list=group.column_list,
+                except_column_list=group.except_column_list,
+                stored_as_scd_type=group.scd_type,
+                track_history_column_list=group.track_history_column_list,
+                track_history_except_column_list=group.track_history_except_column_list,
+                flow_name=flow.name,
+                once=flow.once,
+                ignore_null_updates_column_list=group.ignore_null_updates_column_list,
+                ignore_null_updates_except_column_list=group.ignore_null_updates_except_column_list,
+            )
 
     def modify_schema_for_cdc_changes(self, cdc_apply_changes):
         if isinstance(self.dataflowSpec, BronzeDataflowSpec) and self.schema_json is None:

@@ -13,6 +13,8 @@ from databricks.labs.sdp_meta.dataflow_spec import (
     ApplyChangesFromSnapshot,
     BronzeDataflowSpec,
     SilverDataflowSpec,
+    CDCApplyChangesFlow,
+    CDCApplyChangesFlowGroup,
 )
 from databricks.labs.sdp_meta.onboard_dataflowspec import OnboardDataflowspec
 
@@ -522,6 +524,257 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         }]"""
         with self.assertRaises(Exception):
             DataflowSpecUtils.get_append_flows(missing_sd_append_flow_spec)
+
+    # --------------------------------------------------------------
+    # Multi-source AUTO CDC parser tests (issue #294)
+    # --------------------------------------------------------------
+
+    def test_get_cdc_apply_changes_flows_minimal(self):
+        """Minimal valid group: group-level mandatory fields + one flow with
+        only its mandatory fields. Defaults must be filled at both levels."""
+        payload = """{
+            "keys": ["id"],
+            "sequence_by": "op_ts",
+            "scd_type": "1",
+            "flows": [{
+                "name": "src_a_cdc_flow",
+                "source_format": "delta",
+                "source_details": {"database": "raw", "table": "src_a"}
+            }]
+        }"""
+        group = DataflowSpecUtils.get_cdc_apply_changes_flows(payload)
+        self.assertEqual(type(group), CDCApplyChangesFlowGroup)
+        self.assertEqual(group.keys, ["id"])
+        self.assertEqual(group.sequence_by, "op_ts")
+        self.assertEqual(group.scd_type, "1")
+        # Group-level defaults inherit from cdcApplyChanges defaults.
+        self.assertIsNone(group.where)
+        self.assertEqual(group.ignore_null_updates, False)
+        self.assertIsNone(group.apply_as_deletes)
+        self.assertIsNone(group.apply_as_truncates)
+        self.assertIsNone(group.column_list)
+        # Per-flow defaults applied.
+        self.assertEqual(len(group.flows), 1)
+        flow = group.flows[0]
+        self.assertEqual(type(flow), CDCApplyChangesFlow)
+        self.assertEqual(flow.name, "src_a_cdc_flow")
+        self.assertEqual(flow.source_format, "delta")
+        self.assertEqual(flow.source_details, {"database": "raw", "table": "src_a"})
+        self.assertIsNone(flow.reader_options)
+        self.assertIsNone(flow.select_exp)
+        self.assertIsNone(flow.where_clause)
+        self.assertEqual(flow.once, False)
+
+    def test_get_cdc_apply_changes_flows_multi_source(self):
+        """Two flows landing in one target, full group + per-flow surface."""
+        payload = """{
+            "keys": ["customer_id"],
+            "sequence_by": "op_ts",
+            "scd_type": "2",
+            "apply_as_deletes": "operation = 'DELETE'",
+            "except_column_list": ["operation", "_rescued_data"],
+            "ignore_null_updates": true,
+            "flows": [
+                {
+                    "name": "us_cdc",
+                    "source_format": "cloudFiles",
+                    "source_details": {
+                        "path": "/mnt/raw/us",
+                        "source_schema_path": "tests/resources/schema/customers.ddl"
+                    },
+                    "reader_options": {"cloudFiles.format": "json"},
+                    "select_exp": [
+                        "customer_id AS customer_id",
+                        "first_name AS firstname",
+                        "operation",
+                        "op_ts",
+                        "_rescued_data"
+                    ],
+                    "where_clause": ["region = 'US'"],
+                    "once": true
+                },
+                {
+                    "name": "eu_cdc",
+                    "source_format": "kafka",
+                    "source_details": {
+                        "subscribe": "customers_eu",
+                        "kafka.bootstrap.servers": "broker:9092"
+                    },
+                    "reader_options": {"startingOffsets": "latest"},
+                    "select_exp": ["cust_id AS customer_id", "fname AS firstname",
+                                   "operation", "op_ts", "_rescued_data"]
+                }
+            ]
+        }"""
+        group = DataflowSpecUtils.get_cdc_apply_changes_flows(payload)
+        self.assertEqual(group.scd_type, "2")
+        self.assertEqual(group.apply_as_deletes, "operation = 'DELETE'")
+        self.assertEqual(group.except_column_list,
+                         ["operation", "_rescued_data"])
+        self.assertEqual(group.ignore_null_updates, True)
+        self.assertEqual(len(group.flows), 2)
+        names = [f.name for f in group.flows]
+        self.assertEqual(names, ["us_cdc", "eu_cdc"])
+        # Per-flow once defaults to False when omitted.
+        eu = next(f for f in group.flows if f.name == "eu_cdc")
+        self.assertEqual(eu.once, False)
+        self.assertIsNone(eu.where_clause)
+        # Per-flow once explicit when set.
+        us = next(f for f in group.flows if f.name == "us_cdc")
+        self.assertEqual(us.once, True)
+        self.assertEqual(us.where_clause, ["region = 'US'"])
+
+    def test_get_cdc_apply_changes_flows_accepts_dict(self):
+        """Parser must also accept an already-deserialized dict, not just str."""
+        payload = {
+            "keys": ["id"],
+            "sequence_by": "op_ts",
+            "scd_type": "1",
+            "flows": [{
+                "name": "f1",
+                "source_format": "delta",
+                "source_details": {"database": "raw", "table": "t1"},
+            }],
+        }
+        group = DataflowSpecUtils.get_cdc_apply_changes_flows(payload)
+        self.assertEqual(group.flows[0].name, "f1")
+
+    def test_get_cdc_apply_changes_flows_missing_group_mandatory(self):
+        """Group-level mandatory missing -> raise."""
+        # Missing keys.
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
+                "sequence_by": "op_ts",
+                "scd_type": "1",
+                "flows": [{
+                    "name": "f1",
+                    "source_format": "delta",
+                    "source_details": {"database": "raw", "table": "t"}
+                }]
+            }""")
+        # Missing sequence_by.
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
+                "keys": ["id"],
+                "scd_type": "1",
+                "flows": [{
+                    "name": "f1",
+                    "source_format": "delta",
+                    "source_details": {"database": "raw", "table": "t"}
+                }]
+            }""")
+        # Missing scd_type.
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
+                "keys": ["id"],
+                "sequence_by": "op_ts",
+                "flows": [{
+                    "name": "f1",
+                    "source_format": "delta",
+                    "source_details": {"database": "raw", "table": "t"}
+                }]
+            }""")
+        # Missing flows.
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
+                "keys": ["id"],
+                "sequence_by": "op_ts",
+                "scd_type": "1"
+            }""")
+
+    def test_get_cdc_apply_changes_flows_empty_flow_list(self):
+        """flows must be non-empty."""
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
+                "keys": ["id"],
+                "sequence_by": "op_ts",
+                "scd_type": "1",
+                "flows": []
+            }""")
+
+    def test_get_cdc_apply_changes_flows_missing_flow_mandatory(self):
+        """Per-flow mandatory missing -> raise. Each missing key tested
+        independently so a regression on any one is caught."""
+        # Missing flow name.
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
+                "keys": ["id"],
+                "sequence_by": "op_ts",
+                "scd_type": "1",
+                "flows": [{
+                    "source_format": "delta",
+                    "source_details": {"database": "raw", "table": "t"}
+                }]
+            }""")
+        # Missing source_format.
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
+                "keys": ["id"],
+                "sequence_by": "op_ts",
+                "scd_type": "1",
+                "flows": [{
+                    "name": "f1",
+                    "source_details": {"database": "raw", "table": "t"}
+                }]
+            }""")
+        # Missing source_details.
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
+                "keys": ["id"],
+                "sequence_by": "op_ts",
+                "scd_type": "1",
+                "flows": [{
+                    "name": "f1",
+                    "source_format": "delta"
+                }]
+            }""")
+
+    def test_get_cdc_apply_changes_flows_duplicate_flow_names(self):
+        """Duplicate flow.name within a group must raise — the runtime uses
+        flow.name as the DLT view name AND ``flow_name``, so duplicates
+        would silently collide and one flow would overwrite the other."""
+        with self.assertRaises(Exception):
+            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
+                "keys": ["id"],
+                "sequence_by": "op_ts",
+                "scd_type": "1",
+                "flows": [
+                    {
+                        "name": "dupe",
+                        "source_format": "delta",
+                        "source_details": {"database": "r", "table": "a"}
+                    },
+                    {
+                        "name": "dupe",
+                        "source_format": "delta",
+                        "source_details": {"database": "r", "table": "b"}
+                    }
+                ]
+            }""")
+
+    def test_get_cdc_apply_changes_flows_extra_per_flow_keys_ignored_silently(self):
+        """An accidental extra per-flow key (typo, copy-paste artifact)
+        must NOT silently pass through into the constructor. The parser
+        keeps only the known per-flow keys so any extra key from a future
+        config drift is visible by its absence rather than passed
+        through into a CDCApplyChangesFlow it can't honor."""
+        payload = """{
+            "keys": ["id"],
+            "sequence_by": "op_ts",
+            "scd_type": "1",
+            "flows": [{
+                "name": "f1",
+                "source_format": "delta",
+                "source_details": {"database": "raw", "table": "t1"},
+                "ignored_typo_field": "this should not crash but should not pass through"
+            }]
+        }"""
+        group = DataflowSpecUtils.get_cdc_apply_changes_flows(payload)
+        # CDCApplyChangesFlow does not carry ignored_typo_field. The
+        # parser drops it silently rather than raising — pre-flight
+        # validation in onboarding is the surface that warns the user.
+        flow = group.flows[0]
+        self.assertFalse(hasattr(flow, "ignored_typo_field"))
 
     def test_populate_additional_df_cols(self):
         """Test the populate_additional_df_cols method."""

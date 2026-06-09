@@ -250,6 +250,7 @@ dbutils.library.restartPython()
 # MAGIC | **8** | **Append Flow** — multi-source ingestion with file metadata |
 # MAGIC | **9** | **Apply Changes From Snapshot** — SCD Type 1 & 2 |
 # MAGIC | **10** | **DLT Sink** — write to external delta table |
+# MAGIC | **11** | **Multi-Source AUTO CDC** — N regional CDC sources merged into 1 silver target |
 # MAGIC
 # MAGIC ### Features Demonstrated
 # MAGIC - Metadata-driven onboarding (JSON or YAML → DataflowSpec tables, controlled by the `Onboarding File Format` widget)
@@ -265,6 +266,7 @@ dbutils.library.restartPython()
 # MAGIC - **File Metadata** — `_metadata.file_name`, `_metadata.file_path`
 # MAGIC - **Apply Changes From Snapshot** — snapshot-based SCD Type 1 & 2
 # MAGIC - **Pipeline Sink** — `dp.create_sink` to write to external delta
+# MAGIC - **Multi-Source AUTO CDC** — N `dp.create_auto_cdc_flow` calls fan in to one silver target ([#294](https://github.com/databrickslabs/dlt-meta/issues/294))
 
 # COMMAND ----------
 
@@ -419,7 +421,7 @@ spark.sql("CREATE VOLUME IF NOT EXISTS config")
 # Predicate: admins see all rows; everyone else sees only customer_id
 # <= 100. With NUM_CUSTOMERS=200 in this demo, that's half the rows
 # for a non-admin reader -- a deterministic, visible signal that the
-# filter is in effect (Stage 11 verifies it).
+# filter is in effect (Stage 12 verifies it).
 spark.sql(f"""
     CREATE OR REPLACE FUNCTION
         {uc_catalog_name}.{uc_schema_name}.customer_id_filter(cid INT)
@@ -3158,7 +3160,563 @@ display(
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### 10.5 Final Data Flow Summary
+# MAGIC ---
+# MAGIC ## Stage 11: Multi-Source AUTO CDC into a Single Silver Target
+# MAGIC
+# MAGIC **multi-source AUTO CDC**: merge **N** regional CDC sources
+# MAGIC into **ONE** unified silver streaming table by calling
+# MAGIC `dp.create_auto_cdc_flow` N times against the same target. Each
+# MAGIC flow has its own `source_format`, `source_details`,
+# MAGIC `reader_options`, `select_exp`, and `where_clause`, so per-source
+# MAGIC schema normalization happens BEFORE the merge.
+# MAGIC
+# MAGIC ```
+# MAGIC ┌──────────────────────┐    ┌────────────────────────┐
+# MAGIC │ customers_us  (raw)  │───>│ customers_us_cdc       │─┐
+# MAGIC │ id, firstname, ...   │    │ (Bronze CDC streaming) │ │
+# MAGIC └──────────────────────┘    └────────────────────────┘ │
+# MAGIC                                                         │ create_
+# MAGIC ┌──────────────────────┐    ┌────────────────────────┐ │ auto_
+# MAGIC │ customers_eu  (raw)  │───>│ customers_eu_cdc       │─┤ cdc_flow
+# MAGIC │ customer_id,         │    │ (Bronze CDC streaming) │ │   ×3       ┌────────────────────────┐
+# MAGIC │ given_name,          │    └────────────────────────┘ ├─────────>  │ customers_regional     │
+# MAGIC │ change_type...       │                                │            │ (Silver SCD-1 unified  │
+# MAGIC └──────────────────────┘                                │            │  target)               │
+# MAGIC                                                         │            └────────────────────────┘
+# MAGIC ┌──────────────────────┐    ┌────────────────────────┐ │
+# MAGIC │ customers_apac (raw) │───>│ customers_apac_cdc     │─┘
+# MAGIC │ cust_id, fname, op   │    │ (Bronze CDC streaming) │
+# MAGIC └──────────────────────┘    └────────────────────────┘
+# MAGIC ```
+# MAGIC
+# MAGIC Each region uses a **different column shape on purpose** (US:
+# MAGIC `id`/`firstname`/`operation`; EU:
+# MAGIC `customer_id`/`given_name`/`change_type`; APAC:
+# MAGIC `cust_id`/`fname`/`op`) so the per-flow `select_exp`
+# MAGIC normalization is doing visible work the user can see in the
+# MAGIC silver table.
+# MAGIC
+# MAGIC See:
+# MAGIC [DESIGN_MULTI_SOURCE_AUTO_CDC.md](https://github.com/databrickslabs/dlt-meta/blob/main/DESIGN_MULTI_SOURCE_AUTO_CDC.md) ·
+# MAGIC [multi-source-cdc-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/multi-source-cdc-onboarding.template)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### 11.1 Create Regional CDC Source Data
+# MAGIC
+# MAGIC Three per-region landing folders under `multi_source_cdc/` get
+# MAGIC seeded with raw CDC events whose column shapes differ on purpose.
+# MAGIC Each region seeds 3 customers + 1 update + 1 delete (5 events
+# MAGIC each, 15 total raw events; after the silver SCD-1 merge with
+# MAGIC `apply_as_deletes`, the surviving live row count = 6).
+
+# COMMAND ----------
+
+msc_data_path = f"{data_path}/multi_source_cdc"
+msc_us_dir = f"{msc_data_path}/customers_us"
+msc_eu_dir = f"{msc_data_path}/customers_eu"
+msc_apac_dir = f"{msc_data_path}/customers_apac"
+for path in (msc_us_dir, msc_eu_dir, msc_apac_dir):
+    os.makedirs(path, exist_ok=True)
+
+# US uses "id / firstname / lastname / operation / operation_date".
+msc_us_data = [
+    {"id": "us-001", "firstname": "Alice", "lastname": "Anderson",
+     "email": "alice.us@example.com",
+     "address": "123 Main St Springfield IL 62701",
+     "operation": "APPEND",
+     "operation_date": "2024-01-15 09:00:00"},
+    {"id": "us-002", "firstname": "Bob", "lastname": "Brown",
+     "email": "bob.us@example.com",
+     "address": "456 Oak Ave Portland OR 97201",
+     "operation": "APPEND",
+     "operation_date": "2024-01-15 10:00:00"},
+    {"id": "us-003", "firstname": "Carol", "lastname": "Clark",
+     "email": "carol.us@example.com",
+     "address": "789 Pine Rd Austin TX 78701",
+     "operation": "APPEND",
+     "operation_date": "2024-01-15 11:00:00"},
+    {"id": "us-001", "firstname": "Alice", "lastname": "Anderson",
+     "email": "alice.us@example.com",
+     "address": "123 Main St Apt 4B Springfield IL 62701",
+     "operation": "UPDATE",
+     "operation_date": "2024-01-16 12:00:00"},
+    {"id": "us-002", "firstname": "Bob", "lastname": "Brown",
+     "email": "bob.us@example.com",
+     "address": "456 Oak Ave Portland OR 97201",
+     "operation": "DELETE",
+     "operation_date": "2024-01-17 09:30:00"},
+]
+
+# EU uses "customer_id / given_name / family_name / change_type / change_ts"
+# — totally different column names and a different op-code vocabulary
+# from US.
+msc_eu_data = [
+    {"customer_id": "eu-001", "given_name": "Diana",
+     "family_name": "Davies",
+     "email_address": "diana.eu@example.com",
+     "postal_address": "10 Downing Street London SW1A 2AA",
+     "change_type": "INSERT",
+     "change_ts": "2024-01-15 14:00:00"},
+    {"customer_id": "eu-002", "given_name": "Emma",
+     "family_name": "Evans",
+     "email_address": "emma.eu@example.com",
+     "postal_address": "4 Place de la Concorde Paris 75008",
+     "change_type": "INSERT",
+     "change_ts": "2024-01-15 15:00:00"},
+    {"customer_id": "eu-003", "given_name": "Frank",
+     "family_name": "Fischer",
+     "email_address": "frank.eu@example.com",
+     "postal_address": "Unter den Linden 1 Berlin 10117",
+     "change_type": "INSERT",
+     "change_ts": "2024-01-15 16:00:00"},
+    {"customer_id": "eu-002", "given_name": "Emma",
+     "family_name": "Evans",
+     "email_address": "emma.eu.new@example.com",
+     "postal_address": "4 Place de la Concorde Paris 75008",
+     "change_type": "UPDATE",
+     "change_ts": "2024-01-16 11:00:00"},
+    {"customer_id": "eu-003", "given_name": "Frank",
+     "family_name": "Fischer",
+     "email_address": "frank.eu@example.com",
+     "postal_address": "Unter den Linden 1 Berlin 10117",
+     "change_type": "DELETE",
+     "change_ts": "2024-01-17 10:00:00"},
+]
+
+# APAC uses "cust_id / fname / lname / op / op_time" — yet another
+# column-shape, with single-char op codes (I/U/D).
+msc_apac_data = [
+    {"cust_id": "apac-001", "fname": "Grace", "lname": "Goh",
+     "mail": "grace.apac@example.com",
+     "addr": "1 Marina Bay Singapore 018989",
+     "op": "I", "op_time": "2024-01-15 22:00:00"},
+    {"cust_id": "apac-002", "fname": "Henry", "lname": "Hashimoto",
+     "mail": "henry.apac@example.com",
+     "addr": "2-1-1 Marunouchi Tokyo 100-0005",
+     "op": "I", "op_time": "2024-01-15 23:00:00"},
+    {"cust_id": "apac-003", "fname": "Isha", "lname": "Iyer",
+     "mail": "isha.apac@example.com",
+     "addr": "1 Hill Road Mumbai 400001",
+     "op": "I", "op_time": "2024-01-16 00:00:00"},
+    {"cust_id": "apac-002", "fname": "Henry", "lname": "Hashimoto",
+     "mail": "henry.apac@example.com",
+     "addr": "3-1-1 Marunouchi Tokyo 100-0005",
+     "op": "U", "op_time": "2024-01-16 13:00:00"},
+    {"cust_id": "apac-003", "fname": "Isha", "lname": "Iyer",
+     "mail": "isha.apac@example.com",
+     "addr": "1 Hill Road Mumbai 400001",
+     "op": "D", "op_time": "2024-01-17 11:30:00"},
+]
+
+for region_dir, region_rows, filename in (
+    (msc_us_dir, msc_us_data, "us_2024_01.json"),
+    (msc_eu_dir, msc_eu_data, "eu_2024_01.json"),
+    (msc_apac_dir, msc_apac_data, "apac_2024_01.json"),
+):
+    out_path = f"{region_dir}/{filename}"
+    with open(out_path, "w") as fh:
+        for record in region_rows:
+            fh.write(json.dumps(record) + "\n")
+    print(f"  Created: {out_path} ({len(region_rows)} records)")
+
+# Per-region DDL files. Each one declares the *raw* source column
+# shape — the per-flow ``select_exp`` in the silver onboarding row
+# rewrites these into the canonical (customer_id, firstname,
+# lastname, email, address, region) target shape.
+msc_ddl_files = {
+    "customers_us.ddl": (
+        "address STRING, email STRING, firstname STRING, id STRING, "
+        "lastname STRING, operation STRING, operation_date STRING"
+    ),
+    "customers_eu.ddl": (
+        "postal_address STRING, email_address STRING, "
+        "given_name STRING, customer_id STRING, family_name STRING, "
+        "change_type STRING, change_ts STRING"
+    ),
+    "customers_apac.ddl": (
+        "addr STRING, mail STRING, fname STRING, lname STRING, "
+        "cust_id STRING, op STRING, op_time STRING"
+    ),
+}
+for filename, content in msc_ddl_files.items():
+    out_ddl = f"{ddl_path}/{filename}"
+    with open(out_ddl, "w") as fh:
+        fh.write(content)
+    print(f"  Created: {out_ddl}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### 11.2 Add Multi-Source CDC Rows to the Onboarding File
+# MAGIC
+# MAGIC Adds **4 new rows** to the existing onboarding file (all in a new
+# MAGIC `data_flow_group: "MSC"` so they don't collide with the main
+# MAGIC `A1` / snapshot `SNAP` / sink `SINK` groups):
+# MAGIC
+# MAGIC 1. **Three bronze rows** — one per region — that land the raw CDC
+# MAGIC    events into `customers_us_cdc` / `customers_eu_cdc` /
+# MAGIC    `customers_apac_cdc` via CloudFiles, each with its own source
+# MAGIC    schema.
+# MAGIC 2. **One silver row** with a `silver_cdc_apply_changes_flows`
+# MAGIC    group block that defines the shared CDC config (keys,
+# MAGIC    `sequence_by`, `scd_type`, `apply_as_deletes`,
+# MAGIC    `except_column_list`) plus three per-flow entries — one per
+# MAGIC    region — each with its own `source_format` (delta) and
+# MAGIC    `select_exp` that maps that region's raw column shape into
+# MAGIC    the canonical `(customer_id, firstname, lastname, email,
+# MAGIC    address, region, operation, operation_date)` target shape
+# MAGIC    before the merge.
+
+# COMMAND ----------
+
+msc_bronze_rows = [
+    {
+        "data_flow_id": "msc-100",
+        "data_flow_group": "MSC",
+        "source_system": "RegionalCDC-US",
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_database": "APP",
+            "source_table": "CUSTOMERS_US",
+            "source_path_prod": msc_us_dir,
+            "source_schema_path": f"{ddl_path}/customers_us.ddl",
+        },
+        "bronze_catalog_prod": uc_catalog_name,
+        "bronze_database_prod": bronze_schema,
+        "bronze_table": "customers_us_cdc",
+        "bronze_reader_options": {
+            "cloudFiles.format": "json",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data",
+        },
+        "bronze_table_properties": {
+            "pipelines.autoOptimize.managed": "true",
+        },
+    },
+    {
+        "data_flow_id": "msc-101",
+        "data_flow_group": "MSC",
+        "source_system": "RegionalCDC-EU",
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_database": "APP",
+            "source_table": "CUSTOMERS_EU",
+            "source_path_prod": msc_eu_dir,
+            "source_schema_path": f"{ddl_path}/customers_eu.ddl",
+        },
+        "bronze_catalog_prod": uc_catalog_name,
+        "bronze_database_prod": bronze_schema,
+        "bronze_table": "customers_eu_cdc",
+        "bronze_reader_options": {
+            "cloudFiles.format": "json",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data",
+        },
+        "bronze_table_properties": {
+            "pipelines.autoOptimize.managed": "true",
+        },
+    },
+    {
+        "data_flow_id": "msc-102",
+        "data_flow_group": "MSC",
+        "source_system": "RegionalCDC-APAC",
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_database": "APP",
+            "source_table": "CUSTOMERS_APAC",
+            "source_path_prod": msc_apac_dir,
+            "source_schema_path": f"{ddl_path}/customers_apac.ddl",
+        },
+        "bronze_catalog_prod": uc_catalog_name,
+        "bronze_database_prod": bronze_schema,
+        "bronze_table": "customers_apac_cdc",
+        "bronze_reader_options": {
+            "cloudFiles.format": "json",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data",
+        },
+        "bronze_table_properties": {
+            "pipelines.autoOptimize.managed": "true",
+        },
+    },
+]
+
+# The silver row is the heart of the demo: ONE target table
+# (``customers_regional``) consumes ALL three bronze tables via
+# ``silver_cdc_apply_changes_flows``. Each flow's ``select_exp``
+# rewrites its region's raw column shape into the canonical target
+# shape, including a constant ``region`` literal that proves the
+# per-flow expression actually ran on silver.
+msc_silver_row = {
+    "data_flow_id": "msc-200",
+    "data_flow_group": "MSC",
+    "source_system": "RegionalCDC-Unified",
+    "silver_catalog_prod": uc_catalog_name,
+    "silver_database_prod": silver_schema,
+    "silver_table": "customers_regional",
+    "silver_table_properties": {
+        "pipelines.reset.allowed": "false",
+    },
+    "silver_cdc_apply_changes_flows": {
+        "keys": ["customer_id"],
+        "sequence_by": "operation_date",
+        "scd_type": "1",
+        "apply_as_deletes": "operation = 'DELETE'",
+        "except_column_list": [
+            "operation", "operation_date", "_rescued_data",
+        ],
+        "flows": [
+            {
+                "name": "customers_us_silver",
+                "source_format": "delta",
+                "source_details": {
+                    "source_catalog": uc_catalog_name,
+                    "source_database": bronze_schema,
+                    "source_table": "customers_us_cdc",
+                },
+                "select_exp": [
+                    "id AS customer_id",
+                    "firstname",
+                    "lastname",
+                    "email",
+                    "address",
+                    "'US' AS region",
+                    "operation",
+                    "operation_date",
+                    "_rescued_data",
+                ],
+            },
+            {
+                "name": "customers_eu_silver",
+                "source_format": "delta",
+                "source_details": {
+                    "source_catalog": uc_catalog_name,
+                    "source_database": bronze_schema,
+                    "source_table": "customers_eu_cdc",
+                },
+                "select_exp": [
+                    "customer_id AS customer_id",
+                    "given_name AS firstname",
+                    "family_name AS lastname",
+                    "email_address AS email",
+                    "postal_address AS address",
+                    "'EU' AS region",
+                    "CASE WHEN change_type = 'INSERT' THEN 'APPEND' "
+                    "WHEN change_type = 'UPDATE' THEN 'UPDATE' "
+                    "WHEN change_type = 'DELETE' THEN 'DELETE' "
+                    "END AS operation",
+                    "change_ts AS operation_date",
+                    "_rescued_data",
+                ],
+            },
+            {
+                "name": "customers_apac_silver",
+                "source_format": "delta",
+                "source_details": {
+                    "source_catalog": uc_catalog_name,
+                    "source_database": bronze_schema,
+                    "source_table": "customers_apac_cdc",
+                },
+                "select_exp": [
+                    "cust_id AS customer_id",
+                    "fname AS firstname",
+                    "lname AS lastname",
+                    "mail AS email",
+                    "addr AS address",
+                    "'APAC' AS region",
+                    "CASE WHEN op = 'I' THEN 'APPEND' "
+                    "WHEN op = 'U' THEN 'UPDATE' "
+                    "WHEN op = 'D' THEN 'DELETE' "
+                    "END AS operation",
+                    "op_time AS operation_date",
+                    "_rescued_data",
+                ],
+            },
+        ],
+    },
+}
+
+onboarding_json = _read_onboarding(onboarding_file_path)
+onboarding_json.extend(msc_bronze_rows)
+onboarding_json.append(msc_silver_row)
+_write_onboarding(onboarding_json, onboarding_file_path)
+
+print(
+    f"Onboarding updated: {len(onboarding_json)} data flows"
+)
+print(
+    "  Added 3 bronze rows (msc-100/101/102) and 1 silver row "
+    "(msc-200) in group MSC"
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### 11.3 Re-run Onboarding
+# MAGIC
+# MAGIC `onboard_dataflow_specs()` regenerates the bronze and silver
+# MAGIC `dataflowspec` tables from the updated onboarding file. The new
+# MAGIC `MSC` group rows are appended; the existing `A1` / `SNAP` /
+# MAGIC `SINK` group rows are preserved unchanged.
+
+# COMMAND ----------
+
+onboarding_params["overwrite"] = "True"
+
+OnboardDataflowspec(
+    spark=spark, dict_obj=onboarding_params, uc_enabled=True
+).onboard_dataflow_specs()
+print(
+    "Onboarding updated with multi-source CDC bronze + silver rows!"
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### 11.4 Create & Start Multi-Source CDC Pipeline
+# MAGIC
+# MAGIC The MSC pipeline runs both bronze and silver layers under the
+# MAGIC `MSC` data-flow group. It reuses the **same generic runner
+# MAGIC notebook** as Stage 3 (no snapshot callback needed) — that is
+# MAGIC the whole point of metadata-driven: a new scenario gets
+# MAGIC plugged in by writing onboarding rows, not by writing pipeline
+# MAGIC code.
+
+# COMMAND ----------
+
+msc_pipeline_name = f"sdp_meta_demo_msc_{uc_schema_name}"
+msc_pipeline_id_file = (
+    f"{uc_volume_path}/msc_pipeline_id.txt"
+)
+
+msc_pipeline_config = {
+    "layer": "bronze_silver",
+    "bronze.group": "MSC",
+    "silver.group": "MSC",
+    "bronze.dataflowspecTable": (
+        f"{uc_catalog_name}.{uc_schema_name}.bronze_dataflowspec"
+    ),
+    "silver.dataflowspecTable": (
+        f"{uc_catalog_name}.{uc_schema_name}.silver_dataflowspec"
+    ),
+    "sdp_meta_whl": git_url_for_pip,
+}
+
+existing_msc = [
+    p for p in w.pipelines.list_pipelines()
+    if p.name == msc_pipeline_name
+]
+if existing_msc:
+    msc_pipeline_id = existing_msc[0].pipeline_id
+    print(
+        f"Reusing existing MSC pipeline: {msc_pipeline_id}"
+    )
+else:
+    created_msc = w.pipelines.create(
+        name=msc_pipeline_name,
+        catalog=uc_catalog_name,
+        schema=bronze_schema,
+        libraries=[
+            PipelineLibrary(
+                notebook=NotebookLibrary(
+                    path=runner_notebook_path
+                )
+            )
+        ],
+        configuration=msc_pipeline_config,
+        development=True,
+        serverless=True,
+    )
+    msc_pipeline_id = created_msc.pipeline_id
+    print(f"MSC pipeline created: {msc_pipeline_id}")
+
+with open(msc_pipeline_id_file, "w") as fh:
+    fh.write(msc_pipeline_id)
+print(f"MSC pipeline ID saved to: {msc_pipeline_id_file}")
+
+run_pipeline_and_wait(
+    w, msc_pipeline_id, label="multi-source CDC"
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### 11.5 Validate Multi-Source CDC Results
+# MAGIC
+# MAGIC With the seed data:
+# MAGIC
+# MAGIC | Layer | Table | Expected rows | Why |
+# MAGIC |-------|-------|---------------|-----|
+# MAGIC | Bronze | `customers_us_cdc`   | 5  | 3 INSERTs + 1 UPDATE + 1 DELETE raw events |
+# MAGIC | Bronze | `customers_eu_cdc`   | 5  | same shape |
+# MAGIC | Bronze | `customers_apac_cdc` | 5  | same shape |
+# MAGIC | Silver | `customers_regional` | 6  | SCD-1 + apply_as_deletes: 3 regions × (3 inserted − 1 deleted) |
+# MAGIC
+# MAGIC The per-region breakdown (2 US + 2 EU + 2 APAC) proves the per-
+# MAGIC flow `select_exp` actually ran — each flow tags its rows with
+# MAGIC a constant `region` literal that only that flow produces.
+
+# COMMAND ----------
+
+# DBTITLE 1,Bronze — customers_us_cdc (US raw shape)
+display(
+    spark.sql(
+        f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
+        ".customers_us_cdc"
+    )
+)
+
+# COMMAND ----------
+
+# DBTITLE 1,Bronze — customers_eu_cdc (EU raw shape, different column names)
+display(
+    spark.sql(
+        f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
+        ".customers_eu_cdc"
+    )
+)
+
+# COMMAND ----------
+
+# DBTITLE 1,Bronze — customers_apac_cdc (APAC raw shape, op codes I/U/D)
+display(
+    spark.sql(
+        f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
+        ".customers_apac_cdc"
+    )
+)
+
+# COMMAND ----------
+
+# DBTITLE 1,Silver — customers_regional (unified, post-CDC, normalized)
+display(
+    spark.sql(
+        f"SELECT customer_id, firstname, lastname, email, "
+        f"address, region "
+        f"FROM {uc_catalog_name}.{silver_schema}.customers_regional "
+        f"ORDER BY region, customer_id"
+    )
+)
+
+# COMMAND ----------
+
+# DBTITLE 1,Per-Region Live Counts (proves per-flow select_exp ran)
+display(
+    spark.sql(
+        f"SELECT region, count(*) AS live_rows "
+        f"FROM {uc_catalog_name}.{silver_schema}.customers_regional "
+        f"GROUP BY region "
+        f"ORDER BY region"
+    )
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
+# MAGIC ## Final Data Flow Summary
 # MAGIC
 # MAGIC Complete view across all features demonstrated.
 
@@ -3182,6 +3740,15 @@ all_tables_final = [
      silver_schema),
     ("iot_events", "CloudFiles + Sink", bronze_schema,
      None),
+    ("customers_us_cdc", "Multi-source CDC (bronze, US)",
+     bronze_schema, None),
+    ("customers_eu_cdc", "Multi-source CDC (bronze, EU)",
+     bronze_schema, None),
+    ("customers_apac_cdc", "Multi-source CDC (bronze, APAC)",
+     bronze_schema, None),
+    ("customers_regional",
+     "Multi-source AUTO CDC (silver, unified)",
+     None, silver_schema),
 ]
 
 summary_rows = []
@@ -3232,7 +3799,7 @@ display(spark.createDataFrame(summary_rows))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Stage 11: Row-Level Filtering (UC Row Filter)
+# MAGIC ## Stage 12: Row-Level Filtering (UC Row Filter)
 # MAGIC
 # MAGIC The `customers` flow in the onboarding spec has both
 # MAGIC `bronze_row_filter` and `silver_row_filter` set to:
@@ -3333,7 +3900,8 @@ else:
 # MAGIC | **File metadata** | `_metadata.file_name`, `_metadata.file_path` |
 # MAGIC | **Apply Changes From Snapshot** | Snapshot-based SCD Type 1 & 2 |
 # MAGIC | **Pipeline Sink** | Write to external delta table via `dp.create_sink` |
-# MAGIC | **Row-level filtering** | `bronze_row_filter` / `silver_row_filter` → UC `ROW FILTER` |
+# MAGIC | **Multi-Source AUTO CDC** | N `dp.create_auto_cdc_flow` calls → one unified silver streaming table ([#294](https://github.com/databrickslabs/dlt-meta/issues/294)) |
+# MAGIC | **Row-level filtering** | `bronze_row_filter` / `silver_row_filter` → UC `ROW FILTER` ([#303](https://github.com/databrickslabs/dlt-meta/issues/303)) |
 # MAGIC
 # MAGIC ### Learn More
 # MAGIC - [Full Documentation](https://databrickslabs.github.io/dlt-meta/)
@@ -3343,6 +3911,7 @@ else:
 # MAGIC - [Append Flows](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/cloudfiles-onboarding.template)
 # MAGIC - [Apply Changes from Snapshot](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/snapshot-onboarding.template)
 # MAGIC - [DLT Sink](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/kafka-sink-onboarding.template)
+# MAGIC - [Multi-Source AUTO CDC](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/multi-source-cdc-onboarding.template) · [Design Doc](https://github.com/databrickslabs/dlt-meta/blob/main/DESIGN_MULTI_SOURCE_AUTO_CDC.md)
 # MAGIC - [DABs](https://github.com/databrickslabs/dlt-meta/tree/main/demo/dabs)
 
 # COMMAND ----------
@@ -3491,6 +4060,26 @@ else:
             f"{uc_catalog_name}.{silver_schema}.{domain}"
         )
 
+    # 6. Multi-source AUTO CDC (Stage 11) — every region seeds the
+    # SAME shape: 3 INSERTs + 1 UPDATE + 1 DELETE = 5 raw bronze
+    # rows. The silver target is SCD-1 with apply_as_deletes, so the
+    # final live row count = (3 regions × 3 inserted) − (3 regions ×
+    # 1 deleted) = 6. All counts come from hardcoded literals
+    # (``msc_us_data`` / ``msc_eu_data`` / ``msc_apac_data``) and so
+    # are deterministic regardless of the ``data_source`` widget.
+    # Drift here means either the multi-source bronze fan-in or the
+    # silver ``create_auto_cdc_flow`` fan-in is broken.
+    for region in ("us", "eu", "apac"):
+        _expect_exact(
+            f"{uc_catalog_name}.{bronze_schema}"
+            f".customers_{region}_cdc",
+            5,
+        )
+    _expect_exact(
+        f"{uc_catalog_name}.{silver_schema}.customers_regional",
+        6,
+    )
+
     if failures:
         raise AssertionError(
             "Demo final validation failed "
@@ -3555,6 +4144,11 @@ def _cleanup_demo_resources():
             f"sdp_meta_demo_snapshot_{uc_schema_name}",
         ),
         ("sink", sink_pipeline_id_file, sink_pipeline_name),
+        (
+            "multi-source CDC",
+            msc_pipeline_id_file,
+            msc_pipeline_name,
+        ),
     ]
     for label, pid_file, name in pipeline_specs:
         pid = None

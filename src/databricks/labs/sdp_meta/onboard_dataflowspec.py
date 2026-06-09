@@ -429,6 +429,96 @@ class OnboardDataflowspec:
                                 ),
                             )
 
+                # Multi-source AUTO CDC (issue #294). Validates:
+                #   * Mutual exclusion against ``<layer>_cdc_apply_changes``.
+                #   * Group-level mandatory column-name fields (``keys``,
+                #     ``sequence_by``, ``scd_type``) — same rules as the
+                #     single-flow ``<layer>_cdc_apply_changes`` block.
+                #   * Per-flow mandatory ``name`` / ``source_format`` /
+                #     ``source_details``, supported per-layer source format,
+                #     and uniqueness of ``flow.name`` within the group.
+                cdc_flows_field = f"{layer}_cdc_apply_changes_flows"
+                cdc_flows_block = row_dict.get(cdc_flows_field)
+                if isinstance(cdc_flows_block, dict):
+                    legacy_cdc_block = row_dict.get(f"{layer}_cdc_apply_changes")
+                    if isinstance(legacy_cdc_block, dict):
+                        errors.append(
+                            f"flow {flow_id} {cdc_flows_field}: both "
+                            f"{layer}_cdc_apply_changes and {cdc_flows_field} "
+                            f"are set; use one or the other"
+                        )
+                    if cdc_flows_block.get("scd_type") is not None:
+                        _check(
+                            validate_scd_type,
+                            cdc_flows_block["scd_type"],
+                            kind=f"flow {flow_id} {cdc_flows_field}.scd_type",
+                        )
+                    for col_field in _CDC_COL_FIELDS:
+                        if cdc_flows_block.get(col_field):
+                            _check(
+                                validate_uc_column_list,
+                                cdc_flows_block[col_field],
+                                kind=(
+                                    f"flow {flow_id} {cdc_flows_field}."
+                                    f"{col_field}"
+                                ),
+                            )
+                    raw_flows = cdc_flows_block.get("flows")
+                    if not isinstance(raw_flows, list) or len(raw_flows) == 0:
+                        errors.append(
+                            f"flow {flow_id} {cdc_flows_field}.flows must "
+                            f"be a non-empty list"
+                        )
+                    else:
+                        # Per-layer allowed source formats — silver flows
+                        # always read from Delta upstream, so we hard-cap
+                        # silver to {"delta"}. Bronze gets the full
+                        # streaming-CDC-supported set; ``snapshot`` is
+                        # excluded because snapshot CDC uses a different
+                        # DLT primitive (``create_auto_cdc_from_snapshot_flow``).
+                        allowed_formats = (
+                            {"delta"}
+                            if layer == "silver"
+                            else {"cloudfiles", "delta", "kafka", "eventhub"}
+                        )
+                        seen_names = set()
+                        for cf_idx, cf in enumerate(raw_flows):
+                            if not isinstance(cf, dict):
+                                errors.append(
+                                    f"flow {flow_id} {cdc_flows_field}."
+                                    f"flows[{cf_idx}] must be an object"
+                                )
+                                continue
+                            for mandatory in (
+                                "name",
+                                "source_format",
+                                "source_details",
+                            ):
+                                if not cf.get(mandatory):
+                                    errors.append(
+                                        f"flow {flow_id} {cdc_flows_field}."
+                                        f"flows[{cf_idx}].{mandatory} is "
+                                        f"required"
+                                    )
+                            name = cf.get("name")
+                            if name:
+                                if name in seen_names:
+                                    errors.append(
+                                        f"flow {flow_id} {cdc_flows_field}: "
+                                        f"duplicate flow name {name!r}; "
+                                        f"each flow name must be unique "
+                                        f"within a group"
+                                    )
+                                seen_names.add(name)
+                            sf = cf.get("source_format")
+                            if isinstance(sf, str) and sf.lower() not in allowed_formats:
+                                errors.append(
+                                    f"flow {flow_id} {cdc_flows_field}."
+                                    f"flows[{cf_idx}].source_format={sf!r} "
+                                    f"is not supported for {layer}; "
+                                    f"allowed: {sorted(allowed_formats)}"
+                                )
+
         if errors:
             bullets = "\n  - ".join(errors)
             raise ValueError(
@@ -524,11 +614,19 @@ class OnboardDataflowspec:
 
         env = dict_obj["env"]
         silver_transformation_file_col = f"silver_transformation_json_{env}"
-        silver_transformation_files = (
-            onboarding_df.select(silver_transformation_file_col)
-            .dropDuplicates()
-            .collect()
-        )
+        # When EVERY row in the onboarding file is multi-source AUTO CDC
+        # (issue #294), no row defines ``silver_transformation_json_<env>``
+        # and the inferred Spark schema omits the column entirely. Skip
+        # the file collection in that case — the LEFT join below still
+        # works against an empty silver_transformation_json_df.
+        if silver_transformation_file_col in onboarding_df.columns:
+            silver_transformation_files = (
+                onboarding_df.select(silver_transformation_file_col)
+                .dropDuplicates()
+                .collect()
+            )
+        else:
+            silver_transformation_files = []
 
         schema_field_names = [field.name for field in columns.fields]
         silver_transformation_rows = []
@@ -560,10 +658,17 @@ class OnboardDataflowspec:
 
         logger.info(f"Loaded {len(silver_transformation_rows)} silver transformation rows")
 
-        silver_data_flow_spec_df = silver_transformation_json_df.join(
-            silver_data_flow_spec_df,
-            silver_transformation_json_df.target_table
-            == silver_data_flow_spec_df.targetDetails["table"],
+        # Left join from the silver spec side so rows that legitimately
+        # have no entry in the silver-transformations JSON (multi-source
+        # AUTO CDC, issue #294 — transformations come from per-flow
+        # ``select_exp`` inside ``cdcApplyChangesFlows``) survive the
+        # join with NULL ``select_exp`` / ``where_clause``. The runtime
+        # ignores those two fields when ``cdcApplyChangesFlows`` is set.
+        silver_data_flow_spec_df = silver_data_flow_spec_df.join(
+            silver_transformation_json_df,
+            silver_data_flow_spec_df.targetDetails["table"]
+            == silver_transformation_json_df.target_table,
+            how="left",
         )
         silver_dataflow_spec_df = (
             silver_data_flow_spec_df.drop("target_table")  # .drop("path")
@@ -952,8 +1057,16 @@ class OnboardDataflowspec:
             "sinks",
             "clusterBy",
             "clusterByAuto",
+            # Multi-source AUTO CDC (issue #294). Bronze carries both
+            # the JSON-encoded CDCApplyChangesFlowGroup AND a per-flow
+            # schema map so cloudFiles/kafka flows can declare their own
+            # source_schema_path the same way append flows do.
+            "cdcApplyChangesFlows",
+            "cdcApplyChangesFlowsSchemas",
+            # UC row-level security (issue #303). Both fields are optional
+            # and silently dropped on non-UC pipelines.
             "rowFilter",
-            "quarantineRowFilter"
+            "quarantineRowFilter",
         ]
         data_flow_spec_schema = StructType(
             [
@@ -995,6 +1108,12 @@ class OnboardDataflowspec:
                 StructField("sinks", StringType(), True),
                 StructField("clusterBy", ArrayType(StringType(), True), True),
                 StructField("clusterByAuto", T.BooleanType(), True),
+                StructField("cdcApplyChangesFlows", StringType(), True),
+                StructField(
+                    "cdcApplyChangesFlowsSchemas",
+                    MapType(StringType(), StringType(), True),
+                    True,
+                ),
                 StructField("rowFilter", StringType(), True),
                 StructField("quarantineRowFilter", StringType(), True),
             ]
@@ -1010,6 +1129,19 @@ class OnboardDataflowspec:
             # "bronze_reader_options",
         ]  # , f"bronze_table_path_{env}"
         for onboarding_row in onboarding_rows:
+            # Multi-source AUTO CDC (issue #294): an onboarding file may
+            # contain a mix of bronze rows AND a separate silver-only
+            # row (no bronze fields) that merges them via
+            # ``silver_cdc_apply_changes_flows``. Skip rows that don't
+            # define a bronze target so the silver-only row doesn't
+            # trip the bronze mandatory-field check (especially
+            # ``source_details`` and ``bronze_database_<env>``).
+            bronze_db_field = f"bronze_database_{env}"
+            if not (
+                bronze_db_field in onboarding_row
+                and onboarding_row[bronze_db_field]
+            ):
+                continue
             try:
                 self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
             except ValueError:
@@ -1115,6 +1247,9 @@ class OnboardDataflowspec:
             append_flows, append_flows_schemas = self.get_append_flows_json(
                 onboarding_row, "bronze", env
             )
+            cdc_apply_changes_flows, cdc_apply_changes_flows_schemas = (
+                self.get_cdc_apply_changes_flows_json(onboarding_row, "bronze", env)
+            )
             bronze_row_filter = (
                 onboarding_row["bronze_row_filter"]
                 if "bronze_row_filter" in onboarding_row and onboarding_row["bronze_row_filter"]
@@ -1149,8 +1284,10 @@ class OnboardDataflowspec:
                 dlt_sinks,
                 cluster_by,
                 cluster_by_auto,
+                cdc_apply_changes_flows,
+                cdc_apply_changes_flows_schemas,
                 bronze_row_filter,
-                bronze_quarantine_row_filter
+                bronze_quarantine_row_filter,
             )
             data.append(bronze_row)
             # logger.info(bronze_parition_columns)
@@ -1356,6 +1493,237 @@ class OnboardDataflowspec:
         sink_details_json = onboarding_row[f"{layer}_sinks"]
         sinks_json = self.get_validated_sinks_details(sink_details_json)
         return sinks_json
+
+    def get_cdc_apply_changes_flows_json(self, onboarding_row, layer, env):
+        """Parse the multi-source AUTO CDC group (issue #294).
+
+        Reads ``<layer>_cdc_apply_changes_flows`` from the onboarding row,
+        validates it, applies the same per-flow ``source_path_{env}`` ->
+        ``path`` remapping and ``source_schema_path`` schema lookup we use
+        for append flows, and returns:
+
+            (group_json_str, per_flow_schemas_map)
+
+        ``per_flow_schemas_map`` is keyed by ``flow.name`` and only
+        populated for bronze rows (silver flows always read from Delta
+        upstream — they don't carry source_schema_path).
+
+        Returns ``(None, {})`` when the row does not declare the field.
+        """
+        field_name = f"{layer}_cdc_apply_changes_flows"
+        if field_name not in onboarding_row or not onboarding_row[field_name]:
+            return None, {}
+
+        # Reject both single-flow + multi-flow declared on the same row;
+        # the runtime mutual-exclusion check repeats this defence in depth.
+        legacy_field = f"{layer}_cdc_apply_changes"
+        if legacy_field in onboarding_row and onboarding_row[legacy_field]:
+            flow_id = (
+                onboarding_row["data_flow_id"]
+                if "data_flow_id" in onboarding_row
+                else "<unknown>"
+            )
+            raise Exception(
+                f"flow {flow_id}: both {legacy_field} and {field_name} are "
+                f"set; use one or the other"
+            )
+
+        from pyspark.sql.types import Row
+
+        group_row = onboarding_row[field_name]
+        # ``recursive=False`` here: we only flatten the top-level group dict
+        # ourselves and walk the nested ``flows`` list explicitly so we can
+        # spot non-Row entries (an invalid YAML where ``flows`` is a single
+        # object instead of a list) with a clear error.
+        if isinstance(group_row, Row):
+            group_dict = group_row.asDict()
+        elif isinstance(group_row, dict):
+            group_dict = dict(group_row)
+        else:
+            raise Exception(
+                f"{field_name} must be an object on flow "
+                f"{onboarding_row.get('data_flow_id', '<unknown>')}"
+            )
+
+        # Mandatory keys at group level. We use the dataflow_spec
+        # constants as the canonical truth so the parser, the onboarding
+        # validation, and the runtime stay aligned.
+        group_keys = set(group_dict.keys())
+        missing_mandatory = (
+            set(DataflowSpecUtils.cdc_apply_changes_flows_group_mandatory_attributes)
+            - group_keys
+        )
+        if missing_mandatory:
+            raise Exception(
+                f"mandatory missing keys= {missing_mandatory} for "
+                f"{field_name} on flow "
+                f"{onboarding_row.get('data_flow_id', '<unknown>')}"
+            )
+
+        raw_flows = group_dict.get("flows") or []
+        if not isinstance(raw_flows, list) or len(raw_flows) == 0:
+            raise Exception(
+                f"{field_name}.flows must be a non-empty list on flow "
+                f"{onboarding_row.get('data_flow_id', '<unknown>')}"
+            )
+
+        per_flow_schemas = {}
+        out_flows = []
+        seen_names = set()
+        for idx, raw_flow in enumerate(raw_flows):
+            if isinstance(raw_flow, Row):
+                flow_dict = raw_flow.asDict()
+            elif isinstance(raw_flow, dict):
+                flow_dict = dict(raw_flow)
+            else:
+                raise Exception(
+                    f"{field_name}.flows[{idx}] must be an object"
+                )
+
+            # Per-flow mandatory keys.
+            flow_keys = set(flow_dict.keys())
+            missing_flow_mandatory = (
+                set(DataflowSpecUtils.cdc_apply_changes_flow_mandatory_attributes)
+                - flow_keys
+            )
+            if missing_flow_mandatory:
+                raise Exception(
+                    f"mandatory missing keys= {missing_flow_mandatory} for "
+                    f"{field_name}.flows[{idx}] on flow "
+                    f"{onboarding_row.get('data_flow_id', '<unknown>')}"
+                )
+
+            # Per-flow source_format must be one the runtime knows how to
+            # dispatch through ``dp.create_auto_cdc_flow``. ``snapshot`` is
+            # deliberately excluded — snapshot CDC uses
+            # ``create_auto_cdc_from_snapshot_flow``, a distinct DLT
+            # primitive, and is out of scope for this field per design
+            # (issue #294). Silver further restricts to ``delta`` because
+            # silver always reads from Delta upstream.
+            allowed_formats = (
+                {"delta"}
+                if layer == "silver"
+                else {"cloudfiles", "delta", "kafka", "eventhub"}
+            )
+            sf = flow_dict["source_format"]
+            if not isinstance(sf, str) or sf.lower() not in allowed_formats:
+                raise Exception(
+                    f"unsupported source_format {sf!r} in "
+                    f"{field_name}.flows[{idx}] on flow "
+                    f"{onboarding_row.get('data_flow_id', '<unknown>')}; "
+                    f"allowed: {sorted(allowed_formats)}"
+                )
+
+            # Per-flow name uniqueness — the runtime uses ``flow.name`` as
+            # the DLT view name and ``flow_name`` argument; duplicates
+            # would silently collide.
+            name = flow_dict["name"]
+            if name in seen_names:
+                raise Exception(
+                    f"duplicate flow name {name!r} in {field_name} on flow "
+                    f"{onboarding_row.get('data_flow_id', '<unknown>')}; "
+                    f"each flow name must be unique within a group"
+                )
+            seen_names.add(name)
+
+            # Normalize per-flow source_details: source_path_{env} -> path,
+            # source_schema_path -> per-flow schemas map (bronze only).
+            sd_raw = flow_dict["source_details"]
+            if isinstance(sd_raw, Row):
+                sd_dict = self.__delete_none(sd_raw.asDict())
+            elif isinstance(sd_raw, dict):
+                sd_dict = self.__delete_none(dict(sd_raw))
+            else:
+                raise Exception(
+                    f"{field_name}.flows[{idx}].source_details must be an object"
+                )
+
+            normalized_sd = {}
+            for sd_key, sd_val in sd_dict.items():
+                if sd_key == f"source_path_{env}":
+                    normalized_sd["path"] = sd_val
+                elif sd_key == "source_schema_path":
+                    if layer == "bronze" and sd_val:
+                        per_flow_schemas[name] = self.__get_bronze_schema(sd_val)
+                    # Keep source_schema_path in normalized_sd so
+                    # PipelineReaders that re-read it (cloudFiles fallback
+                    # path) still see it.
+                    normalized_sd[sd_key] = sd_val
+                else:
+                    normalized_sd[sd_key] = sd_val
+            flow_dict["source_details"] = normalized_sd
+
+            # Per-flow reader_options can come through as a Row when read
+            # from JSON via Spark; flatten consistently with the append-flow
+            # pipeline so downstream JSON-encode produces a flat object.
+            if "reader_options" in flow_dict and isinstance(
+                flow_dict["reader_options"], Row
+            ):
+                flow_dict["reader_options"] = self.__delete_none(
+                    flow_dict["reader_options"].asDict()
+                )
+
+            # Default-fill the per-flow optional fields. We keep only the
+            # known per-flow keys so an accidental top-level group field
+            # mistakenly nested under a flow doesn't silently flow through.
+            normalized_flow = {
+                "name": flow_dict["name"],
+                "source_format": flow_dict["source_format"],
+                "source_details": flow_dict["source_details"],
+                "reader_options": flow_dict.get(
+                    "reader_options",
+                    DataflowSpecUtils.cdc_apply_changes_flow_attributes_defaults[
+                        "reader_options"
+                    ],
+                ),
+                "select_exp": flow_dict.get(
+                    "select_exp",
+                    DataflowSpecUtils.cdc_apply_changes_flow_attributes_defaults[
+                        "select_exp"
+                    ],
+                ),
+                "where_clause": flow_dict.get(
+                    "where_clause",
+                    DataflowSpecUtils.cdc_apply_changes_flow_attributes_defaults[
+                        "where_clause"
+                    ],
+                ),
+                "once": flow_dict.get(
+                    "once",
+                    DataflowSpecUtils.cdc_apply_changes_flow_attributes_defaults[
+                        "once"
+                    ],
+                ),
+            }
+            out_flows.append(self.__delete_none(normalized_flow))
+
+        # Rebuild group with only known top-level fields so an accidental
+        # typo at the group level is visible by its absence rather than
+        # silently passed through.
+        group_payload = {
+            "keys": group_dict["keys"],
+            "sequence_by": group_dict["sequence_by"],
+            "scd_type": group_dict["scd_type"],
+            "where": group_dict.get("where"),
+            "ignore_null_updates": group_dict.get("ignore_null_updates", False),
+            "apply_as_deletes": group_dict.get("apply_as_deletes"),
+            "apply_as_truncates": group_dict.get("apply_as_truncates"),
+            "column_list": group_dict.get("column_list"),
+            "except_column_list": group_dict.get("except_column_list"),
+            "track_history_column_list": group_dict.get("track_history_column_list"),
+            "track_history_except_column_list": group_dict.get(
+                "track_history_except_column_list"
+            ),
+            "ignore_null_updates_column_list": group_dict.get(
+                "ignore_null_updates_column_list"
+            ),
+            "ignore_null_updates_except_column_list": group_dict.get(
+                "ignore_null_updates_except_column_list"
+            ),
+            "flows": out_flows,
+        }
+        group_json = json.dumps(self.__delete_none(group_payload))
+        return group_json, per_flow_schemas
 
     def get_validated_sinks_details(self, sinks_details_json):
         sink_list = []
@@ -1619,8 +1987,14 @@ class OnboardDataflowspec:
             "clusterBy",
             "clusterByAuto",
             "sinks",
+            # Multi-source AUTO CDC (issue #294). Silver omits the
+            # per-flow schema map because silver flows always read from
+            # Delta upstream, which carries its own schema.
+            "cdcApplyChangesFlows",
+            # UC row-level security (issue #303). Both fields are optional
+            # and silently dropped on non-UC pipelines.
             "rowFilter",
-            "quarantineRowFilter"
+            "quarantineRowFilter",
         ]
         data_flow_spec_schema = StructType(
             [
@@ -1654,6 +2028,7 @@ class OnboardDataflowspec:
                 StructField("clusterBy", ArrayType(StringType(), True), True),
                 StructField("clusterByAuto", T.BooleanType(), True),
                 StructField("sinks", StringType(), True),
+                StructField("cdcApplyChangesFlows", StringType(), True),
                 StructField("rowFilter", StringType(), True),
                 StructField("quarantineRowFilter", StringType(), True),
             ]
@@ -1661,7 +2036,7 @@ class OnboardDataflowspec:
         data = []
 
         onboarding_rows = onboarding_df.collect()
-        mandatory_fields = [
+        base_mandatory_fields = [
             "data_flow_id",
             "data_flow_group",
             f"silver_database_{env}",
@@ -1670,6 +2045,35 @@ class OnboardDataflowspec:
         ]  # f"silver_table_path_{env}",
 
         for onboarding_row in onboarding_rows:
+            # Multi-source AUTO CDC (issue #294): an onboarding file may
+            # contain a mix of bronze-only rows (each defining its own
+            # bronze CDC table) and a separate silver row that merges
+            # them via ``silver_cdc_apply_changes_flows``. Skip rows
+            # that don't define a silver target so the bronze-only
+            # entries don't trip the silver mandatory-field check.
+            silver_db_field = f"silver_database_{env}"
+            if not (
+                silver_db_field in onboarding_row
+                and onboarding_row[silver_db_field]
+            ):
+                continue
+
+            # When the row uses multi-source AUTO CDC, the per-flow
+            # ``select_exp`` inside the ``silver_cdc_apply_changes_flows``
+            # group provides the transformation logic — the external
+            # silver-transformations JSON is not consulted at runtime,
+            # so don't force the user to ship one.
+            has_cdc_flows = (
+                "silver_cdc_apply_changes_flows" in onboarding_row
+                and onboarding_row["silver_cdc_apply_changes_flows"]
+            )
+            mandatory_fields = [
+                f for f in base_mandatory_fields
+                if not (
+                    has_cdc_flows and f == f"silver_transformation_json_{env}"
+                )
+            ]
+
             try:
                 self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
             except ValueError:
@@ -1691,17 +2095,41 @@ class OnboardDataflowspec:
 
             silver_target_format = "delta"
 
-            bronze_target_details = {
-                "database": onboarding_row["bronze_database_{}".format(env)],
-                "table": onboarding_row["bronze_table"],
-            }
-            bronze_cl = (
-                onboarding_row["bronze_catalog_{}".format(env)]
-                if "bronze_catalog_{}".format(env) in onboarding_row
-                else None
-            )
-            if bronze_cl:
-                bronze_target_details["catalog"] = bronze_cl
+            # Bronze source details for the silver read path. Pure
+            # multi-source AUTO CDC silver rows (issue #294) read from
+            # per-flow ``source_details`` inside the
+            # ``silver_cdc_apply_changes_flows`` group, so their bronze
+            # fields may be absent — fall back to an empty placeholder
+            # in that case. The runtime dispatcher only consults
+            # ``bronze_target_details`` on the legacy single-source
+            # silver path, which doesn't fire when
+            # ``cdcApplyChangesFlows`` is set.
+            bronze_db_field = f"bronze_database_{env}"
+            if (
+                bronze_db_field in onboarding_row
+                and onboarding_row[bronze_db_field]
+                and "bronze_table" in onboarding_row
+                and onboarding_row["bronze_table"]
+            ):
+                bronze_target_details = {
+                    "database": onboarding_row[bronze_db_field],
+                    "table": onboarding_row["bronze_table"],
+                }
+                bronze_cl = (
+                    onboarding_row[f"bronze_catalog_{env}"]
+                    if f"bronze_catalog_{env}" in onboarding_row
+                    else None
+                )
+                if bronze_cl:
+                    bronze_target_details["catalog"] = bronze_cl
+            elif has_cdc_flows:
+                bronze_target_details = {"database": "", "table": ""}
+            else:
+                raise Exception(
+                    f"Missing bronze source fields "
+                    f"({bronze_db_field}/bronze_table) for silver "
+                    f"data_flow_id={onboarding_row['data_flow_id']}"
+                )
             silver_target_details = {
                 "database": onboarding_row["silver_database_{}".format(env)],
                 "table": onboarding_row["silver_table"],
@@ -1794,6 +2222,9 @@ class OnboardDataflowspec:
             append_flows, append_flow_schemas = self.get_append_flows_json(
                 onboarding_row, layer="silver", env=env
             )
+            silver_cdc_apply_changes_flows, _silver_cdc_flow_schemas = (
+                self.get_cdc_apply_changes_flows_json(onboarding_row, "silver", env)
+            )
             apply_changes_from_snapshot = None
             source_format = "delta"
             if ("silver_apply_changes_from_snapshot" in onboarding_row
@@ -1837,8 +2268,9 @@ class OnboardDataflowspec:
                 silver_cluster_by,
                 silver_cluster_by_auto,
                 dlt_sinks,
+                silver_cdc_apply_changes_flows,
                 silver_row_filter,
-                silver_quarantine_row_filter
+                silver_quarantine_row_filter,
             )
             data.append(silver_row)
             logger.info(f"silver_data ==== {data}")

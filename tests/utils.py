@@ -64,6 +64,20 @@ class SDPFrameworkTestCase(unittest.TestCase):
         self.onboarding_apply_changes_from_snapshot_json__error_file = (
             "tests/resources/onboarding_applychanges_from_snapshot_error.json"
         )
+        # Multi-source AUTO CDC (issue #294).
+        self.onboarding_bronze_cdc_flows_json_file = (
+            "tests/resources/onboarding_bronze_cdc_flows.json"
+        )
+        self.onboarding_silver_cdc_flows_json_file = (
+            "tests/resources/onboarding_silver_cdc_flows.json"
+        )
+        # Mixed file: N bronze-only rows + 1 silver-only row that uses
+        # multi-source AUTO CDC (no silver_transformation_json, no
+        # bronze fields on the silver row). This is the natural shape
+        # users write for the multi-source CDC silver demo (issue #294).
+        self.onboarding_mixed_bronze_silver_cdc_flows_json_file = (
+            "tests/resources/onboarding_mixed_bronze_silver_cdc_flows.json"
+        )
         self.deltaPipelinesMetaStoreOps.drop_database("ravi_dlt_demo")
         self.deltaPipelinesMetaStoreOps.create_database("ravi_dlt_demo", "Unittest")
         self.onboarding_bronze_silver_params_map = {

@@ -56,6 +56,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 | Data Quality Expecations Support | Bronze, Silver layer |
 | Quarantine table support | Bronze layer |
 | [create_auto_cdc_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) API support | Bronze, Silver layer | 
+| Multi-source [create_auto_cdc_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) into a single target table | Bronze, Silver layer. |
 | [create_auto_cdc_from_snapshot_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes-from-snapshot) API support | Bronze layer|
 | [append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#use-append-flow-to-write-to-a-streaming-table-from-multiple-source-streams) API support | Bronze layer|
 | Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|

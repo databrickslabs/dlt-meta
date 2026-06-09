@@ -7,8 +7,9 @@
  6. [Silver Fanout Demo](#silver-fanout-demo): This demo showcases the implementation of fanout architecture in the silver layer.
  7. [Apply Changes From Snapshot Demo](#apply-changes-from-snapshot-demo): This demo showcases the implementation of ingesting from snapshots in bronze layer
 8. [Lakeflow Spark Declarative Pipelines Sink Demo](#lakeflow-declarative-pipelines-sink-demo): This demo showcases the implementation of write to external sinks like delta and kafka
-9. [Row Filter Demo](#row-filter-demo): UC Row-Level Security via `bronze_row_filter` / `silver_row_filter` — single-flow standalone demo that creates the row-filter UDF, runs one combined Bronze+Silver pipeline (`layer=bronze_silver`), and asserts the filter is enforced.
-10. [DAB Demo](#dab-demo): End-to-end walkthrough of the `databricks labs sdp-meta bundle-*` CLI — scaffold a Declarative Automation Bundle, append flows, validate, deploy, and run onboarding + Lakeflow Spark Declarative Pipelines from one driver script. See [`DAB_README.md`](../DAB_README.md) for the full CLI / template / recipe reference.
+9. [Multi-Source AUTO CDC Demo](#multi-source-auto-cdc-demo): Merge N regional CDC sources into ONE silver target table using [`dp.create_auto_cdc_flow`](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) called N times against the same streaming table, with per-flow `select_exp` normalization.
+10. [Row Filter Demo](#row-filter-demo): UC Row-Level Security via `bronze_row_filter` / `silver_row_filter` — single-flow standalone demo that creates the row-filter UDF, runs one combined Bronze+Silver pipeline (`layer=bronze_silver`), and asserts the filter is enforced.
+11. [DAB Demo](#dab-demo): End-to-end walkthrough of the `databricks labs sdp-meta bundle-*` CLI — scaffold a Declarative Automation Bundle, append flows, validate, deploy, and run onboarding + Lakeflow Spark Declarative Pipelines from one driver script. See [`DAB_README.md`](../DAB_README.md) for the full CLI / template / recipe reference.
 
 
 # Interactive Demo (Notebook)
@@ -33,7 +34,8 @@ end-to-end with no CLI setup required.
 | 8 | Append Flow — multi-source ingestion with file metadata columns |
 | 9 | Apply Changes From Snapshot — SCD Type 1 & 2 from CSV/Delta snapshots |
 | 10 | DLT Sink — write Bronze output to an external Delta table |
-| 11 | Row-Level Filtering — verify UC `ROW FILTER` is enforced on Bronze + Silver `customers` |
+| 11 | **Multi-Source AUTO CDC** — three regional CDC sources (US / EU / APAC with distinct column shapes) merged into one unified `customers_regional` silver target via `silver_cdc_apply_changes_flows` |
+| 12 | Row-Level Filtering — verify UC `ROW FILTER` is enforced on Bronze + Silver `customers` |
 
 ## Features Demonstrated
 
@@ -49,7 +51,8 @@ end-to-end with no CLI setup required.
 - `_metadata.file_name` / `_metadata.file_path` file metadata columns
 - `apply_changes_from_snapshot` — snapshot-based SCD Type 1 & 2
 - `dp.create_sink` — write to external Delta destinations
-- `bronze_row_filter` / `silver_row_filter` — UC Row-Level Security via `ROW FILTER` (Stage 11)
+- **Multi-source AUTO CDC** — N `dp.create_auto_cdc_flow` calls against one streaming silver target, with per-flow `source_format` / `source_details` / `select_exp` normalizing each region's raw column shape before the merge (Stage 11)
+- `bronze_row_filter` / `silver_row_filter` — UC Row-Level Security via `ROW FILTER` (Stage 12)
 - All Lakeflow Spark Declarative Pipelines created with `serverless=True`
 
 ## Prerequisites
@@ -70,8 +73,8 @@ The notebook is fully driven by widgets at the top — same ones the headless la
 | `onboarding_format` | dropdown `json` (default) / `yml` | Whether the rendered onboarding spec + silver-transformations files are written as JSON or YAML. The demo reads back the matching `demo/conf/<format>/sample_onboarding.<ext>` template. |
 | `install_source` | dropdown `git_branch` (default) / `whl_file` | Where to install SDP-META from. `git_branch` runs `pip install git+https://github.com/databrickslabs/dlt-meta.git@<git_branch>`; `whl_file` runs `pip install <whl_file_path>` against a Volume / Workspace path. Use `whl_file` when validating local changes that aren't pushed yet. |
 | `whl_file_path` | text, default empty | Path to the wheel when `install_source=whl_file`, e.g. `/Volumes/<catalog>/<schema>/<volume>/databricks_labs_sdp_meta-<version>-py3-none-any.whl`. Required when `install_source=whl_file`; ignored otherwise. |
-| `validate_counts` | dropdown `false` (default) / `true` | When `true`, the final cell turns the demo into a smoke test: it asserts deterministic row counts (`bronze.orders == 7`, `bronze.iot_events == 5`, snapshot tables `>= LOAD_2 size`) and non-empty for every demo-produced bronze / silver / quarantine table, raising a single `AssertionError` listing every failure. Use in CI / pre-release smoke runs. |
-| `cleanup` | dropdown `false` (default) / `true` | When `true`, the cleanup cell at the bottom drops every per-run resource the demo created: pipelines (main / snapshot / sink), runner notebooks (`runner_notebook_path`, `snapshot_runner_path`), and per-run schemas (`<schema>_bronze`, `<schema>_silver`, `<schema>_pipeline_default`, `<schema>` itself — including its config volume). The user-supplied UC catalog is **intentionally preserved** because it's shared across runs. |
+| `validate_counts` | dropdown `false` (default) / `true` | When `true`, the final cell turns the demo into a smoke test: it asserts deterministic row counts (`bronze.orders == 7`, `bronze.iot_events == 5`, snapshot tables `>= LOAD_2 size`, multi-source CDC bronze `customers_{us,eu,apac}_cdc == 5` each, silver `customers_regional == 6`) and non-empty for every demo-produced bronze / silver / quarantine table, raising a single `AssertionError` listing every failure. Use in CI / pre-release smoke runs. |
+| `cleanup` | dropdown `false` (default) / `true` | When `true`, the cleanup cell at the bottom drops every per-run resource the demo created: pipelines (main / snapshot / sink / multi-source CDC), runner notebooks (`runner_notebook_path`, `snapshot_runner_path`), and per-run schemas (`<schema>_bronze`, `<schema>_silver`, `<schema>_pipeline_default`, `<schema>` itself — including its config volume). The user-supplied UC catalog is **intentionally preserved** because it's shared across runs. |
 
 ## Option A — Run interactively in the workspace
 
@@ -490,12 +493,58 @@ This demo will perform following tasks:
     ![dlt_kafka_sink.png](../docs/static/images/dlt_kafka_sink.png)
 
 
+# Multi-Source AUTO CDC Demo
+
+- Merge **N regional CDC sources** into **ONE** unified silver target table by calling [`dp.create_auto_cdc_flow`](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) N times against the same streaming table, with **per-flow `select_exp` normalization** so each source can have its own native column shape.
+- This implements [issue #294](https://github.com/databrickslabs/dlt-meta/issues/294). See [`DESIGN_MULTI_SOURCE_AUTO_CDC.md`](../DESIGN_MULTI_SOURCE_AUTO_CDC.md) for the full spec, including mutual-exclusion rules vs the single-source `cdcApplyChanges` block and the per-flow `cdcApplyChangesFlowsSchemas` map for bronze.
+- The demo provisions:
+    - **Three regional bronze CDC tables** (`customers_us_cdc`, `customers_eu_cdc`, `customers_apac_cdc`), each landing raw customer CDC events from its own folder under [`demo/resources/data/multi_source_cdc/`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/resources/data/multi_source_cdc/). Each region uses a **different column shape on purpose** (US: `id`/`firstname`/`lastname`/`operation`; EU: `customer_id`/`given_name`/`family_name`/`change_type`; APAC: `cust_id`/`fname`/`lname`/`op`) so the per-flow `select_exp` normalization is actually doing real work the user can see.
+    - **One unified silver `customers` SCD-1 table** that pulls from all three bronze tables via `silver_cdc_apply_changes_flows`. Each flow rewrites its source columns into the canonical `(customer_id, firstname, lastname, email, address, region)` shape, with a per-flow constant `region` literal, before the merge.
+- Each flow goes through a single `create_streaming_table` call (DLT requires exactly one per target) and a per-flow `create_auto_cdc_flow` call — see [`silver_cdc_apply_changes_flows`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/multi-source-cdc-onboarding.template) in the onboarding template for the full shape.
+
+### Steps:
+1. Launch Command Prompt
+
+2. Install [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html)
+
+3. Install Python package requirements:
+   ```commandline
+   pip install "PyYAML>=6.0" setuptools databricks-sdk
+   pip install delta-spark==3.0.0 pyspark==3.5.5
+   ```
+
+4. ```commandline
+    git clone https://github.com/databrickslabs/sdp-meta.git
+    ```
+
+5. ```commandline
+    cd sdp-meta
+    ```
+
+6. Run the command (the launcher patches `sys.path` itself, so no `export PYTHONPATH=...` is required):
+    ```commandline
+    python demo/launch_multi_source_cdc_demo.py --uc_catalog_name=<<uc catalog name>> --source=cloudfiles --profile=<<DEFAULT>>
+    ```
+
+    Add `--onboarding_file_format=yaml` to run the same demo from the YAML template ([`demo/conf/yml/multi-source-cdc-onboarding.template.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/multi-source-cdc-onboarding.template.yml)) instead of JSON.
+
+    The launcher creates a single workflow with **three tasks** — `onboarding_job` → `sdp-meta-pipeline` → `validate_results` — matching Stage 11 of the interactive notebook. The `sdp-meta-pipeline` task runs **one** Lakeflow Spark Declarative Pipeline configured with `layer=bronze_silver` (groups `bronze.group=A1` and `silver.group=A1`), so all three regional bronze CDC tables AND the unified silver multi-source AUTO CDC merge execute inside a single observable DLT flow graph. The validate notebook asserts:
+    * Bronze row counts per region (5 raw CDC events each).
+    * Silver total live row count = 6 (3 regions × 3 customers each, minus 1 delete per region).
+    * Per-region breakdown (proves the per-flow `select_exp` ran — each flow tags its rows with a constant `region` literal).
+    * The exact set of surviving `customer_id` values matches the seed data.
+
+    ![multi-source-cdc-silver-demo.png](../docs/static/images/multi-source-cdc-silver-demo.png)
+
+    ![multi-source-cdc-silver.png](../docs/static/images/multi-source-cdc-silver.png)
+
+
 # Row Filter Demo
 
 Standalone end-to-end demo for SDP-META's `bronze_row_filter` /
 `silver_row_filter` fields, which map onto Unity Catalog's
 [`ROW FILTER` clause](https://docs.databricks.com/aws/en/tables/row-and-column-filters)
-for row-level security.
+for row-level security. Implements [issue #303](https://github.com/databrickslabs/dlt-meta/issues/303).
 
 The demo onboards a single `customers` flow with 16 source rows split
 across four regions (`US`, `UK`, `DE`, `JP` — 4 each), attaches the same
@@ -578,7 +627,7 @@ the workflow run page.
 ### See also
 
 - `demo/SDP_META_INTERACTIVE_DEMO.py` — the interactive notebook demo
-  also exercises `bronze_row_filter` / `silver_row_filter` (Stage 11)
+  also exercises `bronze_row_filter` / `silver_row_filter` (Stage 12)
   alongside the rest of the SDP-META feature surface. Pick the
   interactive demo if you want row filter as part of a broader end-to-end
   walkthrough; pick this standalone demo if you want a focused,

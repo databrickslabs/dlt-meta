@@ -55,6 +55,8 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
         "rowFilter": None,
         "quarantineRowFilter": None,
     }
@@ -101,6 +103,8 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
         "rowFilter": None,
         "quarantineRowFilter": None,
     }
@@ -146,6 +150,8 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
         "rowFilter": None,
         "quarantineRowFilter": None,
     }
@@ -183,6 +189,8 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
         "rowFilter": None,
         "quarantineRowFilter": None,
     }
