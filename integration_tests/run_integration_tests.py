@@ -157,6 +157,16 @@ class SDPMetaRunnerConf:
     # snapshot info
     snapshot_template: str = "integration_tests/conf/json/snapshot-onboarding.template"
 
+    # multi-source AUTO CDC info (issue #294): three regional bronze CDC
+    # sources -> one unified silver SCD-1 ``customers`` table via
+    # ``silver_cdc_apply_changes_flows``. No A2 incremental step; no
+    # external publish-events step. The template carries both layers'
+    # rows so a single onboarding run produces a 4-task workflow
+    # (onboard -> bronze -> silver -> validate).
+    multi_source_cdc_template: str = (
+        "integration_tests/conf/json/multi-source-cdc-onboarding.template"
+    )
+
     def __post_init__(self):
         """Adjust onboarding file paths based on the requested file format."""
         fmt = (self.onboarding_file_format or "json").lower()
@@ -179,6 +189,9 @@ class SDPMetaRunnerConf:
             self.eventhub_template = self._to_yaml_variant(self.eventhub_template)
             self.kafka_template = self._to_yaml_variant(self.kafka_template)
             self.snapshot_template = self._to_yaml_variant(self.snapshot_template)
+            self.multi_source_cdc_template = self._to_yaml_variant(
+                self.multi_source_cdc_template
+            )
             if self.onboarding_fanout_templates:
                 self.onboarding_fanout_templates = self._to_yaml_variant(
                     self.onboarding_fanout_templates
@@ -300,12 +313,16 @@ class SDPMETARunner:
             "eventhub": "./integration_tests/notebooks/eventhub_runners/",
             "kafka": "./integration_tests/notebooks/kafka_runners/",
             "snapshot": "./integration_tests/notebooks/snapshot_runners/",
+            "multi_source_cdc": (
+                "./integration_tests/notebooks/multi_source_cdc_runners/"
+            ),
         }
         try:
             runner_conf.runners_full_local_path = source_paths[runner_conf.source]
         except KeyError:
             raise Exception(
-                "Given source is not support. Support source are: cloudfiles, eventhub, kafka or snapshot"
+                "Given source is not supported. Supported sources are: "
+                "cloudfiles, eventhub, kafka, snapshot, multi_source_cdc"
             )
 
         return runner_conf
@@ -349,17 +366,37 @@ class SDPMETARunner:
         """
         configuration = {
             "layer": layer,
-            f"{layer}.group": group,
             "sdp_meta_whl": runner_conf.remote_whl_path,
             "pipelines.externalSink.enabled": "true",
         }
+        # For the combined ``bronze_silver`` layer we set BOTH per-layer
+        # group + dataflowspec table entries; the runtime expects them
+        # prefixed by the individual layer name, not the combined
+        # ``bronze_silver``. Mirrors the demo launcher
+        # (``demo/launch_multi_source_cdc_demo.py``) and Stage 11 of the
+        # interactive demo notebook so the whole multi-source CDC
+        # fan-in lives inside one observable DLT flow graph.
+        if layer == "bronze_silver":
+            for sub_layer in ("bronze", "silver"):
+                configuration[f"{sub_layer}.group"] = group
+                configuration[f"{sub_layer}.dataflowspecTable"] = (
+                    f"{runner_conf.uc_catalog_name}."
+                    f"{runner_conf.sdp_meta_schema}."
+                    f"{sub_layer}_dataflowspec_cdc"
+                )
+        else:
+            configuration[f"{layer}.group"] = group
+            configuration[f"{layer}.dataflowspecTable"] = (
+                f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}.{layer}_dataflowspec_cdc"
+            )
+
+        # Optional caller-provided Spark conf (e.g. {"dtix_snapshot_method": "cdf"}
+        # from the LFC demo). Merged AFTER the per-layer group/table keys so the
+        # caller can override defaults if needed.
         if extra_config:
             configuration.update(extra_config)
         created = None
 
-        configuration[f"{layer}.dataflowspecTable"] = (
-            f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}.{layer}_dataflowspec_cdc"
-        )
         # PipelinesAPI.create: use 'target' for default schema (SDK dropped 'schema' parameter)
         created = self.ws.pipelines.create(
             catalog=runner_conf.uc_catalog_name,
@@ -403,7 +440,8 @@ class SDPMETARunner:
                     named_parameters={
                         "onboard_layer": (
                             "bronze_silver"
-                            if runner_conf.source in ["cloudfiles", "snapshot"]
+                            if runner_conf.source
+                            in ["cloudfiles", "snapshot", "multi_source_cdc"]
                             else "bronze"
                         ),
                         "database": f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}",
@@ -423,13 +461,39 @@ class SDPMETARunner:
                 ),
             ),
             jobs.Task(
-                task_key="bronze_dlt_pipeline",
+                # Multi-source AUTO CDC (issue #294) collapses bronze +
+                # silver into ONE combined ``bronze_silver`` pipeline
+                # (see ``create_bronze_silver_dlt``), so the
+                # ``bronze_dlt_pipeline`` task name would be misleading
+                # for that source. Use ``sdp-meta-pipeline`` instead so
+                # the workflow graph in the UI reflects what the task
+                # actually does. Every other source keeps the historical
+                # task_key untouched.
+                task_key=(
+                    "sdp-meta-pipeline"
+                    if runner_conf.source == "multi_source_cdc"
+                    else "bronze_dlt_pipeline"
+                ),
                 depends_on=[
                     jobs.TaskDependency(
                         task_key=(
-                            "setup_sdp_meta_pipeline_spec"
-                            if runner_conf.source == "cloudfiles" or runner_conf.source == "snapshot"
-                            else "publish_events"
+                            # The cloudfiles customers flow declares a
+                            # bronze_row_filter that references the
+                            # `customer_op_filter` UDF (issue #303); that UDF
+                            # must exist before DLT can CREATE TABLE
+                            # bronze.customers, so the bronze pipeline depends
+                            # on the pre-pipeline UDF setup task specifically
+                            # for cloudfiles. snapshot and multi_source_cdc
+                            # (issue #294) chain off the standard spec setup;
+                            # everything else still chains off publish_events.
+                            "setup_row_filter_udf"
+                            if runner_conf.source == "cloudfiles"
+                            else (
+                                "setup_sdp_meta_pipeline_spec"
+                                if runner_conf.source
+                                in ("snapshot", "multi_source_cdc")
+                                else "publish_events"
+                            )
                         )
                     )
                 ],
@@ -455,7 +519,8 @@ class SDPMETARunner:
                         "bronze_schema": f"{runner_conf.bronze_schema}",
                         "silver_schema": (
                             f"{runner_conf.silver_schema}"
-                            if runner_conf.source == "cloudfiles" or runner_conf.source == "snapshot"
+                            if runner_conf.source
+                            in ("cloudfiles", "snapshot", "multi_source_cdc")
                             else ""
                         ),
                         "output_file_path": f"/Workspace{runner_conf.test_output_file_path}",
@@ -468,6 +533,29 @@ class SDPMETARunner:
         if runner_conf.source == "cloudfiles":
             tasks.extend(
                 [
+                    jobs.Task(
+                        # Creates `<catalog>.<bronze_schema>.customer_op_filter`
+                        # so that the bronze + silver `customers` tables (which
+                        # reference it via ROW FILTER in the onboarding spec)
+                        # can be created by the bronze DLT pipeline. Predicate:
+                        # admins see all rows; non-admins see APPEND+UPDATE only.
+                        task_key="setup_row_filter_udf",
+                        depends_on=[
+                            jobs.TaskDependency(
+                                task_key="setup_sdp_meta_pipeline_spec"
+                            )
+                        ],
+                        notebook_task=jobs.NotebookTask(
+                            notebook_path=(
+                                f"{runner_conf.runners_nb_path}"
+                                "/runners/setup_row_filter_udf.py"
+                            ),
+                            base_parameters={
+                                "uc_catalog_name": runner_conf.uc_catalog_name,
+                                "bronze_schema": runner_conf.bronze_schema,
+                            },
+                        ),
+                    ),
                     jobs.Task(
                         task_key="onboard_spec_A2",
                         depends_on=[
@@ -617,6 +705,18 @@ class SDPMETARunner:
                     )
                 ]
             )
+        elif runner_conf.source == "multi_source_cdc":
+            # Multi-source AUTO CDC (issue #294): the pipeline task
+            # above is named ``sdp-meta-pipeline`` and already runs the
+            # **combined** ``bronze_silver`` pipeline (3 regional CDC
+            # bronze tables AND the unified silver multi-source AUTO
+            # CDC merge inside one DLT flow graph). So we don't need a
+            # separate ``silver_dlt_pipeline`` task — the validate task
+            # just depends on ``sdp-meta-pipeline`` directly (see
+            # ``get_validate_task_key``). The workflow is the minimal
+            # 3-task shape: setup -> sdp-meta-pipeline -> validate. No
+            # A2 step, no publish_events (seed JSON is already on volume).
+            pass
         else:
             if runner_conf.source == "eventhub":
                 base_parameters = {
@@ -661,6 +761,14 @@ class SDPMETARunner:
             return "silver_dlt_pipeline"
         elif source == "snapshot":
             return "silver_v3_dlt_pipeline"
+        elif source == "multi_source_cdc":
+            # The bronze task for MSC runs the COMBINED bronze+silver
+            # pipeline (see ``create_bronze_silver_dlt``) and is
+            # named ``sdp-meta-pipeline`` (not ``bronze_dlt_pipeline``)
+            # to reflect what it actually does, so validate depends
+            # on that task directly instead of on a separate silver
+            # task.
+            return "sdp-meta-pipeline"
         else:
             return "bronze_dlt_pipeline"
 
@@ -703,7 +811,7 @@ class SDPMETARunner:
             "{bronze_schema}": runner_conf.bronze_schema,
         }
 
-        if runner_conf.source in ["cloudfiles", "snapshot"]:
+        if runner_conf.source in ["cloudfiles", "snapshot", "multi_source_cdc"]:
             string_subs.update({
                 "{silver_schema}": runner_conf.silver_schema,
                 "{source_database}": runner_conf.sdp_meta_schema
@@ -747,6 +855,8 @@ class SDPMETARunner:
             template_path = runner_conf.kafka_template
         elif runner_conf.source == "snapshot":
             template_path = runner_conf.snapshot_template
+        elif runner_conf.source == "multi_source_cdc":
+            template_path = runner_conf.multi_source_cdc_template
 
         if template_path:
             onboard_text = self._read_template_text(template_path)
@@ -975,6 +1085,30 @@ class SDPMETARunner:
         self.upload_files_to_databricks(runner_conf)
 
     def create_bronze_silver_dlt(self, runner_conf: SDPMetaRunnerConf):
+        # Multi-source AUTO CDC (issue #294) uses a SINGLE combined
+        # ``bronze_silver`` pipeline so the whole fan-in (N bronze CDC
+        # tables → one silver target via ``silver_cdc_apply_changes_flows``)
+        # lives inside one observable DLT flow graph. Matches Stage 11
+        # of the interactive demo notebook and the standalone demo
+        # launcher (``demo/launch_multi_source_cdc_demo.py``). We stash
+        # the combined pipeline id on ``bronze_pipeline_id`` so the
+        # existing workflow-spec / cleanup wiring can reuse it, and
+        # leave ``silver_pipeline_id`` as ``None``.
+        if runner_conf.source == "multi_source_cdc":
+            # Pipeline resource name matches the workflow task_key
+            # (``sdp-meta-pipeline``) so the Pipelines UI and the Jobs
+            # UI line up at a glance for this combined bronze+silver
+            # MSC run.
+            runner_conf.bronze_pipeline_id = self.create_sdp_meta_pipeline(
+                f"sdp-meta-pipeline-{runner_conf.run_id}",
+                "bronze_silver",
+                "A1",
+                runner_conf.bronze_schema,
+                runner_conf,
+            )
+            runner_conf.silver_pipeline_id = None
+            return
+
         runner_conf.bronze_pipeline_id = self.create_sdp_meta_pipeline(
             f"sdp-meta-bronze-{runner_conf.run_id}",
             "bronze",
@@ -1110,10 +1244,10 @@ def process_arguments() -> dict[str:str]:
         ],
         [
             "source",
-            "Provide source type: cloudfiles, eventhub, kafka",
+            "Provide source type: cloudfiles, eventhub, kafka, snapshot, multi_source_cdc",
             str.lower,
             False,
-            ["cloudfiles", "eventhub", "kafka", "snapshot"],
+            ["cloudfiles", "eventhub", "kafka", "snapshot", "multi_source_cdc"],
         ],
         # Techsummit demo: data generation control
         ["table_count", "Number of tables to generate (techsummit, default 100)", str, False, []],
@@ -1341,14 +1475,36 @@ def process_arguments() -> dict[str:str]:
 
 
 def get_workspace_api_client(profile=None) -> WorkspaceClient:
-    """Get api client with config."""
+    """Get a ``WorkspaceClient`` configured for the current runtime.
+
+    Resolution order:
+
+    1. **Databricks Apps container** — when ``DATABRICKS_APP_PORT`` is set
+       the platform has injected ``DATABRICKS_HOST`` plus the app's
+       service-principal OAuth credentials (``DATABRICKS_CLIENT_ID`` /
+       ``DATABRICKS_CLIENT_SECRET``) into the environment. The SDK's
+       default credentials provider picks these up automatically when
+       ``WorkspaceClient()`` is constructed with no arguments — no
+       profile, no interactive prompts. The explicit ``profile`` argument
+       is intentionally ignored in this branch: ``~/.databrickscfg``
+       does not exist in the container, and falling back to it would
+       fail the exact way Apps callers are trying to avoid.
+    2. **Local CLI with ``--profile``** — uses the named
+       ``~/.databrickscfg`` entry. This is the path
+       ``run_integration_tests.py`` and the ``launch_*_demo.py`` scripts
+       take when invoked from a developer's terminal.
+    3. **Interactive fallback** — prompts for host + token via ``input()``
+       so ad-hoc local runs without a configured profile still work.
+       Requires a real stdin; do NOT route App / CI traffic through
+       this branch (it raises ``EOFError`` when stdin is not a TTY).
+    """
+    if os.environ.get("DATABRICKS_APP_PORT"):
+        return WorkspaceClient()
     if profile:
-        workspace_client = WorkspaceClient(profile=profile)
-    else:
-        workspace_client = WorkspaceClient(
-            host=input("Databricks Workspace URL: "), token=input("Token: ")
-        )
-    return workspace_client
+        return WorkspaceClient(profile=profile)
+    return WorkspaceClient(
+        host=input("Databricks Workspace URL: "), token=input("Token: ")
+    )
 
 
 def main():

@@ -1,0 +1,146 @@
+[
+   {
+      "data_flow_id": "msc-it-100",
+      "data_flow_group": "A1",
+      "source_system": "RegionalCDC-US",
+      "source_format": "cloudFiles",
+      "source_details": {
+         "source_database": "APP",
+         "source_table": "CUSTOMERS_US",
+         "source_path_it": "{uc_volume_path}/integration_tests/resources/data/multi_source_cdc/customers_us",
+         "source_schema_path": "{uc_volume_path}/integration_tests/resources/data/multi_source_cdc/ddl/customers_us.ddl"
+      },
+      "bronze_catalog_it": "{uc_catalog_name}",
+      "bronze_database_it": "{bronze_schema}",
+      "bronze_table": "customers_us_cdc",
+      "bronze_reader_options": {
+         "cloudFiles.format": "json",
+         "cloudFiles.inferColumnTypes": "true",
+         "cloudFiles.rescuedDataColumn": "_rescued_data"
+      },
+      "bronze_table_properties": {
+         "pipelines.autoOptimize.managed": "true"
+      }
+   },
+   {
+      "data_flow_id": "msc-it-101",
+      "data_flow_group": "A1",
+      "source_system": "RegionalCDC-EU",
+      "source_format": "cloudFiles",
+      "source_details": {
+         "source_database": "APP",
+         "source_table": "CUSTOMERS_EU",
+         "source_path_it": "{uc_volume_path}/integration_tests/resources/data/multi_source_cdc/customers_eu",
+         "source_schema_path": "{uc_volume_path}/integration_tests/resources/data/multi_source_cdc/ddl/customers_eu.ddl"
+      },
+      "bronze_catalog_it": "{uc_catalog_name}",
+      "bronze_database_it": "{bronze_schema}",
+      "bronze_table": "customers_eu_cdc",
+      "bronze_reader_options": {
+         "cloudFiles.format": "json",
+         "cloudFiles.inferColumnTypes": "true",
+         "cloudFiles.rescuedDataColumn": "_rescued_data"
+      },
+      "bronze_table_properties": {
+         "pipelines.autoOptimize.managed": "true"
+      }
+   },
+   {
+      "data_flow_id": "msc-it-102",
+      "data_flow_group": "A1",
+      "source_system": "RegionalCDC-APAC",
+      "source_format": "cloudFiles",
+      "source_details": {
+         "source_database": "APP",
+         "source_table": "CUSTOMERS_APAC",
+         "source_path_it": "{uc_volume_path}/integration_tests/resources/data/multi_source_cdc/customers_apac",
+         "source_schema_path": "{uc_volume_path}/integration_tests/resources/data/multi_source_cdc/ddl/customers_apac.ddl"
+      },
+      "bronze_catalog_it": "{uc_catalog_name}",
+      "bronze_database_it": "{bronze_schema}",
+      "bronze_table": "customers_apac_cdc",
+      "bronze_reader_options": {
+         "cloudFiles.format": "json",
+         "cloudFiles.inferColumnTypes": "true",
+         "cloudFiles.rescuedDataColumn": "_rescued_data"
+      },
+      "bronze_table_properties": {
+         "pipelines.autoOptimize.managed": "true"
+      },
+      "silver_catalog_it": "{uc_catalog_name}",
+      "silver_database_it": "{silver_schema}",
+      "silver_table": "customers",
+      "silver_table_properties": {
+         "pipelines.reset.allowed": "false"
+      },
+      "silver_cdc_apply_changes_flows": {
+         "keys": ["customer_id"],
+         "sequence_by": "operation_date",
+         "scd_type": "1",
+         "apply_as_deletes": "operation = 'DELETE'",
+         "except_column_list": ["operation", "operation_date", "_rescued_data"],
+         "flows": [
+            {
+               "name": "customers_us_silver",
+               "source_format": "delta",
+               "source_details": {
+                  "source_catalog": "{uc_catalog_name}",
+                  "source_database": "{bronze_schema}",
+                  "source_table": "customers_us_cdc"
+               },
+               "select_exp": [
+                  "id AS customer_id",
+                  "firstname",
+                  "lastname",
+                  "email",
+                  "address",
+                  "'US' AS region",
+                  "operation",
+                  "operation_date",
+                  "_rescued_data"
+               ]
+            },
+            {
+               "name": "customers_eu_silver",
+               "source_format": "delta",
+               "source_details": {
+                  "source_catalog": "{uc_catalog_name}",
+                  "source_database": "{bronze_schema}",
+                  "source_table": "customers_eu_cdc"
+               },
+               "select_exp": [
+                  "customer_id AS customer_id",
+                  "given_name AS firstname",
+                  "family_name AS lastname",
+                  "email_address AS email",
+                  "postal_address AS address",
+                  "'EU' AS region",
+                  "CASE WHEN change_type = 'INSERT' THEN 'APPEND' WHEN change_type = 'UPDATE' THEN 'UPDATE' WHEN change_type = 'DELETE' THEN 'DELETE' END AS operation",
+                  "change_ts AS operation_date",
+                  "_rescued_data"
+               ]
+            },
+            {
+               "name": "customers_apac_silver",
+               "source_format": "delta",
+               "source_details": {
+                  "source_catalog": "{uc_catalog_name}",
+                  "source_database": "{bronze_schema}",
+                  "source_table": "customers_apac_cdc"
+               },
+               "select_exp": [
+                  "cust_id AS customer_id",
+                  "fname AS firstname",
+                  "lname AS lastname",
+                  "mail AS email",
+                  "addr AS address",
+                  "'APAC' AS region",
+                  "CASE WHEN op = 'I' THEN 'APPEND' WHEN op = 'U' THEN 'UPDATE' WHEN op = 'D' THEN 'DELETE' END AS operation",
+                  "op_time AS operation_date",
+                  "_rescued_data"
+               ]
+            }
+         ]
+      }
+   }
+]

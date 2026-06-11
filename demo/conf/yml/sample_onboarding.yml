@@ -36,6 +36,8 @@
   silver_cluster_by_auto: true
   silver_transformation_json_prod: $transformation_path/silver_transformations.yml
   silver_data_quality_expectations_json_prod: $dqe_path/customers_silver_dqe.yml
+  bronze_row_filter: "ROW FILTER ${uc_catalog_name}.${uc_schema_name}.customer_id_filter ON (customer_id)"
+  silver_row_filter: "ROW FILTER ${uc_catalog_name}.${uc_schema_name}.customer_id_filter ON (customer_id)"
 
 - data_flow_id: "101"
   data_flow_group: A1

@@ -29,7 +29,7 @@
    "bronze_table_properties": {
          "pipelines.autoOptimize.managed": "true"
    },
-   "bronze_table_cluster_by":["id", "email"],   
+   "bronze_cluster_by":["id", "email"],
    "bronze_data_quality_expectations_json_demo": "{uc_volume_path}/demo/conf/json/dqe/customers/bronze_data_quality_expectations.json",
    "bronze_catalog_quarantine_demo": "{uc_catalog_name}",
    "bronze_database_quarantine_demo": "{bronze_schema}",
@@ -106,7 +106,7 @@
    "bronze_table_properties": {
          "pipelines.reset.allowed": "true"
    },
-   "bronze_table_cluster_by":["id", "customer_id"],   
+   "bronze_cluster_by":["id", "customer_id"],
    "bronze_data_quality_expectations_json_demo": "{uc_volume_path}/demo/conf/json/dqe/transactions/bronze_data_quality_expectations.json",
    "bronze_catalog_quarantine_demo": "{uc_catalog_name}",
    "bronze_database_quarantine_demo": "{bronze_schema}",

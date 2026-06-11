@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DLT-META Configuration Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <!-- Background Animation -->
+    <div class="bg-grid"></div>
+    <div class="bg-gradient"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo">
+            <div class="logo-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+            </div>
+            <span class="logo-text">DLT-META</span>
+        </div>
+        
+        <nav class="nav">
+            <a href="#" class="nav-item active" data-view="setup">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                </svg>
+                <span>Setup</span>
+            </a>
+            <a href="#" class="nav-item" data-view="onboarding">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="8.5" cy="7" r="4"/>
+                    <polyline points="17 11 19 13 23 9"/>
+                </svg>
+                <span>Onboarding</span>
+            </a>
+            <a href="#" class="nav-item" data-view="deployment">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="16 16 12 12 8 16"/>
+                    <line x1="12" y1="12" x2="12" y2="21"/>
+                    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                    <polyline points="16 16 12 12 8 16"/>
+                </svg>
+                <span>Deployment</span>
+            </a>
+            <a href="#" class="nav-item" data-view="demos">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                <span>Demos</span>
+            </a>
+            <a href="#" class="nav-item" data-view="cli">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="4 17 10 11 4 5"/>
+                    <line x1="12" y1="19" x2="20" y2="19"/>
+                </svg>
+                <span>CLI</span>
+            </a>
+        </nav>
+
+        <div style="padding: 20px; border-top: 1px solid var(--border-color); text-align: center;">
+            <a href="https://databrickslabs.github.io/dlt-meta/index.html" target="_blank" 
+               style="color: var(--text-secondary); text-decoration: none; font-size: 0.875rem;">
+                Documentation
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-title">
+                <h1 id="pageTitle">Setup</h1>
+                <p id="pageSubtitle">Configure your DLT-META environment</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-outline" onclick="location.reload()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6"/>
+                        <path d="M1 20v-6h6"/>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <!-- Setup View -->
+        <section id="setupView" class="view active">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Environment Setup</h3>
+                </div>
+                <div class="panel-content">
+                    <p style="margin-bottom: 20px; color: var(--text-secondary);">
+                        Initialize the DLT-META environment with all required dependencies
+                    </p>
+                    <button class="btn btn-primary" id="setupBtn" data-command="setup">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        Setup DLT-META Environment
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Onboarding View -->
+        <section id="onboardingView" class="view">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Data Source Onboarding</h3>
+                </div>
+                <div class="panel-content">
+                    <form id="onboardingForm">
+                        <h4 style="color: var(--accent-blue); margin-bottom: 16px;">Unity Catalog Configuration</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Unity Catalog Enabled</label>
+                                <div class="radio-group">
+                                    <div class="radio-option">
+                                        <input type="radio" id="uc_enabled_true" name="unity_catalog_enabled" value="1" checked>
+                                        <label for="uc_enabled_true">Yes</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="uc_enabled_false" name="unity_catalog_enabled" value="0">
+                                        <label for="uc_enabled_false">No</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Unity Catalog Name</label>
+                                <input type="text" class="form-input" name="unity_catalog_name" placeholder="Enter catalog name">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Serverless Enabled</label>
+                                <div class="radio-group">
+                                    <div class="radio-option">
+                                        <input type="radio" id="serverless_true" name="serverless" value="1" checked>
+                                        <label for="serverless_true">Yes</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="serverless_false" name="serverless" value="0">
+                                        <label for="serverless_false">No</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h4 style="color: var(--accent-blue); margin-top: 24px; margin-bottom: 16px;">File Configuration</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Onboarding File Path</label>
+                                <input type="text" class="form-input" name="onboarding_file_path" 
+                                       value="demo/conf/onboarding.template" placeholder="Enter file path">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Local Directory</label>
+                                <input type="text" class="form-input" name="local_directory" 
+                                       value="/app/python/source_code/dlt-meta/demo/" placeholder="Enter local directory">
+                            </div>
+                        </div>
+
+                        <h4 style="color: var(--accent-blue); margin-top: 24px; margin-bottom: 16px;">Schema Configuration</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">DLT Meta Schema Name</label>
+                                <input type="text" class="form-input" name="dlt_meta_schema" 
+                                       value="dlt_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Bronze Schema Name</label>
+                                <input type="text" class="form-input" name="bronze_schema" 
+                                       value="dltmeta_bronze_9c1aa383b36a49198d3e99d25f7180a4">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Silver Schema Name</label>
+                                <input type="text" class="form-input" name="silver_schema" 
+                                       value="dltmeta_silver_7b4e981029b843c799bf61a0a121b3ca">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">DLT Meta Layer</label>
+                                <select class="form-select" name="dlt_meta_layer">
+                                    <option value="0">bronze</option>
+                                    <option value="1" selected>bronze_silver</option>
+                                    <option value="2">silver</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <h4 style="color: var(--accent-blue); margin-top: 24px; margin-bottom: 16px;">Table Configuration</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Bronze Dataflow Spec Table</label>
+                                <input type="text" class="form-input" name="bronze_table" value="bronze_dataflowspec">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Silver Dataflow Spec Table</label>
+                                <input type="text" class="form-input" name="silver_table" value="silver_dataflowspec">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Overwrite Dataflow Spec</label>
+                                <div class="radio-group">
+                                    <div class="radio-option">
+                                        <input type="radio" id="overwrite_false" name="overwrite" value="0">
+                                        <label for="overwrite_false">No</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="overwrite_true" name="overwrite" value="1" checked>
+                                        <label for="overwrite_true">Yes</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h4 style="color: var(--accent-blue); margin-top: 24px; margin-bottom: 16px;">Metadata</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Version</label>
+                                <input type="text" class="form-input" name="version" value="v1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Environment</label>
+                                <input type="text" class="form-input" name="environment" value="prod">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Author</label>
+                            <input type="text" class="form-input" name="author" value="app-40zbx9 meta-dlt">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Update Paths in Onboarding File</label>
+                            <div class="radio-group">
+                                <div class="radio-option">
+                                    <input type="radio" id="update_paths_false" name="update_paths" value="0" checked>
+                                    <label for="update_paths_false">No</label>
+                                </div>
+                                <div class="radio-option">
+                                    <input type="radio" id="update_paths_true" name="update_paths" value="1">
+                                    <label for="update_paths_true">Yes</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-success">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                                Run Onboarding
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Deployment View -->
+        <section id="deploymentView" class="view">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Pipeline Deployment</h3>
+                </div>
+                <div class="panel-content">
+                    <form id="deploymentForm">
+                        <h4 style="color: var(--accent-blue); margin-bottom: 16px;">Unity Catalog Configuration</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Unity Catalog Enabled</label>
+                                <div class="radio-group">
+                                    <div class="radio-option">
+                                        <input type="radio" id="deploy_uc_enabled_true" name="uc_enabled" value="1" checked>
+                                        <label for="deploy_uc_enabled_true">Yes</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="deploy_uc_enabled_false" name="uc_enabled" value="0">
+                                        <label for="deploy_uc_enabled_false">No</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Unity Catalog Name</label>
+                                <input type="text" class="form-input" name="uc_catalog_name" placeholder="Enter catalog name">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Serverless Enabled</label>
+                                <div class="radio-group">
+                                    <div class="radio-option">
+                                        <input type="radio" id="deploy_serverless_true" name="serverless" value="1" checked>
+                                        <label for="deploy_serverless_true">Yes</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="deploy_serverless_false" name="serverless" value="0">
+                                        <label for="deploy_serverless_false">No</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h4 style="color: var(--accent-blue); margin-top: 24px; margin-bottom: 16px;">Schema Configuration</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">DataFlow Schema Name</label>
+                                <input type="text" class="form-input" name="spc_schema_name" placeholder="Enter spec schema name">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Target Schema Name</label>
+                                <input type="text" class="form-input" name="dlt_target_schema" placeholder="Enter target schema">
+                            </div>
+                        </div>
+
+                        <h4 style="color: var(--accent-blue); margin-top: 24px; margin-bottom: 16px;">Group Configuration</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Bronze Group Name</label>
+                                <input type="text" class="form-input" name="onboard_bronze_group" value="A1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Silver Group Name</label>
+                                <input type="text" class="form-input" name="onboard_silver_group" value="A1">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">DLT Meta Layer</label>
+                                <select class="form-select" name="deploylayer">
+                                    <option value="bronze">bronze</option>
+                                    <option value="bronze_silver" selected>bronze_silver</option>
+                                    <option value="silver">silver</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Pipeline Name</label>
+                                <input type="text" class="form-input" name="pipeline_name" placeholder="Enter pipeline name">
+                            </div>
+                        </div>
+
+                        <h4 style="color: var(--accent-blue); margin-top: 24px; margin-bottom: 16px;">Table Configuration</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Bronze Dataflow Spec Table</label>
+                                <input type="text" class="form-input" name="bronze_dataflowspec_table" placeholder="Enter bronze spec table">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Silver Dataflow Spec Table</label>
+                                <input type="text" class="form-input" name="silver_dataflowspec_table" placeholder="Enter silver spec table">
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-success">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="16 16 12 12 8 16"/>
+                                    <line x1="12" y1="12" x2="12" y2="21"/>
+                                    <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+                                </svg>
+                                Deploy Pipeline
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Demos View -->
+        <section id="demosView" class="view">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Available Demos</h3>
+                </div>
+                <div class="panel-content">
+                    <div class="form-group">
+                        <label class="form-label">Unity Catalog Name for Demo</label>
+                        <input type="text" class="form-input" id="demo_uc_name" placeholder="Enter unity catalog name" required>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 24px;">
+                        <button class="btn btn-outline" data-demo="demo_cloudfiles">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+                            </svg>
+                            Cloud Files Demo
+                        </button>
+                        <button class="btn btn-outline" data-demo="demo_acf">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                            </svg>
+                            Apply Changes Snapshot
+                        </button>
+                        <button class="btn btn-outline" data-demo="demo_silverfanout">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"/>
+                                <polyline points="19 12 12 19 5 12"/>
+                            </svg>
+                            Silver Fanout Demo
+                        </button>
+                        <button class="btn btn-outline" data-demo="demo_dias">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                            DAIS Demo
+                        </button>
+                        <button class="btn btn-outline" data-demo="demo_dlt_sink">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            DLT Sink Demo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CLI View -->
+        <section id="cliView" class="view">
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>Command Line Interface</h3>
+                </div>
+                <div class="panel-content">
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                        <input type="text" class="form-input" id="commandInput" 
+                               placeholder="Enter command or response..." style="flex: 1;">
+                        <button class="btn btn-primary" id="sendBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"/>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                            </svg>
+                            Send
+                        </button>
+                    </div>
+                    
+                    <div class="terminal" id="terminal"></div>
+
+                    <div style="margin-top: 16px;">
+                        <h4 style="color: var(--text-secondary); margin-bottom: 12px; font-size: 0.875rem;">Quick Commands</h4>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <button class="btn btn-sm btn-outline" data-command="pip install databricks-sdk">
+                                Install Databricks SDK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal" id="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Response</h2>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-content" id="modalContent">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Loading Modal -->
+    <div class="modal-overlay" id="loadingModal">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Please wait...</h2>
+            </div>
+            <div class="modal-content">
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped active" style="width: 100%"></div>
+                </div>
+                <p style="text-align: center; margin-top: 16px; color: var(--text-secondary);">Processing your request...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
+

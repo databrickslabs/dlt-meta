@@ -1091,6 +1091,214 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
         self.assertEqual(bronze_dataflowSpec_df.count(), 3)
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
 
+    # ------------------------------------------------------------------
+    # Multi-source AUTO CDC onboarding tests (issue #294)
+    # ------------------------------------------------------------------
+
+    def test_bronze_cdc_flows_onboarding(self):
+        """Bronze-layer multi-source CDC: cdcApplyChangesFlows column is
+        populated with a JSON-encoded group containing both flows; the
+        per-flow source schemas are looked up via ``source_schema_path``
+        and stored in ``cdcApplyChangesFlowsSchemas`` keyed by
+        ``flow.name``."""
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = (
+            self.onboarding_bronze_cdc_flows_json_file
+        )
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        onboardDataFlowSpecs.onboard_bronze_dataflow_spec()
+        bronze_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map["database"],
+            self.onboarding_bronze_silver_params_map["bronze_dataflowspec_table"],
+        )
+        self.assertEqual(bronze_df.count(), 1)
+        row = bronze_df.collect()[0]
+        self.assertIsNotNone(row.cdcApplyChangesFlows)
+        group = json.loads(row.cdcApplyChangesFlows)
+        self.assertEqual(group["keys"], ["customer_id"])
+        self.assertEqual(group["scd_type"], "1")
+        self.assertEqual(len(group["flows"]), 2)
+        names = sorted(f["name"] for f in group["flows"])
+        self.assertEqual(names, ["eu_cdc", "us_cdc"])
+        # Per-flow source schemas are resolved at onboarding time and
+        # stored in cdcApplyChangesFlowsSchemas keyed by flow name. We
+        # don't assert the exact schema JSON shape here — that's the
+        # schema loader's responsibility — only that both entries exist
+        # and are non-empty so the runtime view factory has something
+        # to apply.
+        self.assertIsNotNone(row.cdcApplyChangesFlowsSchemas)
+        schemas = dict(row.cdcApplyChangesFlowsSchemas)
+        self.assertEqual(set(schemas.keys()), {"us_cdc", "eu_cdc"})
+        for s in schemas.values():
+            self.assertTrue(s and len(s) > 0)
+        # Mutual exclusion: the row didn't define cdcApplyChanges so
+        # that column must be None — confirming the CDC flows path
+        # didn't accidentally write into the legacy column too.
+        self.assertIsNone(row.cdcApplyChanges)
+
+    def test_silver_cdc_flows_onboarding(self):
+        """Silver-layer multi-source CDC: cdcApplyChangesFlows column is
+        populated; cdcApplyChangesFlowsSchemas is not present on silver
+        (silver flows always read Delta upstream, no per-flow schema
+        needed)."""
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = (
+            self.onboarding_silver_cdc_flows_json_file
+        )
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        onboardDataFlowSpecs.onboard_silver_dataflow_spec()
+        silver_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map["database"],
+            self.onboarding_bronze_silver_params_map["silver_dataflowspec_table"],
+        )
+        self.assertEqual(silver_df.count(), 1)
+        row = silver_df.collect()[0]
+        self.assertIsNotNone(row.cdcApplyChangesFlows)
+        group = json.loads(row.cdcApplyChangesFlows)
+        self.assertEqual(group["keys"], ["customer_id"])
+        names = sorted(f["name"] for f in group["flows"])
+        self.assertEqual(names, ["customers_eu", "customers_us"])
+        # Silver flows have no per-flow schema map column.
+        self.assertFalse(hasattr(row, "cdcApplyChangesFlowsSchemas"))
+        self.assertIsNone(row.cdcApplyChanges)
+
+    def test_mixed_bronze_only_plus_silver_cdc_flows_onboarding(self):
+        """Single onboarding file with N bronze-only rows + 1 silver-only
+        row that uses multi-source AUTO CDC. This is the natural shape
+        for the multi-source CDC silver demo (issue #294): each region
+        gets its own bronze CDC table (no silver fields) and a separate
+        silver row defines the unified target plus the per-flow merge.
+
+        Asserts three core onboarding contract changes:
+
+        * The bronze loop processes only the bronze-shaped rows
+          (silver-only rows are not added to the bronze dataflowspec
+          table).
+        * The silver loop SKIPS bronze-only rows (no silver_database)
+          instead of raising "Missing field=silver_database_..." on
+          them — the failure that originally surfaced when running
+          ``demo/launch_multi_source_cdc_demo.py``.
+        * The silver loop does NOT require
+          ``silver_transformation_json_<env>`` when the row uses
+          ``silver_cdc_apply_changes_flows``, since the per-flow
+          ``select_exp`` provides the transformation logic.
+        """
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = (
+            self.onboarding_mixed_bronze_silver_cdc_flows_json_file
+        )
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        onboardDataFlowSpecs.onboard_dataflow_specs()
+
+        # Bronze: exactly the 2 bronze-only rows (US + EU). The silver-
+        # only row carries no bronze fields and so should NOT land in
+        # the bronze dataflowspec table.
+        bronze_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map["database"],
+            self.onboarding_bronze_silver_params_map["bronze_dataflowspec_table"],
+        )
+        self.assertEqual(bronze_df.count(), 2)
+        bronze_tables = sorted(
+            r.targetDetails["table"] for r in bronze_df.collect()
+        )
+        self.assertEqual(bronze_tables, ["customers_eu_cdc", "customers_us_cdc"])
+
+        # Silver: exactly the 1 silver-only row, with the multi-source
+        # CDC group populated and the legacy single-source CDC column
+        # left None. The runtime ignores selectExp/whereClause for
+        # multi-source CDC silver rows so it's fine for them to be
+        # NULL after the LEFT join against silver_transformations.
+        silver_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map["database"],
+            self.onboarding_bronze_silver_params_map["silver_dataflowspec_table"],
+        )
+        self.assertEqual(silver_df.count(), 1)
+        srow = silver_df.collect()[0]
+        self.assertEqual(srow.targetDetails["table"], "customers")
+        self.assertIsNotNone(srow.cdcApplyChangesFlows)
+        group = json.loads(srow.cdcApplyChangesFlows)
+        self.assertEqual(group["keys"], ["customer_id"])
+        self.assertEqual(
+            sorted(f["name"] for f in group["flows"]),
+            ["customers_eu", "customers_us"],
+        )
+        self.assertIsNone(srow.cdcApplyChanges)
+
+    def test_cdc_flows_pre_validate_mutual_exclusion(self):
+        """Pre-flight validation rejects a row that sets BOTH
+        ``<layer>_cdc_apply_changes`` AND
+        ``<layer>_cdc_apply_changes_flows`` on the same layer. We build
+        the broken file on the fly so the fixture stays narrowly
+        scoped to the happy path."""
+        broken_fixture = os.path.join(
+            self.onboarding_spec_paths,
+            "onboarding_cdc_flows_mutually_exclusive.json",
+        )
+        with open(self.onboarding_silver_cdc_flows_json_file) as f:
+            data = json.load(f)
+        # Inject a competing single-flow CDC block on silver alongside
+        # the flows-group block already in the fixture.
+        data[0]["silver_cdc_apply_changes"] = {
+            "keys": ["id"],
+            "sequence_by": "operation_date",
+            "scd_type": "1",
+        }
+        with open(broken_fixture, "w") as f:
+            json.dump(data, f)
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = broken_fixture
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        with self.assertRaises(ValueError) as ctx:
+            onboardDataFlowSpecs.onboard_dataflow_specs()
+        self.assertIn("silver_cdc_apply_changes_flows", str(ctx.exception))
+        self.assertIn("use one or the other", str(ctx.exception))
+
+    def test_cdc_flows_pre_validate_duplicate_flow_names(self):
+        """Pre-flight validation rejects duplicate ``flow.name`` within a
+        group — the runtime would silently let one flow's view name
+        collide with another's otherwise."""
+        broken_fixture = os.path.join(
+            self.onboarding_spec_paths,
+            "onboarding_cdc_flows_dupe_names.json",
+        )
+        with open(self.onboarding_silver_cdc_flows_json_file) as f:
+            data = json.load(f)
+        # Set both flows to the same name to provoke the dupe check.
+        for f_block in data[0]["silver_cdc_apply_changes_flows"]["flows"]:
+            f_block["name"] = "dupe"
+        with open(broken_fixture, "w") as f:
+            json.dump(data, f)
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = broken_fixture
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        with self.assertRaises(ValueError) as ctx:
+            onboardDataFlowSpecs.onboard_dataflow_specs()
+        self.assertIn("duplicate flow name", str(ctx.exception))
+
+    def test_cdc_flows_pre_validate_unsupported_source_format(self):
+        """Pre-flight validation rejects per-flow ``source_format``
+        that the runtime doesn't support for the given layer. Silver
+        only accepts ``delta``; ``snapshot`` and streaming formats
+        must fail here so the user fixes it before any Spark
+        side-effect."""
+        broken_fixture = os.path.join(
+            self.onboarding_spec_paths,
+            "onboarding_cdc_flows_bad_format.json",
+        )
+        with open(self.onboarding_silver_cdc_flows_json_file) as f:
+            data = json.load(f)
+        data[0]["silver_cdc_apply_changes_flows"]["flows"][0]["source_format"] = (
+            "kafka"
+        )
+        with open(broken_fixture, "w") as f:
+            json.dump(data, f)
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = broken_fixture
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        with self.assertRaises(ValueError) as ctx:
+            onboardDataFlowSpecs.onboard_dataflow_specs()
+        self.assertIn("is not supported for silver", str(ctx.exception))
+
     def test_silver_fanout_dataflow_spec_dataframe(self):
         """Test for onboardDataflowspec with fanout scenario."""
         local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)

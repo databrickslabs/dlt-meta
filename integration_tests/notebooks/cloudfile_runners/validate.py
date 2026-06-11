@@ -44,5 +44,49 @@ for table, counts in tables.items():
     except AssertionError:
         log_list.append(f"Expected: {counts} Actual: {cnt}. Failed!")
 
+# Row filter wiring assertion (UC only). The cloudfiles customers flow declares
+# bronze_row_filter / silver_row_filter on `operation` referencing the UDF
+# `<catalog>.<bronze_schema>.customer_op_filter`. Confirm via
+# information_schema that the filter is actually attached to both tables --
+# this is a wiring check that's independent of who the validator runs as.
+#
+# Schema of <catalog>.information_schema.row_filters (Databricks UC):
+#   table_catalog, table_schema, table_name, filter_name, target_columns
+# Where `filter_name` is the fully-qualified UDF reference and
+# `target_columns` is the ARRAY<STRING> of columns the filter is applied on.
+if uc_enabled:
+    log_list.append("Validating Row Filter Wiring on customers tables...")
+    expected_filter_name = f"{uc_catalog_name}.{bronze_schema}.customer_op_filter"
+    row_filter_targets = [
+        (bronze_schema, "customers"),
+        (silver_schema, "customers"),
+    ]
+    for schema_name, table_name in row_filter_targets:
+        rf_df = spark.sql(
+            f"""
+            SELECT filter_name, target_columns
+            FROM {uc_catalog_name}.information_schema.row_filters
+            WHERE table_catalog = '{uc_catalog_name}'
+              AND table_schema  = '{schema_name}'
+              AND table_name    = '{table_name}'
+            """
+        )
+        rows = rf_df.collect()
+        try:
+            assert len(rows) >= 1, "no row filter attached"
+            attached_name = rows[0].filter_name
+            assert attached_name.lower() == expected_filter_name.lower(), (
+                f"unexpected filter name `{attached_name}`"
+            )
+            log_list.append(
+                f"Row filter on {uc_catalog_name}.{schema_name}.{table_name} "
+                f"-> {attached_name} on {rows[0].target_columns}. Passed!"
+            )
+        except AssertionError as exc:
+            log_list.append(
+                f"Row filter on {uc_catalog_name}.{schema_name}.{table_name}: "
+                f"{exc}. Failed!"
+            )
+
 pd_df = pd.DataFrame(log_list)
 pd_df.to_csv(output_file_path)

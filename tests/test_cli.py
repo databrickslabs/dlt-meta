@@ -149,6 +149,38 @@ class CliTests(unittest.TestCase):
         self.assertEqual(job.job_id, "job_id")
 
     @patch("databricks.labs.sdp_meta.cli.WorkspaceClient")
+    def test_create_onboarding_job_uses_wheel_dependency(self, mock_workspace_client):
+        mock_workspace_client.jobs.create.return_value = MagicMock(job_id="job_id")
+        sdp_meta = SDPMeta(mock_workspace_client)
+        whl_path = "/Volumes/main/sdp_meta_wheels/sdp_meta_wheels/databricks_labs_sdp_meta.whl"
+        cmd = OnboardCommand(
+            onboarding_file_path=self.onboarding_file_path,
+            onboarding_files_dir_path="tests/resources/",
+            onboard_layer="bronze",
+            env="dev",
+            import_author="John Doe",
+            version="1.0",
+            cloud="aws",
+            sdp_meta_schema="sdp_meta",
+            bronze_dataflowspec_path="tests/resources/bronze_dataflowspec",
+            silver_dataflowspec_path="tests/resources/silver_dataflowspec",
+            uc_enabled=True,
+            uc_catalog_name="uc_catalog",
+            overwrite=True,
+            bronze_dataflowspec_table="bronze_dataflowspec",
+            silver_dataflowspec_table="silver_dataflowspec",
+            sdp_meta_dependency=whl_path,
+        )
+
+        sdp_meta.create_onnboarding_job(cmd)
+
+        job_kwargs = mock_workspace_client.jobs.create.call_args.kwargs
+        self.assertEqual(
+            job_kwargs["environments"][0].spec.dependencies,
+            [whl_path],
+        )
+
+    @patch("databricks.labs.sdp_meta.cli.WorkspaceClient")
     def test_install_folder(self, mock_workspace_client):
         sdp_meta = SDPMeta(mock_workspace_client)
         sdp_meta._wsi = mock_workspace_client.return_value
@@ -169,7 +201,7 @@ class CliTests(unittest.TestCase):
         sdp_meta._my_username = MagicMock(return_value="name")
         sdp_meta._create_sdp_meta_pipeline(self.deploy_cmd)
         runner_notebook_py = SDP_META_RUNNER_NOTEBOOK.format(
-            version=__version__
+            dependency=f"databricks-labs-sdp-meta=={__version__}"
         ).encode("utf8")
         runner_notebook_path = f"{sdp_meta._install_folder()}/init_sdp_meta_pipeline.py"
         mock_workspace_client.workspace.mkdirs.assert_called_once_with(
@@ -315,7 +347,7 @@ class CliTests(unittest.TestCase):
         mock_ws_installer._choice.side_effect = ['True', 'True', 'bronze_silver', 'False', 'True', 'False']
         mock_ws_installer._question.side_effect = [
             "uc_catalog", "demo/conf/onboarding.template",
-            "file:/demo/", "sdp_meta_dataflowspecs", "sdp_meta_bronze", "sdp_meta_silver",
+            "/demo/", "sdp_meta_dataflowspecs", "sdp_meta_bronze", "sdp_meta_silver",
             "bronze_dataflowspec", "silver_dataflowspec", "v1", "prod", "author", "True"
         ]
         sdp_meta = SDPMeta(mock_workspace_client)
@@ -325,7 +357,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(cmd.uc_catalog_name, "uc_catalog")
         self.assertEqual(cmd.dbfs_path, None)
         self.assertEqual(cmd.onboarding_file_path, "demo/conf/onboarding.template")
-        self.assertEqual(cmd.onboarding_files_dir_path, "file:/file:/demo/")
+        self.assertEqual(cmd.onboarding_files_dir_path, "file:/demo/")
         self.assertEqual(cmd.sdp_meta_schema, "sdp_meta_dataflowspecs")
         self.assertEqual(cmd.bronze_schema, "sdp_meta_bronze")
         self.assertEqual(cmd.silver_schema, "sdp_meta_silver")
@@ -347,7 +379,7 @@ class CliTests(unittest.TestCase):
                                                  'bronze_silver', 'False', 'True', 'False']
         mock_ws_installer._question.side_effect = [
             'dbfs_path', "dbrx", "demo/conf/onboarding.template",
-            "file:/demo/", "sdp_meta_dataflowspecs", "sdp_meta_bronze",
+            "/demo/", "sdp_meta_dataflowspecs", "sdp_meta_bronze",
             "sdp_meta_silver", "bronze_dataflowspec_table",
             "bronze_dataflowspec_path", "silver_dataflowspec_table",
             "silver_dataflowspec_path", "v1", "prod", "author", "True"
@@ -359,7 +391,7 @@ class CliTests(unittest.TestCase):
         self.assertFalse(cmd.serverless)
         self.assertEqual(cmd.dbfs_path, "dbfs_path")
         self.assertEqual(cmd.onboarding_file_path, "demo/conf/onboarding.template")
-        self.assertEqual(cmd.onboarding_files_dir_path, "file:/file:/demo/")
+        self.assertEqual(cmd.onboarding_files_dir_path, "file:/demo/")
         self.assertEqual(cmd.sdp_meta_schema, "sdp_meta_dataflowspecs")
         self.assertEqual(cmd.bronze_schema, "sdp_meta_bronze")
         self.assertEqual(cmd.silver_schema, "sdp_meta_silver")
@@ -2039,6 +2071,516 @@ class CliCommandWiringTests(unittest.TestCase):
         # every wrapper would have to remember to filter it out.
         self.assertNotIn("log_level", captured["flags"])
 
+    def test_main_uses_profile_flag_for_workspace_client(self):
+        """The non-interactive wheel-upload path accepts --profile, so the
+        shared WorkspaceClient must be built with the same profile before the
+        wrapper runs."""
+        with patch.dict(
+            "databricks.labs.sdp_meta.cli.MAPPING",
+            {"bundle-prepare-wheel": lambda sdp_meta, flags=None: None},
+            clear=False,
+        ), patch("databricks.labs.sdp_meta.cli.WorkspaceClient") as ws_cls:
+            ws_cls.return_value = MagicMock()
+            payload = json.dumps({
+                "command": "bundle-prepare-wheel",
+                "flags": {
+                    "log_level": "disabled",
+                    "profile": "DEFAULT",
+                },
+            })
+            main(payload)
+
+        ws_cls.assert_called_once_with(
+            product="sdp-meta",
+            product_version=__version__,
+            profile="DEFAULT",
+        )
+
+
+class OnboardBuildWheelFlagTests(unittest.TestCase):
+    """`onboard --build-and-upload-whl` uses the local wheel for the onboarding job."""
+
+    def _onboard_cmd(self, **overrides):
+        kwargs = dict(
+            onboarding_file_path="demo/conf/json/onboarding.template",
+            onboarding_files_dir_path="file:/demo/",
+            onboard_layer="bronze_silver",
+            env="prod",
+            import_author="author",
+            version="v1",
+            sdp_meta_schema="sdp_meta_dataflowspecs",
+            bronze_schema="sdp_meta_bronze",
+            silver_schema="sdp_meta_silver",
+            uc_enabled=True,
+            uc_catalog_name="main",
+            bronze_dataflowspec_table="bronze_dataflowspec",
+            silver_dataflowspec_table="silver_dataflowspec",
+        )
+        kwargs.update(overrides)
+        return OnboardCommand(**kwargs)
+
+    def test_onboard_build_and_upload_whl_sets_dependency(self):
+        from databricks.labs.sdp_meta.cli import onboard as cli_onboard
+
+        sdp_meta = MagicMock()
+        cmd = self._onboard_cmd()
+        sdp_meta._load_onboard_config.return_value = cmd
+        wheel_path = "/Volumes/main/sdp_meta_wheels/sdp_meta_wheels/databricks_labs_sdp_meta.whl"
+        with patch("databricks.labs.sdp_meta.bundle.bundle_prepare_wheel", return_value=wheel_path) as fake_run:
+            cli_onboard(
+                sdp_meta,
+                flags={
+                    "build-and-upload-whl": "true",
+                    "uc-schema-name": "sdp_meta_wheels",
+                    "uc-volume-name": "sdp_meta_wheels",
+                    "profile": "DEFAULT",
+                },
+            )
+
+        build_cmd = fake_run.call_args[0][0]
+        self.assertEqual(build_cmd.uc_catalog, "main")
+        self.assertEqual(build_cmd.uc_schema, "sdp_meta_wheels")
+        self.assertEqual(build_cmd.uc_volume, "sdp_meta_wheels")
+        self.assertEqual(build_cmd.profile, "DEFAULT")
+        self.assertEqual(cmd.sdp_meta_dependency, wheel_path)
+        sdp_meta.onboard.assert_called_once_with(cmd)
+
+    def test_onboard_build_and_upload_whl_accepts_normalized_flag_name(self):
+        from databricks.labs.sdp_meta.cli import onboard as cli_onboard
+
+        sdp_meta = MagicMock()
+        cmd = self._onboard_cmd()
+        sdp_meta._load_onboard_config.return_value = cmd
+        wheel_path = "/Volumes/main/sdp_meta_wheels/sdp_meta_wheels/databricks_labs_sdp_meta.whl"
+        with patch("databricks.labs.sdp_meta.bundle.bundle_prepare_wheel", return_value=wheel_path) as fake_run:
+            cli_onboard(
+                sdp_meta,
+                flags={
+                    "build_and_upload_whl": "true",
+                    "uc_schema_name": "sdp_meta_wheels",
+                    "uc_volume_name": "sdp_meta_wheels",
+                },
+            )
+
+        build_cmd = fake_run.call_args[0][0]
+        self.assertEqual(build_cmd.uc_schema, "sdp_meta_wheels")
+        self.assertEqual(build_cmd.uc_volume, "sdp_meta_wheels")
+        self.assertEqual(cmd.sdp_meta_dependency, wheel_path)
+        sdp_meta.onboard.assert_called_once_with(cmd)
+
+    def test_onboard_build_and_upload_whl_from_git_branch(self):
+        from databricks.labs.sdp_meta.cli import onboard as cli_onboard
+
+        sdp_meta = MagicMock()
+        cmd = self._onboard_cmd()
+        sdp_meta._load_onboard_config.return_value = cmd
+        wheel_path = "/Volumes/main/sdp_meta_wheels/sdp_meta_wheels/databricks_labs_sdp_meta.whl"
+        with patch("databricks.labs.sdp_meta.cli._build_and_upload_git_wheel", return_value=wheel_path) as fake_run:
+            cli_onboard(
+                sdp_meta,
+                flags={
+                    "build-and-upload-whl": "true",
+                    "git-branch": "feature/sdp-meta",
+                    "uc-schema-name": "sdp_meta_wheels",
+                    "uc-volume-name": "sdp_meta_wheels",
+                },
+            )
+
+        self.assertEqual(fake_run.call_args.kwargs["uc_catalog"], "main")
+        self.assertEqual(fake_run.call_args.kwargs["uc_schema"], "sdp_meta_wheels")
+        self.assertEqual(fake_run.call_args.kwargs["uc_volume"], "sdp_meta_wheels")
+        self.assertEqual(
+            fake_run.call_args.kwargs["source"],
+            "git+https://github.com/databrickslabs/dlt-meta.git@feature/sdp-meta",
+        )
+        self.assertEqual(cmd.sdp_meta_dependency, wheel_path)
+        sdp_meta.onboard.assert_called_once_with(cmd)
+
+    def test_onboard_build_and_upload_whl_from_git_url(self):
+        from databricks.labs.sdp_meta.cli import onboard as cli_onboard
+
+        sdp_meta = MagicMock()
+        cmd = self._onboard_cmd()
+        sdp_meta._load_onboard_config.return_value = cmd
+        wheel_path = "/Volumes/main/sdp_meta_wheels/sdp_meta_wheels/databricks_labs_sdp_meta.whl"
+        with patch("databricks.labs.sdp_meta.cli._build_and_upload_git_wheel", return_value=wheel_path) as fake_run:
+            cli_onboard(
+                sdp_meta,
+                flags={
+                    "build-and-upload-whl": "true",
+                    "git-url": "https://github.com/acme/dlt-meta.git",
+                    "git-branch": "main",
+                },
+            )
+
+        self.assertEqual(
+            fake_run.call_args.kwargs["source"],
+            "git+https://github.com/acme/dlt-meta.git@main",
+        )
+        self.assertEqual(cmd.sdp_meta_dependency, wheel_path)
+        sdp_meta.onboard.assert_called_once_with(cmd)
+
+    def test_onboard_build_and_upload_whl_requires_uc(self):
+        from databricks.labs.sdp_meta.cli import onboard as cli_onboard
+
+        sdp_meta = MagicMock()
+        sdp_meta._load_onboard_config.return_value = self._onboard_cmd(
+            uc_enabled=False,
+            uc_catalog_name=None,
+            dbfs_path="/dbfs",
+            bronze_dataflowspec_path="bronze",
+            silver_dataflowspec_path="silver",
+        )
+        with self.assertRaisesRegex(ValueError, "requires onboarding with unity catalog enabled"):
+            cli_onboard(sdp_meta, flags={"build-and-upload-whl": "true"})
+        sdp_meta.onboard.assert_not_called()
+
+    def test_onboard_whl_file_path_sets_dependency_without_building(self):
+        from databricks.labs.sdp_meta.cli import onboard as cli_onboard
+
+        sdp_meta = MagicMock()
+        cmd = self._onboard_cmd()
+        sdp_meta._load_onboard_config.return_value = cmd
+        whl_path = "/Volumes/main/sdp_meta_wheels/sdp_meta_wheels/databricks_labs_sdp_meta.whl"
+        with patch("databricks.labs.sdp_meta.bundle.bundle_prepare_wheel") as fake_run:
+            cli_onboard(sdp_meta, flags={"whl-file-path": whl_path})
+
+        fake_run.assert_not_called()
+        self.assertEqual(cmd.sdp_meta_dependency, whl_path)
+        sdp_meta.onboard.assert_called_once_with(cmd)
+
+    def test_onboard_whl_file_path_and_build_flag_are_mutually_exclusive(self):
+        from databricks.labs.sdp_meta.cli import onboard as cli_onboard
+
+        sdp_meta = MagicMock()
+        sdp_meta._load_onboard_config.return_value = self._onboard_cmd()
+        with self.assertRaisesRegex(ValueError, "mutually exclusive"):
+            cli_onboard(
+                sdp_meta,
+                flags={
+                    "whl-file-path": "/Volumes/main/sdp_meta_wheels/sdp_meta_wheels/pkg.whl",
+                    "build-and-upload-whl": "true",
+                },
+            )
+        sdp_meta.onboard.assert_not_called()
+
+    def test_onboard_build_and_upload_whl_recovers_from_pflag_spillover(self):
+        """`databricks labs sdp-meta onboard --build-and-upload-whl --profile foo`
+
+        reaches the Python wrapper as ``flags["build-and-upload-whl"] == "--profile"``
+        because the labs CLI registers every flag as a pflag *string* flag with
+        no ``NoOptDefVal`` (see cmd/labs/project/proxy.go in the databricks CLI
+        repo). The wrapper must still treat the flag as truthy and run the
+        build path; otherwise the onboarding job silently falls back to
+        ``sdp-meta==<version>``.
+        """
+        from databricks.labs.sdp_meta.cli import onboard as cli_onboard
+
+        sdp_meta = MagicMock()
+        cmd = self._onboard_cmd()
+        sdp_meta._load_onboard_config.return_value = cmd
+        wheel_path = "/Volumes/main/sdp_meta_wheels/sdp_meta_wheels/databricks_labs_sdp_meta.whl"
+        with patch("databricks.labs.sdp_meta.bundle.bundle_prepare_wheel", return_value=wheel_path) as fake_run:
+            cli_onboard(
+                sdp_meta,
+                flags={
+                    "build-and-upload-whl": "--profile",
+                    "profile": "",
+                    "uc-schema-name": "sdp_meta_wheels",
+                    "uc-volume-name": "sdp_meta_wheels",
+                },
+            )
+
+        fake_run.assert_called_once()
+        self.assertEqual(cmd.sdp_meta_dependency, wheel_path)
+        sdp_meta.onboard.assert_called_once_with(cmd)
+
+    def test_onboard_build_and_upload_whl_explicit_false_does_not_build(self):
+        from databricks.labs.sdp_meta.cli import onboard as cli_onboard
+
+        sdp_meta = MagicMock()
+        cmd = self._onboard_cmd()
+        sdp_meta._load_onboard_config.return_value = cmd
+        with patch("databricks.labs.sdp_meta.bundle.bundle_prepare_wheel") as fake_run:
+            cli_onboard(sdp_meta, flags={"build-and-upload-whl": "false"})
+
+        fake_run.assert_not_called()
+        self.assertIsNone(cmd.sdp_meta_dependency)
+        sdp_meta.onboard.assert_called_once_with(cmd)
+
+    def test_onboard_build_and_upload_whl_defaults_to_create_if_missing(self):
+        """The labs CLI puts every declared flag in the payload (with empty
+        string default), so plain key presence cannot be used to detect
+        opt-out flags like ``--no-create-missing-uc``. Without an explicit
+        truthy value we must still default to ``create_if_missing=True`` so
+        the UC schema/volume is auto-created on first use.
+        """
+        from databricks.labs.sdp_meta.cli import onboard as cli_onboard
+
+        sdp_meta = MagicMock()
+        cmd = self._onboard_cmd()
+        sdp_meta._load_onboard_config.return_value = cmd
+        wheel_path = "/Volumes/main/sdp_meta_wheels/sdp_meta_wheels/databricks_labs_sdp_meta.whl"
+        with patch("databricks.labs.sdp_meta.bundle.bundle_prepare_wheel", return_value=wheel_path) as fake_run:
+            cli_onboard(
+                sdp_meta,
+                flags={
+                    "build-and-upload-whl": "true",
+                    "uc-schema-name": "sdp_meta_wheels",
+                    "uc-volume-name": "sdp_meta_wheels",
+                    "no-create-missing-uc": "",
+                },
+            )
+
+        build_cmd = fake_run.call_args[0][0]
+        self.assertTrue(build_cmd.create_if_missing)
+
+    def test_onboard_build_and_upload_whl_honors_no_create_missing_uc_optout(self):
+        from databricks.labs.sdp_meta.cli import onboard as cli_onboard
+
+        sdp_meta = MagicMock()
+        cmd = self._onboard_cmd()
+        sdp_meta._load_onboard_config.return_value = cmd
+        wheel_path = "/Volumes/main/sdp_meta_wheels/sdp_meta_wheels/databricks_labs_sdp_meta.whl"
+        with patch("databricks.labs.sdp_meta.bundle.bundle_prepare_wheel", return_value=wheel_path) as fake_run:
+            cli_onboard(
+                sdp_meta,
+                flags={
+                    "build-and-upload-whl": "true",
+                    "uc-schema-name": "sdp_meta_wheels",
+                    "uc-volume-name": "sdp_meta_wheels",
+                    "no-create-missing-uc": "true",
+                },
+            )
+
+        build_cmd = fake_run.call_args[0][0]
+        self.assertFalse(build_cmd.create_if_missing)
+
+
+class DeployBuildWheelFlagTests(unittest.TestCase):
+    """`deploy --build-and-upload-whl` / `--whl-file-path` plumb a wheel path
+    into the SDP runner notebook's ``%pip install``, replacing the default
+    ``databricks-labs-sdp-meta==<version>`` PyPI install.
+
+    Motivation: workspaces without PyPI access (private preview rings,
+    air-gapped customer envs) fail with
+    ``Failed to run ' %pip install databricks-labs-sdp-meta==0.0.11' from
+    notebook: /Users/.../init_sdp_meta_pipeline.py``. The wheel path version
+    sidesteps that entirely.
+    """
+
+    def _deploy_cmd(self, **overrides):
+        kwargs = dict(
+            layer="bronze",
+            pipeline_name="sdp_meta_pipeline",
+            dlt_target_schema="my_dlt_schema",
+            onboard_bronze_group="bronze_group",
+            sdp_meta_bronze_schema="sdp_meta_bronze",
+            dataflowspec_bronze_table="bronze_dataflowspec",
+            uc_enabled=True,
+            uc_catalog_name="main",
+            serverless=True,
+        )
+        kwargs.update(overrides)
+        return DeployCommand(**kwargs)
+
+    def test_deploy_whl_file_path_sets_dependency_without_building(self):
+        from databricks.labs.sdp_meta.cli import deploy as cli_deploy
+
+        sdp_meta = MagicMock()
+        cmd = self._deploy_cmd()
+        sdp_meta._load_deploy_config.return_value = cmd
+        whl_path = "/Volumes/main/sdp_meta_wheels/sdp_meta_wheels/databricks_labs_sdp_meta.whl"
+        with patch("databricks.labs.sdp_meta.cli._build_and_upload_deploy_wheel") as fake_build, \
+             patch("databricks.labs.sdp_meta.cli._read_dependency_from_onboarding_json", return_value=None):
+            cli_deploy(sdp_meta, flags={"whl-file-path": whl_path})
+
+        fake_build.assert_not_called()
+        self.assertEqual(cmd.sdp_meta_dependency, whl_path)
+        sdp_meta.deploy.assert_called_once_with(cmd)
+
+    def test_deploy_build_and_upload_whl_sets_dependency(self):
+        from databricks.labs.sdp_meta.cli import deploy as cli_deploy
+
+        sdp_meta = MagicMock()
+        cmd = self._deploy_cmd()
+        sdp_meta._load_deploy_config.return_value = cmd
+        wheel_path = "/Volumes/main/sdp_meta_bronze/sdp_meta_bronze/databricks_labs_sdp_meta.whl"
+        with patch(
+            "databricks.labs.sdp_meta.cli._build_and_upload_wheel",
+            return_value=wheel_path,
+        ) as fake_build:
+            cli_deploy(
+                sdp_meta,
+                flags={
+                    "build-and-upload-whl": "true",
+                    "uc-schema-name": "sdp_meta_bronze",
+                },
+            )
+
+        fake_build.assert_called_once()
+        kwargs = fake_build.call_args.kwargs
+        self.assertEqual(kwargs["uc_catalog"], "main")
+        self.assertEqual(kwargs["default_schema"], "sdp_meta_bronze")
+        self.assertEqual(cmd.sdp_meta_dependency, wheel_path)
+        sdp_meta.deploy.assert_called_once_with(cmd)
+
+    def test_deploy_build_and_upload_whl_recovers_from_pflag_spillover(self):
+        """Same labs-CLI pflag spillover failure mode as onboard: when users
+        type ``--build-and-upload-whl --profile e2-demo`` the labs CLI's
+        string-flag parser hands the wrapper
+        ``flags["build-and-upload-whl"] == "--profile"``. Deploy must still
+        run the build path so the SDP pipeline notebook does not silently
+        fall back to a PyPI install.
+        """
+        from databricks.labs.sdp_meta.cli import deploy as cli_deploy
+
+        sdp_meta = MagicMock()
+        cmd = self._deploy_cmd()
+        sdp_meta._load_deploy_config.return_value = cmd
+        wheel_path = "/Volumes/main/sdp_meta_bronze/sdp_meta_bronze/databricks_labs_sdp_meta.whl"
+        with patch(
+            "databricks.labs.sdp_meta.cli._build_and_upload_wheel",
+            return_value=wheel_path,
+        ) as fake_build:
+            cli_deploy(
+                sdp_meta,
+                flags={
+                    "build-and-upload-whl": "--profile",
+                    "profile": "",
+                    "uc-schema-name": "sdp_meta_bronze",
+                },
+            )
+
+        fake_build.assert_called_once()
+        self.assertEqual(cmd.sdp_meta_dependency, wheel_path)
+
+    def test_deploy_inherits_dependency_from_onboarding_json(self):
+        """When neither flag is passed, deploy should auto-pick the wheel
+        path that ``onboard --build-and-upload-whl=true`` persisted into
+        ``onboarding_job_details.json``."""
+        from databricks.labs.sdp_meta.cli import deploy as cli_deploy
+
+        sdp_meta = MagicMock()
+        cmd = self._deploy_cmd()
+        sdp_meta._load_deploy_config.return_value = cmd
+        wheel_path = "/Volumes/main/sdp_meta_bronze/sdp_meta_bronze/databricks_labs_sdp_meta.whl"
+        with patch(
+            "databricks.labs.sdp_meta.cli._read_dependency_from_onboarding_json",
+            return_value=wheel_path,
+        ):
+            cli_deploy(sdp_meta, flags={})
+
+        self.assertEqual(cmd.sdp_meta_dependency, wheel_path)
+        sdp_meta.deploy.assert_called_once_with(cmd)
+
+    def test_deploy_whl_file_path_and_build_flag_are_mutually_exclusive(self):
+        from databricks.labs.sdp_meta.cli import deploy as cli_deploy
+
+        sdp_meta = MagicMock()
+        sdp_meta._load_deploy_config.return_value = self._deploy_cmd()
+        with self.assertRaisesRegex(ValueError, "mutually exclusive"):
+            cli_deploy(
+                sdp_meta,
+                flags={
+                    "whl-file-path": "/Volumes/main/x/x/pkg.whl",
+                    "build-and-upload-whl": "true",
+                },
+            )
+        sdp_meta.deploy.assert_not_called()
+
+    def test_deploy_runner_notebook_uses_dependency_when_set(self):
+        """End-to-end check that the SDP runner notebook's
+        ``%pip install`` line carries the wheel path, not the PyPI default.
+        """
+        from databricks.labs.sdp_meta.cli import SDPMeta as SDPMetaCls
+
+        ws = MagicMock()
+        sdp_meta = SDPMetaCls(ws)
+        sdp_meta._my_username = MagicMock(return_value="me")
+        sdp_meta.version = "0.0.11"
+        cmd = self._deploy_cmd(
+            sdp_meta_dependency=(
+                "/Volumes/main/sdp_meta_bronze/sdp_meta_bronze/"
+                "databricks_labs_sdp_meta-0.0.11-py3-none-any.whl"
+            ),
+        )
+        ws.pipelines.create.return_value = MagicMock(pipeline_id="p1")
+
+        sdp_meta._create_sdp_meta_pipeline(cmd)
+
+        upload_args = ws.workspace.upload.call_args
+        runner_bytes = upload_args[0][1]
+        self.assertIn(
+            b"%pip install /Volumes/main/sdp_meta_bronze/sdp_meta_bronze/"
+            b"databricks_labs_sdp_meta-0.0.11-py3-none-any.whl",
+            runner_bytes,
+        )
+        self.assertNotIn(b"databricks-labs-sdp-meta==", runner_bytes)
+
+    def test_deploy_runner_notebook_falls_back_to_pypi_when_dependency_absent(self):
+        from databricks.labs.sdp_meta.cli import SDPMeta as SDPMetaCls
+
+        ws = MagicMock()
+        sdp_meta = SDPMetaCls(ws)
+        sdp_meta._my_username = MagicMock(return_value="me")
+        sdp_meta.version = "0.0.11"
+        cmd = self._deploy_cmd()
+        ws.pipelines.create.return_value = MagicMock(pipeline_id="p1")
+
+        sdp_meta._create_sdp_meta_pipeline(cmd)
+
+        runner_bytes = ws.workspace.upload.call_args[0][1]
+        self.assertIn(b"%pip install databricks-labs-sdp-meta==0.0.11", runner_bytes)
+
+
+class OnboardPersistDependencyTests(unittest.TestCase):
+    """`onboard --build-and-upload-whl` writes the resolved wheel path back
+    into ``onboarding_job_details.json`` so a subsequent ``deploy`` (run
+    from the same working directory) auto-discovers the wheel."""
+
+    def test_onboard_persists_dependency_into_onboarding_job_details_json(self):
+        import json as _json
+        import os as _os
+        import tempfile
+
+        from databricks.labs.sdp_meta.cli import onboard as cli_onboard
+
+        sdp_meta = MagicMock()
+        cmd = OnboardCommand(
+            onboarding_file_path="demo/conf/json/onboarding.template",
+            onboarding_files_dir_path="file:/demo/",
+            onboard_layer="bronze_silver",
+            env="prod",
+            import_author="author",
+            version="v1",
+            sdp_meta_schema="sdp_meta_dataflowspecs",
+            bronze_schema="sdp_meta_bronze",
+            silver_schema="sdp_meta_silver",
+            uc_enabled=True,
+            uc_catalog_name="main",
+        )
+        sdp_meta._load_onboard_config.return_value = cmd
+        wheel_path = "/Volumes/main/x/x/databricks_labs_sdp_meta.whl"
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = _os.getcwd()
+            _os.chdir(tmp)
+            try:
+                with open("onboarding_job_details.json", "w") as fh:
+                    _json.dump({"uc_enabled": True}, fh)
+                with patch(
+                    "databricks.labs.sdp_meta.bundle.bundle_prepare_wheel",
+                    return_value=wheel_path,
+                ):
+                    cli_onboard(sdp_meta, flags={"build-and-upload-whl": "true"})
+
+                with open("onboarding_job_details.json") as fh:
+                    persisted = _json.load(fh)
+                self.assertEqual(persisted["sdp_meta_dependency"], wheel_path)
+            finally:
+                _os.chdir(cwd)
+
 
 class BundleInitQuickstartFlagTests(unittest.TestCase):
     """The cli.py wrapper short-circuits the interactive prompt when
@@ -2108,6 +2650,123 @@ class BundleInitQuickstartFlagTests(unittest.TestCase):
             self.assertEqual(cmd.output_dir, "/cli/wins")
 
 
+class TestFileUriHelpers(unittest.TestCase):
+    """Test cases for file URI helper functions (Issue #251)."""
+
+    def test_normalize_file_uri_unix_path(self):
+        """Test normalizing Unix file URIs."""
+        from databricks.labs.sdp_meta.cli import _normalize_file_uri_to_path
+
+        self.assertEqual(_normalize_file_uri_to_path("file:/path/to/dir"), "/path/to/dir")
+        self.assertEqual(_normalize_file_uri_to_path("/path/to/dir"), "/path/to/dir")
+        self.assertEqual(_normalize_file_uri_to_path("file:///path/to/dir"), "/path/to/dir")
+
+    def test_normalize_file_uri_windows_path(self):
+        """Test normalizing Windows file URIs (Issue #251)."""
+        from databricks.labs.sdp_meta.cli import _normalize_file_uri_to_path
+
+        self.assertEqual(
+            _normalize_file_uri_to_path("file:/C:\\projects\\dlt-meta\\conf"),
+            "C:\\projects\\dlt-meta\\conf",
+        )
+        self.assertEqual(
+            _normalize_file_uri_to_path("file:/C:/projects/dlt-meta/conf"),
+            "C:/projects/dlt-meta/conf",
+        )
+        self.assertEqual(
+            _normalize_file_uri_to_path("file:///C:/projects/dlt-meta/conf"),
+            "C:/projects/dlt-meta/conf",
+        )
+        self.assertEqual(
+            _normalize_file_uri_to_path("file:///C:\\projects\\dlt-meta\\conf"),
+            "C:\\projects\\dlt-meta\\conf",
+        )
+
+    def test_path_to_file_uri_unix(self):
+        """Test creating file URIs from Unix paths."""
+        from databricks.labs.sdp_meta.cli import _path_to_file_uri
+
+        self.assertEqual(_path_to_file_uri("/path/to/dir"), "file:/path/to/dir")
+        self.assertEqual(_path_to_file_uri("file:/path/to/dir"), "file:/path/to/dir")
+
+    def test_path_to_file_uri_windows(self):
+        """Test creating file URIs from Windows paths (Issue #251)."""
+        from databricks.labs.sdp_meta.cli import _path_to_file_uri
+
+        self.assertEqual(
+            _path_to_file_uri("C:\\projects\\dlt-meta\\conf"),
+            "file:///C:/projects/dlt-meta/conf",
+        )
+        self.assertEqual(
+            _path_to_file_uri("C:/projects/dlt-meta/conf"),
+            "file:///C:/projects/dlt-meta/conf",
+        )
+        self.assertEqual(
+            _path_to_file_uri("file:///C:/projects/dir"),
+            "file:///C:/projects/dir",
+        )
+
+    def test_roundtrip_unix(self):
+        """Test that Unix paths round-trip correctly through URI conversion."""
+        from databricks.labs.sdp_meta.cli import _normalize_file_uri_to_path, _path_to_file_uri
+
+        original_path = "/home/user/projects/demo"
+        uri = _path_to_file_uri(original_path)
+        restored_path = _normalize_file_uri_to_path(uri)
+        self.assertEqual(original_path, restored_path)
+
+    def test_roundtrip_windows(self):
+        """Test that Windows paths round-trip correctly through URI conversion (Issue #251)."""
+        from databricks.labs.sdp_meta.cli import _normalize_file_uri_to_path, _path_to_file_uri
+
+        original_path = "C:/projects/dlt-meta/conf"
+        uri = _path_to_file_uri(original_path)
+        restored_path = _normalize_file_uri_to_path(uri)
+        self.assertEqual(original_path, restored_path)
+
+    @patch("os.walk")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_copy_to_uc_volume_windows_path(self, mock_open_func, mock_os_walk):
+        """Test that copy_to_uc_volume handles Windows paths correctly (Issue #251)."""
+        mock_ws = MagicMock()
+        sdp_meta = SDPMeta(mock_ws)
+        windows_src = "file:///C:/projects/dlt-meta/conf"
+        mock_os_walk.return_value = [
+            ("C:/projects/dlt-meta/conf", [], ["file1.json"]),
+        ]
+        mock_ws.files.upload = MagicMock()
+
+        sdp_meta.copy_to_uc_volume(windows_src, "/Volumes/catalog/schema/volume/")
+
+        walk_call_arg = mock_os_walk.call_args[0][0]
+        self.assertFalse(
+            walk_call_arg.startswith('/C:'),
+            f"Invalid Windows path passed to os.walk: {walk_call_arg}",
+        )
+        self.assertEqual(walk_call_arg, "C:/projects/dlt-meta/conf")
+
+    @patch("os.walk")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_copy_to_dbfs_windows_path(self, mock_open_func, mock_os_walk):
+        """Test that copy_to_dbfs handles Windows paths correctly (Issue #251)."""
+        mock_ws = MagicMock()
+        sdp_meta = SDPMeta(mock_ws)
+        windows_src = "file:///C:/projects/dlt-meta/conf"
+        mock_os_walk.return_value = [
+            ("C:/projects/dlt-meta/conf", [], ["file1.json"]),
+        ]
+        mock_ws.dbfs.upload = MagicMock()
+
+        sdp_meta.copy_to_dbfs(windows_src, "dbfs:/dlt-meta/conf/")
+
+        walk_call_arg = mock_os_walk.call_args[0][0]
+        self.assertFalse(
+            walk_call_arg.startswith('/C:'),
+            f"Invalid Windows path passed to os.walk: {walk_call_arg}",
+        )
+        self.assertEqual(walk_call_arg, "C:/projects/dlt-meta/conf")
+
+
 class LabsYmlFlagDeclarationTests(unittest.TestCase):
     """Lock-in: the labs.yml declares `--quickstart` (and other flags) so
     `databricks labs sdp-meta bundle-init --quickstart` is a recognized
@@ -2133,3 +2792,46 @@ class LabsYmlFlagDeclarationTests(unittest.TestCase):
         self.assertIsNotNone(flags, "bundle-init missing from labs.yml")
         self.assertIn("quickstart", flags)
         self.assertIn("output-dir", flags)
+
+    def test_onboard_declares_build_and_upload_whl_flags(self):
+        flags = self._flags_for("onboard")
+        self.assertIsNotNone(flags, "onboard missing from labs.yml")
+        for flag in (
+            "build-and-upload-whl",
+            "whl-file-path",
+            "git-branch",
+            "git-url",
+            "uc-schema",
+            "uc-schema-name",
+            "uc-volume",
+            "uc-volume-name",
+            "profile",
+            "pip-index-url",
+            "pip-extra-index-url",
+            "no-create-missing-uc",
+        ):
+            self.assertIn(flag, flags)
+
+    def test_deploy_declares_build_and_upload_whl_flags(self):
+        """Deploy mirrors `onboard`'s wheel-handling flags so a follow-up
+        `deploy` can either reuse the wheel from onboarding_job_details.json
+        or build/upload a fresh one for the SDP runner notebook's
+        ``%pip install``.
+        """
+        flags = self._flags_for("deploy")
+        self.assertIsNotNone(flags, "deploy missing from labs.yml")
+        for flag in (
+            "build-and-upload-whl",
+            "whl-file-path",
+            "git-branch",
+            "git-url",
+            "uc-schema",
+            "uc-schema-name",
+            "uc-volume",
+            "uc-volume-name",
+            "profile",
+            "pip-index-url",
+            "pip-extra-index-url",
+            "no-create-missing-uc",
+        ):
+            self.assertIn(flag, flags)

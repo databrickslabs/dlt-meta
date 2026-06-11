@@ -15,7 +15,7 @@ class AppendFlowWriter:
     """Append Flow Writer class."""
 
     def __init__(self, spark, append_flow, target, struct_schema, table_properties=None,
-                 partition_cols=None, cluster_by=None, cluster_by_auto=False):
+                 partition_cols=None, cluster_by=None, cluster_by_auto=False, row_filter=None):
         """Init."""
         self.spark = spark
         self.target = target
@@ -25,6 +25,7 @@ class AppendFlowWriter:
         self.partition_cols = partition_cols
         self.cluster_by = cluster_by
         self.cluster_by_auto = cluster_by_auto
+        self.row_filter = row_filter
 
     def read_af_view(self):
         """Write to Delta."""
@@ -46,6 +47,7 @@ class AppendFlowWriter:
                 expect_all=None,
                 expect_all_or_drop=None,
                 expect_all_or_fail=None,
+                row_filter=self.row_filter,
             )
         comment = (
             self.append_flow.comment

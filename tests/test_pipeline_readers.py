@@ -55,6 +55,10 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
+        "rowFilter": None,
+        "quarantineRowFilter": None,
     }
 
     bronze_eventhub_dataflow_spec_map = {
@@ -99,6 +103,10 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
+        "rowFilter": None,
+        "quarantineRowFilter": None,
     }
 
     bronze_eventhub_dataflow_spec_omit_secret_map = {
@@ -142,6 +150,10 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
+        "rowFilter": None,
+        "quarantineRowFilter": None,
     }
 
     bronze_kafka_dataflow_spec_map = {
@@ -177,11 +189,22 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "updatedBy": "sdp-meta-unittest",
         "clusterBy": [""],
         "clusterByAuto": False,
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
+        "rowFilter": None,
+        "quarantineRowFilter": None,
     }
 
-    @classmethod
     def setUp(self):
-        """Set initial resources."""
+        """Set initial resources.
+
+        Note: ``setUp`` is a regular instance method (not @classmethod)
+        because the base class ``SDPFrameworkTestCase.setUp`` is also
+        an instance method. The historical ``@classmethod``
+        annotation here was a bug paired with the matching bug in
+        the base class -- both have been fixed in the same refactor
+        that moved Spark startup into ``setUpClass`` for perf.
+        """
         super().setUp()
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
         onboardDataFlowSpecs.onboard_dataflow_specs()

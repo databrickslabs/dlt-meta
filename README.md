@@ -56,6 +56,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 | Data Quality Expecations Support | Bronze, Silver layer |
 | Quarantine table support | Bronze layer |
 | [create_auto_cdc_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) API support | Bronze, Silver layer | 
+| Multi-source [create_auto_cdc_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) into a single target table | Bronze, Silver layer. |
 | [create_auto_cdc_from_snapshot_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes-from-snapshot) API support | Bronze layer|
 | [append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#use-append-flow-to-write-to-a-streaming-table-from-multiple-source-streams) API support | Bronze layer|
 | Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
@@ -74,7 +75,7 @@ Refer to the [Getting Started](https://databrickslabs.github.io/dlt-meta/getting
 
 ### Pre-requisites (both paths)
 
-- Python 3.8.0 +
+- Python 3.8 – 3.12 (3.10, 3.11, or 3.12 recommended). The pinned `pyspark==3.5.5` test stack does not officially support Python 3.13+; using 3.13 / 3.14 will surface as cloudpickle / recursion errors at test time. See [Troubleshooting](#troubleshooting) below.
 - Databricks CLI v0.213 or later. See [install instructions](https://docs.databricks.com/en/dev-tools/cli/tutorial.html).
   - macOS: ![macos_install_databricks](docs/static/images/macos_1_databrickslabsmac_installdatabricks.gif)
   - Windows: ![windows_install_databricks.png](docs/static/images/windows_install_databricks.png)
@@ -141,15 +142,23 @@ For first-touch exploration against a single workspace. State lives in the works
 
 If you want to run the existing demo files, set up the repo first:
 
-1. Clone & enter the repo, create a venv, install requirements:
+1. Clone & enter the repo, create a venv, install dependencies:
    ```bash
    git clone https://github.com/databrickslabs/sdp-meta.git
    cd sdp-meta
-   python -m venv .venv && source .venv/bin/activate
-   pip install "PyYAML>=6.0" setuptools databricks-sdk
-   pip install delta-spark==3.0.0 pyspark==3.5.5 pytest>=7.0.0 coverage>=7.0.0
-   pip install "typer[all]==0.6.1"
-   export PYTHONPATH=$(pwd)
+
+   # Use Python 3.11 or 3.12 — pyspark==3.5.5 (pinned in setup.py) does
+   # not support Python 3.13+ and will surface as cloudpickle / recursion
+   # errors at test time.
+   python3.11 -m venv .venv && source .venv/bin/activate
+
+   # Runtime-only install (mirrors INSTALL_REQUIRES in setup.py):
+   pip install -r requirements.txt
+
+   # Or, for development + running the test suite (also installs the
+   # project itself in editable mode so `from databricks.labs.sdp_meta...`
+   # resolves to the working tree):
+   pip install -r requirements-dev.txt
    ```
 2. Onboard:
    ```bash
@@ -166,6 +175,72 @@ If you want to run the existing demo files, set up the repo first:
    ![deployingDLTMeta_bronze_silver.gif](docs/static/images/deployingDLTMeta_bronze_silver.gif)
 
    Deploys the Lakeflow Spark Declarative Pipeline and opens its URL in your browser.
+
+### Local development & tests
+
+Once `requirements-dev.txt` is installed (it pulls in `requirements.txt`, installs the project in editable mode via `-e .`, and adds `pyspark`, `delta-spark`, `pytest`, `coverage`, `flake8`, `typer`, and the optional `mcp` extra), you can run:
+
+```bash
+# Lint
+flake8 src tests
+
+# Tests with coverage
+python -m coverage run -m pytest tests/ -v
+python -m coverage report -m
+```
+
+`setup.py` is the source of truth for dependency versions. `requirements.txt` mirrors `INSTALL_REQUIRES`; `requirements-dev.txt` mirrors the `dev` / `IT` / `mcp` extras and adds `-e .`. Update all three files together when you change a pin.
+
+### Troubleshooting
+
+#### `_pickle.PicklingError: ... RecursionError: Stack overflow` on most tests
+
+Symptom — a wide swath of tests (anything that touches `SparkSession`, e.g. `tests/test_dataflow_pipeline.py`, `tests/test_pipeline_readers.py`, `tests/test_onboard_dataflowspec.py`) fail with:
+
+```
+_pickle.PicklingError: Could not serialize object: RecursionError:
+    Stack overflow (used 16352 kB) while calling a Python object
+... when serializing function reconstructor ...
+```
+
+Cause — your venv is on Python 3.13 or 3.14. The pinned `pyspark==3.5.5` test stack vendors a cloudpickle build whose function-object reducer doesn't support the reorganized `code`/`function` internals in 3.13+, so it recurses without bottoming out. PySpark 3.5.x officially supports Python 3.8–3.11 (with limited 3.12 support in late patches).
+
+Fix — rebuild the venv on a supported interpreter (3.10, 3.11, or 3.12):
+
+```bash
+deactivate 2>/dev/null
+rm -rf .venv
+
+# Pick whichever supported interpreter you have installed. On macOS,
+# brew typically puts these at /opt/homebrew/bin/pythonX.Y.
+/opt/homebrew/bin/python3.10 -m venv .venv     # or python3.11 / python3.12
+source .venv/bin/activate
+
+pip install -r requirements-dev.txt
+python -m coverage run -m pytest tests/ -v
+```
+
+If you don't have a supported interpreter installed:
+
+```bash
+brew install python@3.11        # or python@3.12
+```
+
+Don't reach for 3.13/3.14 until pyspark itself is bumped to the 4.x line — that's a much larger refactor than this branch.
+
+#### `ModuleNotFoundError: No module named 'databricks.labs'` at test collection
+
+Symptom — pytest fails on collection (not at runtime) with `ModuleNotFoundError` on every test file.
+
+Cause — the venv has the third-party deps but not the project itself, so the `databricks.labs.sdp_meta` namespace package isn't on `sys.path`.
+
+Fix — install the project in editable mode. `requirements-dev.txt` does this for you (`-e .` line); a plain `pip install -r requirements.txt` does not.
+
+```bash
+pip install -e .                    # standalone fix
+# or
+pip install -r requirements-dev.txt # also covers the test stack
+```
 
 ## More questions
 

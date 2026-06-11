@@ -1,4 +1,9 @@
-flask
-flask-socketio
-eventlet
-click
+# Web framework
+flask==3.0.3
+click==8.1.7
+
+# Databricks SDK — required by demo scripts (launch_*_demo.py) and src/cli.py
+databricks-sdk>=0.20.0
+
+# Config parsing used by onboarding and demo scripts
+PyYAML>=6.0
