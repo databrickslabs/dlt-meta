@@ -195,9 +195,16 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "quarantineRowFilter": None,
     }
 
-    @classmethod
     def setUp(self):
-        """Set initial resources."""
+        """Set initial resources.
+
+        Note: ``setUp`` is a regular instance method (not @classmethod)
+        because the base class ``SDPFrameworkTestCase.setUp`` is also
+        an instance method. The historical ``@classmethod``
+        annotation here was a bug paired with the matching bug in
+        the base class -- both have been fixed in the same refactor
+        that moved Spark startup into ``setUpClass`` for perf.
+        """
         super().setUp()
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
         onboardDataFlowSpecs.onboard_dataflow_specs()

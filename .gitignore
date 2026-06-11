@@ -24,6 +24,13 @@ test-dab/
 demo_runs/
 demo_runs_*/
 
+# Backward-compat integration test artifacts. The git-ref-based wheel
+# builder (integration_tests/wheel_builder.py) checks worktrees out
+# under .bc_wheels/worktrees/ and copies built wheels into
+# .bc_wheels/dist/ for the Phase 1 / Phase 2 wheel swap. Per-developer
+# artifacts; never checked in.
+.bc_wheels/
+
 # Distribution / packaging
 .Python
 build/

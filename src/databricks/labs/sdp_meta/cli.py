@@ -1012,6 +1012,18 @@ class SDPMeta:
         cmd.onboarding_file_path = updated_ob_file_path
 
 
+# Backwards-compatibility alias for v0.0.10 customers.
+#
+# v0.0.10 published the entry-class as ``DLTMeta``; v0.0.11 renamed it to
+# ``SDPMeta``. The ``compat/dlt_meta`` shim's ``src.*`` import alias maps
+# ``src.cli`` to this module, so ``from src.cli import DLTMeta`` resolves
+# only if ``DLTMeta`` is bound here (the shim aliases module objects, not
+# individual symbols). Mirrors the ``DLT_META_RUNNER_NOTEBOOK`` rebind
+# at the top of this file. Will be removed in v0.1.0 alongside the rest
+# of the ``src.*`` shim.
+DLTMeta = SDPMeta
+
+
 def onboard(sdp_meta: SDPMeta, flags: dict = None):
     logger.info("Please answer a couple of questions to for launching SDP META onboarding job")
     flags = flags or {}

@@ -157,6 +157,16 @@ class WorkspaceConfig(_Config["WorkspaceConfig"]):
     sdp_meta_onboard_group: str
     serverless: bool
     num_workers: int
+    # ``connect`` is declared on the parent ``_Config`` as a class
+    # annotation, but ``_Config`` is NOT a @dataclass, so the
+    # annotation is *not* picked up as a dataclass field on this
+    # subclass. Re-declaring it here (with a default of None so it
+    # doesn't break the positional-arg ordering for the required
+    # fields above) is what makes ``from_dict(..., connect=connect)``
+    # below resolve to a real keyword argument. ``__post_init__`` on
+    # ``_Config`` then materializes a default ConnectConfig if
+    # callers leave it as None.
+    connect: Optional[ConnectConfig] = None
 
     @classmethod
     def from_dict(cls, raw: dict):
