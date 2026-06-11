@@ -2,9 +2,9 @@
 Launch the DLT-Meta Lakeflow Connect (LFC) Demo.
 
 Setup run (first time):
-  1. Uploads demo/lfcdemo-database.ipynb to the Databricks workspace.
+  1. Uploads demo/lfcdemo-database.py to the Databricks workspace.
   2. Creates and runs a job that:
-       a. lfc_setup        — runs lfcdemo-database.ipynb, which creates the LFC gateway +
+       a. lfc_setup        — runs lfcdemo-database.py, which creates the LFC gateway +
                              ingestion pipelines and starts DML against the source DB.
        b. onboarding_job   — registers intpk and dtix as delta (streaming table) sources
                              in the DLT-Meta dataflow spec schema.
@@ -420,7 +420,7 @@ class DLTMETALFCDemo(SDPMETARunner):
     def _upload_init_and_lfc_notebooks(self, runner_conf: LFCRunnerConf) -> str:
         """
         Upload init_sdp_meta_pipeline.py, trigger_ingestion_and_wait.py, and
-        lfcdemo-database.ipynb to the Databricks workspace.
+        lfcdemo-database.py to the Databricks workspace.
         Returns the workspace path of the uploaded LFC notebook (without extension).
         """
         from databricks.sdk.service.workspace import Language
@@ -443,16 +443,21 @@ class DLTMETALFCDemo(SDPMETARunner):
                 )
             print(f"  Uploaded {nb_name}")
 
-        # lfcdemo-database.ipynb — runs LFC setup
+        # lfcdemo-database.py — runs LFC setup. Uploaded as a Databricks
+        # notebook source file (Python) so it lines up with all other demo
+        # notebooks in this repo (init_sdp_meta_pipeline.py,
+        # trigger_ingestion_and_wait.py, etc.) and is reviewable as plain
+        # Python in git diffs.
         lfc_nb_ws_path = f"{runner_conf.runners_nb_path}/lfcdemo-database"
-        with open("demo/lfcdemo-database.ipynb", "rb") as f:
+        with open("demo/lfcdemo-database.py", "rb") as f:
             self.ws.workspace.upload(
                 path=lfc_nb_ws_path,
-                format=ImportFormat.JUPYTER,
+                format=ImportFormat.SOURCE,
+                language=Language.PYTHON,
                 content=f.read(),
                 overwrite=True,
             )
-        print(f"  Uploaded lfcdemo-database.ipynb to {lfc_nb_ws_path}")
+        print(f"  Uploaded lfcdemo-database.py to {lfc_nb_ws_path}")
         return lfc_nb_ws_path
 
     def _upload_trigger_ingestion_notebook(self, runner_conf: LFCRunnerConf):
@@ -706,7 +711,7 @@ class DLTMETALFCDemo(SDPMETARunner):
         lfc_setup_task = jobs.Task(
             task_key="lfc_setup",
             description=(
-                "Run lfcdemo-database.ipynb: creates LFC gateway + ingestion pipelines, "
+                "Run lfcdemo-database.py: creates LFC gateway + ingestion pipelines, "
                 "starts DML; when parallel_downstream, triggers onboarding→bronze→silver when ready and keeps running"
             ),
             max_retries=0,

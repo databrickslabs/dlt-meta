@@ -44,7 +44,7 @@ if not ig_pipeline_id:
 
 ws = WorkspaceClient()
 
-# Force trigger: run the LFC scheduler job once (same as lfcdemo-database.ipynb jobs_runnow).
+# Force trigger: run the LFC scheduler job once (same as lfcdemo-database.py jobs_runnow).
 # We do not wait for the job run to finish; we wait for the pipeline update below.
 # If the scheduler job was deleted (e.g. by LFC auto-cleanup), lfc_created.json still has its id;
 # fall back to starting the ingestion pipeline directly.

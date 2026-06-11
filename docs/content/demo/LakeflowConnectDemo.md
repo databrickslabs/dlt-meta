@@ -111,7 +111,7 @@ FROM <lfc_source_catalog>.<lfc_schema>.dtix;
 The config is written in two places so they stay in sync:
 
 1. **Launcher** (`demo/launch_lfc_demo.py`) — writes `onboarding.json` to the run's UC Volume.
-2. **LFC notebook** (`demo/lfcdemo-database.ipynb`) — overwrites `onboarding.json` with the LFC-created schema after the pipelines are up.
+2. **LFC notebook** (`demo/lfcdemo-database.py`) — overwrites `onboarding.json` with the LFC-created schema after the pipelines are up.
 
 You do **not** pass SCD type on the command line; the demo uses this table-based setup by default.
 
@@ -149,7 +149,7 @@ The same solution applied for `dtix` generalises to any no-PK LFC SCD2 table:
 
 **Getting the column list from INFORMATION_SCHEMA:**
 
-The notebook queries `INFORMATION_SCHEMA.COLUMNS` (see the SQLAlchemy display cell, line ~85) to get all source column names in ordinal order. The helper `_get_no_pk_scd2_keys(engine, schema, table)` in cell 20 of `lfcdemo-database.ipynb` wraps this query and returns the ordered list used to build the `keys` array:
+The notebook queries `INFORMATION_SCHEMA.COLUMNS` (see the SQLAlchemy display cell, line ~85) to get all source column names in ordinal order. The helper `_get_no_pk_scd2_keys(engine, schema, table)` in cell 20 of `lfcdemo-database.py` wraps this query and returns the ordered list used to build the `keys` array:
 
 ```python
 _src_cols = _get_no_pk_scd2_keys(dml_generator.engine, schema, "my_no_pk_table")
@@ -316,11 +316,11 @@ Alternatively, click **Run now** on the `sdp-meta-lfc-demo-incremental-<run_id>`
 2. **Bronze pipeline runs** – The bronze pipeline reads from the LFC streaming tables via `spark.readStream.table()` and writes to bronze Delta tables. All rows pass through (no quarantine rules).
 3. **Silver pipeline runs** – The silver pipeline applies pass-through transformations (`select *`) from the metadata and writes to silver tables.
 
-**Job flow (parallel downstream, default):** The setup job runs `lfcdemo-database.ipynb`, which creates the LFC gateway and ingestion pipelines, writes config, waits for tables, then **starts Job 2** and keeps running (DML, cleanup, and wait until the scheduler queue is empty). Job 2 runs onboarding → bronze → silver in parallel.
+**Job flow (parallel downstream, default):** The setup job runs `lfcdemo-database.py`, which creates the LFC gateway and ingestion pipelines, writes config, waits for tables, then **starts Job 2** and keeps running (DML, cleanup, and wait until the scheduler queue is empty). Job 2 runs onboarding → bronze → silver in parallel.
 
 ```mermaid
 flowchart TB
-  subgraph J1["Job 1: sdp-meta-lfc-demo-{run_id} (lfcdemo-database.ipynb)"]
+  subgraph J1["Job 1: sdp-meta-lfc-demo-{run_id} (lfcdemo-database.py)"]
     direction TB
     A[gateway pipeline]
     B[ingestion pipeline]
@@ -438,7 +438,7 @@ DLT-Meta is configured with `source_format: delta` and points directly at the LF
 Source DB (SQL Server / PostgreSQL / MySQL)
     |
     v
-LFC Gateway + Ingestion  (lfcdemo-database.ipynb)
+LFC Gateway + Ingestion  (lfcdemo-database.py)
     |
     v
 Streaming tables:  {catalog}.{lfc_schema}.intpk  (SCD Type 1)
@@ -472,7 +472,7 @@ The following results were captured from a full AI-initiated test cycle (`--snap
 
 | Resource | Link |
 |----------|------|
-| **LFC Database Notebook** | [demo/lfcdemo-database.ipynb](../../../demo/lfcdemo-database.ipynb) |
+| **LFC Database Notebook** | [demo/lfcdemo-database.py](../../../demo/lfcdemo-database.py) |
 | **LFC Docs** | [Lakeflow Connect](https://docs.databricks.com/en/data-governance/lakeflow-connect/index.html) |
 | **DLT-Meta delta source** | [Metadata Preparation](../getting_started/metadatapreperation.md) |
 | **Tech Summit Demo** | [Techsummit.md](Techsummit.md) |

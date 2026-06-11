@@ -50,7 +50,7 @@ _DEMO_PREFIX = "sdp_meta"      # underscored → UC schema names, workspace path
 
 def read_lfc_created(ws, catalog, run_id):
     """
-    Read conf/lfc_created.json from the run's volume (written by lfcdemo-database.ipynb).
+    Read conf/lfc_created.json from the run's volume (written by lfcdemo-database.py).
     Returns dict with lfc_schema, gw_pipeline_id, ig_pipeline_id, lfc_scheduler_job_id, or None.
     """
     path = (
@@ -258,7 +258,7 @@ def main():
     print("Step 1 — Deleting DLT-Meta jobs and pipelines...")
     delete_jobs_and_pipelines(ws, run_id)
 
-    # Read LFC-created resources from volume before we delete it (written by lfcdemo-database.ipynb)
+    # Read LFC-created resources from volume before we delete it (written by lfcdemo-database.py)
     lfc_created = read_lfc_created(ws, catalog, run_id)
     if lfc_created:
         print(f"\n  Read lfc_created.json: schema={lfc_created.get('lfc_schema')}")
