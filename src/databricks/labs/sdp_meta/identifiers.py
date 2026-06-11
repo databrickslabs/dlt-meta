@@ -39,7 +39,7 @@ _MAX_IDENT_LEN = 255
 # DAB template, and onboarding pre-flight all agree on the same set; if
 # you add a reader, add the format here too.
 SUPPORTED_SOURCE_FORMATS = frozenset(
-    {"cloudFiles", "delta", "kafka", "eventhub", "snapshot"}
+    {"cloudFiles", "delta", "kafka", "eventhub", "snapshot", "sqlserver"}
 )
 
 # SCD types DLT's apply_changes / apply_changes_from_snapshot accept.

@@ -1,0 +1,43 @@
+[
+  {
+    "column_name": "total_amount_usd",
+    "expression": "total_amount * 1.0",
+    "data_type": "decimal(12,2)"
+  },
+  {
+    "column_name": "order_year",
+    "expression": "year(order_date)",
+    "data_type": "int"
+  },
+  {
+    "column_name": "order_month",
+    "expression": "month(order_date)",
+    "data_type": "int"
+  },
+  {
+    "column_name": "order_quarter",
+    "expression": "quarter(order_date)",
+    "data_type": "int"
+  },
+  {
+    "column_name": "days_since_order",
+    "expression": "datediff(current_date(), order_date)",
+    "data_type": "int"
+  },
+  {
+    "column_name": "customer_region_upper",
+    "expression": "upper(region)",
+    "data_type": "string"
+  },
+  {
+    "column_name": "is_high_value",
+    "expression": "case when total_amount >= 1000 then true else false end",
+    "data_type": "boolean"
+  },
+  {
+    "column_name": "status_category",
+    "expression": "case when status in ('completed', 'shipped') then 'fulfilled' when status = 'pending' then 'processing' else 'other' end",
+    "data_type": "string"
+  }
+]
+

@@ -178,3 +178,4 @@ integration_tests/conf/json/onboarding*.json
 integration_tests/conf/yml/onboarding*.yml
 integration_test_output*.csv
 onboarding_job_details.json
+.databricks

@@ -189,14 +189,24 @@ class DataflowPipeline:
         Returns:
             bool: True if a view should be created, False otherwise.
         """
-        # if sourceDetails is provided and snapshot_format is delta, then create a view
-        # if next_snapshot_and_version is provided, then do not create a view
-        # otherwise create a view
+        # applyChangesFromSnapshot may not be set for non-snapshot specs (e.g. intpk).
+        _is_snapshot_spec = (
+            getattr(self, "applyChangesFromSnapshot", None) is not None
+            or (
+                self.dataflowSpec.sourceDetails
+                and self.dataflowSpec.sourceDetails.get("snapshot_format") == "delta"
+            )
+        )
+        # Custom lambda takes priority for snapshot specs: skip view creation so that
+        # apply_changes_from_snapshot() uses the lambda as its DLT source directly.
+        # For non-snapshot specs (e.g. intpk CDF streaming), always create the view.
+        if self.next_snapshot_and_version and _is_snapshot_spec:
+            return False
+        # snapshot_format="delta" → create a DLT view over the source Delta table and use it
+        # as the snapshot source (built-in full-scan path).
         if (self.dataflowSpec.sourceDetails and self.dataflowSpec.sourceDetails.get("snapshot_format") == "delta"):
             self.next_snapshot_and_version_from_source_view = True
             return True
-        elif self.next_snapshot_and_version:
-            return False
         return True
 
     def read(self):
@@ -354,14 +364,18 @@ class DataflowPipeline:
         else:
             raise Exception(f"Dataflow write not supported for type= {type(self.dataflowSpec)}")
 
-    def _get_target_table_info(self):
-        """Extract target table information from dataflow spec."""
+    def _get_target_table_info(self, suffix=None):
+        """Extract target table information from dataflow spec.
+        suffix: optional suffix for table name (e.g. '_dq' for DQE+CDC intermediate table).
+        """
         target_details = self._get_target_details()
         target_path = None if self.uc_enabled else target_details.get("path")
         target_cl = target_details.get('catalog', None)
         target_cl_name = f"{target_cl}." if target_cl is not None else ''
         target_db_name = target_details['database']
         target_table_name = target_details['table']
+        if suffix:
+            target_table_name = f"{target_table_name}{suffix}"
         target_table = f"{target_cl_name}{target_db_name}.{target_table_name}"
         return target_path, target_table, target_table_name
 
@@ -406,15 +420,19 @@ class DataflowPipeline:
             bronze_spec = self.dataflowSpec
             # Handle snapshot format for bronze
             if bronze_spec.sourceFormat and bronze_spec.sourceFormat.lower() == "snapshot":
-                if self.next_snapshot_and_version:
+                # https://github.com/databrickslabs/dlt-meta/issues/266
+                if self.next_snapshot_and_version or self.next_snapshot_and_version_from_source_view:
                     self.apply_changes_from_snapshot()
                 else:
                     raise Exception("Snapshot reader function not provided!")
                 self._handle_append_flows()
                 return
-            # Handle data quality expectations for bronze
+            # Handle data quality expectations for bronze (with optional CDC)
             if bronze_spec.dataQualityExpectations:
-                self.write_layer_with_dqe()
+                if bronze_spec.cdcApplyChanges:
+                    self.write_layer_with_dqe_then_cdc()
+                else:
+                    self.write_layer_with_dqe()
                 self._handle_append_flows()
                 return
         else:
@@ -424,9 +442,12 @@ class DataflowPipeline:
                 self.apply_changes_from_snapshot()
                 self._handle_append_flows()
                 return
-            # Handle data quality expectations for silver
+            # Handle data quality expectations for silver (with optional CDC)
             if silver_spec.dataQualityExpectations:
-                self.write_layer_with_dqe()
+                if silver_spec.cdcApplyChanges:
+                    self.write_layer_with_dqe_then_cdc()
+                else:
+                    self.write_layer_with_dqe()
                 self._handle_append_flows()
                 return
         # Multi-source AUTO CDC (issue #294) takes precedence over the
@@ -475,6 +496,8 @@ class DataflowPipeline:
             input_df = pipeline_reader.read_dlt_delta()
         elif bronze_dataflow_spec.sourceFormat == "eventhub" or bronze_dataflow_spec.sourceFormat == "kafka":
             input_df = pipeline_reader.read_kafka()
+        elif bronze_dataflow_spec.sourceFormat == "sqlserver":
+            input_df = pipeline_reader.read_sqlserver()
         else:
             raise Exception(f"{bronze_dataflow_spec.sourceFormat} source format not supported")
         return self.apply_custom_transform_fun(input_df)
@@ -593,7 +616,7 @@ class DataflowPipeline:
             (lambda latest_snapshot_version: self.next_snapshot_and_version(
                 latest_snapshot_version, self.dataflowSpec
             ))
-            if self.next_snapshot_and_version and not self.next_snapshot_and_version_from_source_view
+            if self.next_snapshot_and_version   # custom lambda takes priority over view
             else self.view_name
         )
 
@@ -606,8 +629,17 @@ class DataflowPipeline:
             track_history_except_column_list=self.applyChangesFromSnapshot.track_history_except_column_list,
         )
 
-    def write_layer_with_dqe(self):
-        """Write Bronze or Silver table with data quality expectations."""
+    def write_layer_with_dqe_then_cdc(self):
+        """Write DQE table (with suffix _dq) then CDC merge into final target. Use when both DQE and CDC are set."""
+        self.write_layer_with_dqe(dqe_only=True, suffix="_dq")
+        _, _, dq_table_name = self._get_target_table_info("_dq")
+        self.cdc_apply_changes(source_table=dq_table_name)
+
+    def write_layer_with_dqe(self, dqe_only=False, suffix=None):
+        """Write Bronze or Silver table with data quality expectations.
+        dqe_only: if True, only create the DQE table (used with suffix='_dq' for DQE+CDC).
+        suffix: optional table name suffix (e.g. '_dq' for intermediate DQE table).
+        """
         is_bronze = isinstance(self.dataflowSpec, BronzeDataflowSpec)
         data_quality_expectations_json = json.loads(self.dataflowSpec.dataQualityExpectations)
 
@@ -617,10 +649,11 @@ class DataflowPipeline:
         # Both bronze and silver layers support quarantine tables
         if "expect_or_quarantine" in data_quality_expectations_json:
             expect_or_quarantine_dict = data_quality_expectations_json["expect_or_quarantine"]
-        if self.dataflowSpec.cdcApplyChanges:
+        # When only CDC was set (no DQE), this path is not used; when both set, write_layer_with_dqe_then_cdc is used
+        if self.dataflowSpec.cdcApplyChanges and not dqe_only:
             self.cdc_apply_changes()
         else:
-            target_path, target_table, target_table_name = self._get_target_table_info()
+            target_path, target_table, target_table_name = self._get_target_table_info(suffix=suffix)
             target_comment = self._get_table_comment(target_table, is_bronze)
 
             # Get cluster_by_auto from dataflowSpec, default to False if not present
@@ -785,8 +818,11 @@ class DataflowPipeline:
             )
             append_flow_writer.write_flow()
 
-    def cdc_apply_changes(self):
-        """CDC Apply Changes against dataflowspec."""
+    def cdc_apply_changes(self, source_table=None):
+        """CDC Apply Changes against dataflowspec.
+        source_table: optional pipeline table/view name to use as source (e.g. 'intpk_dq' when using DQE+CDC).
+        When None, uses self.view_name (raw view).
+        """
         cdc_apply_changes = self.cdcApplyChanges
         if cdc_apply_changes is None:
             raise Exception("cdcApplychanges is None! ")
@@ -822,9 +858,10 @@ class DataflowPipeline:
             sequence_cols = [col.strip() for col in sequence_by.split(',')]
             sequence_by = struct(*sequence_cols)  # Use struct() from pyspark.sql.functions
 
+        source = source_table if source_table is not None else self.view_name
         dp.create_auto_cdc_flow(
             target=target_table,
-            source=self.view_name,
+            source=source,
             keys=cdc_apply_changes.keys,
             sequence_by=sequence_by,
             where=cdc_apply_changes.where,

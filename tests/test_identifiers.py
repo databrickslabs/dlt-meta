@@ -211,7 +211,7 @@ class ValidateSourceFormatTests(unittest.TestCase):
         # silently broken pipeline.
         self.assertEqual(
             SUPPORTED_SOURCE_FORMATS,
-            frozenset({"cloudFiles", "delta", "kafka", "eventhub", "snapshot"}),
+            frozenset({"cloudFiles", "delta", "kafka", "eventhub", "snapshot", "sqlserver"}),
         )
 
     def test_each_supported_format_accepted(self):

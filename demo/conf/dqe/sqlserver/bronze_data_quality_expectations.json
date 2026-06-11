@@ -1,0 +1,10 @@
+{
+  "expect_or_drop": {
+    "valid_record": "id IS NOT NULL AND customer_id IS NOT NULL",
+    "valid_amounts": "quantity > 0 AND unit_price > 0 AND total_amount > 0"
+  },
+  "expect_or_quarantine": {
+    "quarantine_rule": "id IS NULL OR customer_id IS NULL OR order_date IS NULL OR status NOT IN ('pending', 'completed', 'cancelled', 'shipped')"
+  }
+}
+

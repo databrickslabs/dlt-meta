@@ -222,3 +222,50 @@ class PipelineReaders:
         else:
             kafka_options = {**kafka_base_ops, **self.reader_config_options}
         return kafka_options
+
+    def read_sqlserver(self) -> DataFrame:
+        """Read from SQL Server using Databricks connection.
+
+        Returns:
+            DataFrame: SQL Server data as DataFrame
+        """
+        logger.info("In read_sqlserver func")
+
+        # Get connection name from source_details
+        connection_name = self.source_details.get("connection_name")
+        table = self.source_details.get("table")
+
+        if not connection_name:
+            raise Exception(
+                f"SQL Server source requires 'connection_name' in source_details. "
+                f"Provided source_details: {self.source_details}"
+            )
+
+        if not table:
+            raise Exception(
+                f"SQL Server source requires 'table' in source_details. "
+                f"Provided source_details: {self.source_details}"
+            )
+
+        # Build query - support both table name and custom query
+        query = self.source_details.get("query")
+        if query:
+            # Custom query provided
+            table_or_query = f"({query}) as subquery"
+        else:
+            # Use table name
+            table_or_query = table
+
+        # Create base read operation using Databricks connection
+        reader = self.spark.read.format("jdbc")
+
+        # Use Databricks connection
+        reader = reader.option("connection", connection_name)
+        reader = reader.option("dbtable", table_or_query)
+
+        # Add any additional reader config options
+        if self.reader_config_options:
+            for key, value in self.reader_config_options.items():
+                reader = reader.option(key, value)
+
+        return reader.load()

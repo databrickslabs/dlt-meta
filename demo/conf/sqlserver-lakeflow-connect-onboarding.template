@@ -1,0 +1,94 @@
+[
+    {
+        "data_flow_id": "400",
+        "data_flow_group": "SQL1",
+        "source_system": "SQL Server",
+        "source_format": "sqlserver",
+        "source_details": 
+            connections:
+                my_sqlserver_connection:
+                    name: my_sqlserver_connection
+                    connection_type: JDBC
+                    options:
+                        url: "jdbc:sqlserver://<host>:<port>;databaseName=<database>"
+                        user: "{{secrets/my-secret-scope/db-username}}"
+                        password: "{{secrets/my-secret-scope/db-password}}
+            pipelines:
+                gateway:
+                    name: ${var.gateway_name}
+                    gateway_definition:
+                        connection_name: <sqlserver-connection>
+                        gateway_storage_catalog: main
+                        gateway_storage_schema: ${var.dest_schema}
+                        gateway_storage_name: ${var.gateway_name}
+                    target: ${var.dest_schema}
+                    catalog: ${var.dest_catalog}
+
+                pipeline_sqlserver:
+                    name: sqlserver-ingestion-pipeline
+                    ingestion_definition:
+                        ingestion_gateway_id: ${resources.pipelines.gateway.id}
+                        objects:
+                        # Modify this with your tables!
+                        - table:
+                            # Ingest the table test.ingestion_demo_lineitem to dest_catalog.dest_schema.ingestion_demo_line_item.
+                            source_catalog: test
+                            source_schema: ingestion_demo
+                            source_table: lineitem
+                            destination_catalog: ${var.dest_catalog}
+                            destination_schema: ${var.dest_schema}
+                        - schema:
+                            # Ingest all tables in the test.ingestion_whole_schema schema to dest_catalog.dest_schema. The destination
+                            # table name will be the same as it is on the source.
+                            source_catalog: test
+                            source_schema: ingestion_whole_schema
+                            destination_catalog: ${var.dest_catalog}
+                            destination_schema: ${var.dest_schema}                    
+        "bronze_reader_options": {
+            "fetchsize": "10000",
+            "batchsize": "10000",
+            "partitionColumn": "{sqlserver_partition_column}",
+            "lowerBound": "{sqlserver_partition_lower_bound}",
+            "upperBound": "{sqlserver_partition_upper_bound}",
+            "numPartitions": "{sqlserver_num_partitions}"
+        },
+        "bronze_catalog_demo": "{uc_catalog_name}",
+        "bronze_database_demo": "{bronze_schema}",
+        "bronze_table": "bronze_{run_id}_sqlserver_data",
+        "bronze_partition_columns": "{sqlserver_bronze_partition_columns}",
+        "bronze_table_path_demo": "{uc_volume_path}/data/bronze/sqlserver_data",
+        "bronze_data_quality_expectations_json_demo": "{uc_volume_path}/demo/conf/dqe/sqlserver/bronze_data_quality_expectations.json",
+        "bronze_catalog_quarantine_demo": "{uc_catalog_name}",
+        "bronze_database_quarantine_demo": "{bronze_schema}",
+        "bronze_quarantine_table": "bronze_{run_id}_sqlserver_data_quarantine",
+        "bronze_quarantine_table_path_demo": "{uc_volume_path}/data/bronze/sqlserver_data_quarantine",
+        "bronze_sinks": [
+                {
+                    "name": "bronze_sqlserver_kafka_sink",
+                    "format": "kafka",
+                    "options": {
+                        "kafka_sink_servers_secret_scope_name":"{kafka_sink_servers_secret_scope_name}",
+                        "kafka_sink_servers_secret_scope_key":"{kafka_sink_servers_secret_scope_key}",
+                        "kafka.security.protocol":"PLAINTEXT",
+                        "topic":"{kafka_sink_topic}"
+                    },
+                    "select_exp":["*"],
+                    "where_clause":"{sqlserver_sink_where_clause}"                    
+                },
+                {
+                    "name": "bronze_sqlserver_delta_sink",
+                    "format": "delta",
+                    "options": {
+                        "path":"dbfs:/mnt/dltmeta_sink/sqlserver_data"
+                    },
+                    "select_exp":["*"],
+                    "where_clause":"{sqlserver_sink_where_clause}"                    
+                }                
+        ],
+        "silver_catalog_demo": "{uc_catalog_name}",
+        "silver_database_demo": "{silver_schema}",
+        "silver_table": "silver_{run_id}_sqlserver_data",
+        "silver_table_path_demo": "{uc_volume_path}/data/silver/sqlserver_data",
+        "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/silver_transformations_sqlserver.json"
+    }
+]

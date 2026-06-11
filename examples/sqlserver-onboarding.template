@@ -1,0 +1,77 @@
+[
+{
+   "data_flow_id": "300",
+   "data_flow_group": "SQL1",
+   "source_system": "SQL Server",
+   "source_format": "sqlserver",
+   "source_details": {
+      "connection_name": "my_sqlserver_connection",
+      "table": "Person.Person"
+   },
+   "bronze_catalog_it": "{uc_catalog_name}",
+   "bronze_database_it": "{bronze_schema}",
+   "bronze_table": "person",
+   "bronze_table_comment": "Person table from SQL Server",
+   "bronze_reader_options": {
+      "fetchsize": "10000",
+      "batchsize": "10000"
+   },
+   "bronze_table_path_it": "{dbfs_path}/data/bronze/person",
+   "bronze_table_properties": {
+         "pipelines.autoOptimize.managed": "true",
+         "pipelines.autoOptimize.zOrderCols": "PersonID"
+   },    
+   "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/person/bronze_data_quality_expectations.json",
+   "bronze_catalog_quarantine_it": "{uc_catalog_name}",
+   "bronze_database_quarantine_it": "{bronze_schema}",
+   "bronze_quarantine_table": "person_quarantine",
+   "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/person_quarantine",  
+   "bronze_quarantine_table_properties": {
+         "pipelines.reset.allowed": "false",
+         "pipelines.autoOptimize.zOrderCols": "PersonID"
+   },
+   "silver_catalog_it": "{uc_catalog_name}",
+   "silver_database_it": "{silver_schema}",
+   "silver_table": "person",
+   "silver_table_comment": "Cleaned person data from SQL Server",
+   "silver_table_path_it": "{dbfs_path}/data/silver/person",
+   "silver_transformation_json_it": "{dbfs_path}/dlt-meta/conf/silver_transformations.json"
+},
+{
+   "data_flow_id": "301", 
+   "data_flow_group": "SQL1",
+   "source_system": "SQL Server",
+   "source_format": "sqlserver",
+   "source_details": {
+      "connection_name": "my_sqlserver_connection",
+      "query": "SELECT OrderID, CustomerID, OrderDate, TotalAmount FROM Sales.Orders WHERE OrderDate >= DATEADD(day, -30, GETDATE())"
+   },
+   "bronze_catalog_it": "{uc_catalog_name}",
+   "bronze_database_it": "{bronze_schema}", 
+   "bronze_table": "recent_orders",
+   "bronze_table_comment": "Recent orders from SQL Server (last 30 days)",
+   "bronze_reader_options": {
+      "fetchsize": "50000",
+      "batchsize": "50000",
+      "partitionColumn": "OrderID",
+      "lowerBound": "1",
+      "upperBound": "1000000", 
+      "numPartitions": "10"
+   },
+   "bronze_table_path_it": "{dbfs_path}/data/bronze/recent_orders",
+   "bronze_table_properties": {
+         "pipelines.autoOptimize.managed": "true",
+         "pipelines.autoOptimize.zOrderCols": "OrderDate, CustomerID"
+   },
+   "bronze_data_quality_expectations_json_it": "{dbfs_path}/dlt-meta/conf/dqe/orders/bronze_data_quality_expectations.json",
+   "bronze_catalog_quarantine_it": "{uc_catalog_name}",
+   "bronze_database_quarantine_it": "{bronze_schema}",
+   "bronze_quarantine_table": "recent_orders_quarantine", 
+   "bronze_quarantine_table_path_it": "{dbfs_path}/data/bronze/recent_orders_quarantine",
+   "silver_catalog_it": "{uc_catalog_name}",
+   "silver_database_it": "{silver_schema}",
+   "silver_table": "recent_orders",
+   "silver_table_comment": "Processed recent orders from SQL Server",
+   "silver_table_path_it": "{dbfs_path}/data/silver/recent_orders"
+}
+]

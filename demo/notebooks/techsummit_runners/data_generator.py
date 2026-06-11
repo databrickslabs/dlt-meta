@@ -13,6 +13,7 @@ dbutils.widgets.text("sdp_meta_schema","", "sdp_meta_schema")
 dbutils.widgets.text("uc_catalog_name","", "uc_catalog_name")
 dbutils.widgets.text("bronze_schema","", "bronze_schema")
 dbutils.widgets.text("silver_schema","", "silver_schema")
+dbutils.widgets.text("mode","setup", "mode")  # "setup" or "incremental"
 
 
 
@@ -24,6 +25,7 @@ sdp_meta_schema = dbutils.widgets.get("sdp_meta_schema")
 uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
 bronze_schema = dbutils.widgets.get("bronze_schema")
 silver_schema = dbutils.widgets.get("silver_schema")
+mode = dbutils.widgets.get("mode")
 
 # COMMAND ----------
 
@@ -33,26 +35,31 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import to_json, collect_list, struct, col
 from pyspark.sql.types import StringType, StructType, StructField, MapType, ArrayType, FloatType, IntegerType
 
-builder = SparkSession.builder.appName("SDP-META_TECH_SUMMIT")
+builder = SparkSession.builder.appName("DLT-META_TECH_SUMMIT")
 spark = builder.getOrCreate()
 
 
-def generate_table_data(spark, base_input_path, column_count, data_rows, table_count):
+def generate_table_data(spark, base_input_path, column_count, data_rows, table_count, write_mode="overwrite"):
     table_path = f"{base_input_path}/resources/data/input/table"
-    table_path = table_path+"_{}"
-    for i in range(1, (table_count + 1)):
-        df_spec = (dg.DataGenerator(spark, name="sdp_meta_demo", rows=data_rows, partitions=4)
-                   .withIdOutput()
-                   .withColumn("r", FloatType(),
-                               expr="floor(rand() * 350) * (86400 + 3600)",
-                               numColumns=column_count)
-                   .withColumn("code1", IntegerType(), minValue=100, maxValue=(table_count + 200))
-                   .withColumn("code2", IntegerType(), minValue=1, maxValue=(table_count + 10))
-                   .withColumn("code3", StringType(), values=['a', 'b', 'c'])
-                   .withColumn("code4", StringType(), values=['a', 'b', 'c'], random=True)
-                   .withColumn("code5", StringType(), values=['a', 'b', 'c'], random=True, weights=[9, 1, 1]))
-        df = df_spec.build()
-        df.coalesce(1).write.mode("append").option("header", "True").csv(table_path.format(i))
+    table_path = table_path + "_{}"
+    base_spec = (
+        dg.DataGenerator(spark, name="sdp_meta_demo", rows=data_rows, partitions=4)
+        .withIdOutput()
+        .withColumn(
+            "r",
+            FloatType(),
+            expr="floor(rand() * 350) * (86400 + 3600)",
+            numColumns=column_count,
+        )
+        .withColumn("code1", IntegerType(), minValue=100, maxValue=(table_count + 200))
+        .withColumn("code2", IntegerType(), minValue=1, maxValue=(table_count + 10))
+        .withColumn("code3", StringType(), values=["a", "b", "c"])
+        .withColumn("code4", StringType(), values=["a", "b", "c"], random=True)
+        .withColumn("code5", StringType(), values=["a", "b", "c"], random=True, weights=[9, 1, 1])
+    )
+    for i in range(1, table_count + 1):
+        df = base_spec.clone().build()
+        df.coalesce(1).write.mode(write_mode).option("header", "True").csv(table_path.format(i))
 
 
 def generate_onboarding_file(spark, base_input_path, table_count, sdp_meta_schema):
@@ -212,11 +219,15 @@ def generate_dqe_json(base_input_path):
 # COMMAND ----------
 
 # DBTITLE 1,Generate Test Data
-generate_table_data(spark, base_input_path, table_column_count, table_data_rows_count, table_count)
+# In incremental mode, append new files so AutoLoader picks them up on the next pipeline run.
+# Onboarding/config files already exist in the volume and are not regenerated.
+write_mode = "append" if mode == "incremental" else "overwrite"
+generate_table_data(spark, base_input_path, table_column_count, table_data_rows_count, table_count, write_mode)
 
 # COMMAND ----------
 
 # DBTITLE 1,Generates Onboarding files
-generate_onboarding_file(spark, base_input_path, table_count, sdp_meta_schema)
-generate_silver_transformation_json(spark, base_input_path, table_count)
-generate_dqe_json(base_input_path)
+if mode != "incremental":
+    generate_onboarding_file(spark, base_input_path, table_count, sdp_meta_schema)
+    generate_silver_transformation_json(spark, base_input_path, table_count)
+    generate_dqe_json(base_input_path)
