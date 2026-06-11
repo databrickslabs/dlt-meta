@@ -179,3 +179,12 @@ integration_tests/conf/yml/onboarding*.yml
 integration_test_output*.csv
 onboarding_job_details.json
 .databricks
+
+# IDE / Databricks Connect auto-generated stub for IntelliSense — per-developer,
+# should not be tracked. Restore locally with the Databricks VS Code extension.
+__builtins__.pyi
+
+# Per-developer Databricks Asset Bundle config. The bundle host / target list
+# is workstation-specific (e.g. dogfood / staging / prod accounts the developer
+# uses). Use ``databricks bundle init`` to recreate locally.
+databricks.yml
