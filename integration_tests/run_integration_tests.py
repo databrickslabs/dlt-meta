@@ -397,7 +397,10 @@ class SDPMETARunner:
             configuration.update(extra_config)
         created = None
 
-        # PipelinesAPI.create: use 'target' for default schema (SDK dropped 'schema' parameter)
+        # PipelinesAPI.create: use catalog= + schema= for UC (Default Publishing Mode).
+        # 'target=' is the legacy single-schema publishing keyword and is reserved for
+        # non-UC pipelines; mixing it with catalog= produces legacy UC publishing, which
+        # diverges from cli.py and from how customers deploy via the published CLI.
         created = self.ws.pipelines.create(
             catalog=runner_conf.uc_catalog_name,
             name=pipeline_name,
@@ -410,7 +413,7 @@ class SDPMETARunner:
                     )
                 )
             ],
-            target=target_schema,
+            schema=target_schema,
         )
 
         if created is None:
@@ -1025,7 +1028,7 @@ class SDPMETARunner:
         uc_vol_full_path = f"{runner_conf.uc_volume_path}{runner_conf.int_tests_dir}"
         vol_url = (
             f"{self.ws.config.host}/explore/data/volumes/"
-            f"{runner_conf.uc_catalog_name}/{runner_conf.dlt_meta_schema}/{runner_conf.uc_volume_name}"
+            f"{runner_conf.uc_catalog_name}/{runner_conf.sdp_meta_schema}/{runner_conf.uc_volume_name}"
             f"?o={self.ws.get_workspace_id()}"
         )
         print(f"Integration test file upload to {uc_vol_full_path} starting... {vol_url}")
