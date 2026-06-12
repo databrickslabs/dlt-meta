@@ -915,14 +915,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         target_table_name = silver_dataflow_spec.targetDetails['table']
         expected_target = f"{target_database}.{target_table_name}"
         self.assertEqual(kwargs["target"], expected_target)
-        # Silver spec for dataFlowId=201 has both dataQualityExpectations and
-        # cdcApplyChanges, so write_layer_table routes through
-        # write_layer_with_dqe_then_cdc(): DQE first writes to a ``<table>_dq``
-        # intermediate table, then CDC merges from that table into the final
-        # silver target. The CDC source is the unqualified ``_dq`` table name
-        # (issue #265), not the original ``<table>_inputview`` view.
-        expected_source = f"{target_table_name}_dq"
-        self.assertEqual(kwargs["source"], expected_source)
+        self.assertEqual(kwargs["source"], view_name)
         self.assertEqual(kwargs["keys"], cdc_apply_changes.keys)
         self.assertEqual(kwargs["sequence_by"], cdc_apply_changes.sequence_by)
 
@@ -1049,15 +1042,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         target_table_name = bronze_dataflow_spec.targetDetails['table']
         expected_target = f"{target_database}.{target_table_name}"
         self.assertEqual(kwargs["target"], expected_target)
-        # When the bronze spec has BOTH dataQualityExpectations AND cdcApplyChanges
-        # (true for dataFlowId=100 in onboarding_v0.0.7.json), write_layer_table
-        # routes through write_layer_with_dqe_then_cdc(): DQE writes to an
-        # intermediate ``<table>_dq`` table, then CDC merges from that table
-        # into the final target. The CDC source is the unqualified ``_dq``
-        # table name returned by ``_get_target_table_info('_dq')`` -- not the
-        # original input view (issue #265).
-        expected_source = f"{target_table_name}_dq"
-        self.assertEqual(kwargs["source"], expected_source)
+        self.assertEqual(kwargs["source"], view_name)
         self.assertEqual(kwargs["keys"], cdc_apply_changes.keys)
         self.assertEqual(kwargs["sequence_by"], cdc_apply_changes.sequence_by)
 
@@ -1816,29 +1801,16 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         self.assertTrue(pipeline.next_snapshot_and_version_from_source_view)
 
     def test_is_create_view_with_next_snapshot_and_version(self):
-        """Test is_create_view when next_snapshot_and_version is provided.
-
-        ``next_snapshot_and_version`` only suppresses view creation when the
-        spec is also a snapshot spec (``applyChangesFromSnapshot`` set, or
-        ``source_details.snapshot_format == "delta"``). For non-snapshot
-        specs (e.g. CDF streaming) the view is still required, so this test
-        marks the source as a delta snapshot to exercise the suppression
-        branch (issue #265).
-        """
+        """Test is_create_view when next_snapshot_and_version is provided."""
         def mock_next_snapshot():
             return {}
 
         bronze_spec_map = copy.deepcopy(DataflowPipelineTests.bronze_dataflow_spec_map)
-        # Make the spec a delta-snapshot spec so the next_snapshot_and_version
-        # short-circuit in is_create_view() actually fires.
-        bronze_spec_map["sourceDetails"] = dict(bronze_spec_map["sourceDetails"])
-        bronze_spec_map["sourceDetails"]["snapshot_format"] = "delta"
         bronze_dataflow_spec = BronzeDataflowSpec(**bronze_spec_map)
 
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view", None, None, mock_next_snapshot)
 
-        # Should return False: snapshot spec + custom next_snapshot_and_version
-        # lambda → apply_changes_from_snapshot() uses the lambda directly.
+        # Should return False when next_snapshot_and_version is provided
         result = pipeline.is_create_view()
         self.assertFalse(result)
 

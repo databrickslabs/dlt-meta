@@ -13,11 +13,9 @@ from datetime import timedelta
 
 import yaml
 
-# Add project root and src/ to Python path so the local sdp_meta package
-# resolves its own absolute imports (databricks.labs.sdp_meta.*) correctly.
+# Add project root to Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, project_root)
-sys.path.insert(0, os.path.join(project_root, "src"))
+sys.path.append(project_root)
 
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import compute, jobs
@@ -342,7 +340,6 @@ class SDPMETARunner:
         group: str,
         target_schema: str,
         runner_conf: SDPMetaRunnerConf,
-        extra_config: dict = None,
     ) -> str:
         """
         Create a DLT pipeline.
@@ -353,8 +350,6 @@ class SDPMETARunner:
         layer : str = The layer of the pipeline.
         target_schema : str = The target schema of the pipeline.
         runner_conf : SDPMetaRunnerConf = The runner configuration.
-        extra_config : dict = Optional extra Spark configuration key/value pairs merged
-            into the pipeline configuration (e.g. {"dtix_snapshot_method": "cdf"}).
 
         Returns:
         -------
@@ -390,14 +385,6 @@ class SDPMETARunner:
                 f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}.{layer}_dataflowspec_cdc"
             )
 
-        # Optional caller-provided Spark conf (e.g. {"dtix_snapshot_method": "cdf"}
-        # from the LFC demo). Merged AFTER the per-layer group/table keys so the
-        # caller can override defaults if needed.
-        if extra_config:
-            configuration.update(extra_config)
-        created = None
-
-        # PipelinesAPI.create: use 'target' for default schema (SDK dropped 'schema' parameter)
         created = self.ws.pipelines.create(
             catalog=runner_conf.uc_catalog_name,
             name=pipeline_name,
@@ -410,7 +397,7 @@ class SDPMETARunner:
                     )
                 )
             ],
-            target=target_schema,
+            schema=target_schema,
         )
 
         if created is None:
@@ -1023,12 +1010,7 @@ class SDPMETARunner:
         integration tests
         """
         uc_vol_full_path = f"{runner_conf.uc_volume_path}{runner_conf.int_tests_dir}"
-        vol_url = (
-            f"{self.ws.config.host}/explore/data/volumes/"
-            f"{runner_conf.uc_catalog_name}/{runner_conf.dlt_meta_schema}/{runner_conf.uc_volume_name}"
-            f"?o={self.ws.get_workspace_id()}"
-        )
-        print(f"Integration test file upload to {uc_vol_full_path} starting... {vol_url}")
+        print(f"Integration test file upload to {uc_vol_full_path} starting...")
         # Upload the entire resources directory containing ddl and test data
         for root, dirs, files in os.walk(f"{runner_conf.int_tests_dir}/resources"):
             for file in files:
@@ -1049,7 +1031,7 @@ class SDPMETARunner:
                             contents=content,
                             overwrite=True,
                         )
-        print(f"Integration test file upload to {uc_vol_full_path} complete!!! {vol_url}")
+        print(f"Integration test file upload to {uc_vol_full_path} complete!!!")
 
         # Upload required notebooks for the given source
         print(f"Notebooks upload to {runner_conf.runners_nb_path} started...")
@@ -1236,10 +1218,9 @@ def process_arguments() -> dict[str:str]:
         ],
         [
             "uc_catalog_name",
-            "Provide databricks uc_catalog name, this is required to create volume, schema, table. "
-            "Optional when --run_id is provided (incremental mode) — derived from the existing job.",
+            "Provide databricks uc_catalog name, this is required to create volume, schema, table",
             str,
-            False,
+            True,
             [],
         ],
         [
@@ -1249,29 +1230,6 @@ def process_arguments() -> dict[str:str]:
             False,
             ["cloudfiles", "eventhub", "kafka", "snapshot", "multi_source_cdc"],
         ],
-        # Techsummit demo: data generation control
-        ["table_count", "Number of tables to generate (techsummit, default 100)", str, False, []],
-        ["table_column_count", "Columns per table (techsummit, default 5)", str, False, []],
-        ["table_data_rows_count", "Rows per table (techsummit, default 10)", str, False, []],
-        ["run_id", "Existing run_id to resume; presence implies incremental mode (techsummit/lfc)", str, False, []],
-        # Lakeflow Connect demo arguments
-        ["source_schema", "Source schema on the source database (lfc demo, default: lfcddemo)", str, False, []],
-        [
-            "connection_name",
-            "Databricks connection name for the source database (lfc demo)",
-            str,
-            False,
-            ["lfcddemo-azure-sqlserver", "lfcddemo-azure-mysql", "lfcddemo-azure-pg"],
-        ],
-        [
-            "cdc_qbc",
-            "LFC pipeline mode: cdc, qbc, or cdc_single_pipeline (lfc demo, default: cdc)",
-            str.lower,
-            False,
-            ["cdc", "qbc", "cdc_single_pipeline"],
-        ],
-        ["trigger_interval_min",
-         "LFC trigger interval in minutes — positive integer (lfc demo, default: 5)", str, False, []],
         [
             "onboarding_file_format",
             "Format of the generated onboarding file: 'json' (default) or 'yaml'.",
@@ -1400,35 +1358,6 @@ def process_arguments() -> dict[str:str]:
             parser.add_argument(
                 f"--{arg[0]}", help=arg[1], type=arg[2], required=arg[3]
             )
-    # LFC demo: boolean flag for CDC silver sequence_by (store_true)
-    parser.add_argument(
-        "--sequence_by_pk",
-        action="store_true",
-        help="Use primary key for CDC silver sequence_by (lfc demo). Default: use dt column.",
-    )
-    parser.add_argument(
-        "--no_parallel_downstream",
-        action="store_true",
-        help=(
-            "LFC demo: disable parallel downstream"
-            " (single job: lfc_setup → onboarding → bronze → silver)."
-            " Default: parallel_downstream on."
-        ),
-    )
-    parser.add_argument(
-        "--snapshot_method",
-        choices=["cdf", "full"],
-        default="cdf",
-        help=(
-            "LFC demo: snapshot processing strategy for the dtix (no-PK SCD2) table.\n"
-            "  cdf  (default) — custom next_snapshot_and_version lambda.  Checks the Delta table "
-            "version first (O(1)); skips the pipeline run entirely when nothing changed, otherwise "
-            "reads the full source table.  Best for frequently-triggered pipelines on slowly-changing tables.\n"
-            "  full — built-in view-based apply_changes_from_snapshot.  Reads and materialises the "
-            "entire source table on every pipeline trigger regardless of changes.  Use as a stable "
-            "reference or when the custom lambda causes issues."
-        ),
-    )
     args = vars(parser.parse_args())
 
     # Validate UC identifiers up-front so the run fails fast with a clear
@@ -1442,10 +1371,6 @@ def process_arguments() -> dict[str:str]:
         for mand_arg in mandatory_args:
             if args[mand_arg] is None:
                 raise Exception(f"Please provide '--{mand_arg}'")
-
-    # uc_catalog_name is required for new (setup) runs; optional when resuming via --run_id
-    if not args.get("run_id") and not args.get("uc_catalog_name"):
-        raise Exception("Please provide '--uc_catalog_name' (required unless --run_id is supplied)")
 
     # Check for arguments that are required depending on the selected source
     if args["source"] == "eventhub":

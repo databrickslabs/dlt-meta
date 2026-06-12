@@ -46,14 +46,7 @@ from setuptools import setup, find_namespace_packages, find_packages
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-INSTALL_REQUIRES = [
-    "setuptools", 
-    "databricks-sdk", 
-    "PyYAML>=6.0",
-    "dbldatagen>=0.3.0",  # For synthetic data generation
-    "sqlalchemy>=1.4.0",  # For PostgreSQL slot management
-    "psycopg2-binary>=2.9.0"  # PostgreSQL driver
-]
+INSTALL_REQUIRES = ["setuptools", "databricks-sdk", "PyYAML>=6.0"]
 
 DEV_REQUIREMENTS = [
     "flake8==6.0",
