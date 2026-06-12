@@ -7,24 +7,24 @@
         "source_details": {
             "source_database": "APP",
             "source_table": "CUSTOMERS",
-            "source_path_it": "/Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_bc_a8e758c9f372/dlt_meta_files//integration_tests/resources/data/customers_delta",
+            "source_path_it": "/Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_bc_f77cdef25732/dlt_meta_files//integration_tests/resources/data/customers_delta",
             "source_metadata": {
                 "select_metadata_cols": {
                     "input_file_name": "_metadata.file_name",
                     "input_file_path": "_metadata.file_path"
                 }
             },
-            "source_schema_path": "/Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_bc_a8e758c9f372/dlt_meta_files//integration_tests/resources/customers.ddl"
+            "source_schema_path": "/Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_bc_f77cdef25732/dlt_meta_files//integration_tests/resources/customers.ddl"
         },
         "bronze_catalog_it": "ravi_dlt_meta_uc",
-        "bronze_database_it": "sdp_meta_bronze_bc_a8e758c9f372",
+        "bronze_database_it": "sdp_meta_bronze_bc_f77cdef25732",
         "bronze_table": "customers_delta",
         "bronze_reader_options": {
             "cloudFiles.format": "json",
             "cloudFiles.inferColumnTypes": "true",
             "cloudFiles.rescuedDataColumn": "_rescued_data"
         },
-        "bronze_table_path_it": "/Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_bc_a8e758c9f372/dlt_meta_files//data/bronze/customers_delta",
+        "bronze_table_path_it": "/Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_bc_f77cdef25732/dlt_meta_files//data/bronze/customers_delta",
         "bronze_table_properties": {
             "pipelines.autoOptimize.managed": "true"
         },
@@ -32,11 +32,11 @@
             "id",
             "email"
         ],
-        "bronze_data_quality_expectations_json_it": "/Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_bc_a8e758c9f372/dlt_meta_files//integration_tests/conf/json/dqe/customers/bronze_data_quality_expectations.json",
+        "bronze_data_quality_expectations_json_it": "/Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_bc_f77cdef25732/dlt_meta_files//integration_tests/conf/json/dqe/customers/bronze_data_quality_expectations.json",
         "bronze_catalog_quarantine_it": "ravi_dlt_meta_uc",
-        "bronze_database_quarantine_it": "sdp_meta_bronze_bc_a8e758c9f372",
+        "bronze_database_quarantine_it": "sdp_meta_bronze_bc_f77cdef25732",
         "bronze_quarantine_table": "customers_delta_quarantine",
-        "bronze_quarantine_table_path_it": "/Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_bc_a8e758c9f372/dlt_meta_files//data/bronze/customers_quarantine_delta",
+        "bronze_quarantine_table_path_it": "/Volumes/ravi_dlt_meta_uc/sdp_meta_dataflowspecs_bc_f77cdef25732/dlt_meta_files//data/bronze/customers_quarantine_delta",
         "bronze_quarantine_table_properties": {
             "pipelines.reset.allowed": "false"
         },
