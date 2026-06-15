@@ -295,7 +295,7 @@ class DataflowSpecUtils:
         "clusterByAuto",
         "sinks",
         # Multi-source AUTO CDC (issue #294). Both default to ``None`` on
-        # spec rows written before v0.0.11 so old dataflowspec tables load
+        # spec rows written before v0.1.0 so old dataflowspec tables load
         # without rewriting.
         "cdcApplyChangesFlows",
         "cdcApplyChangesFlowsSchemas",
@@ -316,7 +316,7 @@ class DataflowSpecUtils:
         "sinks",
         # Multi-source AUTO CDC (issue #294). Silver has no per-flow
         # schemas map; defaults to ``None`` for spec rows written before
-        # v0.0.11.
+        # v0.1.0.
         "cdcApplyChangesFlows",
         # UC row-level security (issue #303). See bronze entry above.
         "rowFilter",

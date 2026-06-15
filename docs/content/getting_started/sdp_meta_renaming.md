@@ -6,13 +6,13 @@ weight: 50
 
 # DLT-META to SDP-META Renaming
 
-Starting with v0.0.11, the project has been renamed from **DLT-META** to **SDP-META** (Spark Declarative Pipelines META). This document describes all naming changes and provides a user guide for both new and existing users.
+Starting with v0.1.0, the project has been renamed from **DLT-META** to **SDP-META** (Spark Declarative Pipelines META). This document describes all naming changes and provides a user guide for both new and existing users.
 
 ---
 
 ## Package Restructuring
 
-| Component | Before (v0.0.10) | After (v0.0.11) |
+| Component | Before (v0.0.10) | After (v0.1.0) |
 | --- | --- | --- |
 | Display Name | DLT-META | SDP-META |
 | PyPI Package | `dlt-meta` | `databricks-labs-sdp-meta` |
@@ -109,7 +109,7 @@ from dlt_meta.cli import DLTMeta
 # DLTMeta is aliased to SDPMeta under the hood
 ```
 
-### Legacy `src.*` Imports (still work in v0.0.11, removed in v0.1.0)
+### Legacy `src.*` Imports (still work in v0.1.0, removed in v0.2.0)
 
 v0.0.10 published the framework as a top-level Python package literally named `src`. Customer notebooks following the v0.0.10 demo guide contain lines like:
 
@@ -119,11 +119,11 @@ from src.cli import DLTMeta
 from src.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec
 ```
 
-After upgrading to `dlt-meta==0.0.11`, **these continue to work unchanged** — each `src.*` module is registered in `sys.modules` as an alias for the corresponding `databricks.labs.sdp_meta.*` module at interpreter startup (via a `.pth` file shipped in the wheel). On first attribute access, each alias emits a one-time `DeprecationWarning` per process pointing at the canonical replacement.
+After upgrading to `dlt-meta==0.1.0`, **these continue to work unchanged** — each `src.*` module is registered in `sys.modules` as an alias for the corresponding `databricks.labs.sdp_meta.*` module at interpreter startup (via a `.pth` file shipped in the wheel). On first attribute access, each alias emits a one-time `DeprecationWarning` per process pointing at the canonical replacement.
 
 ```text
 DeprecationWarning: 'src.dataflow_pipeline' is a v0.0.10 compatibility
-alias and will be removed in v0.1.0. Migrate to 'from
+alias and will be removed in v0.2.0. Migrate to 'from
 databricks.labs.sdp_meta.dataflow_pipeline import …' or 'from
 dlt_meta import …'.
 ```
@@ -136,23 +136,23 @@ If you have your own `src/` package on `sys.path` (rare but real for monorepo la
 export SDP_META_DISABLE_SRC_ALIAS=1
 ```
 
-#### Removal in v0.1.0
+#### Removal in v0.2.0
 
-The `src.*` aliases will be removed in v0.1.0. Migrate before then by rewriting:
+The `src.*` aliases will be removed in v0.2.0. Migrate before then by rewriting:
 
 ```python
 # v0.0.10
 from src.dataflow_pipeline import DataflowPipeline
 from src.cli import DLTMeta
 
-# v0.0.11+ (canonical)
+# v0.1.0+ (canonical)
 from databricks.labs.sdp_meta.dataflow_pipeline import DataflowPipeline
 from databricks.labs.sdp_meta.cli import SDPMeta
 ```
 
 #### What's NOT aliased: `integration_tests.*`
 
-v0.0.10's `setup.py` also published `integration_tests` as a top-level package, but this was an oversight — `integration_tests/` is not a stable API surface. It is **not** aliased in v0.0.11; if you have notebook code that does `from integration_tests.run_integration_tests import …`, inline the relevant code instead.
+v0.0.10's `setup.py` also published `integration_tests` as a top-level package, but this was an oversight — `integration_tests/` is not a stable API surface. It is **not** aliased in v0.1.0; if you have notebook code that does `from integration_tests.run_integration_tests import …`, inline the relevant code instead.
 
 ### Config Key Compatibility
 
@@ -230,9 +230,9 @@ A `compat/` package provides the bridge between old and new:
 
 | Component | How It Works |
 | --- | --- |
-| `dlt-meta` PyPI package | v0.0.11 depends on `databricks-labs-sdp-meta>=0.0.11` |
+| `dlt-meta` PyPI package | v0.1.0 depends on `databricks-labs-sdp-meta>=0.1.0` |
 | `from dlt_meta import ...` | Re-exports all symbols from `databricks.labs.sdp_meta` with deprecation warnings |
-| `from src.* import ...` | `src.*` modules are registered in `sys.modules` as aliases for `databricks.labs.sdp_meta.*` at interpreter startup via a `.pth` file. Removed in v0.1.0. |
+| `from src.* import ...` | `src.*` modules are registered in `sys.modules` as aliases for `databricks.labs.sdp_meta.*` at interpreter startup via a `.pth` file. Removed in v0.2.0. |
 | `DLTMeta` class | Aliased to `SDPMeta` (rebound in `cli.py` so `from src.cli import DLTMeta` resolves through the module alias) |
 | `DLT_META_RUNNER_NOTEBOOK` | Aliased to `SDP_META_RUNNER_NOTEBOOK` |
 | `databricks labs dlt-meta` CLI | Forwards to `databricks labs sdp-meta` with deprecation banner |
@@ -245,7 +245,7 @@ A `compat/` package provides the bridge between old and new:
 
 | Phase | Status | Details |
 | --- | --- | --- |
-| **v0.0.11** | Active | Both `dlt-meta` and `sdp-meta` packages work. Old package shows deprecation warnings. `src.*` imports work via shim. |
-| **v0.0.12 → v0.0.x** | Planned | `dlt-meta` compat package maintained but no new features added. `src.*` shim still active. |
-| **v0.1.0** | Planned | `src.*` shim removed. `from src.X import …` returns to raising `ModuleNotFoundError`. |
+| **v0.1.0** | Active | Both `dlt-meta` and `sdp-meta` packages work. Old package shows deprecation warnings. `src.*` imports work via shim. |
+| **v0.1.x → v0.1.x** | Planned | `dlt-meta` compat package maintained but no new features added. `src.*` shim still active. |
+| **v0.2.0** | Planned | `src.*` shim removed. `from src.X import …` returns to raising `ModuleNotFoundError`. |
 | **Future** | Planned | `dlt-meta` package removed. Advance notice will be provided. |

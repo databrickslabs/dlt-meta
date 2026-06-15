@@ -1,7 +1,7 @@
 """Tests for the v0.0.10 ``src.*`` import compatibility shim.
 
 The shim's job: a v0.0.10 customer notebook with ``from src.X import Y``
-lines must keep working on v0.0.11 (with a ``DeprecationWarning``)
+lines must keep working on v0.1.0 (with a ``DeprecationWarning``)
 instead of failing with ``ModuleNotFoundError: No module named 'src'``.
 
 This file covers four independent surfaces:
@@ -9,7 +9,7 @@ This file covers four independent surfaces:
 1. **Module-level alias resolution** — every v0.0.10 ``src.<sub>`` module
    resolves to the canonical ``databricks.labs.sdp_meta.<sub>``.
 2. **Symbol-level access** — ``DLTMeta`` (renamed to ``SDPMeta`` in
-   v0.0.11), ``DLT_META_RUNNER_NOTEBOOK`` (renamed to
+   v0.1.0), ``DLT_META_RUNNER_NOTEBOOK`` (renamed to
    ``SDP_META_RUNNER_NOTEBOOK``), and the unchanged classes
    (``DataflowPipeline``, ``BronzeDataflowSpec``, ``DLTSink``…) all
    resolve through the alias.
@@ -188,10 +188,10 @@ class TestSrcModuleAliasing(unittest.TestCase):
 
 
 class TestRenamedSymbolAliasing(unittest.TestCase):
-    """v0.0.10 → v0.0.11 symbol renames must resolve via ``src.cli``.
+    """v0.0.10 → v0.1.0 symbol renames must resolve via ``src.cli``.
 
     This is the C1 review point: ``DLTMeta`` was renamed to ``SDPMeta``
-    in v0.0.11. Module-level aliasing alone (``src.cli`` →
+    in v0.1.0. Module-level aliasing alone (``src.cli`` →
     ``databricks.labs.sdp_meta.cli``) doesn't fix this — the rebind
     ``DLTMeta = SDPMeta`` in ``cli.py`` does.
     """
@@ -318,7 +318,7 @@ class TestDeprecationWarningBehaviour(unittest.TestCase):
         self.assertEqual(len(relevant), 1)
         msg = str(relevant[0].message)
         self.assertIn("databricks.labs.sdp_meta.cli", msg)
-        self.assertIn("v0.1.0", msg, "Removal version must be in the message")
+        self.assertIn("v0.2.0", msg, "Removal version must be in the message")
 
 
 class TestOptOutEnvVar(unittest.TestCase):

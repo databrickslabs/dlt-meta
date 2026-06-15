@@ -1,7 +1,7 @@
 # Databricks notebook source
 # Phase 2 incremental seed-data dropper.
 #
-# Runs at the start of the Phase 2 (v0.0.11 upgrade) workflow, BEFORE
+# Runs at the start of the Phase 2 (v0.1.0 upgrade) workflow, BEFORE
 # the bronze pipeline. Copies fresh JSON files from the per-run
 # ``customers_phase2/`` and ``transactions_phase2/`` staging paths
 # (already on UC volume — uploaded by the orchestrator) into the
@@ -12,7 +12,7 @@
 # already-watched directory is treated as new ingestion. So the very
 # next pipeline run inside Phase 2 picks up exactly the rows we
 # dropped here, on top of everything Phase 1 already wrote — proving
-# v0.0.11 can resume incremental ingestion against tables and
+# v0.1.0 can resume incremental ingestion against tables and
 # checkpoints first written by v0.0.10.
 import os
 

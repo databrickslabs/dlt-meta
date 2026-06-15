@@ -70,14 +70,14 @@ The job and both pipelines install sdp-meta from the `sdp_meta_dependency` varia
 
 ### Option A — `wheel_source=pypi` (recommended once published)
 
-At the prompts, set `wheel_source=pypi` and `sdp_meta_dependency=databricks-labs-sdp-meta==0.0.11` (pin a real version).
+At the prompts, set `wheel_source=pypi` and `sdp_meta_dependency=databricks-labs-sdp-meta==0.1.0` (pin a real version).
 
 ```yaml
 # resources/variables.yml
 wheel_source:
   default: pypi
 sdp_meta_dependency:
-  default: databricks-labs-sdp-meta==0.0.11
+  default: databricks-labs-sdp-meta==0.1.0
 ```
 
 ### Option B — `wheel_source=volume_path` (today, while sdp-meta isn't on PyPI)
@@ -96,7 +96,7 @@ The command builds the local wheel, uploads it to the volume, and prints the res
 wheel_source:
   default: volume_path
 sdp_meta_dependency:
-  default: /Volumes/<catalog>/<schema>/<volume>/databricks_labs_sdp_meta-0.0.11-py3-none-any.whl
+  default: /Volumes/<catalog>/<schema>/<volume>/databricks_labs_sdp_meta-0.1.0-py3-none-any.whl
 ```
 
 ## Validate before deploy

@@ -2364,7 +2364,7 @@ class DeployBuildWheelFlagTests(unittest.TestCase):
 
     Motivation: workspaces without PyPI access (private preview rings,
     air-gapped customer envs) fail with
-    ``Failed to run ' %pip install databricks-labs-sdp-meta==0.0.11' from
+    ``Failed to run ' %pip install databricks-labs-sdp-meta==0.1.0' from
     notebook: /Users/.../init_sdp_meta_pipeline.py``. The wheel path version
     sidesteps that entirely.
     """
@@ -2498,11 +2498,11 @@ class DeployBuildWheelFlagTests(unittest.TestCase):
         ws = MagicMock()
         sdp_meta = SDPMetaCls(ws)
         sdp_meta._my_username = MagicMock(return_value="me")
-        sdp_meta.version = "0.0.11"
+        sdp_meta.version = "0.1.0"
         cmd = self._deploy_cmd(
             sdp_meta_dependency=(
                 "/Volumes/main/sdp_meta_bronze/sdp_meta_bronze/"
-                "databricks_labs_sdp_meta-0.0.11-py3-none-any.whl"
+                "databricks_labs_sdp_meta-0.1.0-py3-none-any.whl"
             ),
         )
         ws.pipelines.create.return_value = MagicMock(pipeline_id="p1")
@@ -2513,7 +2513,7 @@ class DeployBuildWheelFlagTests(unittest.TestCase):
         runner_bytes = upload_args[0][1]
         self.assertIn(
             b"%pip install /Volumes/main/sdp_meta_bronze/sdp_meta_bronze/"
-            b"databricks_labs_sdp_meta-0.0.11-py3-none-any.whl",
+            b"databricks_labs_sdp_meta-0.1.0-py3-none-any.whl",
             runner_bytes,
         )
         self.assertNotIn(b"databricks-labs-sdp-meta==", runner_bytes)
@@ -2524,14 +2524,14 @@ class DeployBuildWheelFlagTests(unittest.TestCase):
         ws = MagicMock()
         sdp_meta = SDPMetaCls(ws)
         sdp_meta._my_username = MagicMock(return_value="me")
-        sdp_meta.version = "0.0.11"
+        sdp_meta.version = "0.1.0"
         cmd = self._deploy_cmd()
         ws.pipelines.create.return_value = MagicMock(pipeline_id="p1")
 
         sdp_meta._create_sdp_meta_pipeline(cmd)
 
         runner_bytes = ws.workspace.upload.call_args[0][1]
-        self.assertIn(b"%pip install databricks-labs-sdp-meta==0.0.11", runner_bytes)
+        self.assertIn(b"%pip install databricks-labs-sdp-meta==0.1.0", runner_bytes)
 
 
 class OnboardPersistDependencyTests(unittest.TestCase):

@@ -1,5 +1,5 @@
 # Databricks notebook source
-# Phase 2 validator -- runs AFTER the wheel has been swapped to v0.0.11
+# Phase 2 validator -- runs AFTER the wheel has been swapped to v0.1.0
 # AND a fresh incremental cycle has consumed the Phase 2 seed batch.
 #
 # Three classes of assertions:
@@ -12,8 +12,8 @@
 #       grow by AT LEAST those row deltas (DQE may quarantine some, so
 #       we use >= rather than ==).
 #   (3) Schema compatibility. The dataflowspec persisted by v0.0.10
-#       must read cleanly through v0.0.11's ``BronzeDataflowSpec`` /
-#       ``SilverDataflowSpec`` dataclasses, with new v0.0.11 fields
+#       must read cleanly through v0.1.0's ``BronzeDataflowSpec`` /
+#       ``SilverDataflowSpec`` dataclasses, with new v0.1.0 fields
 #       backfilled to their documented defaults
 #       (``rowFilter``/``quarantineRowFilter``/``cdcApplyChangesFlows``
 #       -> ``None``, ``cdcApplyChangesFlowsSchemas`` -> ``{}``,
@@ -22,11 +22,11 @@
 # Together (1)+(2)+(3) prove the customer-pipeline-doesn't-break
 # contract end-to-end: same job, same notebook, same dataflowspec --
 # only the wheel changed, and v0.0.10's persisted state is fully
-# consumable by v0.0.11.
+# consumable by v0.1.0.
 #
 # This notebook is a regular jobs ``notebook_task`` -- not a DLT
 # runner -- so it doesn't get the wheel for free from the pipeline's
-# ``configuration.dlt_meta_whl``. We install the v0.0.11 main wheel
+# ``configuration.dlt_meta_whl``. We install the v0.1.0 main wheel
 # explicitly at the top of cell 1 so cell 2's
 # ``from src.dataflow_spec import …`` actually has the package on
 # sys.path. Every other path in the notebook lives below the install
@@ -51,7 +51,7 @@ phase2_customer_delta = int(dbutils.widgets.get("phase2_customer_delta"))
 phase2_transaction_delta = int(dbutils.widgets.get("phase2_transaction_delta"))
 
 log_list = []
-log_list.append("Backward-compat Phase 2 (v0.0.11 upgrade) validation starting.")
+log_list.append("Backward-compat Phase 2 (v0.1.0 upgrade) validation starting.")
 
 # (1) Read Phase 1 counts back.
 phase1_counts_path = f"{uc_volume_path}/tmp/backward_compat_phase1_counts_{run_id}.json"
@@ -107,11 +107,11 @@ for table in silver_tables:
         )
 
 # (3) Schema-compatibility check: load v0.0.10's persisted dataflowspec
-# rows through v0.0.11's dataclasses and confirm new fields backfilled
+# rows through v0.1.0's dataclasses and confirm new fields backfilled
 # to documented defaults. We import via ``src.*`` to also exercise the
 # compat shim end-to-end.
 log_list.append(
-    "Verifying v0.0.10 persisted dataflowspec rows are consumable by v0.0.11..."
+    "Verifying v0.0.10 persisted dataflowspec rows are consumable by v0.1.0..."
 )
 
 bronze_table = f"{uc_catalog_name}.{sdp_meta_schema}.bronze_dataflowspec"
@@ -135,7 +135,7 @@ except Exception as exc:
 
 if BronzeDataflowSpec is not None:
     # Bronze: confirm every persisted row materializes into a
-    # dataclass without TypeError, with the new v0.0.11 fields
+    # dataclass without TypeError, with the new v0.1.0 fields
     # backfilled to their documented defaults via
     # DataflowSpecUtils.populate_additional_df_cols (the same helper
     # the runtime path uses).
@@ -165,7 +165,7 @@ if BronzeDataflowSpec is not None:
                 f"failed: {exc}. Failed!"
             )
             continue
-        # New v0.0.11 bronze fields must be present on the dataclass
+        # New v0.1.0 bronze fields must be present on the dataclass
         # AND backfilled to whatever ``populate_additional_df_cols``
         # (the read-time helper used by ``get_bronze_dataflow_spec``)
         # writes when the column is absent from a v0.0.10-shape Delta
@@ -179,7 +179,7 @@ if BronzeDataflowSpec is not None:
         # ``tests/test_backward_compat_v0_0_10.py``) expects
         # ``clusterByAuto=False`` and ``cdcApplyChangesFlowsSchemas={}``
         # because that test exercises a different code path:
-        # re-running v0.0.11 onboarding against a v0.0.10 JSON file,
+        # re-running v0.1.0 onboarding against a v0.0.10 JSON file,
         # which goes through ``__get_cluster_by_auto`` (returns False)
         # and ``get_cdc_apply_changes_flows_json`` (returns {}). Don't
         # copy those expectations here -- they're for onboarding-side
@@ -207,7 +207,7 @@ if BronzeDataflowSpec is not None:
     if bronze_ok == len(rows):
         log_list.append(
             f"BronzeDataflowSpec backward-compat: {bronze_ok}/{len(rows)} rows "
-            "materialized with v0.0.11 defaults. Passed!"
+            "materialized with v0.1.0 defaults. Passed!"
         )
     else:
         log_list.append(
@@ -236,7 +236,7 @@ if BronzeDataflowSpec is not None:
                 f"failed: {exc}. Failed!"
             )
             continue
-        # Silver has the same set of new v0.0.11 fields as bronze
+        # Silver has the same set of new v0.1.0 fields as bronze
         # MINUS ``cdcApplyChangesFlowsSchemas`` (silver doesn't carry
         # a per-flow schemas map -- see additional_silver_df_columns
         # in dataflow_spec.py:307-324). Same read-side backfill
@@ -265,7 +265,7 @@ if BronzeDataflowSpec is not None:
     if silver_ok == len(rows):
         log_list.append(
             f"SilverDataflowSpec backward-compat: {silver_ok}/{len(rows)} rows "
-            "materialized with v0.0.11 defaults. Passed!"
+            "materialized with v0.1.0 defaults. Passed!"
         )
     else:
         log_list.append(

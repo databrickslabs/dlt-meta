@@ -91,7 +91,7 @@ If you have custom runner notebooks, update the pip install line:
 %pip install dlt-meta==0.0.10
 
 # New
-%pip install databricks-labs-sdp-meta==0.0.11
+%pip install databricks-labs-sdp-meta==0.1.0
 ```
 
 The import in the notebook remains the same:

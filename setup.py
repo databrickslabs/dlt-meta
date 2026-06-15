@@ -12,14 +12,14 @@ sourced from ``compat/``:
 
   * ``dlt_meta`` (from ``compat/dlt_meta/``) -- flat re-export
     package for v0.0.10 users who already migrated to
-    ``from dlt_meta import …``. Shipping it inside the v0.0.11 main
+    ``from dlt_meta import …``. Shipping it inside the v0.1.0 main
     wheel means ``pip install databricks-labs-sdp-meta`` is the only
     thing customers need; they don't have to track a second package.
   * ``src`` (from ``compat/src/``) -- real Python package whose
     ``__init__.py`` populates ``sys.modules`` with ``src.<sub>`` ->
     ``databricks.labs.sdp_meta.<sub>`` aliases at import time. This
     is what makes a v0.0.10 customer's runner notebook keep working
-    unchanged after their wheel is upgraded to v0.0.11. The
+    unchanged after their wheel is upgraded to v0.1.0. The
     customer's ``from src.dataflow_pipeline import …`` line resolves
     through normal Python import machinery: load ``src/__init__.py``,
     register aliases, fetch the canonical module from
@@ -36,7 +36,7 @@ installed ``.pth`` is silently ignored. Resolving through a real
 package (``compat/src/``) sidesteps the ``.pth`` lifecycle entirely.
 
 The standalone ``compat/`` package remains as a no-op PyPI redirect
-(``install_requires=["databricks-labs-sdp-meta>=0.0.11"]``) so
+(``install_requires=["databricks-labs-sdp-meta>=0.1.0"]``) so
 ``pip install dlt-meta`` keeps working from PyPI; it ships a
 duplicate of the same shim it would otherwise install transitively,
 which pip detects as already-satisfied and no-ops.
@@ -63,7 +63,7 @@ MCP_REQUIREMENTS = ["mcp>=1.0,<2.0"]
 
 setup(
     name="databricks-labs-sdp-meta",
-    version="0.0.11",
+    version="0.1.0",
     python_requires=">=3.8",
     setup_requires=["wheel>=0.37.1,<=0.42.0"],
     install_requires=INSTALL_REQUIRES,
