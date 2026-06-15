@@ -3,15 +3,15 @@
 <!-- Top bar will be removed from PyPi packaged versions -->
 <!-- Dont remove: exclude package -->
 
-[Documentation](https://databrickslabs.github.io/dlt-meta/) |
+[Documentation](https://databrickslabs.github.io/sdp-meta/) |
 [Release Notes](CHANGELOG.md) |
-[Examples](https://github.com/databrickslabs/dlt-meta/tree/main/examples)
+[Examples](https://github.com/databrickslabs/sdp-meta/tree/main/examples)
 
 <!-- Dont remove: end exclude package -->
 
 ---
 
-[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://databrickslabs.github.io/sdp-meta/) [![PyPI](https://img.shields.io/badge/pypi-v0.0.10-green)](https://pypi.org/project/dlt-meta/) [![Build](https://img.shields.io/github/workflow/status/databrickslabs/dlt-meta/build/main)](https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml) [![Coverage](https://img.shields.io/codecov/c/github/databrickslabs/dlt-meta)](https://codecov.io/gh/databrickslabs/dlt-meta) [![Style](https://img.shields.io/badge/code%20style-flake8-blue)](https://github.com/PyCQA/flake8) [![PyPI Downloads](https://static.pepy.tech/badge/dlt-meta/month)](https://pepy.tech/projects/dlt-meta)
+[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://databrickslabs.github.io/sdp-meta/) [![PyPI](https://img.shields.io/badge/pypi-v0.1.0-green)](https://pypi.org/project/sdp-meta/) [![Build](https://img.shields.io/github/workflow/status/databrickslabs/sdp-meta/build/main)](https://github.com/databrickslabs/sdp-meta/actions/workflows/onpush.yml) [![Coverage](https://img.shields.io/codecov/c/github/databrickslabs/sdp-meta)](https://codecov.io/gh/databrickslabs/sdp-meta) [![Style](https://img.shields.io/badge/code%20style-flake8-blue)](https://github.com/PyCQA/flake8) [![PyPI Downloads](https://static.pepy.tech/badge/sdp-meta/month)](https://pepy.tech/projects/sdp-meta)
 
 ---
 
@@ -21,7 +21,7 @@
 
 In practice, a single generic pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads. This approach streamlines the development and management of data pipelines, allowing for a more efficient and scalable data processing workflow
 
-[Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines and `SDP-META`  are designed to complement each other.  [Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines provide a declarative, intent-driven foundation for building and managing data workflows, while SDP-META adds a powerful configuration-driven layer that automates and scales pipeline creation. By combining these approaches, teams can move beyond manual coding to achieve true enterprise-level agility, governance, and efficiency, templatizing and automating pipelines for any scale of modern data-driven business
+[Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines) and `SDP-META` are designed to complement each other. [Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines) provide a declarative, intent-driven foundation for building and managing data workflows, while SDP-META adds a configuration-driven layer that automates and scales pipeline creation. By combining these approaches, teams can achieve enterprise-level agility, governance, and efficiency, templatizing and automating pipelines for any scale of modern data-driven business.
 
 ### Components:
 
@@ -41,11 +41,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 
 ## High-Level Process Flow:
 
-![SDP-META High-Level Process Flow](./docs/static/images/solutions_overview.png)
-
-## Steps
-
-![SDP-META Stages](./docs/static/images/sdp-meta_stages.png)
+![SDP-META Architecture](./docs/static/img/sdp-meta-architecture.svg)
 
 ## SDP-META `Lakeflow Spark Declarative Pipelines` Features support
 | Features  | SDP-META Support |
@@ -68,7 +64,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 
 ## Getting Started
 
-Refer to the [Getting Started](https://databrickslabs.github.io/dlt-meta/getting_started) docs for the long form. The short form, in order of recommendation:
+Refer to the [Getting Started](https://databrickslabs.github.io/sdp-meta/getting_started) docs for the long form. The short form, in order of recommendation:
 
 1. **Use the [Declarative Automation Bundle](https://docs.databricks.com/aws/en/dev-tools/bundles/) interface** for any real work — `dev`/`prod` targets, git-tracked state, CI/CD-ready. New developers can use `bundle-init --quickstart` to skip every prompt and get a working bundle in one command. This is the recommended path; the interactive `onboard`/`deploy` CLI below is kept for first-touch exploration only.
 2. **Use the interactive `onboard` + `deploy` CLI** if you just want to kick the tires against a single workspace.
@@ -77,8 +73,8 @@ Refer to the [Getting Started](https://databrickslabs.github.io/dlt-meta/getting
 
 - Python 3.8 – 3.12 (3.10, 3.11, or 3.12 recommended). The pinned `pyspark==3.5.5` test stack does not officially support Python 3.13+; using 3.13 / 3.14 will surface as cloudpickle / recursion errors at test time. See [Troubleshooting](#troubleshooting) below.
 - Databricks CLI v0.213 or later. See [install instructions](https://docs.databricks.com/en/dev-tools/cli/tutorial.html).
-  - macOS: ![macos_install_databricks](docs/static/images/macos_1_databrickslabsmac_installdatabricks.gif)
-  - Windows: ![windows_install_databricks.png](docs/static/images/windows_install_databricks.png)
+  - macOS: ![macos_install_databricks](docs/static/img/macos_1_databrickslabsmac_installdatabricks.gif)
+  - Windows: ![windows_install_databricks.png](docs/static/img/windows_install_databricks.png)
 - Authenticate your machine to a workspace:
   ```bash
   databricks auth login --host WORKSPACE_HOST
@@ -164,7 +160,7 @@ If you want to run the existing demo files, set up the repo first:
    ```bash
    databricks labs sdp-meta onboard
    ```
-   ![onboardingDLTMeta_2.gif](docs/static/images/onboardingDLTMeta_2.gif)
+   ![onboardingDLTMeta_2.gif](docs/static/img/onboardingDLTMeta_2.gif)
 
    Pushes code+data to your workspace, creates an onboarding job, and opens the job URL in your browser.
 
@@ -172,7 +168,7 @@ If you want to run the existing demo files, set up the repo first:
    ```bash
    databricks labs sdp-meta deploy
    ```
-   ![deployingDLTMeta_bronze_silver.gif](docs/static/images/deployingDLTMeta_bronze_silver.gif)
+   ![deployingDLTMeta_bronze_silver.gif](docs/static/img/deployingDLTMeta_bronze_silver.gif)
 
    Deploys the Lakeflow Spark Declarative Pipeline and opens its URL in your browser.
 
@@ -244,8 +240,8 @@ pip install -r requirements-dev.txt # also covers the test stack
 
 ## More questions
 
-Refer to the [FAQ](https://databrickslabs.github.io/dlt-meta/faq)
-and SDP-META [documentation](https://databrickslabs.github.io/dlt-meta/)
+Refer to the [FAQ](https://databrickslabs.github.io/sdp-meta/faq)
+and SDP-META [documentation](https://databrickslabs.github.io/sdp-meta/)
 
 # Project Support
 

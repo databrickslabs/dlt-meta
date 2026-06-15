@@ -1,4 +1,4 @@
-# DLT-META Compatibility Package
+# SDP-META Compatibility Package
 
 > **⚠️ DEPRECATED**: This package is a backwards-compatibility wrapper. Please migrate to `databricks-labs-sdp-meta`.
 
@@ -106,4 +106,4 @@ CI verifies the wheel path; the editable-install path is a dev-loop convenience 
 
 ## Support
 
-For issues, please file them at: https://github.com/databrickslabs/dlt-meta/issues
+For issues, please file them at: https://github.com/databrickslabs/sdp-meta/issues

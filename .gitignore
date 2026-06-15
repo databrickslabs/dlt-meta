@@ -13,9 +13,10 @@ spark-warehouse
 # C extensions
 *.so
 
-# Hugo
-docs/.hugo_build.lock
-docs/public/
+# Docusaurus
+docs/build/
+docs/.docusaurus/
+docs/node_modules/
 
 # Local DAB scaffolds and demo runs (created by `databricks labs sdp-meta
 # bundle-init` and `demo/launch_dab_template_demo.py` -- per-developer
