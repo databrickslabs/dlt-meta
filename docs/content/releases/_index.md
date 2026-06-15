@@ -4,7 +4,7 @@ date: 2021-08-04T14:50:11-04:00
 weight: 80
 draft: false
 ---
-# v0.0.11
+# v0.1.0
 
 ## Enhancements
 - Added automatic liquid clustering support (`cluster_by_auto`) for bronze and silver tables [Issue #238](https://github.com/databrickslabs/sdp-meta/issues/238)

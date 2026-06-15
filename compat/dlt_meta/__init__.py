@@ -8,7 +8,7 @@ This module wires three independent compatibility surfaces:
 
 1. **Flat re-exports** under the ``dlt_meta.<name>`` namespace
    (``from dlt_meta import DataflowPipeline`` etc.). Names with v0.0.10
-   spellings are aliased to their v0.0.11 counterparts (``DLTMeta`` →
+   spellings are aliased to their v0.1.0 counterparts (``DLTMeta`` →
    ``SDPMeta``, ``DLT_META_RUNNER_NOTEBOOK`` → ``SDP_META_RUNNER_NOTEBOOK``).
 2. **``src.*`` aliasing** for v0.0.10 customer notebooks that still type
    ``from src.dataflow_pipeline import DataflowPipeline``. Module objects
@@ -23,7 +23,7 @@ This module wires three independent compatibility surfaces:
    a stub that raises a clear ``Lakeflow SDP runtime`` error on any
    attribute access.
 
-Removal timeline: every alias here is scheduled for removal in v0.1.0.
+Removal timeline: every alias here is scheduled for removal in v0.2.0.
 """
 from __future__ import annotations
 
@@ -220,7 +220,7 @@ def _warn_src_alias_once(alias: str) -> None:
     )
     warnings.warn(
         f"'{alias}' is a v0.0.10 compatibility alias and will be removed "
-        f"in v0.1.0. Migrate to 'from {canonical} import …' or "
+        f"in v0.2.0. Migrate to 'from {canonical} import …' or "
         f"'from dlt_meta import …'. See "
         f"docs/content/getting_started/sdp_meta_renaming.md.",
         DeprecationWarning,

@@ -141,7 +141,7 @@ def _path_to_file_uri(local_path: str) -> str:
 
 # Runner notebook template for the SDP/DLT pipeline. The ``{dependency}``
 # placeholder is replaced at deploy time with either:
-#   * a PyPI spec, e.g. ``databricks-labs-sdp-meta==0.0.11``
+#   * a PyPI spec, e.g. ``databricks-labs-sdp-meta==0.1.0``
 #   * a UC Volumes wheel path, e.g.
 #     ``/Volumes/<catalog>/<schema>/<volume>/databricks_labs_sdp_meta-<ver>-py3-none-any.whl``
 # The latter is the recommended path for air-gapped workspaces / private
@@ -149,7 +149,6 @@ def _path_to_file_uri(local_path: str) -> str:
 SDP_META_RUNNER_NOTEBOOK = """
 # Databricks notebook source
 # MAGIC %pip install {dependency}
-# MAGIC dbutils.library.restartPython()
 
 # COMMAND ----------
 layer = spark.conf.get("layer", None)
@@ -1014,12 +1013,12 @@ class SDPMeta:
 
 # Backwards-compatibility alias for v0.0.10 customers.
 #
-# v0.0.10 published the entry-class as ``DLTMeta``; v0.0.11 renamed it to
+# v0.0.10 published the entry-class as ``DLTMeta``; v0.1.0 renamed it to
 # ``SDPMeta``. The ``compat/dlt_meta`` shim's ``src.*`` import alias maps
 # ``src.cli`` to this module, so ``from src.cli import DLTMeta`` resolves
 # only if ``DLTMeta`` is bound here (the shim aliases module objects, not
 # individual symbols). Mirrors the ``DLT_META_RUNNER_NOTEBOOK`` rebind
-# at the top of this file. Will be removed in v0.1.0 alongside the rest
+# at the top of this file. Will be removed in v0.2.0 alongside the rest
 # of the ``src.*`` shim.
 DLTMeta = SDPMeta
 

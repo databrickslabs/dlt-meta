@@ -189,6 +189,16 @@ def bundle_prepare_wheel(cmd: BundlePrepareWheelCommand) -> str:
     dist_dir.mkdir(exist_ok=True)
     logger.info("Building sdp-meta wheel in %s ...", dist_dir)
 
+    # ``SDP_META_NO_BUILD_ISOLATION`` defaults to ``"1"`` here so the
+    # pip wheel build skips PEP 517 build isolation and reuses the build
+    # tools already installed in the active interpreter (setuptools +
+    # wheel). With isolation ON, pip downloads a fresh setuptools into
+    # an ephemeral venv on every invocation; that download routinely
+    # fails on Databricks-internal pip proxies that lag the public
+    # PyPI index for newly-published setuptools releases (404 on the
+    # ``.metadata`` file). The mirror of this knob in ``install.py``
+    # uses the same env var; both default-on so users don't have to
+    # opt in.
     env = os.environ.copy()
     env.setdefault("SDP_META_NO_BUILD_ISOLATION", "1")
 
@@ -196,6 +206,8 @@ def bundle_prepare_wheel(cmd: BundlePrepareWheelCommand) -> str:
         sys.executable, "-m", "pip", "wheel", "--no-deps",
         "--wheel-dir", str(dist_dir),
     ]
+    if env.get("SDP_META_NO_BUILD_ISOLATION", "").lower() in ("1", "true", "yes"):
+        pip_argv.append("--no-build-isolation")
     index_url = cmd.pip_index_url or os.environ.get("PIP_INDEX_URL")
     if index_url:
         pip_argv.extend(["--index-url", index_url])
@@ -487,7 +499,7 @@ def _sdp_meta_sanity_checks(bundle_dir: Path) -> List[str]:
         errors.append(
             "variables.yml: `sdp_meta_dependency` is still the `__SET_ME__` "
             "sentinel. Replace it with either a PyPI coordinate (e.g. "
-            "`databricks-labs-sdp-meta==0.0.11`) or a UC-volume wheel path "
+            "`databricks-labs-sdp-meta==0.1.0`) or a UC-volume wheel path "
             "(produced by `databricks labs sdp-meta bundle-prepare-wheel`)."
         )
     elif wheel_source == "volume_path" and not sdp_meta_dep.startswith("/Volumes/"):

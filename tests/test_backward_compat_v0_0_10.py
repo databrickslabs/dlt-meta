@@ -1,15 +1,15 @@
-"""Backward-compatibility tests: v0.0.11 must not break v0.0.10 customers.
+"""Backward-compatibility tests: v0.1.0 must not break v0.0.10 customers.
 
-When a customer upgrades the wheel from v0.0.10 to v0.0.11, three
+When a customer upgrades the wheel from v0.0.10 to v0.1.0, three
 independent surfaces have to keep working without any action on their
 side:
 
 1. **Persisted dataflowspec Delta tables.** The customer's existing
    ``bronze_dataflowspec`` / ``silver_dataflowspec`` Delta tables were
-   written by v0.0.10 code and physically lack the v0.0.11 columns
+   written by v0.0.10 code and physically lack the v0.1.0 columns
    (``clusterByAuto``, ``cdcApplyChangesFlows``,
    ``cdcApplyChangesFlowsSchemas``, ``rowFilter``,
-   ``quarantineRowFilter``). When v0.0.11's
+   ``quarantineRowFilter``). When v0.1.0's
    :func:`get_bronze_dataflow_spec` / :func:`get_silver_dataflow_spec`
    read those tables, :meth:`DataflowSpecUtils.populate_additional_df_cols`
    must backfill the missing columns with ``None`` so the dataclass
@@ -17,7 +17,7 @@ side:
 
 2. **v0.0.10-format onboarding files.** A customer who re-runs
    onboarding with their old onboarding JSON (no new fields) must end
-   up with a persisted spec where every v0.0.11-new field is ``None``.
+   up with a persisted spec where every v0.1.0-new field is ``None``.
 
 3. **DataflowPipeline runtime.** A pipeline constructed from a legacy
    v0.0.10 spec (new fields ``None``) must take the legacy code paths
@@ -76,7 +76,7 @@ from databricks.labs.sdp_meta.onboard_dataflowspec import OnboardDataflowspec  #
 
 # v0.0.10 ``BronzeDataflowSpec`` field set, in dataclass declaration order.
 # Sourced verbatim from ``git show v0.0.10:src/dataflow_spec.py``. DO NOT
-# add v0.0.11 fields here — that's the entire point of the fixture.
+# add v0.1.0 fields here — that's the entire point of the fixture.
 V0_0_10_BRONZE_ROW = {
     "dataFlowId": "100",
     "dataFlowGroup": "A1",
@@ -145,7 +145,7 @@ V0_0_10_SILVER_ROW = {
     "sinks": [],
 }
 
-# Fields added in v0.0.11. The expected default per field depends on the
+# Fields added in v0.1.0. The expected default per field depends on the
 # upgrade path:
 #
 #   - Read-time path (persisted Delta dataflowspec table missing these
@@ -209,9 +209,9 @@ class TestV010PersistedDataflowSpecCompatibility(unittest.TestCase):
     v0.0.10-written dataflowspec Delta table.
     """
 
-    def test_populate_additional_bronze_columns_backfills_v0_0_11_new_fields(self):
+    def test_populate_additional_bronze_columns_backfills_v0_1_0_new_fields(self):
         legacy_row = copy.deepcopy(V0_0_10_BRONZE_ROW)
-        # Sanity: the fixture lacks every v0.0.11 field.
+        # Sanity: the fixture lacks every v0.1.0 field.
         for field in NEW_BRONZE_FIELDS_AT_READ:
             self.assertNotIn(
                 field, legacy_row,
@@ -232,7 +232,7 @@ class TestV010PersistedDataflowSpecCompatibility(unittest.TestCase):
                 f"{field!r} backfilled with {target_row[field]!r}; expected None",
             )
 
-    def test_populate_additional_silver_columns_backfills_v0_0_11_new_fields(self):
+    def test_populate_additional_silver_columns_backfills_v0_1_0_new_fields(self):
         legacy_row = copy.deepcopy(V0_0_10_SILVER_ROW)
         for field in NEW_SILVER_FIELDS_AT_READ:
             self.assertNotIn(
@@ -291,12 +291,12 @@ class TestV010PersistedDataflowSpecCompatibility(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class TestV010OnboardingFileCompatibility(SDPFrameworkTestCase):
-    """v0.0.10 onboarding JSON → v0.0.11 onboarding code → persisted spec.
+    """v0.0.10 onboarding JSON → v0.1.0 onboarding code → persisted spec.
 
     The existing ``test_onboard_bronze_silver_with_v10`` in
     ``tests/test_onboard_dataflowspec.py`` only asserts row count.
     Here we round-trip through the real Delta read path and verify
-    every persisted spec has the v0.0.11-new fields defaulted to
+    every persisted spec has the v0.1.0-new fields defaulted to
     ``None`` — proving an upgrading customer who re-runs onboarding
     against their old JSON file doesn't accidentally pick up unintended
     values for the new fields.
@@ -382,7 +382,7 @@ class TestV010DataflowPipelineRuntimeCompatibility(SDPFrameworkTestCase):
 
         1. snapshot source     → ``apply_changes_from_snapshot``
         2. dataQualityExpectations → ``write_layer_with_dqe``
-        3. cdcApplyChangesFlows (v0.0.11)  → ``cdc_apply_changes_flows``
+        3. cdcApplyChangesFlows (v0.1.0)  → ``cdc_apply_changes_flows``
         4. cdcApplyChanges     → ``cdc_apply_changes``
         5. else                → ``_write_standard_table``
 
@@ -449,7 +449,7 @@ class TestV010DataflowPipelineRuntimeCompatibility(SDPFrameworkTestCase):
     ):
         """``cdcApplyChanges`` (legacy single-source) → ``cdc_apply_changes`` path.
 
-        The dispatch must NOT take the v0.0.11 multi-source
+        The dispatch must NOT take the v0.1.0 multi-source
         ``cdc_apply_changes_flows`` branch (``cdcApplyChangesFlows`` is
         ``None`` on a legacy spec).
         """

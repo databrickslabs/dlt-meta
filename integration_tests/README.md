@@ -161,7 +161,7 @@ Two version-line profiles ship in [`integration_tests/version_profiles.py`](vers
 | Profile | Refs it owns | Distribution | Pipeline-config key | Runner notebook | Cross-namespace compatibility |
 |---|---|---|---|---|---|
 | `legacy` | `v0.0.1` … `v0.0.10`, `main` | `dlt_meta` | `dlt_meta_whl` (single) | imports `from src.*` | — |
-| `current` | `v0.0.11`+, `feature/sdp-meta` | `databricks_labs_sdp_meta` | `sdp_meta_whl` (single) | imports `from databricks.labs.sdp_meta.*` | When the TARGET wheel comes from this profile and the SOURCE was `legacy`, the wheel BUNDLES a legacy-namespace compat shim (the `dlt_meta` package + a `dlt_meta.pth` file at the wheel's purelib root, configured in the top-level `setup.py`). After `%pip install` lands the wheel, CPython's `site.py` execs the bundled `.pth` at the next interpreter startup — exactly when DLT runs the runner notebook (after `%pip install` and in a fresh interpreter) — so the shim's `src.*` aliases are registered before the source notebook's `from src.dataflow_pipeline import …` resolves. Same-namespace upgrades (`current → current`, e.g. `v0.0.11 → v0.0.12`) install one wheel and don't need any of this. |
+| `current` | `v0.1`+, `feature/sdp-meta` | `databricks_labs_sdp_meta` | `sdp_meta_whl` (single) | imports `from databricks.labs.sdp_meta.*` | When the TARGET wheel comes from this profile and the SOURCE was `legacy`, the wheel BUNDLES a legacy-namespace compat shim (the `dlt_meta` package + a `dlt_meta.pth` file at the wheel's purelib root, configured in the top-level `setup.py`). After `%pip install` lands the wheel, CPython's `site.py` execs the bundled `.pth` at the next interpreter startup — exactly when DLT runs the runner notebook (after `%pip install` and in a fresh interpreter) — so the shim's `src.*` aliases are registered before the source notebook's `from src.dataflow_pipeline import …` resolves. Same-namespace upgrades (`current → current`, e.g. `v0.1.0 → v0.1.1`) install one wheel and don't need any of this. |
 
 **Why one wheel + one `%pip install`, not two?** The first cut of this test installed two wheels (main + a separate compat shim) under two pipeline-config keys, which forced either a `%pip install $a $b` magic shape or two separate `%pip install` lines. Both failed on serverless DLT: `%pip install` magic substitution is fragile when composing multiple wheels in one line (variables quote as single args), and two install lines in one cell don't reliably compose (only the last seems to survive). Bundling the shim into the main wheel sidesteps both — one wheel install satisfies both the canonical namespace and the legacy-namespace import surface in one shot.
 
@@ -203,13 +203,13 @@ python integration_tests/run_backward_compat_tests.py \
     --install_mode=git \
     --profile=<<DEFAULT>>
 
-# Future release pair (current → current, e.g. v0.0.11 → v0.0.12).
+# Future release pair (current → current, e.g. v0.1.0 → v0.1.1).
 # Same one-wheel/one-key contract — the namespace does not change,
 # so no compat shim is needed in the wheel either way.
 python integration_tests/run_backward_compat_tests.py \
     --uc_catalog_name=<<uc catalog name>> \
-    --source_version=v0.0.11 \
-    --target_version=v0.0.12 \
+    --source_version=v0.1.0 \
+    --target_version=v0.1.1 \
     --profile=<<DEFAULT>>
 
 # Custom branches with explicit profile pins (used when the branch

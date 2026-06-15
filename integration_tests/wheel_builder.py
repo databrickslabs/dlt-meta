@@ -1,7 +1,7 @@
 """Git-ref-based wheel builder for backward-compatibility integration tests.
 
 The backward-compatibility test runs Phase 1 against a v0.0.10 wheel and
-Phase 2 against a v0.0.11 wheel built from the ``feature/sdp-meta`` branch.
+Phase 2 against a v0.1.0 wheel built from the ``feature/sdp-meta`` branch.
 Building both wheels from the SAME local clone — without polluting the
 working tree — is what this module does.
 
@@ -130,7 +130,7 @@ class GitRefWheelBuilder:
         bdist_wheel`` inside ``<worktree>/<subdir>`` instead of the
         worktree root. Use this to build sibling packages that ship
         their own setup.py (e.g. the ``compat/`` directory of the
-        v0.0.11 ref builds the ``dlt_meta`` compatibility wheel).
+        v0.1.0 ref builds the ``dlt_meta`` compatibility wheel).
 
         Worktree paths are slugified per (ref, subdir) so two builds
         from the same ref but different subdirs don't collide.
@@ -174,7 +174,7 @@ class GitRefWheelBuilder:
         The produced wheel is still copied into ``<build_root>/dist/``
         (the same location as ref-based builds) so callers can use it
         interchangeably. The wheel's filename is whatever the local
-        ``setup.py`` says (e.g. ``dlt_meta-0.0.11-py3-none-any.whl``);
+        ``setup.py`` says (e.g. ``dlt_meta-0.1.0-py3-none-any.whl``);
         if a same-named wheel from a previous ref-based build is
         already in ``dist/``, this build silently overwrites it.
 

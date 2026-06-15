@@ -28,22 +28,22 @@ Today two profiles ship out of the box:
                     imports ``from src.*``, pipeline config key
                     ``dlt_meta_whl``. One key, one ``%pip install``,
                     byte-for-byte v0.0.10 customer notebook.
-  * ``CURRENT``  -- v0.0.11 and later (and the ``feature/sdp-meta`` branch
-                    that becomes v0.0.11 at release). Dist name
+  * ``CURRENT``  -- v0.1.0 and later (and the ``feature/sdp-meta`` branch
+                    that becomes v0.1.0 at release). Dist name
                     ``databricks_labs_sdp_meta``, runner imports
                     ``from databricks.labs.sdp_meta.*``, pipeline config
-                    key ``sdp_meta_whl``. The v0.0.11 main wheel BUNDLES
+                    key ``sdp_meta_whl``. The v0.1.0 main wheel BUNDLES
                     a legacy-namespace compat surface (a real ``src``
                     package + ``dlt_meta`` package re-exporting
                     ``databricks.labs.sdp_meta.*``), so a LEGACY-source
                     customer who flips their ``dlt_meta_whl`` config from
-                    a v0.0.10 wheel to a v0.0.11 wheel keeps working
+                    a v0.0.10 wheel to a v0.1.0 wheel keeps working
                     without changing any other line in their pipeline
                     config or runner notebook. Bundling avoids two-wheel/
                     two-install contracts that don't compose reliably on
                     serverless DLT.
 
-When a future v0.1.0 changes the contract again, register a new
+When a future v0.2.0 changes the contract again, register a new
 ``VersionProfile`` and add its ref-prefix to ``KNOWN_PROFILES``. Unknown
 refs (e.g. arbitrary feature branches or SHAs) fall back to ``CURRENT``
 and emit a warning -- callers can override the resolver via the
@@ -85,7 +85,7 @@ class VersionProfile:
         profile ships its own runner so the import style + config
         key match.
       onboarding_a1_template: Path to the A1 (initial) onboarding
-        template. Each profile uses its own shape so v0.0.11-only fields
+        template. Each profile uses its own shape so v0.1.0-only fields
         (``rowFilter`` etc.) only appear when the source is CURRENT.
       onboarding_a2_template: Path to the A2 (incremental) onboarding
         template. Same shape constraints as A1.
@@ -116,7 +116,7 @@ class VersionProfile:
            ``ModuleNotFoundError``.
 
         The current design BUNDLES a real top-level ``src`` package
-        (plus a ``dlt_meta`` package) directly into the v0.0.11 main
+        (plus a ``dlt_meta`` package) directly into the v0.1.0 main
         wheel (see top-level ``setup.py``). One ``%pip install`` of one
         wheel is enough; the runner's ``from src.dataflow_pipeline
         import …`` then resolves through normal import machinery --
@@ -157,7 +157,7 @@ LEGACY = VersionProfile(
         "v0.0.8",
         "v0.0.9",
         "v0.0.10",
-        "main",  # main historically tracked the LEGACY shape pre-v0.0.11.
+        "main",  # main historically tracked the LEGACY shape pre-v0.1.0.
     ),
     distribution="dlt_meta",
     pipeline_config_whl_key="dlt_meta_whl",
@@ -177,14 +177,15 @@ LEGACY = VersionProfile(
 CURRENT = VersionProfile(
     name="current",
     description=(
-        "v0.0.11 and later (databricks-labs-sdp-meta distribution, "
+        "v0.1.0 and later (databricks-labs-sdp-meta distribution, "
         "databricks.labs.sdp_meta imports)"
     ),
     ref_prefixes=(
-        "v0.0.11",
-        "v0.0.12",  # placeholder for the next release; treat any later
-                    # tag as CURRENT until a profile says otherwise.
-        "v0.1",
+        "v0.1",     # matches v0.1.0, v0.1.1, ... v0.1.x
+        "v0.2",     # placeholder for the next minor release; treat any
+                    # later v0.2.x tag as CURRENT until a profile says
+                    # otherwise. (When v0.2.0 changes the contract,
+                    # register a new VersionProfile and remove this.)
         "feature/sdp-meta",
     ),
     distribution="databricks_labs_sdp_meta",

@@ -205,7 +205,7 @@ class SanityChecksTests(unittest.TestCase):
                     "dataflow_group": {"default": "g"},
                     "onboarding_file_name": {"default": "onboarding.yml"},
                     "wheel_source": {"default": "pypi"},
-                    "sdp_meta_dependency": {"default": "databricks-labs-sdp-meta==0.0.11"},
+                    "sdp_meta_dependency": {"default": "databricks-labs-sdp-meta==0.1.0"},
                 }
             }),
         )
@@ -310,7 +310,7 @@ class SanityChecksTests(unittest.TestCase):
             vars_yml = tmp / "resources" / "variables.yml"
             doc = yaml.safe_load(vars_yml.read_text())
             doc["variables"]["wheel_source"]["default"] = "volume_path"
-            doc["variables"]["sdp_meta_dependency"]["default"] = "databricks-labs-sdp-meta==0.0.11"
+            doc["variables"]["sdp_meta_dependency"]["default"] = "databricks-labs-sdp-meta==0.1.0"
             vars_yml.write_text(yaml.safe_dump(doc))
             errors = _sdp_meta_sanity_checks(tmp)
             self.assertTrue(
@@ -335,7 +335,7 @@ class SanityChecksTests(unittest.TestCase):
             doc = yaml.safe_load(vars_yml.read_text())
             doc["variables"]["wheel_source"]["default"] = "volume_path"
             doc["variables"]["sdp_meta_dependency"]["default"] = (
-                "/Volumes/main/sdp/wheels/databricks_labs_sdp_meta-0.0.11-py3-none-any.whl"
+                "/Volumes/main/sdp/wheels/databricks_labs_sdp_meta-0.1.0-py3-none-any.whl"
             )
             vars_yml.write_text(yaml.safe_dump(doc))
             self.assertEqual(_sdp_meta_sanity_checks(tmp), [])
@@ -1030,7 +1030,7 @@ class BundleValidateUnitTests(unittest.TestCase):
                     "dataflow_group": {"default": "g"},
                     "onboarding_file_name": {"default": "onboarding.yml"},
                     "wheel_source": {"default": "pypi"},
-                    "sdp_meta_dependency": {"default": "databricks-labs-sdp-meta==0.0.11"},
+                    "sdp_meta_dependency": {"default": "databricks-labs-sdp-meta==0.1.0"},
                 }
             })
         )
@@ -1089,7 +1089,7 @@ class EndToEndRenderTests(unittest.TestCase):
             "onboarding_file_format": "yaml",
             "dataflow_group": "demo_group",
             "wheel_source": "pypi",
-            "sdp_meta_dependency": "databricks-labs-sdp-meta==0.0.11",
+            "sdp_meta_dependency": "databricks-labs-sdp-meta==0.1.0",
             "author": "maintainer",
         }
         base.update(overrides)
@@ -1223,7 +1223,7 @@ class EndToEndRenderTests(unittest.TestCase):
             vars_yml = rendered / "resources" / "variables.yml"
             doc = yaml.safe_load(vars_yml.read_text())
             doc["variables"]["sdp_meta_dependency"]["default"] = (
-                "databricks-labs-sdp-meta==0.0.11"
+                "databricks-labs-sdp-meta==0.1.0"
             )
             vars_yml.write_text(yaml.safe_dump(doc))
             self._strip_placeholders(rendered / "conf" / "onboarding.yml", "yml")
@@ -1304,8 +1304,8 @@ class EndToEndRenderTests(unittest.TestCase):
                     self._common_answers(
                         wheel_source=src,
                         sdp_meta_dependency=(
-                            "databricks-labs-sdp-meta==0.0.11" if src == "pypi"
-                            else "/Volumes/cat/sch/vol/databricks_labs_sdp_meta-0.0.11-py3-none-any.whl"
+                            "databricks-labs-sdp-meta==0.1.0" if src == "pypi"
+                            else "/Volumes/cat/sch/vol/databricks_labs_sdp_meta-0.1.0-py3-none-any.whl"
                         ),
                     ),
                     tmp,
@@ -1396,7 +1396,7 @@ class EndToEndRenderTests(unittest.TestCase):
             doc = yaml.safe_load(vars_yml.read_text())
             doc["variables"]["sdp_meta_dependency"]["default"] = (
                 "/Volumes/main/sdp_meta_dataflowspecs/sdp_meta_wheels/"
-                "databricks_labs_sdp_meta-0.0.11-py3-none-any.whl"
+                "databricks_labs_sdp_meta-0.1.0-py3-none-any.whl"
             )
             vars_yml.write_text(yaml.safe_dump(doc))
             self.assertEqual(_sdp_meta_sanity_checks(rendered), [])
@@ -1527,7 +1527,7 @@ class BundleAddFlowTests(unittest.TestCase):
                     "onboarding_file_name": {"default": onboarding_name},
                     "onboarding_file_format": {"default": onboarding_format},
                     "wheel_source": {"default": "pypi"},
-                    "sdp_meta_dependency": {"default": "databricks-labs-sdp-meta==0.0.11"},
+                    "sdp_meta_dependency": {"default": "databricks-labs-sdp-meta==0.1.0"},
                 }
             })
         )

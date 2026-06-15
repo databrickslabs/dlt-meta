@@ -10,15 +10,15 @@ Two profiles ship out of the box -- see ``version_profiles.py``:
 
   * ``LEGACY``   -- v0.0.1 through v0.0.10 (dlt_meta dist, ``from src.*``
                     runner imports, ``dlt_meta_whl`` config key).
-  * ``CURRENT``  -- v0.0.11 and later (databricks_labs_sdp_meta dist,
+  * ``CURRENT``  -- v0.1.0 and later (databricks_labs_sdp_meta dist,
                     ``from databricks.labs.sdp_meta.*`` runner imports,
-                    ``sdp_meta_whl`` config key). The v0.0.11 main wheel
+                    ``sdp_meta_whl`` config key). The v0.1.0 main wheel
                     BUNDLES a legacy-namespace compat surface: a real
                     top-level ``src`` package (plus a ``dlt_meta``
                     package), both re-exporting
                     ``databricks.labs.sdp_meta.*``. So a LEGACY-source
                     customer who flips their ``dlt_meta_whl`` config from
-                    a v0.0.10 wheel to a v0.0.11 wheel keeps working
+                    a v0.0.10 wheel to a v0.1.0 wheel keeps working
                     without any other change -- their
                     ``from src.* import …`` resolves through the real
                     ``src`` package via normal import machinery.
@@ -64,7 +64,7 @@ file the customer would have on the source version. It reads exactly
 ONE pipeline-config key (``dlt_meta_whl`` for LEGACY) and runs ONE
 ``%pip install $dlt_meta_whl`` line. For LEGACY -> CURRENT cross-
 namespace upgrades the source runner's ``from src.* import …`` keeps
-resolving because the v0.0.11 wheel bundles a real top-level ``src``
+resolving because the v0.1.0 wheel bundles a real top-level ``src``
 package: once ``%pip install`` lands the wheel, the runner's
 ``from src.dataflow_pipeline import …`` walks normal import machinery,
 finds ``src/`` in site-packages, runs its ``__init__`` (which registers
@@ -77,15 +77,15 @@ startup hook.
 Usage
 -----
 
-    # Default: v0.0.10 -> v0.0.11 (legacy -> current)
+    # Default: v0.0.10 -> v0.1.0 (legacy -> current)
     python integration_tests/run_backward_compat_tests.py \\
         --uc_catalog_name=<catalog>
 
-    # Future: v0.0.11 -> v0.0.12 (current -> current)
+    # Future: v0.1.0 -> v0.1.1 (current -> current)
     python integration_tests/run_backward_compat_tests.py \\
         --uc_catalog_name=<catalog> \\
-        --source_version=v0.0.11 \\
-        --target_version=v0.0.12
+        --source_version=v0.1.0 \\
+        --target_version=v0.1.1
 
     # Custom branches with explicit profile pins
     python integration_tests/run_backward_compat_tests.py \\
@@ -351,7 +351,7 @@ class BackwardCompatRunner:
             or target_ref == "feature/sdp-meta"
         ):
             # Cross-namespace upgrades only work when the target wheel
-            # bundles a legacy-namespace compat surface. v0.0.11 and later
+            # bundles a legacy-namespace compat surface. v0.1.0 and later
             # CURRENT-profile builds do; arbitrary unrecognised refs
             # might not. Surface a warning so the user knows to verify
             # the target wheel actually ships the real ``src`` package
@@ -493,8 +493,8 @@ class BackwardCompatRunner:
         """Render onboarding JSON from the SOURCE profile's templates.
 
         Each profile owns its onboarding shape (LEGACY templates strip
-        v0.0.11-only fields like ``rowFilter``; CURRENT templates use
-        the full v0.0.11+ shape). We render from the source profile's
+        v0.1.0-only fields like ``rowFilter``; CURRENT templates use
+        the full v0.1.0+ shape). We render from the source profile's
         templates so Phase 1 onboards exactly what the customer would
         have onboarded on the source version.
         """
@@ -539,7 +539,7 @@ class BackwardCompatRunner:
         # Conf (silver transformations + DQE rules + the rendered
         # onboarding files we just generated). Only .json -- the
         # backward-compat test is JSON-only by design (YAML support
-        # is a v0.0.11-only addition).
+        # is a v0.1.0-only addition).
         for root, _dirs, files in os.walk(f"{conf.int_tests_dir}/conf/json"):
             for fname in files:
                 if not fname.endswith(".json"):
@@ -575,7 +575,7 @@ class BackwardCompatRunner:
             # colliding if source and target build distinct wheels with
             # the same filename (e.g. main vs feature/sdp-meta both
             # producing
-            # ``databricks_labs_sdp_meta-0.0.11-py3-none-any.whl``).
+            # ``databricks_labs_sdp_meta-0.1.0-py3-none-any.whl``).
             conf.source_main_whl_remote = self.upload_wheel(
                 conf, conf.source_main_whl_local, "source"
             )

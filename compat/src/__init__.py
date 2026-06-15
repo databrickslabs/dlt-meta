@@ -8,9 +8,9 @@ notebooks therefore import as::
 
     from src.dataflow_pipeline import DataflowPipeline
 
-The v0.0.11 package rename to ``databricks.labs.sdp_meta`` would
+The v0.1.0 package rename to ``databricks.labs.sdp_meta`` would
 normally break those notebooks. This package preserves them: it ships
-inside the v0.0.11 main wheel as a top-level ``src`` namespace so the
+inside the v0.1.0 main wheel as a top-level ``src`` namespace so the
 legacy import keeps resolving to the same class objects.
 
 Why a real package, not a ``.pth`` trick
