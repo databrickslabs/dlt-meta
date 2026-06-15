@@ -11,7 +11,7 @@
 
 ---
 
-[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://databrickslabs.github.io/sdp-meta/) [![PyPI](https://img.shields.io/badge/pypi-v0.1.0-green)](https://pypi.org/project/sdp-meta/) [![Build](https://img.shields.io/github/workflow/status/databrickslabs/sdp-meta/build/main)](https://github.com/databrickslabs/sdp-meta/actions/workflows/onpush.yml) [![Coverage](https://img.shields.io/codecov/c/github/databrickslabs/sdp-meta)](https://codecov.io/gh/databrickslabs/sdp-meta) [![Style](https://img.shields.io/badge/code%20style-flake8-blue)](https://github.com/PyCQA/flake8) [![PyPI Downloads](https://static.pepy.tech/badge/sdp-meta/month)](https://pepy.tech/projects/sdp-meta)
+[![build](https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml/badge.svg)](https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml) [![codecov](https://codecov.io/github/databrickslabs/dlt-meta/graph/badge.svg)](https://codecov.io/github/databrickslabs/dlt-meta) ![linesofcode](https://aschey.tech/tokei/github/databrickslabs/dlt-meta?category=code) [![PyPI](https://img.shields.io/pypi/v/databricks-labs-sdp-meta?label=pypi%20package&cacheSeconds=3600)](https://pypi.org/project/databricks-labs-sdp-meta/) ![PyPI Downloads](https://static.pepy.tech/personalized-badge/databricks-labs-sdp-meta?period=month&units=international_system&left_color=grey&right_color=orange&left_text=PyPI%20downloads&cacheSeconds=3600)
 
 ---
 
@@ -41,7 +41,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 
 ## High-Level Process Flow:
 
-![SDP-META Architecture](./docs/static/img/sdp-meta-architecture.svg)
+![SDP-META Architecture](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/sdp-meta-architecture.svg)
 
 ## SDP-META `Lakeflow Spark Declarative Pipelines` Features support
 | Features  | SDP-META Support |
@@ -73,8 +73,8 @@ Refer to the [Getting Started](https://databrickslabs.github.io/sdp-meta/getting
 
 - Python 3.8 – 3.12 (3.10, 3.11, or 3.12 recommended). The pinned `pyspark==3.5.5` test stack does not officially support Python 3.13+; using 3.13 / 3.14 will surface as cloudpickle / recursion errors at test time. See [Troubleshooting](#troubleshooting) below.
 - Databricks CLI v0.213 or later. See [install instructions](https://docs.databricks.com/en/dev-tools/cli/tutorial.html).
-  - macOS: ![macos_install_databricks](docs/static/img/macos_1_databrickslabsmac_installdatabricks.gif)
-  - Windows: ![windows_install_databricks.png](docs/static/img/windows_install_databricks.png)
+  - macOS: ![macos_install_databricks](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/macos_1_databrickslabsmac_installdatabricks.gif)
+  - Windows: ![windows_install_databricks.png](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/windows_install_databricks.png)
 - Authenticate your machine to a workspace:
   ```bash
   databricks auth login --host WORKSPACE_HOST
@@ -160,7 +160,7 @@ If you want to run the existing demo files, set up the repo first:
    ```bash
    databricks labs sdp-meta onboard
    ```
-   ![onboardingDLTMeta_2.gif](docs/static/img/onboardingDLTMeta_2.gif)
+   ![onboardingDLTMeta_2.gif](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/onboardingDLTMeta_2.gif)
 
    Pushes code+data to your workspace, creates an onboarding job, and opens the job URL in your browser.
 
@@ -168,7 +168,7 @@ If you want to run the existing demo files, set up the repo first:
    ```bash
    databricks labs sdp-meta deploy
    ```
-   ![deployingDLTMeta_bronze_silver.gif](docs/static/img/deployingDLTMeta_bronze_silver.gif)
+   ![deployingDLTMeta_bronze_silver.gif](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/deployingDLTMeta_bronze_silver.gif)
 
    Deploys the Lakeflow Spark Declarative Pipeline and opens its URL in your browser.
 
