@@ -1,4 +1,4 @@
-# DLT-META Lakehouse App
+# SDP-META Lakehouse App
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@
 ### How paths work
 
 The app relies on an environment variable `PYTHONPATH` that must point to the **root of the
-dlt-meta repository** — the directory that contains both `src/` and `demo/`.  Every demo script
+sdp-meta repository** — the directory that contains both `src/` and `demo/`.  Every demo script
 and the onboarding/deploy CLI live inside that tree, so this must be set correctly before the
 app will work.
 
@@ -32,12 +32,12 @@ databricks auth login --host WORKSPACE_HOST
 ### 2. Create the app
 
 ```bash
-databricks apps create demo-dlt-meta
+databricks apps create demo-sdp-meta
 ```
 
 > Wait a couple of minutes for the app compute to provision.
 
-### 3. Sync and deploy the **full dlt-meta repo**
+### 3. Sync and deploy the **full sdp-meta repo**
 
 The root-level `app.yaml` tells Databricks Apps to run `lakehouse_app/start.sh`,
 which builds and installs the sdp-meta wheel and then launches Flask.
@@ -45,15 +45,15 @@ Deploy from the **repo root** so `demo/`, `src/`, and `integration_tests/` are
 all present inside the container alongside the app.
 
 ```bash
-# Run from the dlt-meta repo root
-cd /path/to/dlt-meta
+# Run from the sdp-meta repo root
+cd /path/to/sdp-meta
 
 # Sync the full repo to your workspace
-databricks sync . /Workspace/Users/<you@databricks.com>/dlt-meta
+databricks sync . /Workspace/Users/<you@databricks.com>/sdp-meta
 
 # Deploy using the repo root as the source path
-databricks apps deploy demo-dlt-meta \
-  --source-code-path /Workspace/Users/<you@databricks.com>/dlt-meta
+databricks apps deploy demo-sdp-meta \
+  --source-code-path /Workspace/Users/<you@databricks.com>/sdp-meta
 ```
 
 **What happens at container startup (`start.sh`):**
@@ -84,7 +84,7 @@ lakehouse_app/
 ### 6. Access the app
 
 Open the URL shown in step 2, or navigate:
-**Databricks Web UI → New → App → search for `demo-dlt-meta`**
+**Databricks Web UI → New → App → search for `demo-sdp-meta`**
 
 ---
 
@@ -93,8 +93,8 @@ Open the URL shown in step 2, or navigate:
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/databrickslabs/dlt-meta.git
-cd dlt-meta
+git clone https://github.com/databrickslabs/sdp-meta.git
+cd sdp-meta
 
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
@@ -204,7 +204,7 @@ production locally short of deploying.
 
 Two-step workflow:
 
-1. **Onboarding (Step 1)** — fills the DLT-META dataflow spec tables in Unity Catalog with your
+1. **Onboarding (Step 1)** — fills the SDP-META dataflow spec tables in Unity Catalog with your
    pipeline metadata. Configure schemas, table names, and paths, then click **Run Onboarding**.
 
 2. **Deployment (Step 2)** — creates and launches the Lakeflow Declarative Pipeline from the
@@ -212,7 +212,7 @@ Two-step workflow:
 
 ### Demos tab
 
-Pre-built end-to-end examples that exercise different DLT-META features.  Enter your Unity
+Pre-built end-to-end examples that exercise different SDP-META features.  Enter your Unity
 Catalog name and click a demo card to launch it.
 
 | Demo | What it runs |

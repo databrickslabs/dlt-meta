@@ -101,7 +101,7 @@
         python integration_tests/run_integration_tests.py --source=snapshot --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
         ```
 
-    - 9e. Run the command for **multi_source_cdc** (issue [#294](https://github.com/databrickslabs/dlt-meta/issues/294))
+    - 9e. Run the command for **multi_source_cdc** (issue [#294](https://github.com/databrickslabs/sdp-meta/issues/294))
         ```commandline
         python integration_tests/run_integration_tests.py --source=multi_source_cdc --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
         ```
@@ -172,7 +172,7 @@ Profiles are resolved from each git ref by prefix match; pass `--source_profile=
 `--install_mode` picks how each wheel reaches the cluster:
 
 - **`local` (default)** — build wheels via [`integration_tests/wheel_builder.py`](wheel_builder.py) (which uses `git worktree` + `python setup.py bdist_wheel` against the source/target refs), upload them to the per-run UC volume, and reference UC volume paths in both `JobEnvironment.dependencies` and the runner notebook's `%pip install`. This matches what real customers do (install a pre-built artifact); does NOT require workspace egress to GitHub.
-- **`git`** — skip the local build entirely. `JobEnvironment.dependencies` and `%pip install` resolve `git+https://github.com/databrickslabs/dlt-meta.git@<ref>` directly. Faster local iteration. The cluster MUST have egress to `--git_repo_url`.
+- **`git`** — skip the local build entirely. `JobEnvironment.dependencies` and `%pip install` resolve `git+https://github.com/databrickslabs/sdp-meta.git@<ref>` directly. Faster local iteration. The cluster MUST have egress to `--git_repo_url`.
 
 ### Iterating on uncommitted target-side changes — `--build_target_from_worktree`
 

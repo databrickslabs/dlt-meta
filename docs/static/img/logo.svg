@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Databricks-red rounded background -->
+  <rect width="48" height="48" rx="8" fill="#FF3621"/>
+  <!-- Three stacked layers representing Bronze / Silver / Gold medallion -->
+  <rect x="10" y="13" width="28" height="6" rx="3" fill="rgba(255,255,255,0.95)"/>
+  <rect x="10" y="21" width="28" height="6" rx="3" fill="rgba(255,255,255,0.70)"/>
+  <rect x="10" y="29" width="28" height="6" rx="3" fill="rgba(255,255,255,0.45)"/>
+</svg>

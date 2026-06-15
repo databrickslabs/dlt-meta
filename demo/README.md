@@ -1,4 +1,4 @@
- # [SDP-META](https://github.com/databrickslabs/dlt-meta) DEMOs
+# [SDP-META](https://github.com/databrickslabs/sdp-meta) DEMOs
  1. [Interactive Demo (Notebook)](#interactive-demo-notebook): **Start here.** A fully self-contained Databricks notebook covering all SDP-META features end-to-end — no CLI required.
  2. [DAIS 2023 DEMO](#dais-2023-demo): Showcases SDP-META's capabilities of creating Bronze and Silver pipelines with initial and incremental mode automatically.
  3. [Databricks Techsummit Demo](#databricks-tech-summit-fy2024-demo): 100s of data sources ingestion in bronze and silver pipelines automatically.
@@ -69,9 +69,9 @@ The notebook is fully driven by widgets at the top — same ones the headless la
 | `git_branch` | text, default `main` | Branch to install SDP-META from when `install_source=git_branch`. Also used as the GitHub branch for the conf-file fallback if the notebook is imported standalone. |
 | `uc_catalog_name` | text, default `sdp_meta_demo` | UC catalog the demo writes into. Must be a Databricks SQL **regular identifier** (`[A-Za-z_][A-Za-z0-9_]*`, max 255 chars). Hyphens / dots are rejected up-front (issue #261). |
 | `uc_schema_name` | text, default `retail_data` | Schema within the catalog. Same identifier rules as above. The demo creates `<schema>_bronze`, `<schema>_silver`, `<schema>_pipeline_default` underneath. |
-| `data_source` | dropdown `dbdatagen` (default) / `github` | `dbdatagen` generates synthetic retail data with `dbldatagen` (no internet needed); `github` downloads fixed CSVs from the dlt-meta repo (requires outbound internet from the workspace). |
+| `data_source` | dropdown `dbdatagen` (default) / `github` | `dbdatagen` generates synthetic retail data with `dbldatagen` (no internet needed); `github` downloads fixed CSVs from the sdp-meta repo (requires outbound internet from the workspace). |
 | `onboarding_format` | dropdown `json` (default) / `yml` | Whether the rendered onboarding spec + silver-transformations files are written as JSON or YAML. The demo reads back the matching `demo/conf/<format>/sample_onboarding.<ext>` template. |
-| `install_source` | dropdown `git_branch` (default) / `whl_file` | Where to install SDP-META from. `git_branch` runs `pip install git+https://github.com/databrickslabs/dlt-meta.git@<git_branch>`; `whl_file` runs `pip install <whl_file_path>` against a Volume / Workspace path. Use `whl_file` when validating local changes that aren't pushed yet. |
+| `install_source` | dropdown `git_branch` (default) / `whl_file` | Where to install SDP-META from. `git_branch` runs `pip install git+https://github.com/databrickslabs/sdp-meta.git@<git_branch>`; `whl_file` runs `pip install <whl_file_path>` against a Volume / Workspace path. Use `whl_file` when validating local changes that aren't pushed yet. |
 | `whl_file_path` | text, default empty | Path to the wheel when `install_source=whl_file`, e.g. `/Volumes/<catalog>/<schema>/<volume>/databricks_labs_sdp_meta-<version>-py3-none-any.whl`. Required when `install_source=whl_file`; ignored otherwise. |
 | `validate_counts` | dropdown `false` (default) / `true` | When `true`, the final cell turns the demo into a smoke test: it asserts deterministic row counts (`bronze.orders == 7`, `bronze.iot_events == 5`, snapshot tables `>= LOAD_2 size`, multi-source CDC bronze `customers_{us,eu,apac}_cdc == 5` each, silver `customers_regional == 6`) and non-empty for every demo-produced bronze / silver / quarantine table, raising a single `AssertionError` listing every failure. Use in CI / pre-release smoke runs. |
 | `cleanup` | dropdown `false` (default) / `true` | When `true`, the cleanup cell at the bottom drops every per-run resource the demo created: pipelines (main / snapshot / sink / multi-source CDC), runner notebooks (`runner_notebook_path`, `snapshot_runner_path`), and per-run schemas (`<schema>_bronze`, `<schema>_silver`, `<schema>_pipeline_default`, `<schema>` itself — including its config volume). The user-supplied UC catalog is **intentionally preserved** because it's shared across runs. |
@@ -81,7 +81,7 @@ The notebook is fully driven by widgets at the top — same ones the headless la
 1. Import the notebook into your Databricks workspace:
    - In the sidebar click **Workspace** → **Import**
    - Upload `demo/SDP_META_INTERACTIVE_DEMO.py`, or paste the GitHub raw URL.
-   - To use the workspace-co-located conf path (offline-friendly, no GitHub roundtrip), import the notebook into a folder that contains a `demo/` segment so its workspace path looks like `.../demo/SDP_META_INTERACTIVE_DEMO`. Otherwise the demo falls back to fetching `demo/conf/<fmt>/sample_onboarding.<ext>` from `raw.githubusercontent.com/databrickslabs/dlt-meta/<git_branch>/...` — make sure that branch is published.
+   - To use the workspace-co-located conf path (offline-friendly, no GitHub roundtrip), import the notebook into a folder that contains a `demo/` segment so its workspace path looks like `.../demo/SDP_META_INTERACTIVE_DEMO`. Otherwise the demo falls back to fetching `demo/conf/<fmt>/sample_onboarding.<ext>` from `raw.githubusercontent.com/databrickslabs/sdp-meta/<git_branch>/...` — make sure that branch is published.
 
 2. Open the notebook, fill in the widgets above, and click **Run All**. The notebook:
    - Installs SDP-META + optional `dbldatagen` via `%pip install` and restarts Python.
@@ -189,7 +189,7 @@ This Demo launches Bronze and Silver pipelines with following activities:
     - uc_catalog_name : Unity catalog name
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token.
 
-    ![dais_demo.png](../docs/static/images/dais_demo.png)
+    ![dais_demo.png](../docs/static/img/dais_demo.png)
 
 # Databricks Tech Summit FY2024 DEMO:
 This demo will launch auto generated tables(100s) inside single bronze and silver pipeline using sdp-meta.
@@ -227,7 +227,7 @@ This demo will launch auto generated tables(100s) inside single bronze and silve
     - uc_catalog_name : Unity catalog name
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
-    ![tech_summit_demo.png](../docs/static/images/tech_summit_demo.png)
+    ![tech_summit_demo.png](../docs/static/img/tech_summit_demo.png)
 
 
 # Append Flow Autoloader file metadata demo:
@@ -269,7 +269,7 @@ This demo will perform following tasks:
     - uc_catalog_name : Unity Catalog name
     - you can provide `--profile=databricks_profile name` in case you already have databricks cli otherwise command prompt will ask host and token
 
-![af_am_demo.png](../docs/static/images/af_am_demo.png)
+![af_am_demo.png](../docs/static/img/af_am_demo.png)
 
 # Append Flow Eventhub demo:
 - Read from different eventhub topics and write to same target tables using append_flow API
@@ -329,7 +329,7 @@ This demo will perform following tasks:
     python3 demo/launch_af_eventhub_demo.py --uc_catalog_name=<<uc catalog name>> --eventhub_name=sdp_meta_demo --eventhub_name_append_flow=sdp_meta_demo_af --eventhub_secrets_scope_name=sdp_meta_eventhub_creds --eventhub_namespace=sdp_meta --eventhub_port=9093 --eventhub_producer_accesskey_name=RootManageSharedAccessKey --eventhub_consumer_accesskey_name=RootManageSharedAccessKey --eventhub_accesskey_secret_name=RootManageSharedAccessKey --profile=<<DEFAULT>>
     ```
 
-  ![af_eh_demo.png](../docs/static/images/af_eh_demo.png)
+  ![af_eh_demo.png](../docs/static/img/af_eh_demo.png)
 
 
 # Silver Fanout Demo
@@ -388,13 +388,13 @@ This demo will perform following tasks:
 
         - Paste to command prompt
 
-    ![silver_fanout_workflow.png](../docs/static/images/silver_fanout_workflow.png)
+    ![silver_fanout_workflow.png](../docs/static/img/silver_fanout_workflow.png)
     
-    ![silver_fanout_dlt.png](../docs/static/images/silver_fanout_dlt.png)
+    ![silver_fanout_dlt.png](../docs/static/img/silver_fanout_dlt.png)
 
 # Apply Changes From Snapshot Demo
   - This demo will perform following steps
-    - Showcase onboarding process for apply changes from snapshot pattern([snapshot-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/snapshot-onboarding.template))
+    - Showcase onboarding process for apply changes from snapshot pattern([snapshot-onboarding.template](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/snapshot-onboarding.template))
     - Run onboarding for the bronze stores and products tables, which contains data snapshot data in csv files.
     - Create source delta table for products
     - Run Bronze Pipeline to load initial snapshot for stores(LOAD_1.csv) and products delta table
@@ -434,7 +434,7 @@ This demo will perform following tasks:
     ```commandline
     python demo/launch_acfs_demo.py --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
     ```
-    ![acfs.png](../docs/static/images/acfs.png)
+    ![acfs.png](../docs/static/img/acfs.png)
 
 # Lakeflow Spark Declarative Pipelines Sink Demo
   - This demo will perform following steps
@@ -488,15 +488,15 @@ This demo will perform following tasks:
     ```commandline
     python demo/launch_dlt_sink_demo.py --uc_catalog_name=<<uc_catalog_name>> --source=kafka --kafka_source_topic=<<kafka source topic name>>>> --kafka_sink_topic=<<kafka sink topic name>> --kafka_source_servers_secrets_scope_name=<<kafka source servers secret name>> --kafka_source_servers_secrets_scope_key=<<kafka source server secret scope key name>> --kafka_sink_servers_secret_scope_name=<<kafka sink server secret scope key name>> --kafka_sink_servers_secret_scope_key=<<kafka sink servers secret scope key name>> --profile=<<DEFAULT>>
     ```
-    ![dlt_demo_sink.png](../docs/static/images/dlt_demo_sink.png)
-    ![dlt_delta_sink.png](../docs/static/images/dlt_delta_sink.png)
-    ![dlt_kafka_sink.png](../docs/static/images/dlt_kafka_sink.png)
+    ![dlt_demo_sink.png](../docs/static/img/dlt_demo_sink.png)
+    ![dlt_delta_sink.png](../docs/static/img/dlt_delta_sink.png)
+    ![dlt_kafka_sink.png](../docs/static/img/dlt_kafka_sink.png)
 
 
 # Multi-Source AUTO CDC Demo
 
 - Merge **N regional CDC sources** into **ONE** unified silver target table by calling [`dp.create_auto_cdc_flow`](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) N times against the same streaming table, with **per-flow `select_exp` normalization** so each source can have its own native column shape.
-- This implements [issue #294](https://github.com/databrickslabs/dlt-meta/issues/294). See [`DESIGN_MULTI_SOURCE_AUTO_CDC.md`](../DESIGN_MULTI_SOURCE_AUTO_CDC.md) for the full spec, including mutual-exclusion rules vs the single-source `cdcApplyChanges` block and the per-flow `cdcApplyChangesFlowsSchemas` map for bronze.
+- This implements [issue #294](https://github.com/databrickslabs/sdp-meta/issues/294). See [`DESIGN_MULTI_SOURCE_AUTO_CDC.md`](../DESIGN_MULTI_SOURCE_AUTO_CDC.md) for the full spec, including mutual-exclusion rules vs the single-source `cdcApplyChanges` block and the per-flow `cdcApplyChangesFlowsSchemas` map for bronze.
 - The demo provisions:
     - **Three regional bronze CDC tables** (`customers_us_cdc`, `customers_eu_cdc`, `customers_apac_cdc`), each landing raw customer CDC events from its own folder under [`demo/resources/data/multi_source_cdc/`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/resources/data/multi_source_cdc/). Each region uses a **different column shape on purpose** (US: `id`/`firstname`/`lastname`/`operation`; EU: `customer_id`/`given_name`/`family_name`/`change_type`; APAC: `cust_id`/`fname`/`lname`/`op`) so the per-flow `select_exp` normalization is actually doing real work the user can see.
     - **One unified silver `customers` SCD-1 table** that pulls from all three bronze tables via `silver_cdc_apply_changes_flows`. Each flow rewrites its source columns into the canonical `(customer_id, firstname, lastname, email, address, region)` shape, with a per-flow constant `region` literal, before the merge.
@@ -534,9 +534,9 @@ This demo will perform following tasks:
     * Per-region breakdown (proves the per-flow `select_exp` ran — each flow tags its rows with a constant `region` literal).
     * The exact set of surviving `customer_id` values matches the seed data.
 
-    ![multi-source-cdc-silver-demo.png](../docs/static/images/multi-source-cdc-silver-demo.png)
+    ![multi-source-cdc-silver-demo.png](../docs/static/img/multi-source-cdc-silver-demo.png)
 
-    ![multi-source-cdc-silver.png](../docs/static/images/multi-source-cdc-silver.png)
+    ![multi-source-cdc-silver.png](../docs/static/img/multi-source-cdc-silver.png)
 
 
 # Row Filter Demo
@@ -544,7 +544,7 @@ This demo will perform following tasks:
 Standalone end-to-end demo for SDP-META's `bronze_row_filter` /
 `silver_row_filter` fields, which map onto Unity Catalog's
 [`ROW FILTER` clause](https://docs.databricks.com/aws/en/tables/row-and-column-filters)
-for row-level security. Implements [issue #303](https://github.com/databrickslabs/dlt-meta/issues/303).
+for row-level security. Implements [issue #303](https://github.com/databrickslabs/sdp-meta/issues/303).
 
 The demo onboards a single `customers` flow with 16 source rows split
 across four regions (`US`, `UK`, `DE`, `JP` — 4 each), attaches the same
@@ -674,8 +674,8 @@ The demo supports six scenarios via `--scenario`:
 
 1. **Clone and enter the repo**
     ```commandline
-    git clone https://github.com/databrickslabs/dlt-meta.git
-    cd dlt-meta
+    git clone https://github.com/databrickslabs/sdp-meta.git
+    cd sdp-meta
     export PYTHONPATH=$(pwd)
     ```
 
