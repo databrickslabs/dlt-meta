@@ -175,76 +175,25 @@ If you want to run the existing demo files, set up the repo first:
 
 ### Local development & tests
 
-Once `requirements-dev.txt` is installed (it pulls in `requirements.txt`, installs the project in editable mode via `-e .`, and adds `pyspark`, `delta-spark`, `pytest`, `coverage`, `flake8`, `typer`, and the optional `mcp` extra), you can run:
-
 ```bash
-# Lint
 flake8 src tests
-
-# Tests with coverage
 python -m coverage run -m pytest tests/ -v
 python -m coverage report -m
 ```
 
-`setup.py` is the source of truth for dependency versions. `requirements.txt` mirrors `INSTALL_REQUIRES`; `requirements-dev.txt` mirrors the `dev` / `IT` / `mcp` extras and adds `-e .`. Update all three files together when you change a pin.
+`setup.py` is the source of truth for dependency versions. `requirements.txt` mirrors `INSTALL_REQUIRES`, `requirements-dev.txt` mirrors the `dev` / `IT` / `mcp` extras plus `-e .`. Update all three together when you change a pin.
 
 ### Troubleshooting
 
-#### `_pickle.PicklingError: ... RecursionError: Stack overflow` on most tests
-
-Symptom — a wide swath of tests (anything that touches `SparkSession`, e.g. `tests/test_dataflow_pipeline.py`, `tests/test_pipeline_readers.py`, `tests/test_onboard_dataflowspec.py`) fail with:
-
-```
-_pickle.PicklingError: Could not serialize object: RecursionError:
-    Stack overflow (used 16352 kB) while calling a Python object
-... when serializing function reconstructor ...
-```
-
-Cause — your venv is on Python 3.13 or 3.14. The pinned `pyspark==3.5.5` test stack vendors a cloudpickle build whose function-object reducer doesn't support the reorganized `code`/`function` internals in 3.13+, so it recurses without bottoming out. PySpark 3.5.x officially supports Python 3.8–3.11 (with limited 3.12 support in late patches).
-
-Fix — rebuild the venv on a supported interpreter (3.10, 3.11, or 3.12):
-
-```bash
-deactivate 2>/dev/null
-rm -rf .venv
-
-# Pick whichever supported interpreter you have installed. On macOS,
-# brew typically puts these at /opt/homebrew/bin/pythonX.Y.
-/opt/homebrew/bin/python3.10 -m venv .venv     # or python3.11 / python3.12
-source .venv/bin/activate
-
-pip install -r requirements-dev.txt
-python -m coverage run -m pytest tests/ -v
-```
-
-If you don't have a supported interpreter installed:
-
-```bash
-brew install python@3.11        # or python@3.12
-```
-
-Don't reach for 3.13/3.14 until pyspark itself is bumped to the 4.x line — that's a much larger refactor than this branch.
-
-#### `ModuleNotFoundError: No module named 'databricks.labs'` at test collection
-
-Symptom — pytest fails on collection (not at runtime) with `ModuleNotFoundError` on every test file.
-
-Cause — the venv has the third-party deps but not the project itself, so the `databricks.labs.sdp_meta` namespace package isn't on `sys.path`.
-
-Fix — install the project in editable mode. `requirements-dev.txt` does this for you (`-e .` line); a plain `pip install -r requirements.txt` does not.
-
-```bash
-pip install -e .                    # standalone fix
-# or
-pip install -r requirements-dev.txt # also covers the test stack
-```
+- **`_pickle.PicklingError: ... RecursionError: Stack overflow` on most tests** — your venv is on Python 3.13/3.14. The pinned `pyspark==3.5.5` doesn't support 3.13+. Rebuild the venv on 3.10, 3.11, or 3.12 (`python3.11 -m venv .venv && source .venv/bin/activate && pip install -r requirements-dev.txt`).
+- **`ModuleNotFoundError: No module named 'databricks.labs'` at test collection** — the venv has the third-party deps but not the project. Run `pip install -e .` (or `pip install -r requirements-dev.txt`, which already does this).
 
 ## Resources
 
 - [Documentation](https://databrickslabs.github.io/sdp-meta/)
 - [FAQ](https://databrickslabs.github.io/sdp-meta/faq)
 - [Release Notes](CHANGELOG.md)
-- [GitHub Issues](https://github.com/databrickslabs/dlt-meta/issues)
+- [GitHub Issues](https://github.com/databrickslabs/sdp-meta/issues)
 
 ## Project Support
 
