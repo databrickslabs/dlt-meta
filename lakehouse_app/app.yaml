@@ -2,3 +2,5 @@ command: [
   "bash",
   "start.sh"
 ]
+display_name: "SDP-META"
+description: "Metadata-driven Lakeflow Spark Declarative Pipelines"

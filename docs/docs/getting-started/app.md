@@ -1,12 +1,12 @@
 ---
 id: app
-title: Lakehouse App
+title: Databricks App
 sidebar_position: 5
 ---
 
-# Lakehouse App
+# Databricks App
 
-The SDP-META Lakehouse App is a browser-based GUI for onboarding and managing Lakeflow Spark Declarative Pipelines without using the CLI or editing YAML files.
+The SDP-META Databricks App is a browser-based GUI for onboarding and managing Lakeflow Spark Declarative Pipelines without using the CLI or editing YAML files.
 
 ## Prerequisites
 

@@ -127,48 +127,4 @@ Remove `cloudFiles.inferColumnTypes` from `bronze_reader_options` when using an 
 }
 ```
 
-## Frequently asked questions
-
-### General
-
-**Q: What reader types are supported?**
-
-SDP-META supports Databricks Autoloader (`cloudFiles`), Delta, Kafka, Event Hubs, and snapshot. Any Spark Structured Streaming reader can be added by overriding `read_bronze()` in `DataflowPipeline`.
-
-**Q: How many pipelines will SDP-META launch?**
-
-One pipeline per `data_flow_group` value.
-
-**Q: Can I run onboarding for bronze only?**
-
-Yes. Set `"onboard_layer": "bronze"` and provide only `bronze_dataflowspec_table`.
-
-**Q: Can I run onboarding for silver only?**
-
-Yes. Set `"onboard_layer": "silver"` and provide only `silver_dataflowspec_table`. The bronze dataflowspec table must already exist.
-
-**Q: How do I chain multiple silver tables from one bronze table?**
-
-Use [Silver Fanout](../guides/silver-fanout). Run a second onboarding job in append mode (`"overwrite": "false"`).
-
-**Q: How do I write to the same target table from multiple sources?**
-
-Use `bronze_append_flows`. See the [Multi-Source CDC guide](../guides/multi-source-cdc).
-
-**Q: How do I add Autoloader file metadata columns to the bronze table?**
-
-Configure `source_metadata` in `source_details`. See the [Autoloader guide](../guides/autoloader#file-metadata-columns).
-
-### App
-
-**Q: Do I need to run an initial setup before using the SDP-META App?**
-
-Yes. Click the Setup button when the app first loads.
-
-**Q: Who can access the SDP-META App?**
-
-Authenticated Databricks workspace users with `CAN_USE` permission. `CAN_MANAGE` is required for administration.
-
-**Q: How does catalog and schema access work in the App?**
-
-By default, the app uses a dedicated Service Principal with `USE CATALOG`, `USE SCHEMA`, and `SELECT` permissions on all Unity Catalog resources used by SDP-META.
+For common questions about features, DAB, installation, and the App, see the [FAQ](../faq).

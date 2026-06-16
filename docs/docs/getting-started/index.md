@@ -36,11 +36,11 @@ Onboard and deploy with interactive prompts, no bundle YAML required. Good for e
 
 See [Interactive CLI](./cli.md).
 
-### Lakehouse App
+### Databricks App
 
 Browser-based GUI for onboarding and managing pipelines. Ideal for non-engineers who need to manage pipelines without a terminal.
 
-See [Lakehouse App](./app.md).
+See [Databricks App](./app.md).
 
 ### MCP Server
 
