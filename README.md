@@ -13,7 +13,7 @@
 
 ---
 
-[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://databrickslabs.github.io/sdp-meta/) [![PyPI](https://img.shields.io/badge/pypi-v0.1.0-green)](https://pypi.org/project/sdp-meta/) [![Build](https://img.shields.io/github/workflow/status/databrickslabs/sdp-meta/build/main)](https://github.com/databrickslabs/sdp-meta/actions/workflows/onpush.yml) [![Coverage](https://img.shields.io/codecov/c/github/databrickslabs/sdp-meta)](https://codecov.io/gh/databrickslabs/sdp-meta) [![Style](https://img.shields.io/badge/code%20style-flake8-blue)](https://github.com/PyCQA/flake8) [![PyPI Downloads](https://static.pepy.tech/badge/sdp-meta/month)](https://pepy.tech/projects/sdp-meta)
+[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://databrickslabs.github.io/sdp-meta/) [![PyPI](https://img.shields.io/badge/pypi-v0.1.0-green)](https://pypi.org/project/sdp-meta/) [![Build](https://img.shields.io/github/workflow/status/databrickslabs/sdp-meta/build/main)](https://github.com/databrickslabs/sdp-meta/actions/workflows/onpush.yml) [![Coverage](https://img.shields.io/codecov/c/github/databrickslabs/sdp-meta)](https://codecov.io/gh/databrickslabs/sdp-meta) [![Style](https://img.shields.io/badge/code%20style-flake8-blue)](https://github.com/PyCQA/flake8) [![PyPI Downloads](https://static.pepy.tech/badge/dlt-meta/month)](https://pepy.tech/projects/dlt-meta)
 
 ---
 
