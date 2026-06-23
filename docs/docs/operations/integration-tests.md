@@ -17,7 +17,7 @@ The SDP-META integration test suite runs end-to-end pipeline tests against a rea
 - A Databricks workspace with Unity Catalog enabled
 
 ```bash
-git clone https://github.com/databrickslabs/sdp-meta.git
+git clone https://github.com/databrickslabs/dlt-meta.git
 cd sdp-meta
 python -m venv .venv
 source .venv/bin/activate

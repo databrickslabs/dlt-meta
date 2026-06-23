@@ -1,22 +1,23 @@
-# SDP-META
+<p align="center">
+  <img src="docs/static/img/sdp-meta-readme-banner.png" alt="SDP-META — Metadata-driven Lakeflow Spark Declarative Pipelines" width="900"/>
+</p>
 
 <!-- Top bar will be removed from PyPi packaged versions -->
 <!-- Dont remove: exclude package -->
 
-[Documentation](https://databrickslabs.github.io/sdp-meta/) |
+[Documentation](https://databrickslabs.github.io/dlt-meta/) |
 [Release Notes](CHANGELOG.md) |
-[Examples](https://github.com/databrickslabs/sdp-meta/tree/main/examples)
+[Examples](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf)
 
 <!-- Dont remove: end exclude package -->
 
 ---
 
-[![build](https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml/badge.svg)](https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml) [![codecov](https://codecov.io/github/databrickslabs/dlt-meta/graph/badge.svg)](https://codecov.io/github/databrickslabs/dlt-meta) ![linesofcode](https://aschey.tech/tokei/github/databrickslabs/dlt-meta?category=code) [![PyPI](https://img.shields.io/pypi/v/databricks-labs-sdp-meta?label=pypi%20package&cacheSeconds=3600)](https://pypi.org/project/databricks-labs-sdp-meta/) ![PyPI Downloads](https://static.pepy.tech/personalized-badge/databricks-labs-sdp-meta?period=month&units=international_system&left_color=grey&right_color=orange&left_text=PyPI%20downloads&cacheSeconds=3600)
+[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://databrickslabs.github.io/dlt-meta/) [![PyPI](https://img.shields.io/pypi/v/databricks-labs-sdp-meta?label=pypi)](https://pypi.org/project/databricks-labs-sdp-meta/) [![Build](https://img.shields.io/github/actions/workflow/status/databrickslabs/dlt-meta/onpush.yml?branch=main)](https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml) [![Coverage](https://img.shields.io/codecov/c/github/databrickslabs/dlt-meta)](https://codecov.io/gh/databrickslabs/dlt-meta) [![Style](https://img.shields.io/badge/code%20style-flake8-blue)](https://github.com/PyCQA/flake8) [![PyPI Downloads](https://static.pepy.tech/badge/dlt-meta/month)](https://pepy.tech/projects/dlt-meta)
 
 ---
 
-
-# Project Overview
+## Project Overview
 `SDP-META` is a metadata-driven framework designed to work with [Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines). This framework enables the automation of bronze and silver data pipelines by leveraging metadata recorded in an onboarding file (JSON or YAML). This file, known as the Dataflowspec, serves as the data flow specification, detailing the source and target metadata required for the pipelines.
 
 In practice, a single generic pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads. This approach streamlines the development and management of data pipelines, allowing for a more efficient and scalable data processing workflow
@@ -27,9 +28,9 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 
 #### Metadata Interface
 
-- Capture input/output metadata in an onboarding file — JSON ([`examples/json/onboarding.template`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/onboarding.template)) or YAML ([`examples/yml/onboarding.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/yml/onboarding.yml))
-- Capture Data Quality Rules — JSON ([`examples/json/dqe/customers/bronze_data_quality_expectations.json`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/dqe/customers/bronze_data_quality_expectations.json)) or YAML ([`examples/yml/dqe/customers/bronze_data_quality_expectations.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/yml/dqe/customers/bronze_data_quality_expectations.yml))
-- Capture processing logic as sql in a Silver transformation file — JSON ([`examples/json/silver_transformations.json`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/silver_transformations.json)) or YAML ([`examples/yml/silver_transformations.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/yml/silver_transformations.yml))
+- Capture input/output metadata in an onboarding file — JSON ([`demo/conf/json/onboarding.template`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/onboarding.template)) or YAML ([`demo/conf/yml/onboarding.template.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/onboarding.template.yml))
+- Capture Data Quality Rules — JSON ([`demo/conf/json/dqe/customers/`](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/json/dqe/customers)) or YAML ([`demo/conf/yml/dqe/customers/`](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/yml/dqe/customers))
+- Capture processing logic as sql in a Silver transformation file — JSON ([`demo/conf/json/silver_transformations.json`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/silver_transformations.json)) or YAML ([`demo/conf/yml/silver_transformations.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/silver_transformations.yml))
 
 #### Generic Lakeflow Spark Declarative Pipeline
 
@@ -39,7 +40,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 - Builds Lakeflow Spark Declarative Pipeline graph based on input/output metadata
 - Launch Lakeflow Declarative pipeline
 
-## High-Level Process Flow:
+## High-Level Process Flow
 
 ![SDP-META Architecture](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/sdp-meta-architecture.svg)
 
@@ -51,27 +52,27 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 | Custom transformations | Bronze, Silver layer accepts custom functions|
 | Data Quality Expecations Support | Bronze, Silver layer |
 | Quarantine table support | Bronze layer |
-| [create_auto_cdc_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) API support | Bronze, Silver layer | 
-| Multi-source [create_auto_cdc_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) into a single target table | Bronze, Silver layer. |
-| [create_auto_cdc_from_snapshot_flow](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes-from-snapshot) API support | Bronze layer|
-| [append_flow](https://docs.databricks.com/en/delta-live-tables/flows.html#use-append-flow-to-write-to-a-streaming-table-from-multiple-source-streams) API support | Bronze layer|
+| CDC via [`create_auto_cdc_flow`](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) (use `bronze_cdc_apply_changes` in onboarding file) | Bronze, Silver layer |
+| Multi-source CDC into a single target table (`bronze_cdc_apply_changes_flows`) | Bronze, Silver layer |
+| Snapshot CDC via [`create_auto_cdc_from_snapshot_flow`](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes-from-snapshot) (use `bronze_cdc_apply_changes` with `sequence_by`) | Bronze layer |
+| Append flows via [`append_flow`](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-flows) (use `bronze_append_flows` in onboarding file) | Bronze layer |
 | Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
-| [SDP-META CLI](https://databrickslabs.github.io/sdp-meta/getting_started/sdp_meta_cli/) | Interactive: ```databricks labs sdp-meta onboard```, ```databricks labs sdp-meta deploy```. Bundle-based (see [`DAB_README.md`](DAB_README.md)): ```bundle-init```, ```bundle-prepare-wheel```, ```bundle-add-flow```, ```bundle-validate``` |
+| [SDP-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/sdp_meta_cli/) | Interactive: ```databricks labs sdp-meta onboard```, ```databricks labs sdp-meta deploy```. Bundle-based (see [`DAB_README.md`](DAB_README.md)): ```bundle-init```, ```bundle-prepare-wheel```, ```bundle-add-flow```, ```bundle-validate``` |
 | Bronze and Silver pipeline chaining | Deploy sdp-meta pipeline with ```layer=bronze_silver``` option using default publishing mode |
 | [create_sink](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-sink) API support |Supported formats:```external delta table , kafka``` Bronze, Silver layers|
 | [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) | First-class: packaged DAB template + four `databricks labs sdp-meta bundle-*` CLI commands (init / prepare-wheel / add-flow / validate), recipes for programmatic flow generation from UC, volumes, Kafka topics or inventory CSVs, and `pipeline_mode={split,combined}` to choose split vs. single Lakeflow Spark Declarative Pipeline. See [`DAB_README.md`](DAB_README.md) for the full reference and [`demo/README.md#dab-demo`](demo/README.md#dab-demo) for an end-to-end runnable walkthrough.
-| [SDP-META UI](https://github.com/databrickslabs/sdp-meta/tree/main/lakehouse_app#sdp-meta-lakehouse-app-setup) | Uses Databricks Lakehouse SDP-META App
+| [SDP-META UI](https://github.com/databrickslabs/dlt-meta/tree/main/databricks_app) | Uses the SDP-META Databricks App
 
 ## Getting Started
 
-Refer to the [Getting Started](https://databrickslabs.github.io/sdp-meta/getting_started) docs for the long form. The short form, in order of recommendation:
+Refer to the [Getting Started](https://databrickslabs.github.io/dlt-meta/getting_started) docs for the long form. The short form, in order of recommendation:
 
 1. **Use the [Declarative Automation Bundle](https://docs.databricks.com/aws/en/dev-tools/bundles/) interface** for any real work — `dev`/`prod` targets, git-tracked state, CI/CD-ready. New developers can use `bundle-init --quickstart` to skip every prompt and get a working bundle in one command. This is the recommended path; the interactive `onboard`/`deploy` CLI below is kept for first-touch exploration only.
 2. **Use the interactive `onboard` + `deploy` CLI** if you just want to kick the tires against a single workspace.
 
 ### Pre-requisites (both paths)
 
-- Python 3.8 – 3.12 (3.10, 3.11, or 3.12 recommended). The pinned `pyspark==3.5.5` test stack does not officially support Python 3.13+; using 3.13 / 3.14 will surface as cloudpickle / recursion errors at test time. See [Troubleshooting](#troubleshooting) below.
+- Python 3.10, 3.11, or 3.12. The pinned `pyspark==3.5.5` test stack does not support Python 3.13+; using 3.13 / 3.14 will surface as cloudpickle / recursion errors at test time. See [Troubleshooting](#troubleshooting) below.
 - Databricks CLI v0.213 or later. See [install instructions](https://docs.databricks.com/en/dev-tools/cli/tutorial.html).
   - macOS: ![macos_install_databricks](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/macos_1_databrickslabsmac_installdatabricks.gif)
   - Windows: ![windows_install_databricks.png](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/windows_install_databricks.png)
@@ -101,8 +102,8 @@ databricks labs sdp-meta bundle-init
 
 cd <bundle_name>
 
-# Optional, until sdp-meta is on PyPI: build the wheel and upload to a UC volume,
-# then paste the printed /Volumes/... path into resources/variables.yml as the
+# Optional: build a local wheel and upload to a UC volume instead of using PyPI.
+# Paste the printed /Volumes/... path into resources/variables.yml as the
 # default for `sdp_meta_dependency`.
 databricks labs sdp-meta bundle-prepare-wheel
 
@@ -140,8 +141,8 @@ If you want to run the existing demo files, set up the repo first:
 
 1. Clone & enter the repo, create a venv, install dependencies:
    ```bash
-   git clone https://github.com/databrickslabs/sdp-meta.git
-   cd sdp-meta
+   git clone https://github.com/databrickslabs/dlt-meta.git
+   cd dlt-meta
 
    # Use Python 3.11 or 3.12 — pyspark==3.5.5 (pinned in setup.py) does
    # not support Python 3.13+ and will surface as cloudpickle / recursion
@@ -174,76 +175,27 @@ If you want to run the existing demo files, set up the repo first:
 
 ### Local development & tests
 
-Once `requirements-dev.txt` is installed (it pulls in `requirements.txt`, installs the project in editable mode via `-e .`, and adds `pyspark`, `delta-spark`, `pytest`, `coverage`, `flake8`, `typer`, and the optional `mcp` extra), you can run:
-
 ```bash
-# Lint
 flake8 src tests
-
-# Tests with coverage
 python -m coverage run -m pytest tests/ -v
 python -m coverage report -m
 ```
 
-`setup.py` is the source of truth for dependency versions. `requirements.txt` mirrors `INSTALL_REQUIRES`; `requirements-dev.txt` mirrors the `dev` / `IT` / `mcp` extras and adds `-e .`. Update all three files together when you change a pin.
+`setup.py` is the source of truth for dependency versions. `requirements.txt` mirrors `INSTALL_REQUIRES`, `requirements-dev.txt` mirrors the `dev` / `IT` / `mcp` extras plus `-e .`. Update all three together when you change a pin.
 
 ### Troubleshooting
 
-#### `_pickle.PicklingError: ... RecursionError: Stack overflow` on most tests
+- **`_pickle.PicklingError: ... RecursionError: Stack overflow` on most tests** — your venv is on Python 3.13/3.14. The pinned `pyspark==3.5.5` doesn't support 3.13+. Rebuild the venv on 3.10, 3.11, or 3.12 (`python3.11 -m venv .venv && source .venv/bin/activate && pip install -r requirements-dev.txt`).
+- **`ModuleNotFoundError: No module named 'databricks.labs'` at test collection** — the venv has the third-party deps but not the project. Run `pip install -e .` (or `pip install -r requirements-dev.txt`, which already does this).
 
-Symptom — a wide swath of tests (anything that touches `SparkSession`, e.g. `tests/test_dataflow_pipeline.py`, `tests/test_pipeline_readers.py`, `tests/test_onboard_dataflowspec.py`) fail with:
+## Resources
 
-```
-_pickle.PicklingError: Could not serialize object: RecursionError:
-    Stack overflow (used 16352 kB) while calling a Python object
-... when serializing function reconstructor ...
-```
+- [Documentation](https://databrickslabs.github.io/dlt-meta/)
+- [FAQ](https://databrickslabs.github.io/dlt-meta/faq)
+- [Release Notes](CHANGELOG.md)
+- [GitHub Issues](https://github.com/databrickslabs/dlt-meta/issues)
 
-Cause — your venv is on Python 3.13 or 3.14. The pinned `pyspark==3.5.5` test stack vendors a cloudpickle build whose function-object reducer doesn't support the reorganized `code`/`function` internals in 3.13+, so it recurses without bottoming out. PySpark 3.5.x officially supports Python 3.8–3.11 (with limited 3.12 support in late patches).
-
-Fix — rebuild the venv on a supported interpreter (3.10, 3.11, or 3.12):
-
-```bash
-deactivate 2>/dev/null
-rm -rf .venv
-
-# Pick whichever supported interpreter you have installed. On macOS,
-# brew typically puts these at /opt/homebrew/bin/pythonX.Y.
-/opt/homebrew/bin/python3.10 -m venv .venv     # or python3.11 / python3.12
-source .venv/bin/activate
-
-pip install -r requirements-dev.txt
-python -m coverage run -m pytest tests/ -v
-```
-
-If you don't have a supported interpreter installed:
-
-```bash
-brew install python@3.11        # or python@3.12
-```
-
-Don't reach for 3.13/3.14 until pyspark itself is bumped to the 4.x line — that's a much larger refactor than this branch.
-
-#### `ModuleNotFoundError: No module named 'databricks.labs'` at test collection
-
-Symptom — pytest fails on collection (not at runtime) with `ModuleNotFoundError` on every test file.
-
-Cause — the venv has the third-party deps but not the project itself, so the `databricks.labs.sdp_meta` namespace package isn't on `sys.path`.
-
-Fix — install the project in editable mode. `requirements-dev.txt` does this for you (`-e .` line); a plain `pip install -r requirements.txt` does not.
-
-```bash
-pip install -e .                    # standalone fix
-# or
-pip install -r requirements-dev.txt # also covers the test stack
-```
-
-## More questions
-
-Refer to the [FAQ](https://databrickslabs.github.io/sdp-meta/faq)
-and SDP-META [documentation](https://databrickslabs.github.io/sdp-meta/)
-
-# Project Support
+## Project Support
 
 Please note that all projects released under [`Databricks Labs`](https://www.databricks.com/learn/labs)
 are provided for your exploration only, and are not formally supported by Databricks with Service Level Agreements

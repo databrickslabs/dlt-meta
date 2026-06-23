@@ -10,9 +10,23 @@ The SDP-META MCP (Model Context Protocol) server exposes SDP-META operations as 
 
 ## Prerequisites
 
-- Python 3.8+
-- [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/tutorial.html)
+- Python 3.10+
+- [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/tutorial.html) authenticated against your workspace
 - An MCP-capable client (Claude Code, Claude Desktop, Cursor, or similar)
+
+## Authentication
+
+The MCP server uses the default profile from `~/.databrickscfg`. To use a specific profile, set the environment variable before launching your MCP client:
+
+```bash
+export DATABRICKS_CONFIG_PROFILE=my-profile
+```
+
+Or pass it inline when wiring the server (Claude Code example):
+
+```bash
+DATABRICKS_CONFIG_PROFILE=my-profile claude mcp add sdp-meta -- databricks labs sdp-meta mcp
+```
 
 ## Install
 

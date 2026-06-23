@@ -258,7 +258,41 @@ def _submit_demo_job(
         try:
             meta = ws.jobs.get_run(run_id=submitted_run_id)
             page_url = getattr(meta, "run_page_url", None)
+            job_id = getattr(meta, "job_id", None)
+
+            # Emit a "Job created successfully. job_id=N, url=<path-routed>"
+            # line so the databricks_app `/rundemo` response handler
+            # (extract_command_output) lights up the same "Open in
+            # Databricks ↗" success modal it does for every other demo.
+            # The SDK's ``run_page_url`` returns a *hash-routed* legacy URL
+            # (``<host>/?o=ID#job/N/run/M``) on serverless-stable shards,
+            # which the workspace UI silently redirects to the modern
+            # path-routed shape — but the App's URL filter only sees
+            # ``/jobs/``/``/pipelines/`` substrings, so the legacy URL
+            # gets dropped. We construct the path-routed URL ourselves
+            # so both the script-mode and App-mode UX surface the same
+            # link.
+            if job_id is not None:
+                try:
+                    workspace_id = ws.get_workspace_id()
+                except Exception:
+                    workspace_id = None
+                host = ws.config.host.rstrip("/")
+                if submitted_run_id is not None:
+                    path_url = f"{host}/jobs/{job_id}/runs/{submitted_run_id}"
+                else:
+                    path_url = f"{host}/jobs/{job_id}"
+                if workspace_id is not None:
+                    path_url = f"{path_url}?o={workspace_id}"
+                print(
+                    f"Job created successfully. job_id={job_id}, "
+                    f"run_id={submitted_run_id}, url={path_url}"
+                )
+
             if page_url:
+                # Keep the original `Run page:` line for users who script
+                # against the current stdout shape; it's also the URL the
+                # browser auto-open below uses.
                 print(f"Run page: {page_url}")
                 # Open in the default browser. If we're headless / on CI,
                 # `webbrowser.open` may print a warning but won't raise --
@@ -330,7 +364,7 @@ def main() -> int:
     parser.add_argument(
         "--install-source",
         default="git_branch",
-        choices=["git_branch", "whl_file"],
+        choices=["git_branch", "pypi", "whl_file"],
         help="Where the demo installs sdp-meta from. Use 'whl_file' to "
              "validate a local build before merging.",
     )
@@ -340,6 +374,13 @@ def main() -> int:
         help="Wheel file path on a UC volume / Workspace. Required when "
              "--install-source=whl_file. Example: ``/Volumes/<cat>/"
              "<sch>/<vol>/sdp_meta-<version>-py3-none-any.whl``.",
+    )
+    parser.add_argument(
+        "--pypi-version",
+        default="",
+        help="Optional version pin when --install-source=pypi (e.g. "
+             "``0.1.0``). Leave blank to install the latest published "
+             "``databricks-labs-sdp-meta`` release.",
     )
     parser.add_argument(
         "--build-and-upload-whl",
@@ -555,6 +596,8 @@ def main() -> int:
     # SDP_META_INTERACTIVE_DEMO.py. When a notebook task launches with
     # ``base_parameters``, the workspace pre-populates the matching
     # ``dbutils.widgets`` so the demo reads them straight through.
+    # ``pypi_version`` only matters when install_source=pypi; harmless
+    # to pass through for the other branches (the notebook ignores it).
     base_parameters = {
         "git_branch": args.git_branch,
         "uc_catalog_name": args.uc_catalog_name,
@@ -563,6 +606,7 @@ def main() -> int:
         "onboarding_format": args.onboarding_format,
         "install_source": install_source,
         "whl_file_path": whl_file_path,
+        "pypi_version": args.pypi_version,
         "validate_counts": args.validate_counts,
         "cleanup": args.cleanup,
     }

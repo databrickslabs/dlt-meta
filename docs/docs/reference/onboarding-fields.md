@@ -14,8 +14,8 @@ The onboarding file is a JSON or YAML array of flow definitions. Each element de
 
 Full example files:
 
-- JSON: [`examples/json/cloudfiles-onboarding.template`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/cloudfiles-onboarding.template)
-- YAML: [`examples/yml/cloudfiles-onboarding.template.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/yml/cloudfiles-onboarding.template.yml)
+- JSON: [`demo/conf/json/onboarding.template`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/onboarding.template)
+- YAML: [`demo/conf/yml/onboarding.template.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/onboarding.template.yml)
 
 ---
 
@@ -87,6 +87,29 @@ Full example files:
 
 ---
 
+## `source_details` — delta
+
+Used when reading from an existing Delta table — typically a bronze table feeding a silver flow.
+
+| Field | Type | Description |
+|---|---|---|
+| `source_database` | string | `catalog.schema` (fully qualified) or schema name of the source Delta table |
+| `source_table` | string | Name of the source Delta table |
+
+Example:
+
+```json
+{
+  "source_format": "delta",
+  "source_details": {
+    "source_database": "my_catalog.retail_bronze",
+    "source_table": "orders_raw"
+  }
+}
+```
+
+---
+
 ## Bronze Layer Fields
 
 | Field | Type | Description |
@@ -104,7 +127,7 @@ Full example files:
 | `bronze_table_path_{env}` | string | External storage path for the bronze table (optional, uses managed table if omitted) |
 | `bronze_table_properties` | object | Declarative Pipeline table properties, e.g. `{"pipelines.autoOptimize.managed": "false", "pipelines.reset.allowed": "false"}` |
 | `bronze_sink` | object | Declarative Pipeline Sink API configuration for writing to an external Delta table or Kafka topic — see [DLT Sink guide](../guides/dlt-sink) |
-| `bronze_data_quality_expectations_json` | string | Path to the DQE rules JSON/YAML file for bronze — see [DQ Rules](./dq-rules) |
+| `bronze_data_quality_expectations_json_{env}` | string | Path to the DQE rules JSON/YAML file for bronze — see [DQ Rules](./dq-rules) |
 | `bronze_catalog_quarantine_{env}` | string | Unity Catalog name for the quarantine table |
 | `bronze_database_quarantine_{env}` | string | Schema name for the quarantine table |
 | `bronze_quarantine_table` | string | Quarantine table name (receives rows that fail `expect_or_drop` rules) |
@@ -129,7 +152,7 @@ Full example files:
 | `silver_table_properties` | object | Declarative Pipeline table properties for the silver table |
 | `silver_cluster_by` | array | List of column names for liquid clustering |
 | `silver_cluster_by_auto` | boolean | Enable automatic liquid clustering on the silver table |
-| `silver_data_quality_expectations_json` | string | Path to the DQE rules file for silver |
+| `silver_data_quality_expectations_json_{env}` | string | Path to the DQE rules file for silver — see [DQ Rules](./dq-rules) |
 | `silver_append_flows` | array | Additional `append_flow` definitions for the silver layer |
 | `silver_sink` | object | Declarative Pipeline Sink API configuration for silver output — see [DLT Sink guide](../guides/dlt-sink) |
-| `silver_transformation_json` | string | Path to the silver transformations JSON/YAML file — see [Silver Transformations](./silver-transformations) |
+| `silver_transformation_json_{env}` | string | Path to the silver transformations JSON/YAML file — see [Silver Transformations](./silver-transformations) |

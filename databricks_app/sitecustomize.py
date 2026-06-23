@@ -43,7 +43,7 @@ How this works
 --------------
 Python's ``site`` module imports a top-level module called ``sitecustomize``
 on every interpreter startup, scanning ``sys.path`` for it. ``app.py`` adds
-``lakehouse_app/`` to ``PYTHONPATH`` for every demo subprocess, so this file
+``databricks_app/`` to ``PYTHONPATH`` for every demo subprocess, so this file
 is auto-loaded the moment the demo's ``python demo/launch_*_demo.py``
 subprocess starts — before any demo code, before the SDK is imported, and
 without touching the demo files.

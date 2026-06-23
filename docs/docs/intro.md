@@ -33,7 +33,7 @@ SDP-META operates in two phases:
 | create_sink (Delta, Kafka) | Bronze, Silver |
 | Declarative Automation Bundles | Yes |
 | SDP-META CLI | Yes |
-| Lakehouse App (UI) | Yes |
+| Databricks App (UI) | Yes |
 | MCP Server | Yes |
 
 For setup options, see [Getting Started](./getting-started/index.md).

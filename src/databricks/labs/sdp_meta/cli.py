@@ -38,7 +38,7 @@ def _maybe_open_url(url: str) -> None:
       browser tab on every test run (see ``tests/test_cli.py`` cases
       that exercise ``create_onnboarding_job`` /
       ``_create_sdp_meta_pipeline``).
-    * Inside the Databricks Apps container (``lakehouse_app``)
+    * Inside the Databricks Apps container (``databricks_app``)
       there's no display, so ``webbrowser.open`` either silently
       fails or — worse, on some platforms — falls back to printing
       to stdout, which corrupts the JSON the Flask route returns to
@@ -624,6 +624,9 @@ class SDPMeta:
             raise ValueError("layer must be one of bronze, silver, bronze_silver ")
         created = None
         configuration["version"] = self.version
+        # Tag every pipeline created by SDP-META so the Databricks App monitor
+        # can filter to only SDP-META pipelines via list_pipelines(filter=...).
+        _sdp_meta_tags = {"sdp_meta": "true"}
         if cmd.uc_catalog_name:
             created = self._ws.pipelines.create(catalog=cmd.uc_catalog_name,
                                                 name=cmd.pipeline_name,
@@ -641,7 +644,8 @@ class SDPMeta:
                                                                                     num_workers=cmd.num_workers)]
                                                 if not cmd.serverless else None,
                                                 serverless=cmd.serverless if cmd.uc_enabled else None,
-                                                channel="PREVIEW" if cmd.serverless else None
+                                                channel="PREVIEW" if cmd.serverless else None,
+                                                tags=_sdp_meta_tags,
                                                 )
         else:
             created = self._ws.pipelines.create(
@@ -655,7 +659,8 @@ class SDPMeta:
                     )
                 ],
                 target=cmd.dlt_target_schema,
-                clusters=[pipelines.PipelineCluster(label="default", num_workers=cmd.num_workers)]
+                clusters=[pipelines.PipelineCluster(label="default", num_workers=cmd.num_workers)],
+                tags=_sdp_meta_tags,
             )
         if created is None:
             raise Exception("Pipeline creation failed")

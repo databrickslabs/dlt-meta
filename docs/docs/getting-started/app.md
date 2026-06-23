@@ -1,16 +1,16 @@
 ---
 id: app
-title: Lakehouse App
+title: Databricks App
 sidebar_position: 5
 ---
 
-# Lakehouse App
+# Databricks App
 
-The SDP-META Lakehouse App is a browser-based GUI for onboarding and managing Lakeflow Spark Declarative Pipelines without using the CLI or editing YAML files.
+The SDP-META Databricks App is a browser-based GUI for onboarding and managing Lakeflow Spark Declarative Pipelines without using the CLI or editing YAML files.
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/tutorial.html) (v0.244.0 or later recommended)
 - Configured workspace access
 
@@ -31,7 +31,7 @@ databricks apps create demo-sdp-meta
 ### Step 3 — Sync and deploy
 
 ```bash
-cd sdp-meta/lakehouse_app
+cd sdp-meta/databricks_app
 databricks sync . /Workspace/Users/your.email@company.com/testapp
 databricks apps deploy demo-sdp-meta --source-code-path /Workspace/Users/your.email@company.com/testapp
 ```
@@ -41,7 +41,7 @@ The app URL appears in the command output. You can also find it in the Databrick
 ## Run locally
 
 ```bash
-cd sdp-meta/lakehouse_app
+cd sdp-meta/databricks_app
 pip install -r requirements.txt
 databricks configure --host YOUR_WORKSPACE_URL --token YOUR_TOKEN
 python App.py

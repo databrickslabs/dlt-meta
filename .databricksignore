@@ -3,7 +3,7 @@
 
 # NOTE: do NOT add bare `templates/` or `static/` here — .databricksignore
 # uses .gitignore matching, so an unanchored pattern would also exclude the
-# App's own `lakehouse_app/templates/` (landingPage.html) and
+# App's own `databricks_app/templates/` (landingPage.html) and
 # `src/databricks/labs/sdp_meta/templates/dab`, breaking the running App.
 .github/
 compat/
@@ -29,3 +29,8 @@ authors.txt
 CHANGELOG.md
 CONTRIBUTING.md
 LICENSE
+
+# Notebook archives (.dbc) — UI-import bundles, NOT needed at runtime.
+# `databricks sync` cannot overwrite existing .dbc workspace files, which
+# breaks every re-sync. The App always uses the underlying .py notebooks.
+**/*.dbc

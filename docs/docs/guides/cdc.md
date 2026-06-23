@@ -85,7 +85,7 @@ When using multiple `sequence_by` columns, add a tiebreaker column if events can
     "silver_catalog_dev": "my_catalog",
     "silver_database_dev": "retail_silver",
     "silver_table": "customers",
-    "silver_transformation_json": "/Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations.json",
+    "silver_transformation_json_prod": "/Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations.json",
     "silver_cdc_apply_changes": {
       "keys": ["customer_id"],
       "sequence_by": "dmsTimestamp",

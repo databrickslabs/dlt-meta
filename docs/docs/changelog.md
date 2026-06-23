@@ -12,7 +12,7 @@ sidebar_position: 99
 
 ### New Features
 
-- **Automatic liquid clustering** (`cluster_by_auto`) for bronze and silver tables. When set to `true`, Databricks automatically determines the optimal clustering columns. Works alongside explicit `cluster_by` to define initial keys followed by automatic optimization. Supported for `bronze_cluster_by_auto`, `bronze_quarantine_table_cluster_by_auto`, and `silver_cluster_by_auto`. ([Issue #238](https://github.com/databrickslabs/sdp-meta/issues/238))
+- **Automatic liquid clustering** (`cluster_by_auto`) for bronze and silver tables. When set to `true`, Databricks automatically determines the optimal clustering columns. Works alongside explicit `cluster_by` to define initial keys followed by automatic optimization. Supported for `bronze_cluster_by_auto`, `bronze_quarantine_table_cluster_by_auto`, and `silver_cluster_by_auto`. ([Issue #238](https://github.com/databrickslabs/dlt-meta/issues/238))
 - **MCP Server support** — AI-assisted pipeline scaffolding via the `mcp` CLI command (stdio transport). Enables use with Claude Code and other MCP-compatible clients.
 - **DAB template** with `bundle-init --quickstart` zero-prompt fast path for instant bundle scaffolding. Includes `bundle-add-flow`, `bundle-prepare-wheel`, and `bundle-validate` commands.
 - **Row filter support** — `where_clause` in silver transformations files for pipeline-time row filtering.
@@ -44,7 +44,7 @@ See the [Migration guide](./operations/migration) for full details.
 ### Enhancements
 
 - `apply_changes_from_snapshot` support in the silver layer
-- Databricks Lakehouse App UI for onboarding and deploy commands
+- Databricks App UI for onboarding and deploy commands
 - Non-Delta sink support (Delta and Kafka sinks) via `bronze_sink` / `silver_sink`
 - Quarantine support in the silver layer for data quality rules
 - Table comments, column comments, and `cluster_by` support

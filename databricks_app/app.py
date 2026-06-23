@@ -9,7 +9,7 @@ import re
 import json
 
 # UC identifier validation. The sdp-meta wheel is built and installed by
-# lakehouse_app/start.sh in the App container, so this import succeeds at
+# databricks_app/start.sh in the App container, so this import succeeds at
 # request-handling time. Local-dev runs that haven't installed the wheel
 # (`pip install -e .` skipped) get a graceful no-op fallback so /onboarding
 # and /deploy still respond instead of 500-ing on import.
@@ -54,7 +54,7 @@ def _repo_root() -> str:
             src/                          ← sdp-meta package (installed by start.sh)
             demo/                         ← demo scripts
             integration_tests/            ← imported by demo scripts
-            lakehouse_app/
+            databricks_app/
                 app.py                    ← this file
 
     So: os.path.dirname(os.path.dirname(__file__)) == /app/python/source_code/
@@ -62,14 +62,14 @@ def _repo_root() -> str:
 
     Resolution order:
     1. DLT_META_HOME env var — explicit override for non-standard layouts.
-    2. __file__ — one directory up from lakehouse_app/.
+    2. __file__ — one directory up from databricks_app/.
     """
     override = os.environ.get('DLT_META_HOME', '').strip().rstrip('/')
     if override:
         logger.info("DLT_META_HOME override: %s", override)
         return override
 
-    # app.py lives in lakehouse_app/, parent is the repo root
+    # app.py lives in databricks_app/, parent is the repo root
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     logger.info("Repo root derived from __file__: %s", root)
 
@@ -78,7 +78,7 @@ def _repo_root() -> str:
         if not os.path.isdir(os.path.join(root, expected)):
             logger.warning(
                 "Expected directory '%s/' not found under repo root '%s'. "
-                "Make sure the full dlt-meta repo was deployed (not just lakehouse_app/).",
+                "Make sure the full dlt-meta repo was deployed (not just databricks_app/).",
                 expected, root,
             )
     return root
@@ -314,7 +314,25 @@ def run_demo():
             # after submission with the run URL captured in stdout; the
             # actual demo job continues running in the workspace and the
             # user clicks through via the surfaced URL.
-            "extra_args": ["--timeout-minutes", "1"],
+            #
+            # ``--install-source pypi`` makes the spawned job
+            # ``pip install databricks-labs-sdp-meta`` from PyPI on
+            # every demo launch. Decouples the demo from whatever
+            # branch the App container happens to have checked out,
+            # so once a new release is published the App auto-picks
+            # it up with zero redeploys.
+            #
+            # To pin a specific release instead of always-latest, add
+            # e.g. ``"--pypi-version", "0.1.0"`` to the list below.
+            #
+            # The 1-minute timeout makes the launcher unblock shortly
+            # after submitting the job so the Flask request returns
+            # with the run URL; the demo continues running in the
+            # workspace and the user clicks through.
+            "extra_args": [
+                "--install-source", "pypi",
+                "--timeout-minutes", "1",
+            ],
         },
     }
     demo_entry = demo_dict.get(code_to_run, None)
@@ -361,22 +379,22 @@ def run_demo():
     # Build subprocess environment.
     #
     # PYTHONPATH entries (order matters — earlier wins on import resolution):
-    #   1. lakehouse_app/  — Python's `site` module auto-imports a top-level
+    #   1. databricks_app/  — Python's `site` module auto-imports a top-level
     #      module called `sitecustomize` from sys.path on every interpreter
-    #      startup. lakehouse_app/sitecustomize.py installs the App-mode
+    #      startup. databricks_app/sitecustomize.py installs the App-mode
     #      shim that strips trailing ".py" from notebook_path arguments on
     #      WorkspaceClient.pipelines.create / .jobs.create. The shim is a
-    #      no-op outside the App container; see lakehouse_app/sitecustomize.py
-    #      for the full rationale. Putting lakehouse_app/ on PYTHONPATH is
+    #      no-op outside the App container; see databricks_app/sitecustomize.py
+    #      for the full rationale. Putting databricks_app/ on PYTHONPATH is
     #      what activates it in the demo subprocess, without any change to
     #      demo/ or integration_tests/.
     #   2. repo root — so demo scripts can import `integration_tests` (lives
     #      at the repo root, not inside the demo/ directory that Python adds
     #      automatically as sys.path[0]).
     demo_env = os.environ.copy()
-    lakehouse_app_dir = os.path.dirname(os.path.abspath(__file__))
+    databricks_app_dir = os.path.dirname(os.path.abspath(__file__))
     existing_pypath = demo_env.get('PYTHONPATH', '')
-    pypath_entries = [lakehouse_app_dir, current_directory]
+    pypath_entries = [databricks_app_dir, current_directory]
     if existing_pypath:
         pypath_entries.append(existing_pypath)
     demo_env['PYTHONPATH'] = ':'.join(pypath_entries)
@@ -407,12 +425,24 @@ def extract_command_output(result):
         r"pipeline_id[=:\s]+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
         stdout, re.IGNORECASE,
     )
-    job_id_match = re.search(r"job_id=(\d+)|pipeline=(\d+)", stdout)
+    # ``job_id=N`` / ``pipeline=N`` covers the bundle/CLI demos.
+    # The interactive demo prints a hash-routed legacy run URL of the
+    # shape ``<host>/?o=ID#job/<JOB_ID>/run/<RUN_ID>`` (workspace-side
+    # ``Jobs.get_run().run_page_url`` on the serverless-stable shard),
+    # so also recognise the numeric id inside ``#job/<N>/`` so the
+    # success modal lights up for /demo_interactive launches.
+    job_id_match = re.search(
+        r"job_id=(\d+)|pipeline=(\d+)|#job/(\d+)/", stdout
+    )
 
     if pipeline_id_match:
         pipeline_id = pipeline_id_match.group(1)
     elif job_id_match:
-        pipeline_id = job_id_match.group(1) or job_id_match.group(2)
+        pipeline_id = (
+            job_id_match.group(1)
+            or job_id_match.group(2)
+            or job_id_match.group(3)
+        )
     else:
         pipeline_id = None
 
@@ -436,7 +466,7 @@ def extract_command_output(result):
     job_url = None
 
     explicit_match = re.search(
-        r"(?:job created successfully|pipeline created successfully|launched).*?url=(https?://\S+)",
+        r"(?:job created successfully|pipeline created successfully|launched|run page).*?(?:url=)?(https?://\S+)",
         stdout,
         re.IGNORECASE,
     )
@@ -448,9 +478,16 @@ def extract_command_output(result):
         # else in stdout (workspace root, OIDC token endpoint, REST API base,
         # docs links, etc.) is not a valid "open in Databricks" target and
         # would otherwise dress up a silent demo failure as a success.
+        #
+        # ``#job/`` / ``#pipeline/`` covers the hash-routed legacy run URLs
+        # emitted by the interactive demo (workspace-side ``run_page_url``
+        # on the serverless-stable shard).
         job_pipeline_urls = [
             u for u in all_urls
-            if ('/jobs/' in u or '/pipelines/' in u)
+            if (
+                '/jobs/' in u or '/pipelines/' in u
+                or '#job/' in u or '#pipeline/' in u
+            )
             and not any(p in u for p in SDK_INTERNAL_PATHS)
         ]
         if job_pipeline_urls:

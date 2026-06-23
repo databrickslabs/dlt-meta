@@ -30,7 +30,7 @@
 
 ### Added
 - Added apply_changes_from_snapshot support in silver layer [PR](https://github.com/databrickslabs/dlt-meta/pull/187)
-- Added UI using databricks lakehouse app for onboarding/deploy commands [PR](https://github.com/databrickslabs/dlt-meta/pull/168)
+- Added UI using Databricks App for onboarding/deploy commands [PR](https://github.com/databrickslabs/dlt-meta/pull/168)
 - Added support for non-Delta as sinks(delta, kafka) [PR](https://github.com/databrickslabs/dlt-meta/pull/157)
 - Added quarantine support in silver layer for data quality rules [PR](https://github.com/databrickslabs/dlt-meta/pull/191)
 - Added support for table comments, column comments, and cluster_by [PR](https://github.com/databrickslabs/dlt-meta/pull/91)

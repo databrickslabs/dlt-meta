@@ -64,6 +64,7 @@ const sidebars = {
       ],
     },
     'contributing/index',
+    'faq',
     'changelog',
   ],
 };

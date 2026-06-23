@@ -107,7 +107,7 @@ Same structure as `bronze_sink`:
     "silver_catalog_dev": "my_catalog",
     "silver_database_dev": "retail_silver",
     "silver_table": "orders_silver",
-    "silver_transformation_json": "/Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations.json",
+    "silver_transformation_json_prod": "/Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations.json",
     "silver_sink": {
       "name": "silver_sink",
       "format": "kafka",

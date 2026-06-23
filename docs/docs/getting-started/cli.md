@@ -14,7 +14,7 @@ For production workloads and team environments, use [Declarative Automation Bund
 
 ## Prerequisites
 
-- Python 3.8+
+- Python 3.10+
 - [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/tutorial.html) v0.213 or later
 
 ## Setup

@@ -58,7 +58,7 @@ databricks labs sdp-meta bundle-init
 databricks labs sdp-meta bundle-init --quickstart
 ```
 
-The generated bundle includes `databricks.yml`, `resources/variables.yml`, `resources/pipelines.yml`, `resources/jobs.yml`, and `sdp_meta_pipeline.py`.
+The generated bundle includes `databricks.yml`, `resources/variables.yml`, `resources/sdp_meta_pipelines.yml`, `resources/sdp_meta_onboarding_job.yml`, and `notebooks/init_sdp_meta_pipeline.py`.
 
 ## `bundle-prepare-wheel`
 

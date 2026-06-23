@@ -18,24 +18,36 @@ SDP-META supports Lakeflow Spark Declarative Pipelines' native Data Quality expe
 
 ## Defining expectations
 
-Expectations are defined in `bronze_data_quality_expectations_json` or `silver_data_quality_expectations_json` in the onboarding file:
+DQE rules are stored in a separate JSON or YAML file and referenced from the onboarding file via `bronze_data_quality_expectations_json_{env}` or `silver_data_quality_expectations_json_{env}`. The format is a dict of `{rule_name: sql_expression}` grouped by constraint type:
 
 ```json
 {
   "expect_or_quarantine": {
-    "customer_id IS NOT NULL": "customer_id must not be null",
-    "order_amount > 0": "order amount must be positive"
+    "customer_id_not_null": "customer_id IS NOT NULL",
+    "valid_order_amount": "order_amount > 0"
   },
   "expect": {
-    "region IS NOT NULL": "region should be populated"
+    "region_not_null": "region IS NOT NULL"
   },
   "expect_or_fail": {
-    "event_date IS NOT NULL": "event_date is required and must not be null"
+    "event_date_not_null": "event_date IS NOT NULL"
   }
 }
 ```
 
-In YAML onboarding files, use `bronze_data_quality_expectations_json_path` to reference an external JSON file.
+:::note
+Each key within a constraint block is the **rule name** (shown in pipeline metrics and event logs). The value is the SQL boolean expression evaluated per row. Do not swap these — the rule name must be a valid identifier, not a SQL expression.
+:::
+
+Reference the file in your onboarding entry:
+
+```json
+{
+  "bronze_data_quality_expectations_json_prod": "/Volumes/my_catalog/my_schema/my_volume/conf/dqe/orders.json"
+}
+```
+
+Replace `prod` with your environment tag (`dev`, `stag`, etc.) to match your `env` parameter.
 
 ## Quarantine table
 
@@ -49,13 +61,13 @@ Use `expect_or_quarantine` rather than `expect_or_drop` when you need to investi
 
 | Field | Layer | Description |
 |---|---|---|
-| `bronze_data_quality_expectations_json` | Bronze | Inline JSON string with expectations |
-| `bronze_data_quality_expectations_json_path` | Bronze | Path to a JSON file containing expectations |
-| `silver_data_quality_expectations_json` | Silver | Inline JSON string with expectations |
-| `silver_data_quality_expectations_json_path` | Silver | Path to a JSON file containing expectations |
+| `bronze_data_quality_expectations_json_{env}` | Bronze | Path to the DQE JSON or YAML file for the bronze table (e.g. `/Volumes/.../dqe/orders.json`) |
+| `silver_data_quality_expectations_json_{env}` | Silver | Path to the DQE JSON or YAML file for the silver table |
+
+`{env}` is replaced by the environment tag you supply at onboarding time (e.g. `prod`, `dev`, `stag`).
 
 :::note
-In DAB bundles, the file-path pattern is preferred — expectation files can be reviewed and diff'd in git alongside the onboarding file.
+In DAB bundles, storing expectations in a separate file is preferred — it can be reviewed and diff'd in git alongside the onboarding file.
 :::
 
 ## Monitoring

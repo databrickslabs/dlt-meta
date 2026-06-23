@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-# DLT-META Lakehouse App — startup script
+# SDP-META Databricks App — startup script
 #
 # Works in two deployment modes:
 #
@@ -9,11 +9,11 @@
 #    App source-code-path: .../dlt-meta
 #    Container layout:
 #      /app/python/source_code/
-#        setup.py, src/, demo/, integration_tests/, lakehouse_app/
+#        setup.py, src/, demo/, integration_tests/, databricks_app/
 #
-#  Mode B — Only lakehouse_app/ deployed (current/legacy):
-#    Workspace sync path: .../dlt-meta/lakehouse_app
-#    App source-code-path: .../dlt-meta/lakehouse_app
+#  Mode B — Only databricks_app/ deployed (current/legacy):
+#    Workspace sync path: .../dlt-meta/databricks_app
+#    App source-code-path: .../dlt-meta/databricks_app
 #    Container layout:
 #      /app/python/source_code/
 #        app.py, start.sh, templates/, ...   (no demo/, no src/)
@@ -28,7 +28,7 @@ set -euo pipefail
 REPO_URL="https://github.com/databrickslabs/dlt-meta.git"
 
 # Directory that contains this script (= source root in Mode B,
-# or lakehouse_app/ subdirectory in Mode A)
+# or databricks_app/ subdirectory in Mode A)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # ── Detect deployment mode ────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ elif [ -d "$SCRIPT_DIR/demo" ] && [ -d "$SCRIPT_DIR/src" ]; then
     echo "[start.sh] Mode A (root): full repo found at $REPO_ROOT"
 
 else
-    # Mode B — only lakehouse_app/ deployed; clone the full repo
+    # Mode B — only databricks_app/ deployed; clone the full repo
     REPO_ROOT="/tmp/dlt-meta"
     if [ -d "$REPO_ROOT/.git" ]; then
         echo "[start.sh] Mode B: using cached clone at $REPO_ROOT"

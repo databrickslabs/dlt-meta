@@ -76,7 +76,7 @@ Each onboarding entry references its own transformations file:
     "silver_catalog_dev": "my_catalog",
     "silver_database_dev": "retail_silver",
     "silver_table": "customers_us_silver",
-    "silver_transformation_json": "/Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations_us.json"
+    "silver_transformation_json_prod": "/Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations_us.json"
   },
   {
     "data_flow_id": "2",
@@ -89,7 +89,7 @@ Each onboarding entry references its own transformations file:
     "silver_catalog_dev": "my_catalog",
     "silver_database_dev": "retail_silver",
     "silver_table": "customers_eu_silver",
-    "silver_transformation_json": "/Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations_eu.json"
+    "silver_transformation_json_prod": "/Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations_eu.json"
   }
 ]
 ```
