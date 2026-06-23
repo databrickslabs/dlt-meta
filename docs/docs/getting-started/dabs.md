@@ -102,8 +102,8 @@ sdp_meta_dependency:
 cd <bundle_name>
 databricks labs sdp-meta bundle-validate
 databricks bundle deploy --target dev
-databricks bundle run sdp_meta_onboarding_job --target dev
-databricks bundle run sdp_meta_pipeline --target dev
+databricks bundle run onboarding --target dev
+databricks bundle run pipelines --target dev
 ```
 
 After the onboarding job runs:

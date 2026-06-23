@@ -194,14 +194,14 @@ Use the recipes inside the scaffolded bundle (`recipes/`):
 
 No — only re-run the onboarding job:
 ```bash
-databricks bundle run sdp_meta_onboarding_job --target dev
+databricks bundle run onboarding --target dev
 ```
 `databricks bundle deploy` is only needed when you change `resources/variables.yml`, the bundle YAML files, or the pipeline/job definitions themselves. Deploying unnecessarily recreates pipeline resources and resets their state.
 
-**Q: What is the difference between `sdp_meta_onboarding_job` and `sdp_meta_pipeline`?**
+**Q: What is the difference between the `onboarding` and `pipelines` bundle jobs?**
 
-- `sdp_meta_onboarding_job` — reads your `conf/onboarding.*` file and writes rows into the `bronze_dataflowspec` / `silver_dataflowspec` Delta tables. Run this whenever the onboarding file changes.
-- `sdp_meta_pipeline` — the Lakeflow Spark Declarative Pipeline that reads the DataflowSpec tables at runtime and builds the processing graph. Run this to ingest data.
+- `onboarding` — reads your `conf/onboarding.*` file and writes rows into the `bronze_dataflowspec` / `silver_dataflowspec` Delta tables. Run this whenever the onboarding file changes.
+- `pipelines` — runs the Lakeflow Spark Declarative Pipeline(s) that read the DataflowSpec tables at runtime and build the processing graph. In `split` mode this runs bronze then silver in sequence; in `combined` mode it runs a single pipeline.
 
 Run onboarding first, then the pipeline. In `split` mode there are two separate pipeline resources (bronze, silver); in `combined` mode there is one.
 
@@ -215,7 +215,7 @@ It reads bundle defaults from `resources/variables.yml`, auto-increments `data_f
 
 **Q: Can a single bundle have multiple `data_flow_group` values?**
 
-Yes, but each group maps to a separate pipeline. The bundle template scaffolds one group by default. To add a second group, add a new pipeline resource in `resources/sdp_meta_pipelines.yml` with its own `bronze.group` / `silver.group` configuration key pointing at the new group name, then redeploy.
+Yes, but each group maps to a separate pipeline. The bundle template scaffolds one group by default. To add a second group, add a new pipeline resource in `resources/sdp_meta_pipelines.yml` with its own `bronze.group` / `silver.group` configuration key pointing at the new group name, then redeploy and re-run `onboarding`.
 
 **Q: How do I switch from PyPI to a local wheel (or vice versa)?**
 
@@ -233,8 +233,8 @@ Run `bundle-prepare-wheel` first to build and upload the wheel if you don't have
 
 ```bash
 databricks bundle deploy --target prod
-databricks bundle run sdp_meta_onboarding_job --target prod
-databricks bundle run sdp_meta_pipeline --target prod
+databricks bundle run onboarding --target prod
+databricks bundle run pipelines --target prod
 ```
 Per-target catalog, schema, and variable overrides live under `targets.prod.variables` in `databricks.yml`. For CI/CD, uncomment the `run_as` block in the prod target and set your service principal application ID.
 

@@ -59,13 +59,13 @@ databricks bundle deploy
 ### 7. Run the onboarding job
 
 ```bash
-databricks bundle run sdp_meta_onboarding_job
+databricks bundle run onboarding
 ```
 
 ### 8. Start the pipeline
 
 ```bash
-databricks bundle run sdp_meta_pipeline
+databricks bundle run pipelines
 ```
 
 ### 9. Verify

@@ -18,54 +18,59 @@
 ---
 
 ## Project Overview
-`SDP-META` is a metadata-driven framework designed to work with [Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines). This framework enables the automation of bronze and silver data pipelines by leveraging metadata recorded in an onboarding file (JSON or YAML). This file, known as the Dataflowspec, serves as the data flow specification, detailing the source and target metadata required for the pipelines.
 
-In practice, a single generic pipeline reads the Dataflowspec and uses it to orchestrate and run the necessary data processing workloads. This approach streamlines the development and management of data pipelines, allowing for a more efficient and scalable data processing workflow
+`SDP-META` is a metadata-driven framework for [Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines). Define your Bronze and Silver pipelines in a JSON or YAML onboarding file — a single generic Declarative Pipeline reads the resulting DataflowSpec at runtime and builds the full processing graph automatically. No pipeline code to write.
 
-[Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines) and `SDP-META` are designed to complement each other. [Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines) provide a declarative, intent-driven foundation for building and managing data workflows, while SDP-META adds a configuration-driven layer that automates and scales pipeline creation. By combining these approaches, teams can achieve enterprise-level agility, governance, and efficiency, templatizing and automating pipelines for any scale of modern data-driven business.
-
-### Components:
+### Components
 
 #### Metadata Interface
 
-- Capture input/output metadata in an onboarding file — JSON ([`demo/conf/json/onboarding.template`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/onboarding.template)) or YAML ([`demo/conf/yml/onboarding.template.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/onboarding.template.yml))
-- Capture Data Quality Rules — JSON ([`demo/conf/json/dqe/customers/`](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/json/dqe/customers)) or YAML ([`demo/conf/yml/dqe/customers/`](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/yml/dqe/customers))
-- Capture processing logic as sql in a Silver transformation file — JSON ([`demo/conf/json/silver_transformations.json`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/silver_transformations.json)) or YAML ([`demo/conf/yml/silver_transformations.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/silver_transformations.yml))
+- **Onboarding file** (JSON or YAML) — sources, targets, CDC config, DQE rules. Examples: [`demo/conf/json/onboarding.template`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/onboarding.template) · [`demo/conf/yml/onboarding.template.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/onboarding.template.yml)
+- **Data Quality Expectations** — per-table JSON or YAML rule files. Examples: [`demo/conf/json/dqe/customers/`](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/json/dqe/customers) · [`demo/conf/yml/dqe/customers/`](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/yml/dqe/customers)
+- **Silver transformation file** — SQL `select_exp` and `where_clause` definitions. Examples: [`demo/conf/json/silver_transformations.json`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/silver_transformations.json) · [`demo/conf/yml/silver_transformations.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/silver_transformations.yml)
 
 #### Generic Lakeflow Spark Declarative Pipeline
 
-- Apply appropriate readers based on input metadata
-- Apply data quality rules with Lakeflow Spark Declarative Pipeline expectations
-- Apply CDC apply changes if specified in metadata
-- Builds Lakeflow Spark Declarative Pipeline graph based on input/output metadata
-- Launch Lakeflow Declarative pipeline
+- Reads DataflowSpec at runtime and dynamically wires sources, transformations, expectations, CDC flows, and sinks
+- Supports Autoloader, Delta, Kafka, Eventhub, and Snapshot sources
+- Applies [`create_auto_cdc_flow`](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-apply-changes), [`append_flow`](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-append-flow), and [`create_sink`](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-sink) based on metadata
 
 ## High-Level Process Flow
 
 ![SDP-META Architecture](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/sdp-meta-architecture.svg)
 
-## SDP-META `Lakeflow Spark Declarative Pipelines` Features support
-| Features  | SDP-META Support |
-| ------------- | ------------- |
-| Input data sources  | Autoloader, Delta, Eventhub, Kafka, snapshot  |
-| Medallion architecture layers | Bronze, Silver  |
-| Custom transformations | Bronze, Silver layer accepts custom functions|
-| Data Quality Expecations Support | Bronze, Silver layer |
-| Quarantine table support | Bronze layer |
-| CDC via [`create_auto_cdc_flow`](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes) (use `bronze_cdc_apply_changes` in onboarding file) | Bronze, Silver layer |
-| Multi-source CDC into a single target table (`bronze_cdc_apply_changes_flows`) | Bronze, Silver layer |
-| Snapshot CDC via [`create_auto_cdc_from_snapshot_flow`](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes-from-snapshot) (use `bronze_cdc_apply_changes` with `sequence_by`) | Bronze layer |
-| Append flows via [`append_flow`](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-flows) (use `bronze_append_flows` in onboarding file) | Bronze layer |
-| Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
-| [SDP-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/sdp_meta_cli/) | Interactive: ```databricks labs sdp-meta onboard```, ```databricks labs sdp-meta deploy```. Bundle-based (see [`DAB_README.md`](DAB_README.md)): ```bundle-init```, ```bundle-prepare-wheel```, ```bundle-add-flow```, ```bundle-validate``` |
-| Bronze and Silver pipeline chaining | Deploy sdp-meta pipeline with ```layer=bronze_silver``` option using default publishing mode |
-| [create_sink](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-sink) API support |Supported formats:```external delta table , kafka``` Bronze, Silver layers|
-| [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) | First-class: packaged DAB template + four `databricks labs sdp-meta bundle-*` CLI commands (init / prepare-wheel / add-flow / validate), recipes for programmatic flow generation from UC, volumes, Kafka topics or inventory CSVs, and `pipeline_mode={split,combined}` to choose split vs. single Lakeflow Spark Declarative Pipeline. See [`DAB_README.md`](DAB_README.md) for the full reference and [`demo/README.md#dab-demo`](demo/README.md#dab-demo) for an end-to-end runnable walkthrough.
-| [SDP-META UI](https://github.com/databrickslabs/dlt-meta/tree/main/databricks_app) | Uses the SDP-META Databricks App
+## Feature Matrix
+
+### Pipeline Capabilities
+
+| Feature | Layers |
+|---|---|
+| Input sources — Autoloader, Delta, Kafka, Eventhub, Snapshot | Bronze, Silver |
+| Medallion architecture | Bronze → Silver |
+| Bronze ↔ Silver pipeline chaining (`layer=bronze_silver`) | Both |
+| Custom transformation functions | Bronze, Silver |
+| Data Quality Expectations | Bronze, Silver |
+| Quarantine table | Bronze, Silver |
+| Liquid clustering | Bronze, Bronze Quarantine, Silver |
+| [`create_auto_cdc_flow`](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-apply-changes) — CDC via `bronze_cdc_apply_changes` | Bronze, Silver |
+| Multi-source CDC (`bronze_cdc_apply_changes_flows` / `silver_cdc_apply_changes_flows`) | Bronze, Silver |
+| [`create_auto_cdc_from_snapshot_flow`](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-apply-changes-from-snapshot) — Snapshot CDC | Bronze |
+| [`append_flow`](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-append-flow) — via `bronze_append_flows` | Bronze |
+| [`create_sink`](https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-sink) — Delta and Kafka sinks | Bronze, Silver |
+| Row filters | Bronze, Silver |
+
+### Deployment & Tooling
+
+| Tool | Description |
+|---|---|
+| [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) | Git-tracked pipelines, `dev`/`prod` targets, CI/CD-ready. Commands: `bundle-init`, `bundle-prepare-wheel`, `bundle-add-flow`, `bundle-validate`. See [`DAB_README.md`](DAB_README.md). |
+| [SDP-META CLI](https://databrickslabs.github.io/dlt-meta/docs/getting-started/cli) | `databricks labs sdp-meta onboard` · `deploy` · `bundle-*` |
+| [SDP-META App](https://github.com/databrickslabs/dlt-meta/tree/main/databricks_app) | Browser-based UI for onboarding, deployment, and pipeline monitoring |
+| [MCP Server](https://databrickslabs.github.io/dlt-meta/getting-started/mcp) | AI-assisted pipeline scaffolding via Claude, Cursor, and compatible tools |
 
 ## Getting Started
 
-Refer to the [Getting Started](https://databrickslabs.github.io/dlt-meta/getting_started) docs for the long form. The short form, in order of recommendation:
+Refer to the [Getting Started](https://databrickslabs.github.io/dlt-meta/docs/getting-started) docs for the long form. The short form, in order of recommendation:
 
 1. **Use the [Declarative Automation Bundle](https://docs.databricks.com/aws/en/dev-tools/bundles/) interface** for any real work — `dev`/`prod` targets, git-tracked state, CI/CD-ready. New developers can use `bundle-init --quickstart` to skip every prompt and get a working bundle in one command. This is the recommended path; the interactive `onboard`/`deploy` CLI below is kept for first-touch exploration only.
 2. **Use the interactive `onboard` + `deploy` CLI** if you just want to kick the tires against a single workspace.
@@ -120,7 +125,7 @@ databricks labs sdp-meta bundle-validate
 # Deploy + run end-to-end.
 databricks bundle deploy --target dev
 databricks bundle run onboarding --target dev
-databricks bundle run pipelines  --target dev
+databricks bundle run pipelines --target dev
 ```
 
 What you get with the bundle path:
@@ -141,13 +146,13 @@ If you want to run the existing demo files, set up the repo first:
 
 1. Clone & enter the repo, create a venv, install dependencies:
    ```bash
-   git clone https://github.com/databrickslabs/dlt-meta.git
-   cd dlt-meta
+   git clone https://github.com/databrickslabs/sdp-meta.git
+   cd sdp-meta
 
    # Use Python 3.11 or 3.12 — pyspark==3.5.5 (pinned in setup.py) does
    # not support Python 3.13+ and will surface as cloudpickle / recursion
    # errors at test time.
-   python3.11 -m venv .venv && source .venv/bin/activate
+   python -m venv .venv && source .venv/bin/activate
 
    # Runtime-only install (mirrors INSTALL_REQUIRES in setup.py):
    pip install -r requirements.txt
