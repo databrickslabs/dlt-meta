@@ -39,7 +39,7 @@ databricks labs sdp-meta onboard
 
 The command prompts for workspace, catalog, schema, onboarding file path, and more. If you have cloned the SDP-META repository locally, pressing Enter accepts demo defaults from the `demo/` folder.
 
-![SDP-META onboarding CLI](/img/onboardingDLTMeta.gif)
+![SDP-META onboarding CLI](/img/sdp_meta_onboard.gif)
 
 When the onboarding job finishes, it pushes code and data to your workspace, creates an onboarding job, and opens the job URL in your browser.
 
@@ -49,9 +49,7 @@ When the onboarding job finishes, it pushes code and data to your workspace, cre
 databricks labs sdp-meta deploy
 ```
 
-![SDP-META deploy CLI](/img/onboardingDLTMeta_2.gif)
-
-![SDP-META bronze+silver deploy](/img/deployingDLTMeta_bronze_silver.gif)
+![SDP-META deploy CLI](/img/sdp_meta_deploy.gif)
 
 Provide the same schema and group values you used in the onboarding step.
 
