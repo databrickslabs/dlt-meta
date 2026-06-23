@@ -42,7 +42,7 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 
 ## High-Level Process Flow
 
-![SDP-META Architecture](./docs/static/img/sdp-meta-architecture.svg)
+![SDP-META Architecture](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/sdp-meta-architecture.svg)
 
 ## SDP-META `Lakeflow Spark Declarative Pipelines` Features support
 | Features  | SDP-META Support |
@@ -74,8 +74,8 @@ Refer to the [Getting Started](https://databrickslabs.github.io/dlt-meta/getting
 
 - Python 3.10, 3.11, or 3.12. The pinned `pyspark==3.5.5` test stack does not support Python 3.13+; using 3.13 / 3.14 will surface as cloudpickle / recursion errors at test time. See [Troubleshooting](#troubleshooting) below.
 - Databricks CLI v0.213 or later. See [install instructions](https://docs.databricks.com/en/dev-tools/cli/tutorial.html).
-  - macOS: ![macos_install_databricks](docs/static/img/macos_1_databrickslabsmac_installdatabricks.gif)
-  - Windows: ![windows_install_databricks.png](docs/static/img/windows_install_databricks.png)
+  - macOS: ![macos_install_databricks](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/macos_1_databrickslabsmac_installdatabricks.gif)
+  - Windows: ![windows_install_databricks.png](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/windows_install_databricks.png)
 - Authenticate your machine to a workspace:
   ```bash
   databricks auth login --host WORKSPACE_HOST
@@ -161,7 +161,7 @@ If you want to run the existing demo files, set up the repo first:
    ```bash
    databricks labs sdp-meta onboard
    ```
-   ![onboardingDLTMeta_2.gif](docs/static/img/onboardingDLTMeta_2.gif)
+   ![onboardingDLTMeta_2.gif](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/onboardingDLTMeta_2.gif)
 
    Pushes code+data to your workspace, creates an onboarding job, and opens the job URL in your browser.
 
@@ -169,7 +169,7 @@ If you want to run the existing demo files, set up the repo first:
    ```bash
    databricks labs sdp-meta deploy
    ```
-   ![deployingDLTMeta_bronze_silver.gif](docs/static/img/deployingDLTMeta_bronze_silver.gif)
+   ![deployingDLTMeta_bronze_silver.gif](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/deployingDLTMeta_bronze_silver.gif)
 
    Deploys the Lakeflow Spark Declarative Pipeline and opens its URL in your browser.
 

@@ -43,8 +43,16 @@ which pip detects as already-satisfied and no-ops.
 """
 from setuptools import setup, find_namespace_packages, find_packages
 
+import re
+
 with open("README.md", "r") as fh:
-    long_description = fh.read()
+    content = fh.read()
+# Strip the top bar section flagged for exclusion (nav links not meaningful on PyPI)
+content = re.sub(
+    r'<!-- Dont remove: exclude package -->.*?<!-- Dont remove: end exclude package -->',
+    '', content, flags=re.DOTALL
+)
+long_description = content
 
 INSTALL_REQUIRES = ["setuptools", "databricks-sdk", "PyYAML>=6.0"]
 
