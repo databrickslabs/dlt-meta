@@ -1,4 +1,4 @@
-# SDP-META Lakehouse App
+# SDP-META Databricks App
 
 ## Prerequisites
 
@@ -37,54 +37,75 @@ databricks apps create demo-sdp-meta
 
 > Wait a couple of minutes for the app compute to provision.
 
-### 3. Sync and deploy the **full sdp-meta repo**
-
-The root-level `app.yaml` tells Databricks Apps to run `lakehouse_app/start.sh`,
-which builds and installs the sdp-meta wheel and then launches Flask.
-Deploy from the **repo root** so `demo/`, `src/`, and `integration_tests/` are
-all present inside the container alongside the app.
+### 3. Deploy with `scripts/deploy_app.sh` (recommended)
 
 ```bash
 # Run from the sdp-meta repo root
 cd /path/to/sdp-meta
 
-# Sync the full repo to your workspace
-databricks sync . /Workspace/Users/<you@databricks.com>/sdp-meta
-
-# Deploy using the repo root as the source path
-databricks apps deploy demo-sdp-meta \
-  --source-code-path /Workspace/Users/<you@databricks.com>/sdp-meta
+./scripts/deploy_app.sh \
+  --profile <DATABRICKS_CLI_PROFILE> \
+  --app     <YOUR_APP_NAME> \
+  --path    /Workspace/Users/<you@databricks.com>/<workspace-folder>
 ```
 
-**What happens at container startup (`start.sh`):**
-1. Installs `wheel` and `setuptools` build tools
-2. Runs `python setup.py bdist_wheel` to build `databricks_labs_sdp_meta-*.whl`
-3. `pip install`s the wheel (brings in `databricks-sdk`, `PyYAML`, etc.)
-4. Verifies `demo/` and `integration_tests/` are present
-5. Starts Flask from the repo root so relative paths in demo scripts resolve correctly
+Run `./scripts/deploy_app.sh -h` for the full argument list. `--app` defaults
+to `demo-sdp-meta` (matches step 2).
+
+**Why this script and not raw `databricks sync` + `databricks apps deploy`?**
+Two things the platform-native commands won't do for you:
+
+1. **Inject `app.yaml` at the deploy root.** The Apps platform requires
+   `app.yaml` at the source-code-path root, but we keep the working tree
+   identical to upstream so the file isn't committed. `deploy_app.sh` stages
+   the repo into a tempdir, writes `app.yaml` + `requirements.txt` at the
+   staging root, and syncs that — not the raw working tree.
+2. **Disguise the interactive demo notebook.** `demo/SDP_META_INTERACTIVE_DEMO.py`
+   starts with `# Databricks notebook source`, which causes plain
+   `databricks sync` to upload it as a Notebook (the `.py` extension is
+   stripped). The Apps container then can't find `demo/SDP_META_INTERACTIVE_DEMO.py`
+   and the Interactive Demo fails with `Demo notebook source not found`.
+   `deploy_app.sh` renames the staged copy to `.nbsource` so the workspace
+   stores it as a regular FILE; `databricks_app/start.sh` restores the `.py`
+   inside the container at startup.
+
+If you skip the script and run `databricks sync . <WS_PATH> && databricks apps deploy …`
+manually, expect both issues — the app will crash with `error: no commands supplied`
+on startup, and the Interactive Demo will be broken even if you patch the
+crash.
+
+**What `start.sh` does inside the container:**
+1. Detects Mode A vs Mode B layout (`demo/` + `src/` next to `start.sh`?).
+2. Installs `wheel` + `setuptools`, runs `python setup.py bdist_wheel`,
+   `pip install`s the resulting `databricks_labs_sdp_meta-*.whl`.
+3. Restores `demo/SDP_META_INTERACTIVE_DEMO.py` from the staged `.nbsource`
+   copy (if absent in the working tree).
+4. Verifies `demo/` and `integration_tests/` are present.
+5. `exec`s `flask run` bound to `$DATABRICKS_APP_PORT` (defaults to 8000
+   locally).
 
 **Directory layout inside the container (`/app/python/source_code/`):**
 ```
 setup.py
-app.yaml
-requirements.txt
-src/                   ← sdp-meta source (built into wheel by start.sh)
-demo/                  ← demo scripts (no copy needed — already here)
-integration_tests/     ← imported by demo scripts
-lakehouse_app/
+app.yaml              ← injected by scripts/deploy_app.sh (not in the repo)
+requirements.txt      ← injected by scripts/deploy_app.sh (copied from databricks_app/)
+src/                  ← sdp-meta source (built into a wheel by start.sh)
+demo/                 ← demo scripts (no copy needed — already here)
+integration_tests/    ← imported by demo scripts
+databricks_app/
     app.py
     start.sh
     templates/
 ```
 
 > **No extra environment variable needed.** The app derives the repo root from
-> `lakehouse_app/../` automatically.  Set `DLT_META_HOME` only if you use a
+> `databricks_app/../` automatically. Set `DLT_META_HOME` only if you use a
 > non-standard layout.
 
-### 6. Access the app
+### 4. Access the app
 
 Open the URL shown in step 2, or navigate:
-**Databricks Web UI → New → App → search for `demo-sdp-meta`**
+**Databricks Web UI → Compute → Apps → select `<your-app-name>`**
 
 ---
 
@@ -100,7 +121,7 @@ python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
 # Flask + the small set of runtime deps the App needs
-pip install -r lakehouse_app/requirements.txt
+pip install -r databricks_app/requirements.txt
 
 # Install sdp-meta in editable mode so the App and demos can import it
 # without rebuilding a wheel on every restart.
@@ -149,7 +170,7 @@ export FLASK_DEBUG=true
 # Optional: pick a non-default profile (matches the Apps "--profile" semantic)
 # export DATABRICKS_CONFIG_PROFILE=<name>
 
-flask --app lakehouse_app/app.py run --host 127.0.0.1 --port 8000
+flask --app databricks_app/app.py run --host 127.0.0.1 --port 8000
 ```
 
 Open **http://127.0.0.1:8000**.
@@ -180,9 +201,11 @@ This means:
   `export SDP_META_NO_BROWSER=1` (already in step 3 above).
 - **Port already in use** — `lsof -i :8000` to find the holder, or pass a
   different `--port`.
-- **`demo/SDP_META_INTERACTIVE_DEMO.py` not found** — only happens if
-  `scripts/deploy_app.sh` ran against your tree and renamed it to
-  `.nbsource`. Restore with `git checkout demo/SDP_META_INTERACTIVE_DEMO.py`.
+- **`Demo notebook source not found at .../SDP_META_INTERACTIVE_DEMO.py`** —
+  you deployed the app with raw `databricks sync .` + `databricks apps deploy`
+  instead of `./scripts/deploy_app.sh`. The sync uploaded the file as a
+  Databricks notebook (extension stripped) and `start.sh` had no
+  `.nbsource` staged copy to restore from. Redeploy with the script.
 
 ### 6. Mirror the App container's full boot path (optional)
 
@@ -190,7 +213,7 @@ To exercise the exact code path the production runtime uses (wheel build +
 install + Flask launch), run `start.sh` directly:
 
 ```bash
-bash lakehouse_app/start.sh
+bash databricks_app/start.sh
 ```
 
 Slower (rebuilds the wheel every time), but it's the closest you can get to
@@ -212,17 +235,24 @@ Two-step workflow:
 
 ### Demos tab
 
-Pre-built end-to-end examples that exercise different SDP-META features.  Enter your Unity
-Catalog name and click a demo card to launch it.
+Pre-built end-to-end examples that exercise different SDP-META features. Enter
+your Unity Catalog name, click **Test App access** to verify the App service
+principal has the grants every demo needs (see below), then click a demo card
+to launch it.
 
 | Demo | What it runs |
 |---|---|
-| Cloud Files | Auto Loader ingestion from cloud file sources |
+| Cloud Files | Auto Loader ingestion from cloud file sources, including a row-filter UDF on the customers flow |
 | Apply Changes Snapshot | CDC with SCD Type 1 from full snapshots |
 | Silver Fanout | Fan-out from bronze into multiple silver tables |
 | DAIS Demo | Databricks AI Summit end-to-end walkthrough |
-| DLT Sink | Pipeline output to an external sink destination |
-| DABs | Full CI/CD deploy via Databricks Asset Bundles |
+| Interactive Demo | The SDP_META_INTERACTIVE_DEMO notebook, submitted as a 1-step Databricks job. Defaults to `--install-source pypi` so the spawned job `pip install`s `databricks-labs-sdp-meta` from PyPI on every launch — no rebuild needed when a new release ships. |
+
+> Removed in this release: **DLT Sink** (requires Kafka / Event Hubs +
+> secret-scope wiring the App SP doesn't have) and **DABs** (needs Terraform
+> and `databricks bundle` in the container, which isn't worth the runtime
+> cost for a one-click demo). Both still work from a local CLI; see the
+> repo-root `README.md` for instructions.
 
 ### App service principal permissions
 
@@ -234,3 +264,10 @@ Grant it the following in your Unity Catalog:
 - `USE CATALOG` on the target catalog
 - `CREATE SCHEMA`, `USE SCHEMA` on the target schemas
 - `CREATE TABLE` on the bronze and silver schemas
+
+The Demos tab ships a **Test App access** button that calls `/check-uc-grants`
+and probes whether the App SP currently has `USE_CATALOG` + `CREATE_SCHEMA`
+on the catalog you entered. If a grant is missing, the response includes the
+exact `GRANT` SQL the catalog owner should run in a SQL editor (the App SP
+cannot grant privileges to itself), so you can copy-paste and retry without
+guessing.

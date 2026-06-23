@@ -1,4 +1,4 @@
-"""Unity Catalog pre-flight checks for the dlt-meta lakehouse_app.
+"""Unity Catalog pre-flight checks for the dlt-meta databricks_app.
 
 The App runs as a Databricks Apps service principal (its identity inside
 the workspace is whatever `WorkspaceClient().current_user.me()` returns
@@ -153,7 +153,6 @@ def check_app_sp_grants_on_catalog(
     # without the SDK installed (rare, but happens during static
     # analysis / CI) doesn't fail at import time.
     from databricks.sdk import WorkspaceClient
-    from databricks.sdk.service.catalog import SecurableType
 
     if not isinstance(uc_name, str) or not uc_name.strip():
         return PreflightResult(
@@ -182,9 +181,16 @@ def check_app_sp_grants_on_catalog(
 
     grant_sql = _build_grant_sql(uc_name, sp_principal)
 
+    # NOTE: pass ``securable_type`` as the literal string ``"CATALOG"``
+    # rather than ``SecurableType.CATALOG``. Recent databricks-sdk releases
+    # (>=0.40) serialise the enum via ``str(enum)``, producing
+    # ``"SECURABLETYPE.CATALOG"`` on the wire — which the UC ``GetEffective``
+    # RPC rejects with ``Invalid input: ... is not a valid securable type``.
+    # The REST API has always accepted the bare canonical string, so we use
+    # that to be SDK-version-agnostic.
     try:
         eff = ws.grants.get_effective(
-            securable_type=SecurableType.CATALOG,
+            securable_type="CATALOG",
             full_name=uc_name,
             principal=sp_principal,
         )

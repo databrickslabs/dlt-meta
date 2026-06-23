@@ -1,5 +1,5 @@
 /**
- * DLT-META Lakehouse App - Frontend Application
+ * SDP-META Databricks App - Frontend Application
  * Integrates modern UI with existing Flask backend functionality
  */
 

@@ -249,7 +249,7 @@ function PathsSection() {
     },
     {
       emoji: '🖥️',
-      title: 'Lakehouse App',
+      title: 'Databricks App',
       desc: 'GUI for non-engineers. Point-and-click onboarding.',
       to: '/docs/getting-started/app',
       recommended: false,

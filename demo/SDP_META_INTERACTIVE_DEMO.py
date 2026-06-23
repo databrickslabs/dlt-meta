@@ -52,8 +52,9 @@
 # MAGIC | **UC Catalog Name** | Unity Catalog catalog for the demo |
 # MAGIC | **UC Schema Name** | Schema within the catalog |
 # MAGIC | **Data Source** | `dbdatagen` (generate synthetic data) or `github` (download from repo) |
-# MAGIC | **Install Source** | `git_branch` (default — installs SDP-META from the GitHub branch above) or `whl_file` (installs from a pre-built wheel — preferred when validating a local build) |
+# MAGIC | **Install Source** | `git_branch` (default — installs SDP-META from the GitHub branch above), `pypi` (installs `databricks-labs-sdp-meta` from PyPI — preferred for published releases), or `whl_file` (installs from a pre-built wheel — preferred when validating a local build) |
 # MAGIC | **Wheel File Path** | Required only when `Install Source = whl_file`. Path to the SDP-META wheel on a Volume / Workspace, e.g. `/Volumes/<catalog>/<schema>/<volume>/sdp_meta-<version>-py3-none-any.whl` |
+# MAGIC | **PyPI Version** | Optional version pin when `Install Source = pypi` (e.g. `0.1.0`). Leave blank to install the latest published `databricks-labs-sdp-meta` |
 
 # COMMAND ----------
 
@@ -93,13 +94,18 @@ dbutils.widgets.dropdown(
 dbutils.widgets.dropdown(
     name="install_source",
     defaultValue="git_branch",
-    choices=["git_branch", "whl_file"],
+    choices=["git_branch", "pypi", "whl_file"],
     label="Install Source"
 )
 dbutils.widgets.text(
     name="whl_file_path",
     defaultValue="",
     label="Wheel File Path (when install_source=whl_file)"
+)
+dbutils.widgets.text(
+    name="pypi_version",
+    defaultValue="",
+    label="PyPI Version (when install_source=pypi, optional)"
 )
 # Final-validation toggle. Off by default so SAs walking through the
 # demo interactively don't get an unexpected hard fail at the end.
@@ -138,6 +144,7 @@ data_source = dbutils.widgets.get("data_source")
 onboarding_format = dbutils.widgets.get("onboarding_format")
 install_source = dbutils.widgets.get("install_source")
 whl_file_path = dbutils.widgets.get("whl_file_path").strip()
+pypi_version = dbutils.widgets.get("pypi_version").strip()
 validate_counts = dbutils.widgets.get("validate_counts").lower() == "true"
 cleanup = dbutils.widgets.get("cleanup").lower() == "true"
 
@@ -198,6 +205,18 @@ if install_source == "whl_file":
             "or switch install_source back to 'git_branch'."
         )
     sdp_meta_install_target = whl_file_path
+elif install_source == "pypi":
+    # Install the published wheel from PyPI. Optional ``pypi_version``
+    # widget pins a specific release (e.g. ``0.1.0``); leaving it blank
+    # installs the latest. ``databricks-labs-sdp-meta`` is the canonical
+    # PyPI package name; ``dlt-meta`` exists as a compatibility shim that
+    # also resolves to it.
+    if pypi_version:
+        sdp_meta_install_target = (
+            f"databricks-labs-sdp-meta=={pypi_version}"
+        )
+    else:
+        sdp_meta_install_target = "databricks-labs-sdp-meta"
 else:
     sdp_meta_install_target = (
         f"git+https://github.com/databrickslabs/"
@@ -219,6 +238,7 @@ print(f"Install Target     : {sdp_meta_install_target}")
 # MAGIC
 # MAGIC Installs from the chosen `Install Source`:
 # MAGIC - `git_branch` — `pip install git+https://github.com/databrickslabs/dlt-meta.git@<branch>`
+# MAGIC - `pypi` — `pip install databricks-labs-sdp-meta[==<version>]` (the published release on PyPI)
 # MAGIC - `whl_file` — `pip install <whl_file_path>` (wheel on a Volume / Workspace path)
 
 # COMMAND ----------
@@ -305,6 +325,7 @@ data_source = dbutils.widgets.get("data_source")
 onboarding_format = dbutils.widgets.get("onboarding_format")
 install_source = dbutils.widgets.get("install_source")
 whl_file_path = dbutils.widgets.get("whl_file_path").strip()
+pypi_version = dbutils.widgets.get("pypi_version").strip()
 validate_counts = dbutils.widgets.get("validate_counts").lower() == "true"
 cleanup = dbutils.widgets.get("cleanup").lower() == "true"
 
@@ -319,6 +340,13 @@ if install_source == "whl_file":
             "to be set."
         )
     sdp_meta_install_target = whl_file_path
+elif install_source == "pypi":
+    if pypi_version:
+        sdp_meta_install_target = (
+            f"databricks-labs-sdp-meta=={pypi_version}"
+        )
+    else:
+        sdp_meta_install_target = "databricks-labs-sdp-meta"
 else:
     sdp_meta_install_target = (
         f"git+https://github.com/databrickslabs/"

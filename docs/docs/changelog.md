@@ -44,7 +44,7 @@ See the [Migration guide](./operations/migration) for full details.
 ### Enhancements
 
 - `apply_changes_from_snapshot` support in the silver layer
-- Databricks Lakehouse App UI for onboarding and deploy commands
+- Databricks App UI for onboarding and deploy commands
 - Non-Delta sink support (Delta and Kafka sinks) via `bronze_sink` / `silver_sink`
 - Quarantine support in the silver layer for data quality rules
 - Table comments, column comments, and `cluster_by` support
