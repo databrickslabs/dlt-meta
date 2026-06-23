@@ -68,4 +68,8 @@ databricks bundle run sdp_meta_onboarding_job
 databricks bundle run sdp_meta_pipeline
 ```
 
+### 9. Verify
+
+Open the pipeline in the Databricks UI (**Workflows → Lakeflow Spark Declarative Pipelines**) and confirm it reaches **Completed** status. Bronze output tables should appear in `<bronze_target_schema>` in your Unity Catalog. If the pipeline stays in **Running** or transitions to **Failed**, check the event log in the pipeline UI for the root cause.
+
 For all bundle options — scaffolding modes, split vs combined pipelines, adding flows, CI/CD setup — see [Declarative Automation Bundles](./dabs.md).

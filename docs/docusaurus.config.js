@@ -118,7 +118,7 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} Databricks Labs. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} Databricks Labs.`,
       },
       prism: {
         theme: prismThemes.github,

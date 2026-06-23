@@ -10,7 +10,7 @@ SDP-META supports several deployment paths. All lead to the same outcome: a runn
 
 ## Prerequisites (all paths)
 
-- **Python 3.8–3.12** — Python 3.10, 3.11, or 3.12 recommended. Python 3.13+ has known PySpark compatibility issues.
+- **Python 3.10–3.12** — Python 3.10, 3.11, or 3.12 recommended. Python 3.13+ has known PySpark compatibility issues.
 - **Databricks CLI v0.213 or later** — [Install guide](https://docs.databricks.com/en/dev-tools/cli/tutorial.html).
 
 ```bash

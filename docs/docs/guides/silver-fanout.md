@@ -11,7 +11,7 @@ Silver fanout is a topology where a single bronze table feeds multiple silver ta
 ## How it works
 
 1. Run the first onboarding job to create the bronze table and the first silver table.
-2. Run a second onboarding job in **append mode** (`"overwrite": "false"`) with a new onboarding file defining the additional silver table.
+2. Run a second onboarding job in **append mode** (`"overwrite": "False"`) with a new onboarding file defining the additional silver table.
 3. The pipeline reads all silver entries for the group and materializes each silver table in the same update.
 
 ## `silver_append_flows` configuration
@@ -44,7 +44,7 @@ For a second silver table within the same onboarding entry, use `silver_append_f
 
 ## Full example: customers_bronze → two silver tables
 
-**First onboarding file** (run with `"overwrite": "true"`):
+**First onboarding file** (run with `"overwrite": "True"`):
 
 ```json
 [
@@ -62,12 +62,12 @@ For a second silver table within the same onboarding entry, use `silver_append_f
     "silver_catalog_dev": "my_catalog",
     "silver_database_dev": "retail_silver",
     "silver_table": "customers_silver",
-    "silver_transformation_json": "/Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations.json"
+    "silver_transformation_json_prod": "/Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations.json"
   }
 ]
 ```
 
-**Second onboarding file** (run with `"overwrite": "false"`):
+**Second onboarding file** (run with `"overwrite": "False"`):
 
 ```json
 [
@@ -82,7 +82,7 @@ For a second silver table within the same onboarding entry, use `silver_append_f
     "silver_catalog_dev": "my_catalog",
     "silver_database_dev": "retail_silver",
     "silver_table": "customers_active_silver",
-    "silver_transformation_json": "/Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations_fanout.json"
+    "silver_transformation_json_prod": "/Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations_fanout.json"
   }
 ]
 ```
@@ -113,4 +113,4 @@ python demo/launch_silver_fanout_demo.py \
 
 - [Silver Transformations Schema](../reference/silver-transformations) — `where_clause` configuration
 - [Row Filters](./row-filters) — alternative approach using pipeline-time row filtering
-- Example onboarding files: [`examples/json/onboarding_silverfanout.template`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/onboarding_silverfanout.template)
+- Example onboarding files: [`demo/conf/json/onboarding.template`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/onboarding.template)

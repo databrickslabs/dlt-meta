@@ -10,7 +10,7 @@ A [Databricks Declarative Automation Bundle](https://docs.databricks.com/aws/en/
 
 ## Prerequisites
 
-- Python 3.8+
+- Python 3.10+
 - Databricks CLI v0.213 or later on `PATH`
 - `databricks labs install sdp-meta`
 
@@ -53,9 +53,20 @@ databricks labs sdp-meta bundle-init
 │   └── sdp_meta_pipelines.yml
 ├── notebooks/
 │   └── init_sdp_meta_pipeline.py
-└── conf/
-    └── onboarding.template.yml  (or .json)
+├── conf/
+│   ├── onboarding.yml  (or .json)
+│   ├── silver_transformations.yml  (or .json)
+│   └── dqe/
+│       └── example_table/
+│           └── bronze_expectations.yml  (or .json)
+└── recipes/
+    ├── from_uc.py
+    ├── from_volume.py
+    ├── from_inventory.py
+    └── from_topics.py
 ```
+
+`recipes/` contains helper scripts for bulk-adding flows via `bundle-add-flow`. See [CLI Commands](../reference/cli-commands) for usage.
 
 ## Installing SDP-META on pipelines
 

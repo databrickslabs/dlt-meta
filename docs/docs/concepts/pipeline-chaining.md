@@ -33,22 +33,28 @@ One pipeline with `configuration.layer = bronze_silver` that materializes both l
 Both Bronze and Silver flows must share the same `data_flow_group`. In the onboarding file:
 
 ```yaml
-# Bronze flow — group G1
+# Bronze flow — group G1, writes cloudFiles source to orders_raw
 - data_flow_id: 1
   data_flow_group: G1
   source_format: cloudFiles
-  target_table: orders_raw
-  ...
+  source_details:
+    source_schema_path: /Volumes/my_catalog/my_schema/my_volume/schema/orders.ddl
+    source_path_prod: s3://my-bucket/orders/
+  bronze_catalog_prod: my_catalog
+  bronze_database_prod: retail_bronze
+  bronze_table: orders_raw
 
-# Silver flow — also group G1, reads from orders_raw
+# Silver flow — also group G1, reads from the bronze orders_raw table
 - data_flow_id: 101
   data_flow_group: G1
   source_format: delta
   source_details:
-    source_database: bronze_schema
+    source_database: my_catalog.retail_bronze
     source_table: orders_raw
-  target_table: orders_clean
-  ...
+  silver_catalog_prod: my_catalog
+  silver_database_prod: retail_silver
+  silver_table: orders_clean
+  silver_transformation_json_prod: /Volumes/my_catalog/my_schema/my_volume/conf/silver_transformations.json
 ```
 
 The pipeline is configured with `bronze.group = G1` and `silver.group = G1`.
@@ -59,23 +65,33 @@ If the `data_flow_group` in Silver onboarding entries does not match the group n
 
 ## Silver fan-out
 
-One Bronze table can feed multiple Silver tables. Define multiple Silver onboarding entries with the same `source_table` but different `target_table` values:
+One Bronze table can feed multiple Silver tables. Define multiple Silver onboarding entries with the same `source_table` but different `silver_table` values, each pointing to its own `silver_transformation_json_{env}` file with the appropriate `where_clause` or `select_exp`:
 
 ```yaml
 - data_flow_id: 101
   data_flow_group: G1
+  source_format: delta
   source_details:
+    source_database: my_catalog.retail_bronze
     source_table: orders_raw
-  target_table: orders_by_region
-  silver_transformation_sql: "SELECT region, COUNT(*) as cnt FROM orders_raw GROUP BY region"
+  silver_catalog_prod: my_catalog
+  silver_database_prod: retail_silver
+  silver_table: orders_by_region
+  silver_transformation_json_prod: /Volumes/my_catalog/my_schema/my_volume/conf/silver_by_region.json
 
 - data_flow_id: 102
   data_flow_group: G1
+  source_format: delta
   source_details:
+    source_database: my_catalog.retail_bronze
     source_table: orders_raw
-  target_table: orders_by_customer
-  silver_transformation_sql: "SELECT customer_id, SUM(amount) as total FROM orders_raw GROUP BY customer_id"
+  silver_catalog_prod: my_catalog
+  silver_database_prod: retail_silver
+  silver_table: orders_by_customer
+  silver_transformation_json_prod: /Volumes/my_catalog/my_schema/my_volume/conf/silver_by_customer.json
 ```
+
+Each transformation file specifies the `select_exp` and optional `where_clause` for that silver table. See the [Silver Fanout guide](../guides/silver-fanout) and [Silver Transformations reference](../reference/silver-transformations) for the file format.
 
 ## Switching between modes
 

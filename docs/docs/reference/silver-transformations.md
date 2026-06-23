@@ -8,7 +8,7 @@ sidebar_position: 2
 
 The silver transformations file defines the SQL logic applied when writing from a bronze table to a silver table. Each entry maps one source to one silver target.
 
-The file path is referenced in the onboarding file via the `silver_transformation_json` field.
+The file path is referenced in the onboarding file via the `silver_transformation_json_{env}` field (e.g. `silver_transformation_json_prod`).
 
 Both JSON and YAML formats are supported.
 
@@ -93,7 +93,5 @@ If `where_clause` is used in combination with a silver fanout scenario, each tra
 
 ## Example Files in the Repository
 
-- JSON: [`examples/json/silver_transformations.json`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/silver_transformations.json)
-- JSON (fanout): [`examples/json/silver_transformations_fanout.template`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/silver_transformations_fanout.template)
-- YAML: [`demo/conf/yml/silver_transformations.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/silver_transformations.yml)
-- YAML (fanout): [`examples/yml/silver_transformations_fanout.template.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/yml/silver_transformations_fanout.template.yml)
+- JSON: [`demo/conf/json/silver_transformations.json`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/silver_transformations.json)
+- YAML: [`demo/conf/yml/silver_transformations.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/silver_transformations.yml)

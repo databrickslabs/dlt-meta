@@ -10,7 +10,7 @@ The SDP-META Databricks App is a browser-based GUI for onboarding and managing L
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/tutorial.html) (v0.244.0 or later recommended)
 - Configured workspace access
 

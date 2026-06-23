@@ -1,19 +1,19 @@
 <p align="center">
-  <img src="docs/static/img/sdp-meta-readme-banner.png" alt="SDP-META — Metadata-driven Lakeflow Spark Declarative Pipelines" width="700"/>
+  <img src="docs/static/img/sdp-meta-readme-banner.png" alt="SDP-META — Metadata-driven Lakeflow Spark Declarative Pipelines" width="900"/>
 </p>
 
 <!-- Top bar will be removed from PyPi packaged versions -->
 <!-- Dont remove: exclude package -->
 
-[Documentation](https://databrickslabs.github.io/sdp-meta/) |
+[Documentation](https://databrickslabs.github.io/dlt-meta/) |
 [Release Notes](CHANGELOG.md) |
-[Examples](https://github.com/databrickslabs/sdp-meta/tree/main/examples)
+[Examples](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf)
 
 <!-- Dont remove: end exclude package -->
 
 ---
 
-[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://databrickslabs.github.io/sdp-meta/) [![PyPI](https://img.shields.io/badge/pypi-v0.1.0-green)](https://pypi.org/project/sdp-meta/) [![Build](https://img.shields.io/github/workflow/status/databrickslabs/sdp-meta/build/main)](https://github.com/databrickslabs/sdp-meta/actions/workflows/onpush.yml) [![Coverage](https://img.shields.io/codecov/c/github/databrickslabs/sdp-meta)](https://codecov.io/gh/databrickslabs/sdp-meta) [![Style](https://img.shields.io/badge/code%20style-flake8-blue)](https://github.com/PyCQA/flake8) [![PyPI Downloads](https://static.pepy.tech/badge/dlt-meta/month)](https://pepy.tech/projects/dlt-meta)
+[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://databrickslabs.github.io/dlt-meta/) [![PyPI](https://img.shields.io/pypi/v/databricks-labs-sdp-meta?label=pypi)](https://pypi.org/project/databricks-labs-sdp-meta/) [![Build](https://img.shields.io/github/actions/workflow/status/databrickslabs/dlt-meta/onpush.yml?branch=main)](https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml) [![Coverage](https://img.shields.io/codecov/c/github/databrickslabs/dlt-meta)](https://codecov.io/gh/databrickslabs/dlt-meta) [![Style](https://img.shields.io/badge/code%20style-flake8-blue)](https://github.com/PyCQA/flake8) [![PyPI Downloads](https://static.pepy.tech/badge/dlt-meta/month)](https://pepy.tech/projects/dlt-meta)
 
 ---
 
@@ -28,9 +28,9 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 
 #### Metadata Interface
 
-- Capture input/output metadata in an onboarding file — JSON ([`examples/json/onboarding.template`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/onboarding.template)) or YAML ([`examples/yml/onboarding.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/yml/onboarding.yml))
-- Capture Data Quality Rules — JSON ([`examples/json/dqe/customers/bronze_data_quality_expectations.json`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/dqe/customers/bronze_data_quality_expectations.json)) or YAML ([`examples/yml/dqe/customers/bronze_data_quality_expectations.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/yml/dqe/customers/bronze_data_quality_expectations.yml))
-- Capture processing logic as sql in a Silver transformation file — JSON ([`examples/json/silver_transformations.json`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/json/silver_transformations.json)) or YAML ([`examples/yml/silver_transformations.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/examples/yml/silver_transformations.yml))
+- Capture input/output metadata in an onboarding file — JSON ([`demo/conf/json/onboarding.template`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/onboarding.template)) or YAML ([`demo/conf/yml/onboarding.template.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/onboarding.template.yml))
+- Capture Data Quality Rules — JSON ([`demo/conf/json/dqe/customers/`](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/json/dqe/customers)) or YAML ([`demo/conf/yml/dqe/customers/`](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/yml/dqe/customers))
+- Capture processing logic as sql in a Silver transformation file — JSON ([`demo/conf/json/silver_transformations.json`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/silver_transformations.json)) or YAML ([`demo/conf/yml/silver_transformations.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/silver_transformations.yml))
 
 #### Generic Lakeflow Spark Declarative Pipeline
 
@@ -57,15 +57,15 @@ In practice, a single generic pipeline reads the Dataflowspec and uses it to orc
 | Snapshot CDC via [`create_auto_cdc_from_snapshot_flow`](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-apply-changes-from-snapshot) (use `bronze_cdc_apply_changes` with `sequence_by`) | Bronze layer |
 | Append flows via [`append_flow`](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-flows) (use `bronze_append_flows` in onboarding file) | Bronze layer |
 | Liquid cluster support | Bronze, Bronze Quarantine, Silver tables|
-| [SDP-META CLI](https://databrickslabs.github.io/sdp-meta/getting_started/sdp_meta_cli/) | Interactive: ```databricks labs sdp-meta onboard```, ```databricks labs sdp-meta deploy```. Bundle-based (see [`DAB_README.md`](DAB_README.md)): ```bundle-init```, ```bundle-prepare-wheel```, ```bundle-add-flow```, ```bundle-validate``` |
+| [SDP-META CLI](https://databrickslabs.github.io/dlt-meta/getting_started/sdp_meta_cli/) | Interactive: ```databricks labs sdp-meta onboard```, ```databricks labs sdp-meta deploy```. Bundle-based (see [`DAB_README.md`](DAB_README.md)): ```bundle-init```, ```bundle-prepare-wheel```, ```bundle-add-flow```, ```bundle-validate``` |
 | Bronze and Silver pipeline chaining | Deploy sdp-meta pipeline with ```layer=bronze_silver``` option using default publishing mode |
 | [create_sink](https://docs.databricks.com/aws/en/dlt-ref/dlt-python-ref-sink) API support |Supported formats:```external delta table , kafka``` Bronze, Silver layers|
 | [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) | First-class: packaged DAB template + four `databricks labs sdp-meta bundle-*` CLI commands (init / prepare-wheel / add-flow / validate), recipes for programmatic flow generation from UC, volumes, Kafka topics or inventory CSVs, and `pipeline_mode={split,combined}` to choose split vs. single Lakeflow Spark Declarative Pipeline. See [`DAB_README.md`](DAB_README.md) for the full reference and [`demo/README.md#dab-demo`](demo/README.md#dab-demo) for an end-to-end runnable walkthrough.
-| [SDP-META UI](https://github.com/databrickslabs/sdp-meta/tree/main/databricks_app) | Uses the SDP-META Databricks App
+| [SDP-META UI](https://github.com/databrickslabs/dlt-meta/tree/main/databricks_app) | Uses the SDP-META Databricks App
 
 ## Getting Started
 
-Refer to the [Getting Started](https://databrickslabs.github.io/sdp-meta/getting_started) docs for the long form. The short form, in order of recommendation:
+Refer to the [Getting Started](https://databrickslabs.github.io/dlt-meta/getting_started) docs for the long form. The short form, in order of recommendation:
 
 1. **Use the [Declarative Automation Bundle](https://docs.databricks.com/aws/en/dev-tools/bundles/) interface** for any real work — `dev`/`prod` targets, git-tracked state, CI/CD-ready. New developers can use `bundle-init --quickstart` to skip every prompt and get a working bundle in one command. This is the recommended path; the interactive `onboard`/`deploy` CLI below is kept for first-touch exploration only.
 2. **Use the interactive `onboard` + `deploy` CLI** if you just want to kick the tires against a single workspace.
@@ -141,8 +141,8 @@ If you want to run the existing demo files, set up the repo first:
 
 1. Clone & enter the repo, create a venv, install dependencies:
    ```bash
-   git clone https://github.com/databrickslabs/sdp-meta.git
-   cd sdp-meta
+   git clone https://github.com/databrickslabs/dlt-meta.git
+   cd dlt-meta
 
    # Use Python 3.11 or 3.12 — pyspark==3.5.5 (pinned in setup.py) does
    # not support Python 3.13+ and will surface as cloudpickle / recursion
@@ -190,10 +190,10 @@ python -m coverage report -m
 
 ## Resources
 
-- [Documentation](https://databrickslabs.github.io/sdp-meta/)
-- [FAQ](https://databrickslabs.github.io/sdp-meta/faq)
+- [Documentation](https://databrickslabs.github.io/dlt-meta/)
+- [FAQ](https://databrickslabs.github.io/dlt-meta/faq)
 - [Release Notes](CHANGELOG.md)
-- [GitHub Issues](https://github.com/databrickslabs/sdp-meta/issues)
+- [GitHub Issues](https://github.com/databrickslabs/dlt-meta/issues)
 
 ## Project Support
 
