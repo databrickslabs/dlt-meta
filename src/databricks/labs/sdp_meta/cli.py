@@ -8,6 +8,7 @@ import sys
 import tempfile
 import uuid
 import webbrowser
+import yaml
 from dataclasses import dataclass
 from pathlib import Path
 from databricks.sdk import WorkspaceClient
@@ -108,6 +109,29 @@ def _normalize_file_uri_to_path(file_uri: str) -> str:
             path = path[0] + ':' + path[2:]
 
     return path
+
+
+def _coerce_bool(v):
+    """Coerce ``v`` to a real Python ``bool``.
+
+    The App's JSON envelope sends HTML radio-button values as the STRINGS
+    "1" / "0" — both are Python-truthy, so a naive ``if input_params["x"]:``
+    accepts either, but the value is then passed through to SDK calls
+    (e.g. ``ws.pipelines.create(serverless=...)``) whose request body is
+    ``json.dumps``-ed. The literal string "1" lands in the wire body as
+    ``"serverless": "1"`` (JSON string, not boolean true) and the
+    control-plane silently treats the field as missing — manifests as
+    "You must use serverless compute in this workspace." on serverless-
+    only workspaces. Coerce here so callers always see a real ``bool``.
+
+    Accepts: ``True``/``False`` (passthrough), the strings ``"1"``,
+    ``"true"``, ``"yes"``, ``"on"`` (case-insensitive) as True; everything
+    else (including ``"0"``, ``""``, ``None``) as False."""
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        return v.strip().lower() in ("1", "true", "yes", "on")
+    return bool(v)
 
 
 def _path_to_file_uri(local_path: str) -> str:
@@ -400,14 +424,101 @@ class SDPMeta:
         return _me.user_name
 
     def copy_to_uc_volume(self, src, dst):
+        """Recursive copy of a directory tree to a UC Volume location.
+
+        Two source layouts are supported:
+
+        * **Local filesystem path** (e.g. ``./demo/``) — the historical
+          path. Files are enumerated with :func:`os.walk` and streamed
+          via the SDK's ``files.upload``.
+        * **UC Volume path** (e.g. ``/Volumes/cat/sch/vol/sub``) — needed
+          because Apps containers (and most CLI hosts) don't mount
+          ``/Volumes/`` as a local filesystem. ``os.walk`` would silently
+          return zero files and the onboarding job would later produce
+          empty tables because every ``{uc_volume_path}/...`` reference
+          in the rendered template would resolve to a nonexistent path.
+          For this branch we use the SDK Files API to list, download,
+          and re-upload the tree.
+
+        Both branches mirror the same destination layout:
+        ``{dst}/{base_dir_name}/<path-relative-to-src>``.
+
+        Zero-files-copied is treated as a hard error rather than a
+        silent no-op — see issue surfaced from the App's onboarding form
+        where the user pointed ``local_directory`` at a UC Volume path
+        and got an empty pipeline back."""
         main_dir = _normalize_file_uri_to_path(src)
         base_dir_name = os.path.basename(os.path.normpath(main_dir))
+        if main_dir.startswith('/Volumes/'):
+            self._copy_uc_volume_tree_to_uc_volume(main_dir, dst, base_dir_name)
+            return
+        file_count = 0
         for root, dirs, files in os.walk(main_dir):
             for filename in files:
                 target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
                 uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}".replace("//", "/")
                 contents = open(os.path.join(root, filename), "rb")
                 self._ws.files.upload(file_path=uc_volume_path, contents=contents, overwrite=True)
+                file_count += 1
+        if file_count == 0:
+            raise FileNotFoundError(
+                f"copy_to_uc_volume: walked local directory {main_dir} but found "
+                f"zero files. Supporting files (DQE rules, silver_transformations "
+                f"JSON, sample data) must exist under this directory before "
+                f"onboarding runs — otherwise the rendered template's "
+                f"'{{uc_volume_path}}/...' references resolve to nothing and "
+                f"the resulting tables are empty."
+            )
+        logger.info(
+            f"copy_to_uc_volume: copied {file_count} file(s) from {main_dir} "
+            f"to {dst}{base_dir_name}/"
+        )
+
+    def _copy_uc_volume_tree_to_uc_volume(self, src_dir, dst, base_dir_name):
+        """SDK-driven recursive copy of a UC Volume directory tree to
+        another UC Volume location. Called from :meth:`copy_to_uc_volume`
+        when the source path starts with ``/Volumes/`` — see that
+        method's docstring for why this branch exists at all."""
+        src_dir_normalized = src_dir.rstrip('/')
+        file_count = 0
+
+        def _walk(current_dir):
+            nonlocal file_count
+            try:
+                entries = list(self._ws.files.list_directory_contents(current_dir))
+            except Exception as exc:
+                raise FileNotFoundError(
+                    f"Could not list UC Volume directory {current_dir}: {exc}. "
+                    f"Verify the path exists and the calling identity has "
+                    f"READ_VOLUME on the source volume."
+                ) from exc
+            for entry in entries:
+                if entry.is_directory:
+                    _walk(entry.path)
+                    continue
+                rel = entry.path[len(src_dir_normalized):].lstrip('/')
+                target = f"{dst}/{base_dir_name}/{rel}".replace("//", "/")
+                resp = self._ws.files.download(entry.path)
+                self._ws.files.upload(
+                    file_path=target,
+                    contents=resp.contents,
+                    overwrite=True,
+                )
+                file_count += 1
+
+        _walk(src_dir_normalized)
+        if file_count == 0:
+            raise FileNotFoundError(
+                f"copy_to_uc_volume: UC Volume directory {src_dir} is empty or "
+                f"unreadable. Supporting files (DQE rules, silver_transformations "
+                f"JSON, sample data) must exist under this path before onboarding "
+                f"runs — otherwise the rendered template's '{{uc_volume_path}}/...' "
+                f"references resolve to nothing and the resulting tables are empty."
+            )
+        logger.info(
+            f"copy_to_uc_volume: copied {file_count} file(s) from UC Volume "
+            f"{src_dir} to {dst}{base_dir_name}/"
+        )
 
     def copy_to_dbfs(self, src, dst):
         dst = dst.replace('//', '/')
@@ -452,6 +563,16 @@ class SDPMeta:
             self.create_uc_schema(cmd.uc_catalog_name, cmd.sdp_meta_schema)
             cmd.uc_volume_path = self.create_uc_volume(cmd.uc_catalog_name, cmd.sdp_meta_schema)
             self.update_ws_onboarding_paths(cmd)
+            # Upload the resolved onboarding JSON to the UC Volume so the
+            # Spark job can read it. update_ws_onboarding_paths() only writes
+            # the file locally; this step makes it cluster-accessible.
+            _uc_onboard_dest = (
+                f"{cmd.uc_volume_path.rstrip('/')}/sdp_meta_conf/tmp/"
+                f"{os.path.basename(cmd.onboarding_file_path)}"
+            )
+            with open(cmd.onboarding_file_path, "rb") as _f:
+                self._ws.files.upload(file_path=_uc_onboard_dest, contents=_f, overwrite=True)
+            logger.info(f"Uploaded onboarding JSON to {_uc_onboard_dest}")
             self.copy_to_uc_volume(cmd.onboarding_files_dir_path, cmd.uc_volume_path + "/sdp_meta_conf/")
             logger.info(f"uploading to  {cmd.uc_volume_path}/sdp_meta_conf complete!!!")
         else:
@@ -560,9 +681,18 @@ class SDPMeta:
             "uc_enabled": "True" if cmd.uc_enabled else "False"
         }
         if cmd.uc_enabled:
-            named_parameters["onboarding_file_path"] = f"{cmd.uc_volume_path}/sdp_meta_conf/{cmd.onboarding_file_path}"
+            # Use basename only — cmd.onboarding_file_path is a full local path
+            # after update_ws_onboarding_paths runs, and uc_volume_path has a
+            # trailing slash, so naively joining them produces double slashes.
+            named_parameters["onboarding_file_path"] = (
+                f"{cmd.uc_volume_path.rstrip('/')}/sdp_meta_conf/tmp/"
+                f"{os.path.basename(cmd.onboarding_file_path)}"
+            )
         else:
-            named_parameters["onboarding_file_path"] = f"{cmd.dbfs_path}/sdp_meta_conf/{cmd.onboarding_file_path}"
+            named_parameters["onboarding_file_path"] = (
+                f"{cmd.dbfs_path}/sdp_meta_conf/"
+                f"{os.path.basename(cmd.onboarding_file_path)}"
+            )
         if cmd.onboard_layer == "bronze_silver":
             named_parameters["bronze_dataflowspec_table"] = cmd.bronze_dataflowspec_table
             named_parameters["silver_dataflowspec_table"] = cmd.silver_dataflowspec_table
@@ -626,7 +756,17 @@ class SDPMeta:
         configuration["version"] = self.version
         # Tag every pipeline created by SDP-META so the Databricks App monitor
         # can filter to only SDP-META pipelines via list_pipelines(filter=...).
-        _sdp_meta_tags = {"sdp_meta": "true"}
+        #
+        # Tag value = SDP-META version (e.g. "0.1.0"). Two reasons over the
+        # historical sentinel "true":
+        #   1. Forensics — "which SDP-META version created this pipeline?"
+        #      becomes a tag read instead of a full get() + config dive.
+        #   2. Migration queries — find all pipelines created by a specific
+        #      release with a single workspace-tag filter.
+        # The consumer (_is_sdp_meta in databricks_app/routes/pipelines.py)
+        # treats ANY non-empty sdp_meta tag value as a match, so legacy
+        # pipelines tagged sdp_meta=true keep working.
+        _sdp_meta_tags = {"sdp_meta": self.version}
         if cmd.uc_catalog_name:
             created = self._ws.pipelines.create(catalog=cmd.uc_catalog_name,
                                                 name=cmd.pipeline_name,
@@ -930,15 +1070,26 @@ class SDPMeta:
             with open("onboarding_job_details.json") as f:
                 oc_job_details_json = f.read()
 
-        load_from_ojd_json = input_params.get("load_from_ojd_json", False)
+        load_from_ojd_json = _coerce_bool(input_params.get("load_from_ojd_json", False))
         deploy_cmd_dict = {}
 
         if load_from_ojd_json and oc_job_details_json:
             oc_job_details_json = json.loads(oc_job_details_json)
-            deploy_cmd_dict["uc_enabled"] = input_params.get("uc_enabled", False)
+            # The App envelope sends ``uc_enabled`` / ``serverless`` as the
+            # STRINGS "1" / "0" (HTML radio button values). Python truthy-
+            # checks accept both as True, but downstream ``self._ws.pipelines.
+            # create(serverless=...)`` round-trips the value through json.dumps
+            # — a literal string "1" then lands in the request body as
+            # ``"serverless": "1"`` (a JSON string, not the boolean true),
+            # and the control-plane silently treats the field as missing,
+            # defaults to a classic cluster, and rejects the pipeline on
+            # serverless-only workspaces with "You must use serverless
+            # compute in this workspace." Coerce to bool here so the SDK
+            # sees an actual boolean. Same reasoning for ``uc_enabled``.
+            deploy_cmd_dict["uc_enabled"] = _coerce_bool(input_params.get("uc_enabled", False))
             if deploy_cmd_dict["uc_enabled"]:
                 deploy_cmd_dict["uc_catalog_name"] = input_params.get("uc_catalog_name")
-                deploy_cmd_dict["serverless"] = input_params.get("serverless", False)
+                deploy_cmd_dict["serverless"] = _coerce_bool(input_params.get("serverless", False))
             else:
                 deploy_cmd_dict["serverless"] = False
             deploy_cmd_dict["layer"] = input_params.get("layer")
@@ -959,10 +1110,11 @@ class SDPMeta:
             if not deploy_cmd_dict["serverless"]:
                 deploy_cmd_dict["num_workers"] = input_params.get("num_workers", 4)
         else:
-            deploy_cmd_dict["uc_enabled"] = input_params.get("uc_enabled", False)
+            # See the matching block above for why coercion is needed.
+            deploy_cmd_dict["uc_enabled"] = _coerce_bool(input_params.get("uc_enabled", False))
             if deploy_cmd_dict["uc_enabled"]:
                 deploy_cmd_dict["uc_catalog_name"] = input_params.get("uc_catalog_name")
-                deploy_cmd_dict["serverless"] = input_params.get("serverless", False)
+                deploy_cmd_dict["serverless"] = _coerce_bool(input_params.get("serverless", False))
             else:
                 deploy_cmd_dict["serverless"] = False
             deploy_cmd_dict["layer"] = input_params.get("layer")
@@ -997,23 +1149,72 @@ class SDPMeta:
         return DeployCommand(**deploy_cmd_dict)
 
     def update_ws_onboarding_paths(self, cmd: OnboardCommand):
-        """Create onboarding file for cloudfiles as source."""
+        """Substitute ``{placeholder}`` tokens in the onboarding file and write
+        the result next to the original.
+
+        Delegates the in-memory substitution and parse-validate round-trip to
+        :func:`render_onboarding_template` so the same logic powers the
+        App's ``/onboarding/preview`` endpoint. We preserve the source
+        extension so downstream consumers (``onboard_dataflowspec.py``) read
+        the file with the matching parser — JSON sources stay
+        ``onboarding.json``, YAML sources stay ``onboarding.yml`` (or
+        ``.yaml``)."""
         string_subs = {
             "{uc_volume_path}": f"{cmd.uc_volume_path}/sdp_meta_conf/",
             "{uc_catalog_name}": cmd.uc_catalog_name,
             "{bronze_schema}": cmd.bronze_schema,
             "{silver_schema}": cmd.silver_schema,
         }
-        with open(f"{cmd.onboarding_file_path}") as f:
-            onboard_json = f.read()
-            for key, val in string_subs.items():
-                val = "" if val is None else val  # Ensure val is a string
-                onboard_json = onboard_json.replace(key, val)
-        onboarding_filename = os.path.basename(cmd.onboarding_file_path)
-        updated_ob_file_path = cmd.onboarding_file_path.replace(onboarding_filename, "onboarding.json")
-        with open(updated_ob_file_path, "w") as onboarding_file:
-            json.dump(json.loads(onboard_json), onboarding_file, indent=4)
+        with open(cmd.onboarding_file_path) as f:
+            content = f.read()
+
+        src_ext = os.path.splitext(cmd.onboarding_file_path)[1].lower()
+        src_dir = os.path.dirname(cmd.onboarding_file_path)
+        rendered, _ = render_onboarding_template(content, src_ext, string_subs)
+
+        if src_ext in (".yml", ".yaml"):
+            updated_ob_file_path = os.path.join(src_dir, f"onboarding{src_ext}")
+        else:
+            updated_ob_file_path = os.path.join(src_dir, "onboarding.json")
+        with open(updated_ob_file_path, "w") as out:
+            out.write(rendered)
         cmd.onboarding_file_path = updated_ob_file_path
+
+
+def render_onboarding_template(content: str, source_ext: str, substitutions: dict):
+    """Apply ``{token}`` → value substitutions to ``content`` and re-emit it
+    canonically in the source's format. Returns ``(rendered_text, parsed_obj)``.
+
+    Used by both :meth:`SDPMeta.update_ws_onboarding_paths` (which writes the
+    rendered text to disk) and the App's ``/onboarding/preview`` endpoint
+    (which returns it to the browser unmodified). Keeping the logic in one
+    place avoids drift between what the preview shows and what onboarding
+    actually emits.
+
+    ``source_ext`` is the file's extension *as seen on disk* (``.yml`` /
+    ``.yaml`` / ``.json`` / anything else). YAML sources round-trip through
+    ``yaml.safe_load`` / ``yaml.safe_dump``; everything else round-trips
+    through ``json.loads`` / ``json.dumps``. The round-trip is intentional
+    — it catches malformed substitutions (e.g. a value containing an
+    unescaped quote that breaks JSON) before the file leaves the caller.
+
+    ``substitutions`` is a dict of ``{placeholder_token: value}``. ``None``
+    values are normalised to empty string so the substitution doesn't write
+    the literal text ``None`` into the output."""
+    for key, val in substitutions.items():
+        val = "" if val is None else val
+        content = content.replace(key, val)
+
+    src_ext = (source_ext or "").lower()
+    if src_ext in (".yml", ".yaml"):
+        parsed = yaml.safe_load(content)
+        # ``sort_keys=False`` keeps the field order from the template so
+        # diffs against the source remain readable for the user.
+        rendered = yaml.safe_dump(parsed, sort_keys=False, indent=2)
+    else:
+        parsed = json.loads(content)
+        rendered = json.dumps(parsed, indent=4)
+    return rendered, parsed
 
 
 # Backwards-compatibility alias for v0.0.10 customers.
@@ -1033,7 +1234,7 @@ def onboard(sdp_meta: SDPMeta, flags: dict = None):
     flags = flags or {}
     # The `databricks labs` CLI registers every declared flag as a pflag
     # *string* flag (no boolean type). When users invoke a boolean-style
-    # flag like `--build-and-upload-whl --profile e2-demo`, pflag eats the
+    # flag like `--build-and-upload-whl --profile profile_name`, pflag eats the
     # next token (`--profile`) as the value, so we receive
     # flags["build-and-upload-whl"] == "--profile". We detect that here,
     # treat it as truthy presence, and tell the user the canonical syntax.
@@ -1365,7 +1566,7 @@ def _is_truthy_flag(value) -> bool:
     ``--flag=true`` invocation working *and* recovers the common spillover
     case where pflag eats the next CLI token as the value (e.g. value ends up
     being ``"--profile"`` because the user typed
-    ``--build-and-upload-whl --profile e2-demo``).
+    ``--build-and-upload-whl --profile profile_name``).
     """
     if value is None or value is False:
         return False

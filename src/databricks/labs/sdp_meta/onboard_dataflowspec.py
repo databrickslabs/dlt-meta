@@ -1142,6 +1142,23 @@ class OnboardDataflowspec:
                 and onboarding_row[bronze_db_field]
             ):
                 continue
+            # Silver fanout: a single onboarding file can also contain
+            # fanout consumer rows that REFERENCE an existing bronze
+            # table (``bronze_database_<env>`` + ``bronze_table`` set)
+            # but don't produce one (no ``source_details`` /
+            # ``source_format``). Those rows are silver-only at the
+            # bronze pass \u2014 the silver pass picks them up and reads
+            # from the bronze produced by an earlier row in the same
+            # file. Without this skip, validators would trip on the
+            # missing ``source_details`` and force users into a
+            # two-stage onboarding orchestration (e.g. the historical
+            # ``launch_silver_fanout_demo.py`` chained
+            # bronze_silver-then-silver-overwrite=False pattern).
+            if not (
+                "source_details" in onboarding_row
+                and onboarding_row["source_details"]
+            ):
+                continue
             try:
                 self.__validate_mandatory_fields(onboarding_row, mandatory_fields)
             except ValueError:

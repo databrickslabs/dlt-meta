@@ -223,43 +223,30 @@ production locally short of deploying.
 
 ## Using the app
 
-### Pipeline Setup tab
+This README focuses on **deploy / local dev / auth**. For a complete walkthrough
+of every panel and feature in the running app, see **[USER_GUIDE.md](./USER_GUIDE.md)**.
 
-Two-step workflow:
+### What's inside the app at a glance
 
-1. **Onboarding (Step 1)** — fills the SDP-META dataflow spec tables in Unity Catalog with your
-   pipeline metadata. Configure schemas, table names, and paths, then click **Run Onboarding**.
+| Section | Panel | What it's for |
+|---|---|---|
+| **Pipeline** | Onboarding | Step 1 — register a spec → bronze/silver DataflowSpec rows in UC |
+| | DataflowSpecs | Step 2 — review the rows onboarding wrote, pick a `data_flow_group` to deploy |
+| | Deployment | Step 3 — generate a Lakeflow Declarative Pipeline from the selected group |
+| **Explore** | Demos | Pre-built end-to-end examples (Cloud Files, ACFS, Silver Fanout, DAIS, Interactive) |
+| **Operate** | Monitor | Filtered list of SDP-META pipelines with start/stop, in-app events, and click-through to the Databricks pipeline UI |
+| | Metadata | Browse UC catalogs/schemas/tables + in-app spec editor with 3-layer validation |
+| **Top bar** | Warehouse chip | Configure the SQL warehouse used by DataflowSpecs + Metadata |
 
-2. **Deployment (Step 2)** — creates and launches the Lakeflow Declarative Pipeline from the
-   registered spec. Set the pipeline name, target schema, and layer, then click **Deploy Pipeline**.
-
-### Demos tab
-
-Pre-built end-to-end examples that exercise different SDP-META features. Enter
-your Unity Catalog name, click **Test App access** to verify the App service
-principal has the grants every demo needs (see below), then click a demo card
-to launch it.
-
-| Demo | What it runs |
-|---|---|
-| Cloud Files | Auto Loader ingestion from cloud file sources, including a row-filter UDF on the customers flow |
-| Apply Changes Snapshot | CDC with SCD Type 1 from full snapshots |
-| Silver Fanout | Fan-out from bronze into multiple silver tables |
-| DAIS Demo | Databricks AI Summit end-to-end walkthrough |
-| Interactive Demo | The SDP_META_INTERACTIVE_DEMO notebook, submitted as a 1-step Databricks job. Defaults to `--install-source pypi` so the spawned job `pip install`s `databricks-labs-sdp-meta` from PyPI on every launch — no rebuild needed when a new release ships. |
-
-> Removed in this release: **DLT Sink** (requires Kafka / Event Hubs +
-> secret-scope wiring the App SP doesn't have) and **DABs** (needs Terraform
-> and `databricks bundle` in the container, which isn't worth the runtime
-> cost for a one-click demo). Both still work from a local CLI; see the
-> repo-root `README.md` for instructions.
+The canonical first-time flow is **Onboarding → DataflowSpecs → Deployment**;
+each step auto-fills the next so you only type the catalog / schema / table
+names once. Full details in [USER_GUIDE.md](./USER_GUIDE.md).
 
 ### App service principal permissions
 
 The app runs as a dedicated service principal whose name follows the form
 `app-XXXXXX_<app-name>` (the prefix is platform-assigned, the suffix matches
-the App resource name).
-Grant it the following in your Unity Catalog:
+the App resource name). Grant it the following in your Unity Catalog:
 
 - `USE CATALOG` on the target catalog
 - `CREATE SCHEMA`, `USE SCHEMA` on the target schemas

@@ -3,10 +3,16 @@
       "data_flow_id": "100",
       "data_flow_group": "A1",
       "source_system": "MYSQL",
+      "source_format": "cloudFiles",
+      "source_details": {
+         "source_database": "APP",
+         "source_table": "CUSTOMERS",
+         "source_path_dev": "tests/resources/data/customers",
+         "source_schema_path": "tests/resources/schema/customer_schema.ddl"
+      },
       "bronze_database_dev": "bronze",
       "bronze_database_staging": "bronze",
       "bronze_database_prd": "bronze",
-      "bronze_table": "customers_cdc",
       "bronze_reader_options": {
          "cloudFiles.format": "json",
          "cloudFiles.inferColumnTypes": "true",

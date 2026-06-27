@@ -132,6 +132,9 @@ echo "[start.sh] sdp-meta installed successfully."
 # platform doesn't set), so we pass --port explicitly. Falls back to 8000
 # for local runs where the env var is absent.
 APP_PORT="${DATABRICKS_APP_PORT:-8000}"
-echo "[start.sh] Starting Flask (cwd=$REPO_ROOT, port=$APP_PORT) ..."
+echo "[start.sh] Installing gunicorn ..."
+pip install --quiet gunicorn
+echo "[start.sh] Starting gunicorn (cwd=$REPO_ROOT, port=$APP_PORT) ..."
 cd "$REPO_ROOT"
-exec flask --app "$SCRIPT_DIR/app.py" run --host 0.0.0.0 --port "$APP_PORT"
+exec gunicorn --bind "0.0.0.0:${APP_PORT}" --workers 1 --timeout 120 \
+    --chdir "$SCRIPT_DIR" "app:app"

@@ -74,12 +74,15 @@ class SDPMETASilverFanoutDemo(SDPMETARunner):
             runners_nb_path=f"/Users/{self.wsi._my_username}/sdp_meta_fout_demo/{run_id}",
             runners_full_local_path="demo/notebooks/silver_fanout_runners",
             source="cloudfiles",
-            # node_type_id=cloud_node_type_id_dict[self.args.__dict__['cloud_provider_name']],
-            # dbr_version=self.args.__dict__['dbr_version'],
-            cloudfiles_template="demo/conf/json/onboarding_cars.template",
-            onboarding_fanout_templates="demo/conf/json/onboarding_fanout_cars.template",
-            onboarding_file_path="demo/conf/json/onboarding_cars.json",
-            onboarding_fanout_file_path="demo/conf/json/onboarding_fanout_cars.json",
+            # Single-file fanout: ``silver-fanout-onboarding.template``
+            # carries the cars bronze+silver row PLUS three silver-only
+            # fanout rows (cars_germany / cars_uk / cars_japan) in one
+            # spec. The bronze pass skips rows lacking
+            # ``source_details`` (the fanout consumers) and the silver
+            # pass picks them up from the same file \u2014 no second
+            # ``onboard_layer=silver, overwrite=False`` task needed.
+            cloudfiles_template="demo/conf/json/silver-fanout-onboarding.template",
+            onboarding_file_path="demo/conf/json/silver-fanout-onboarding.json",
             onboarding_file_format=self.args.get("onboarding_file_format") or "json",
             env="demo"
         )
@@ -138,31 +141,8 @@ class SDPMETASilverFanoutDemo(SDPMETARunner):
                     ),
                 ),
                 jobs.Task(
-                    task_key="onboard_silverfanout_job",
-                    description="Sets up metadata tables for SDP-META",
-                    depends_on=[jobs.TaskDependency(task_key="onboarding_job")],
-                    environment_key="dl_meta_int_env",
-                    timeout_seconds=0,
-                    python_wheel_task=jobs.PythonWheelTask(
-                        package_name="databricks_labs_sdp_meta",
-                        entry_point="run",
-                        named_parameters={
-                            "onboard_layer": "silver",
-                            "database": f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}",
-                            "onboarding_file_path":
-                            f"{runner_conf.uc_volume_path}/{runner_conf.onboarding_fanout_file_path}",
-                            "silver_dataflowspec_table": "silver_dataflowspec_cdc",
-                            "import_author": "Ravi",
-                            "version": "v1",
-                            "overwrite": "False",
-                            "env": runner_conf.env,
-                            "uc_enabled": "True"
-                        },
-                    ),
-                ),
-                jobs.Task(
                     task_key="bronze_dlt",
-                    depends_on=[jobs.TaskDependency(task_key="onboard_silverfanout_job")],
+                    depends_on=[jobs.TaskDependency(task_key="onboarding_job")],
                     pipeline_task=jobs.PipelineTask(
                         pipeline_id=runner_conf.bronze_pipeline_id
                     ),

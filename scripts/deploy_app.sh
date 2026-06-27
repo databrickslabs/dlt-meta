@@ -5,9 +5,11 @@
 # Why this script exists
 # ──────────────────────
 # The `databricks_app/app.py` Flask routes (/onboarding, /deploy, /rundemo)
-# shell out to `src/cli.py` and `demo/launch_*_demo.py`. To make those work
-# inside the running container, the Apps platform needs the FULL dlt-meta
-# repo at the deployment source-code-path (Mode A in databricks_app/start.sh).
+# shell out to the sdp-meta CLI (`python -m databricks.labs.sdp_meta.cli`,
+# installed from the wheel that databricks_app/start.sh builds) and to
+# `demo/launch_*_demo.py`. The latter import from src/, demo/, and
+# integration_tests/, so the Apps platform needs the FULL dlt-meta repo at
+# the deployment source-code-path (Mode A in databricks_app/start.sh).
 #
 # Mode A requires `app.yaml` and `requirements.txt` at the source-code-path
 # root. We deliberately keep those OUT of the local repo so the working tree

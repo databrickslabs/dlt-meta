@@ -101,6 +101,15 @@ class SDPFrameworkTestCase(unittest.TestCase):
         cls.onboarding_bronze_type2_json_file = "tests/resources/onboarding_ac_bronze_type2.json"
         cls.onboarding_append_flow_json_file = "tests/resources/onboarding_append_flow.json"
         cls.onboarding_silver_fanout_json_file = "tests/resources/onboarding_silverfanout.json"
+        # Single-file fanout fixture: ONE bronze+silver row + THREE
+        # silver-only fanout rows referencing the same bronze. Used by
+        # the new single-call ``test_silver_fanout_single_file_*``
+        # tests which exercise the post-fix path where the bronze pass
+        # skips rows lacking ``source_details`` and the silver pass
+        # picks up the fanout consumers from the same file.
+        cls.onboarding_silver_fanout_single_file = (
+            "tests/resources/onboarding_silver_fanout_single_file.json"
+        )
         cls.onboarding_sink_json_file = "tests/resources/onboarding_sink.json"
         cls.onboarding_multiple_partitions_file = "tests/resources/onboarding_multiple_partitions.json"
         cls.onboarding_apply_changes_from_snapshot_json_file = (
