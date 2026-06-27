@@ -64,12 +64,18 @@ env:
 | **GitHub** | Opens repo (new tab) |
 | **Warehouse** chip | Configure / inspect SQL warehouse. Green = running, amber = stopped, grey = unset |
 
+Clicking the **Warehouse** chip opens the picker, which lists every warehouse the App SP can see and lets you set the active one for the session (or persist it via `DATABRICKS_SQL_WAREHOUSE_ID` in `app.yaml`):
+
+![Warehouse picker](../docs/static/img/sdp-meta-app/top-bar-warehouse.png)
+
 ---
 
 ## 4. Step 1 — Onboarding
 
 **Output:** bronze + silver `*_dataflowspec` rows in UC + a UC volume holding
 copied JSON/DDL supporting files.
+
+![Onboarding panel](../docs/static/img/sdp-meta-app/step1-onboarding.png)
 
 ### Mode picker
 
@@ -131,6 +137,8 @@ to Step 2 with values pre-filled and the query already run.
 **Output:** lets you read back the rows onboarding wrote and pick a
 `data_flow_group` to deploy.
 
+![DataflowSpecs panel — bronze + silver grids with group pills](../docs/static/img/sdp-meta-app/step2-dataflowspecs.png)
+
 | Element | Behavior |
 |---|---|
 | 4 input fields (catalog / schema / bronze table / silver table) | Auto-filled when arriving from Onboarding |
@@ -147,6 +155,8 @@ configured (top-bar chip).
 ## 6. Step 3 — Deployment
 
 **Output:** a Lakeflow Declarative Pipeline tagged `sdp_meta=<version>`.
+
+![Deployment panel](../docs/static/img/sdp-meta-app/step3-deployment.png)
 
 ### Fields
 
@@ -173,6 +183,8 @@ includes the workspace URL of the new pipeline.
 
 **Output:** all SDP-META pipelines in the workspace, with start/stop +
 events + click-through to the Databricks UI.
+
+![Pipeline Monitor — list of SDP-META pipelines with start/stop/events actions](../docs/static/img/sdp-meta-app/monitor.png)
 
 ### Filter
 
@@ -206,6 +218,8 @@ Cascading dropdowns: **Catalog → Schema → Table**. Picking a table runs
 `SELECT * ... LIMIT N` (max 1000) with an optional `WHERE` clause via the
 Statement Execution API.
 
+![Metadata — UC browse with cascading catalog/schema/table dropdowns](../docs/static/img/sdp-meta-app/metadata-uc-browse.png)
+
 ### Spec editor
 
 | Action | Endpoint | Notes |
@@ -214,6 +228,8 @@ Statement Execution API.
 | Load file | `GET /api/metadata/workspace-file` | JSON / YAML auto-detected |
 | Save file | `POST /api/metadata/workspace-file` | Parse-validates before writing |
 | **Validate** | `POST /api/metadata/parse-spec` | 3-layer (see below) |
+
+![Metadata — Spec editor with parse / validate output](../docs/static/img/sdp-meta-app/metadata-spec-editor.png)
 
 ### Three-layer validation
 
@@ -231,6 +247,8 @@ Supported `spec_type`: `onboarding`, `dqe`, `silver_transform`.
 
 Click **Test App access** first — every demo subprocess re-runs the preflight
 and a missing grant returns the GRANT SQL you need.
+
+![Demos panel — Test App access plus the demo launch tiles](../docs/static/img/sdp-meta-app/demos.png)
 
 | Demo | What it runs |
 |---|---|

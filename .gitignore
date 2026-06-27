@@ -17,6 +17,9 @@ spark-warehouse
 docs/build/
 docs/.docusaurus/
 docs/node_modules/
+# Legacy Hugo generator artifacts (site is now Docusaurus, builds to docs/build/)
+docs/public/
+docs/.hugo_build.lock
 
 # Local DAB scaffolds and demo runs (created by `databricks labs sdp-meta
 # bundle-init` and `demo/launch_dab_template_demo.py` -- per-developer
@@ -179,3 +182,9 @@ integration_tests/conf/json/onboarding*.json
 integration_tests/conf/yml/onboarding*.yml
 integration_test_output*.csv
 onboarding_job_details.json
+
+# Local stash folder for screenshots that get copied into
+# docs/static/img/sdp-meta-app/ (see databricks_app/USER_GUIDE.md and
+# docs/docs/getting-started/app.md). Folder name contains spaces and is
+# not a committed asset path.
+/SDP-META Databricks App Screenshots/
