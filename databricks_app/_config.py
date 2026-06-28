@@ -10,7 +10,7 @@ The App container's layout depends on how it's deployed:
   Mode B \u2014 only databricks_app/ deployed (legacy):
     start.sh clones the full repo to /tmp/dlt-meta and uses that.
 
-``start.sh`` exports ``DLT_META_HOME`` so ``_repo_root()`` picks it up
+``start.sh`` exports ``SDP_META_HOME`` so ``_repo_root()`` picks it up
 regardless of which mode the App is in.
 """
 
@@ -42,16 +42,16 @@ def _set_runtime_warehouse_id(value: str) -> None:
 
 
 def _repo_root() -> str:
-    """Return the dlt-meta repo root (no trailing slash).
+    """Return the sdp-meta repo root (no trailing slash).
 
     Resolution order:
-      1. ``DLT_META_HOME`` env var \u2014 explicit override for non-standard
+      1. ``SDP_META_HOME`` env var \u2014 explicit override for non-standard
          layouts (set by ``start.sh``).
       2. ``__file__`` \u2014 one directory up from ``databricks_app/``.
     """
-    override = os.environ.get('DLT_META_HOME', '').strip().rstrip('/')
+    override = os.environ.get('SDP_META_HOME', '').strip().rstrip('/')
     if override:
-        logger.info("DLT_META_HOME override: %s", override)
+        logger.info("SDP_META_HOME override: %s", override)
         return override
 
     # _config.py lives in databricks_app/, parent is the repo root
@@ -63,7 +63,7 @@ def _repo_root() -> str:
         if not os.path.isdir(os.path.join(root, expected)):
             logger.warning(
                 "Expected directory '%s/' not found under repo root '%s'. "
-                "Make sure the full dlt-meta repo was deployed (not just databricks_app/).",
+                "Make sure the full sdp-meta repo was deployed (not just databricks_app/).",
                 expected, root,
             )
     return root

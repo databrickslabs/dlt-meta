@@ -14,13 +14,28 @@
 # Mode A requires `app.yaml` and `requirements.txt` at the source-code-path
 # root. We deliberately keep those OUT of the local repo so the working tree
 # matches upstream `databrickslabs/dlt-meta`. This script bridges the gap by
-# staging the repo into a temp dir, dropping the two extra files there, and
-# syncing the staging dir (not the working tree) to the workspace.
+# staging the **app's runtime subset** of the repo into a temp dir, dropping
+# the two extra files there, and syncing the staging dir (not the working
+# tree) to the workspace.
+#
+# What's "the app's runtime subset"?
+#   src/                — wheel build source
+#   demo/               — launch_*_demo.py + conf templates + sample data
+#   integration_tests/  — imported by every demo launcher
+#   databricks_app/     — the Flask app itself
+#   setup.py + MANIFEST.in (and the files MANIFEST.in references)
+#                       — needed by `python setup.py bdist_wheel` at boot
+#
+# Everything else at the repo root (docs/, tests/, examples/, compat/,
+# lakehouse_app/, scripts/, coverage_html_report/, demo_runs/, …) is NOT
+# read at runtime and is deliberately excluded — was 350+ MB of dead weight
+# in the App container before this allow-list change.
 #
 # Net effect:
 #   - Local working tree stays identical to upstream (no root app.yaml).
-#   - Workspace path has the full Mode A layout.
-#   - Local edits to demo/, src/, databricks_app/ are reflected on every run.
+#   - Workspace path has the Mode A layout, but trimmed to runtime essentials.
+#   - Local edits to demo/, src/, integration_tests/, databricks_app/ are
+#     reflected on every run.
 #   - No GitHub clone at container startup → faster, works in air-gapped envs.
 #
 # Usage
@@ -112,29 +127,75 @@ fi
 STAGING="$(mktemp -d -t dltmeta-deploy.XXXXXX)"
 trap 'rm -rf "$STAGING"' EXIT
 
-echo ">> Staging repo to $STAGING ..."
-# Mirror the repo into staging while skipping things sync would reject anyway:
-#   .git/         — version control metadata (huge, irrelevant to runtime)
-#   .databricks/  — sync snapshots / local CLI state
-#   __pycache__/  — compiled Python (regenerated in container)
-#   *.pyc         — same
-#   .venv/, venv/ — local virtualenvs
-#   .DS_Store     — macOS finder turds
-# .databricksignore is COPIED into staging so `databricks sync` will then
-# also honour the project's own ignore list (docs/, examples/, tests/, etc.).
-rsync -a \
-    --exclude='.git/' \
-    --exclude='.databricks/' \
-    --exclude='__pycache__/' \
-    --exclude='*.pyc' \
-    --exclude='*.pyo' \
-    --exclude='.venv/' \
-    --exclude='venv/' \
-    --exclude='.DS_Store' \
-    --exclude='dist/' \
-    --exclude='build/' \
-    --exclude='*.egg-info/' \
-    "$REPO_ROOT/" "$STAGING/"
+# Allow-list, NOT exclude-list. Previous versions of this script rsynced the
+# whole working tree minus a handful of excludes, which dragged 350+ MB of
+# unrelated content (docs/ at 336 MB, tests/ at 29 MB, plus coverage_html_report/,
+# examples/, lakehouse_app/, demo_runs/, spark-warehouse/, …) into the App
+# source-code-path on every deploy. None of that is read at runtime: start.sh
+# only requires demo/, src/, integration_tests/ and the databricks_app/ Flask
+# app, plus the setup.py + MANIFEST.in pair (and the files MANIFEST.in
+# references) to build the sdp-meta wheel. Staging is now exactly that subset,
+# which both shrinks the upload and makes the App container's filesystem match
+# what start.sh actually verifies on boot.
+APP_RUNTIME_DIRS=(
+    src                 # wheel build source (python setup.py bdist_wheel)
+    demo                # launch_*_demo.py + conf templates + sample data
+    integration_tests   # imported by every demo launcher
+    databricks_app      # the Flask app itself
+)
+
+# Wheel-build needs setup.py + the files MANIFEST.in pulls in.
+# Only files that actually exist are copied (LICENSE.txt / labs.yml are
+# project-specific) — missing optional files are silently skipped so a
+# fresh clone with a slightly different repo layout still deploys.
+APP_RUNTIME_FILES=(
+    setup.py
+    MANIFEST.in
+    README.md
+    CHANGELOG.md
+    LICENSE.txt
+    labs.yml
+    .databricksignore   # honoured by `databricks sync` inside staging
+)
+
+echo ">> Staging repo subset to $STAGING ..."
+# Each runtime dir is rsync'd with the same hygiene excludes so build/dev
+# artifacts inside those dirs (e.g. demo/__pycache__/) don't sneak in.
+SUBDIR_EXCLUDES=(
+    --exclude='__pycache__/'
+    --exclude='*.pyc'
+    --exclude='*.pyo'
+    --exclude='.DS_Store'
+    --exclude='*.egg-info/'
+    --exclude='.databricks/'
+    --exclude='.venv/'
+    --exclude='venv/'
+    --exclude='dist/'
+    --exclude='build/'
+)
+for d in "${APP_RUNTIME_DIRS[@]}"; do
+    if [[ ! -d "$REPO_ROOT/$d" ]]; then
+        echo "Error: required runtime dir '$d/' missing at repo root" >&2
+        exit 1
+    fi
+    mkdir -p "$STAGING/$d"
+    rsync -a "${SUBDIR_EXCLUDES[@]}" "$REPO_ROOT/$d/" "$STAGING/$d/"
+done
+
+for f in "${APP_RUNTIME_FILES[@]}"; do
+    if [[ -f "$REPO_ROOT/$f" ]]; then
+        cp -p "$REPO_ROOT/$f" "$STAGING/$f"
+    fi
+done
+
+# Hard requirements (wheel build won't work without these). Fail loudly so
+# the operator finds out at staging time, not at App-startup time.
+for required in setup.py MANIFEST.in; do
+    if [[ ! -f "$STAGING/$required" ]]; then
+        echo "Error: $required missing from staged tree — wheel build will fail" >&2
+        exit 1
+    fi
+done
 
 # ── Inject Mode A entry-point files ──────────────────────────────────────────
 echo ">> Writing Mode A app.yaml + requirements.txt at staging root ..."

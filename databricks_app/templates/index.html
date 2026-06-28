@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DLT-META Configuration Portal</title>
+    <title>SDP-META Configuration Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -24,7 +24,7 @@
                     <path d="M2 12l10 5 10-5"/>
                 </svg>
             </div>
-            <span class="logo-text">DLT-META</span>
+            <span class="logo-text">SDP-META</span>
         </div>
         
         <nav class="nav">
@@ -80,7 +80,7 @@
         <header class="header">
             <div class="header-title">
                 <h1 id="pageTitle">Setup</h1>
-                <p id="pageSubtitle">Configure your DLT-META environment</p>
+                <p id="pageSubtitle">Configure your SDP-META environment</p>
             </div>
             <div class="header-actions">
                 <button class="btn btn-outline" onclick="location.reload()">
@@ -102,14 +102,14 @@
                 </div>
                 <div class="panel-content">
                     <p style="margin-bottom: 20px; color: var(--text-secondary);">
-                        Initialize the DLT-META environment with all required dependencies
+                        Initialize the SDP-META environment with all required dependencies
                     </p>
                     <button class="btn btn-primary" id="setupBtn" data-command="setup">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="10"/>
                             <polyline points="12 6 12 12 16 14"/>
                         </svg>
-                        Setup DLT-META Environment
+                        Setup SDP-META Environment
                     </button>
                 </div>
             </div>
@@ -170,21 +170,21 @@
                             <div class="form-group">
                                 <label class="form-label">Local Directory</label>
                                 <input type="text" class="form-input" name="local_directory" 
-                                       value="/app/python/source_code/dlt-meta/demo/" placeholder="Enter local directory">
+                                       value="/app/python/source_code/sdp-meta/demo/" placeholder="Enter local directory">
                             </div>
                         </div>
 
                         <h4 style="color: var(--accent-blue); margin-top: 24px; margin-bottom: 16px;">Schema Configuration</h4>
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">DLT Meta Schema Name</label>
-                                <input type="text" class="form-input" name="dlt_meta_schema" 
-                                       value="dlt_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14">
+                                <label class="form-label">SDP Meta Schema Name</label>
+                                <input type="text" class="form-input" name="sdp_meta_schema" 
+                                       value="sdp_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Bronze Schema Name</label>
                                 <input type="text" class="form-input" name="bronze_schema" 
-                                       value="dltmeta_bronze_9c1aa383b36a49198d3e99d25f7180a4">
+                                       value="sdpmeta_bronze_9c1aa383b36a49198d3e99d25f7180a4">
                             </div>
                         </div>
 
@@ -192,11 +192,11 @@
                             <div class="form-group">
                                 <label class="form-label">Silver Schema Name</label>
                                 <input type="text" class="form-input" name="silver_schema" 
-                                       value="dltmeta_silver_7b4e981029b843c799bf61a0a121b3ca">
+                                       value="sdpmeta_silver_7b4e981029b843c799bf61a0a121b3ca">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">DLT Meta Layer</label>
-                                <select class="form-select" name="dlt_meta_layer">
+                                <label class="form-label">SDP Meta Layer</label>
+                                <select class="form-select" name="sdp_meta_layer">
                                     <option value="0">bronze</option>
                                     <option value="1" selected>bronze_silver</option>
                                     <option value="2">silver</option>
@@ -347,7 +347,7 @@
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">DLT Meta Layer</label>
+                                <label class="form-label">SDP Meta Layer</label>
                                 <select class="form-select" name="deploylayer">
                                     <option value="bronze">bronze</option>
                                     <option value="bronze_silver" selected>bronze_silver</option>

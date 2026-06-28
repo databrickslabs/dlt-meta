@@ -55,13 +55,12 @@ class OnboardingPreviewRouteTests(unittest.TestCase):
             fh.write(content)
         return path
 
-    # Field names match the HTML form on landingPage.html — the legacy
-    # ``dlt_meta_schema`` UI label is kept for continuity, the App translates
-    # to the CLI's ``sdp_meta_schema`` at the boundary.
+    # Field names match the HTML form on landingPage.html 1:1 (both the
+    # form fields and the CLI envelope use the ``sdp_meta_*`` namespace).
     _BASE_FORM = {
         "unity_catalog_enabled": "1",
         "unity_catalog_name": "my_cat",
-        "dlt_meta_schema": "sch",
+        "sdp_meta_schema": "sch",
         "bronze_schema": "br",
         "silver_schema": "sv",
     }
@@ -162,7 +161,7 @@ class OnboardingPreviewRouteTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         body = resp.get_json()
         self.assertIn("Required fields missing", body["error"])
-        for field in ("Unity Catalog Name", "DLT Meta Schema",
+        for field in ("Unity Catalog Name", "SDP Meta Schema",
                       "Bronze Schema", "Silver Schema"):
             self.assertIn(field, body["error"])
 
@@ -216,7 +215,7 @@ class OnboardingPreviewRouteTests(unittest.TestCase):
         resp = self.client.post("/onboarding/preview", data={
             "onboarding_file_path": path,
             "unity_catalog_enabled": "0",   # ← UC disabled
-            "dlt_meta_schema": "sch",
+            "sdp_meta_schema": "sch",
             "bronze_schema": "br",
             "silver_schema": "sv",
         })
@@ -224,10 +223,10 @@ class OnboardingPreviewRouteTests(unittest.TestCase):
         body = resp.get_json()
         self.assertIn("not-applicable-without-uc", body["uc_volume_path_used"])
 
-    def test_dlt_meta_schema_field_is_actually_used(self):
+    def test_sdp_meta_schema_field_is_actually_used(self):
         """Regression for #313-style symptom: the user types a schema name
-        into ``dlt_meta_schema`` on the form, but the CLI receives a random
-        UUID because the App envelope used the wrong key. Preview must
+        into ``sdp_meta_schema`` on the form, but the CLI receives a random
+        UUID because the App envelope dropped the value. Preview must
         substitute the *user-supplied* schema into ``{uc_volume_path}``,
         not a random ``sdp_meta_dataflowspecs_<hex>`` placeholder."""
         path = self._write(
@@ -236,7 +235,7 @@ class OnboardingPreviewRouteTests(unittest.TestCase):
         )
         resp = self.client.post("/onboarding/preview", data=self._form(
             path,
-            **{"dlt_meta_schema": "my_chosen_schema_name"},
+            **{"sdp_meta_schema": "my_chosen_schema_name"},
         ))
         self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True))
         body = resp.get_json()
@@ -268,10 +267,10 @@ class OnboardingPreflightParseTests(unittest.TestCase):
     _ONBOARD_FORM = {
         "unity_catalog_enabled": "1",
         "unity_catalog_name": "my_cat",
-        "dlt_meta_schema": "sch",
+        "sdp_meta_schema": "sch",
         "bronze_schema": "br",
         "silver_schema": "sv",
-        "dlt_meta_layer": "1",
+        "sdp_meta_layer": "1",
     }
 
     def test_onboarding_rejects_malformed_yaml_with_400(self):
@@ -403,10 +402,10 @@ class OnboardingEnvMismatchRejectionTests(unittest.TestCase):
     _BASE_FORM = {
         "unity_catalog_enabled": "1",
         "unity_catalog_name": "my_cat",
-        "dlt_meta_schema": "sch",
+        "sdp_meta_schema": "sch",
         "bronze_schema": "br",
         "silver_schema": "sv",
-        "dlt_meta_layer": "1",
+        "sdp_meta_layer": "1",
     }
 
     def test_onboarding_rejects_env_mismatch_with_400(self):
@@ -524,7 +523,7 @@ class OnboardingPreviewEnvWarningTests(unittest.TestCase):
     _BASE_FORM = {
         "unity_catalog_enabled": "1",
         "unity_catalog_name": "my_cat",
-        "dlt_meta_schema": "sch",
+        "sdp_meta_schema": "sch",
         "bronze_schema": "br",
         "silver_schema": "sv",
     }
@@ -568,11 +567,13 @@ class OnboardingPreviewEnvWarningTests(unittest.TestCase):
 
 class OnboardingPayloadKeyMappingTests(unittest.TestCase):
     """Regression: the JSON envelope the App sends to the CLI subprocess
-    MUST use the CLI's canonical key names (``sdp_meta_schema``,
-    ``sdp_meta_layer``), not the legacy HTML form names
-    (``dlt_meta_schema``, ``dlt_meta_layer``). Otherwise the CLI's
-    ``_load_onboard_config_ui`` looks up the wrong key, falls through to
-    its random-UUID default, and the user's value is silently discarded.
+    MUST use ``sdp_meta_schema`` / ``sdp_meta_layer`` populated with the
+    user's actual form values, and MUST NOT carry any legacy
+    ``dlt_meta_*`` aliases (a guard against accidental re-introduction
+    \u2014 the App once translated form keys at this boundary). Otherwise
+    the CLI's ``_load_onboard_config_ui`` looks up the wrong key, falls
+    through to its random-UUID default, and the user's value is
+    silently discarded.
 
     We assert on the JSON envelope rather than the subprocess outcome so
     the test stays fast and hermetic (no actual subprocess spawn)."""
@@ -614,10 +615,10 @@ class OnboardingPayloadKeyMappingTests(unittest.TestCase):
             resp = self.client.post("/onboarding", data={
                 "unity_catalog_enabled": "1",
                 "unity_catalog_name": "my_cat",
-                "dlt_meta_schema": "my_chosen_schema",   # ← user's value
+                "sdp_meta_schema": "my_chosen_schema",   # ← user's value
                 "bronze_schema": "br",
                 "silver_schema": "sv",
-                "dlt_meta_layer": "0",                   # ← user picks "bronze only"
+                "sdp_meta_layer": "0",                   # ← user picks "bronze only"
                 "onboarding_file_path": self.template,
             })
 
@@ -1083,7 +1084,7 @@ class OnboardingPreviewRequiredFilesIntegrationTests(unittest.TestCase):
         resp = self.client.post("/onboarding/preview", data={
             "unity_catalog_enabled": "1",
             "unity_catalog_name": "my_cat",
-            "dlt_meta_schema": "sch",
+            "sdp_meta_schema": "sch",
             "bronze_schema": "br",
             "silver_schema": "sv",
             "onboarding_file_path": self.spec_path,

@@ -89,9 +89,8 @@ def handle_deploy_form():
     # fields. Translate at the App boundary \u2014 otherwise the CLI
     # silently sees ``None`` for the spec schema and produces a
     # pipeline config like ``catalog.None.bronze_dataflowspec`` which
-    # fails at runtime. Same class of bug as the earlier
-    # ``dlt_meta_schema`` / ``sdp_meta_schema`` mismatch on
-    # /onboarding.
+    # fails at runtime. See test_deploy_payload_uses_cli_canonical_keys
+    # for the regression guard.
     json_data = {
         "uc_enabled": "1" if uc_enabled else "0",
         "uc_catalog_name": uc_name,

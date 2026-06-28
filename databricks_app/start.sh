@@ -19,7 +19,7 @@
 #        app.py, start.sh, templates/, ...   (no demo/, no src/)
 #    → start.sh clones the full repo to /tmp/dlt-meta and uses that.
 #
-# In both modes the script exports DLT_META_HOME so app.py knows where
+# In both modes the script exports SDP_META_HOME so app.py knows where
 # demo/ and src/ live, then starts Flask from that directory so relative
 # paths inside demo scripts (./demo/conf/...) resolve correctly.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ fi
 echo "[start.sh] Repo root: $REPO_ROOT"
 
 # Export so app.py/_repo_root() picks it up — highest-priority override
-export DLT_META_HOME="$REPO_ROOT"
+export SDP_META_HOME="$REPO_ROOT"
 
 # ── Verify required directories ───────────────────────────────────────────────
 for dir in demo src integration_tests; do

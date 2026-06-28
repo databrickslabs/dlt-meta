@@ -81,8 +81,8 @@ crash.
 3. Restores `demo/SDP_META_INTERACTIVE_DEMO.py` from the staged `.nbsource`
    copy (if absent in the working tree).
 4. Verifies `demo/` and `integration_tests/` are present.
-5. `exec`s `flask run` bound to `$DATABRICKS_APP_PORT` (defaults to 8000
-   locally).
+5. `exec`s `gunicorn` (1 worker, 120s timeout) bound to
+   `$DATABRICKS_APP_PORT` (defaults to 8000 locally). 
 
 **Directory layout inside the container (`/app/python/source_code/`):**
 ```
@@ -99,7 +99,7 @@ databricks_app/
 ```
 
 > **No extra environment variable needed.** The app derives the repo root from
-> `databricks_app/../` automatically. Set `DLT_META_HOME` only if you use a
+> `databricks_app/../` automatically. Set `SDP_META_HOME` only if you use a
 > non-standard layout.
 
 ### 4. Access the app
@@ -159,7 +159,7 @@ If that prints your workspace host and your username, the App will work.
 
 ```bash
 # Tell app.py where the repo root is (so demo/, src/, integration_tests/ resolve)
-export DLT_META_HOME="$PWD"
+export SDP_META_HOME="$PWD"
 
 # Suppress browser tabs that the CLI would otherwise pop after onboard/deploy
 export SDP_META_NO_BROWSER=1

@@ -9,8 +9,8 @@
   canonical key names (``sdp_meta_bronze_schema``,
   ``sdp_meta_silver_schema``, ``dataflowspec_bronze_table``,
   ``dataflowspec_silver_table``) before they hit the subprocess —
-  same class of bug as the earlier ``dlt_meta_schema`` /
-  ``sdp_meta_schema`` mismatch on /onboarding.
+  same class of bug as the form-key / CLI-key mismatch guarded by
+  test_onboarding_payload_uses_sdp_meta_keys on /onboarding.
 
 The Flask ``app`` object lives in ``databricks_app/app.py``. That module
 imports ``uc_preflight`` as a sibling, so the test bootstrap puts
@@ -154,8 +154,8 @@ class DeployPayloadKeyMappingTests(unittest.TestCase):
     ``spc_schema_name`` becomes BOTH ``sdp_meta_bronze_schema`` and
     ``sdp_meta_silver_schema`` (one spec schema, two specs), and
     ``bronze_dataflowspec_table`` becomes ``dataflowspec_bronze_table``.
-    Same shape of trap as the earlier ``dlt_meta_schema`` mismatch on
-    /onboarding."""
+    Same shape of trap as the form-key / CLI-key mismatch guarded by
+    test_onboarding_payload_uses_sdp_meta_keys on /onboarding."""
 
     def setUp(self):
         self.client = app_mod.app.test_client()

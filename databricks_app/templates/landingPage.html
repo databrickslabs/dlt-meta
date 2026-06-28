@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- CSP is set as an HTTP response header by Flask (add_security_headers). -->
-    <title>DLT-META Configuration Portal</title>
+    <title>SDP-META Configuration Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -994,7 +994,7 @@
 <header class="topbar">
     <div class="topbar-inner">
         <a class="logo" href="#">
-            <span class="logo-word">DLT<em>-META</em></span>
+            <span class="logo-word">SDP<em>-META</em></span>
             <span class="logo-tag">Databricks App</span>
         </a>
         <nav class="topbar-nav">
@@ -1089,7 +1089,7 @@
                     <span class="step-badge">Step 1</span>
                 </div>
                 <h1>Pipeline Onboarding</h1>
-                <p>Register your pipeline metadata into the DLT-META dataflow spec tables</p>
+                <p>Register your pipeline metadata into the SDP-META dataflow spec tables</p>
             </div>
 
             <form id="onboardingForm" novalidate>
@@ -1263,10 +1263,10 @@
                     <div class="form-grid">
 
                         <div class="form-group">
-                            <label class="form-label" for="dlt_meta_schema">DLT Meta Schema <span style="color:var(--brand)">*</span>
+                            <label class="form-label" for="sdp_meta_schema">SDP Meta Schema <span style="color:var(--brand)">*</span>
                                 <span class="field-tip" data-tip="UC schema where the DataflowSpec tables (bronze_dataflowspec / silver_dataflowspec) will be created. Must be inside the Unity Catalog above. Created automatically if it doesn't exist.">?</span>
                             </label>
-                            <input class="form-input" type="text" id="dlt_meta_schema" name="dlt_meta_schema"
+                            <input class="form-input" type="text" id="sdp_meta_schema" name="sdp_meta_schema"
                                    value=""
                                    placeholder="e.g. sdp_meta_dataflowspecs" required>
                         </div>
@@ -1290,10 +1290,10 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="dlt_meta_layer">DLT Meta Layer
+                            <label class="form-label" for="sdp_meta_layer">SDP Meta Layer
                                 <span class="field-tip" data-tip="Which DataflowSpec layers to register. bronze: only bronze specs. silver: only silver specs. bronze_silver: both (most common).">?</span>
                             </label>
-                            <select class="form-input" id="dlt_meta_layer" name="dlt_meta_layer">
+                            <select class="form-input" id="sdp_meta_layer" name="sdp_meta_layer">
                                 <option value="0">bronze</option>
                                 <option value="1" selected>bronze_silver</option>
                                 <option value="2">silver</option>
@@ -1302,7 +1302,7 @@
 
                         <div class="form-group">
                             <label class="form-label" for="bronze_table">Bronze Dataflow Spec Table
-                                <span class="field-tip" data-tip="Name of the Delta table that will hold bronze DataflowSpecs inside the DLT Meta Schema. Default: bronze_dataflowspec.">?</span>
+                                <span class="field-tip" data-tip="Name of the Delta table that will hold bronze DataflowSpecs inside the SDP Meta Schema. Default: bronze_dataflowspec.">?</span>
                             </label>
                             <input class="form-input" type="text" id="bronze_table" name="bronze_table"
                                    value="bronze_dataflowspec" placeholder="bronze_dataflowspec">
@@ -1310,7 +1310,7 @@
 
                         <div class="form-group">
                             <label class="form-label" for="silver_table">Silver Dataflow Spec Table
-                                <span class="field-tip" data-tip="Name of the Delta table that will hold silver DataflowSpecs inside the DLT Meta Schema. Default: silver_dataflowspec.">?</span>
+                                <span class="field-tip" data-tip="Name of the Delta table that will hold silver DataflowSpecs inside the SDP Meta Schema. Default: silver_dataflowspec.">?</span>
                             </label>
                             <input class="form-input" type="text" id="silver_table" name="silver_table"
                                    value="silver_dataflowspec" placeholder="silver_dataflowspec">
@@ -1374,7 +1374,7 @@
             </form>
 
             <div class="content-footer">
-                &copy; 2026 DLT-META Databricks App &mdash;
+                &copy; 2026 SDP-META Databricks App &mdash;
                 <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer">Databricks Labs</a>
             </div>
         </section>
@@ -1386,7 +1386,7 @@
                     <span class="step-badge">Step 2</span>
                 </div>
                 <h1>Pipeline Deployment</h1>
-                <p>Create and launch the Lakeflow Declarative Pipeline from the registered spec</p>
+                <p>Create and launch the Lakeflow Declarative Pipeline from the registered DataflowSpec</p>
             </div>
 
             <form id="deploymentForm" novalidate>
@@ -1436,7 +1436,7 @@
 
                         <div class="form-group">
                             <label class="form-label" for="spc_schema_name">DataFlow Spec Schema <span style="color:var(--brand)">*</span>
-                                <span class="field-tip" data-tip="The UC schema that holds your DataflowSpec tables. This is the DLT Meta Schema you set during onboarding (e.g. sdp_meta_dataflowspecs).">?</span>
+                                <span class="field-tip" data-tip="The UC schema that holds your DataflowSpec tables. This is the SDP Meta Schema you set during onboarding (e.g. sdp_meta_dataflowspecs).">?</span>
                             </label>
                             <input class="form-input" type="text" id="spc_schema_name" name="spc_schema_name"
                                    placeholder="e.g. sdp_meta_dataflowspecs">
@@ -1489,7 +1489,7 @@
                                 <span class="field-tip" data-tip="Name for the new Lakeflow Declarative Pipeline. Must be unique in the workspace. If a pipeline with this name already exists it will be updated.">?</span>
                             </label>
                             <input class="form-input" type="text" id="pipeline_name" name="pipeline_name"
-                                   placeholder="dlt_meta_pipeline">
+                                   placeholder="sdp_meta_pipeline">
                         </div>
 
                         <div class="form-group">
@@ -1521,7 +1521,7 @@
             </form>
 
             <div class="content-footer">
-                &copy; 2026 DLT-META Databricks App &mdash;
+                &copy; 2026 SDP-META Databricks App &mdash;
                 <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer">Databricks Labs</a>
             </div>
         </section>
@@ -1598,7 +1598,7 @@
         <section class="panel" id="demos" aria-label="Demos">
             <div class="panel-header">
                 <h1>Run a Demo</h1>
-                <p>Explore DLT-META features with pre-configured end-to-end examples on your Databricks workspace</p>
+                <p>Explore SDP-META features with pre-configured end-to-end examples on your Databricks workspace</p>
             </div>
 
             <div class="uc-callout">
@@ -1642,7 +1642,7 @@
             </div>
 
             <div class="content-footer">
-                &copy; 2026 DLT-META Databricks App &mdash;
+                &copy; 2026 SDP-META Databricks App &mdash;
                 <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer">Databricks Labs</a>
             </div>
         </section>
@@ -2382,16 +2382,16 @@
                         return '<option value="' + escapeHtml(s.id) + '">' +
                                escapeHtml(s.label) + '</option>';
                     }).join('');
-                    /* Default-pick priority: try ``onboarding_cars``
-                       first (simplest demo, safest first-run), then
-                       fall back to the flagship ``onboarding`` (DAIS)
-                       demo, then the first entry. The simplest demo
-                       is the right default because the picker is
-                       the entry point first-time users see and a
-                       click-it-and-it-works experience beats one
-                       that requires reading the description. */
+                    /* Default-pick priority: the flagship ``onboarding``
+                       (DAIS end-to-end demo) leads the picker because
+                       it's the demo the App is most often shown with
+                       \u2014 it exercises CDC + DQE + silver transforms
+                       in a single pass and surfaces the most surface
+                       area of SDP-META. Fall back to the simpler
+                       ``onboarding_cars`` if DAIS is missing from the
+                       container, then to the first entry. */
                     var defaultIdx = 0;
-                    var preferenceOrder = ['onboarding_cars', 'onboarding'];
+                    var preferenceOrder = ['onboarding', 'onboarding_cars'];
                     for (var p = 0; p < preferenceOrder.length; p++) {
                         var found = false;
                         for (var i = 0; i < bundledData.length; i++) {
@@ -3143,7 +3143,7 @@
 
     function _prefillSpecsFromOnboarding() {
         var catalog = (document.getElementById('unity_catalog_name') || {}).value || '';
-        var schema  = (document.getElementById('dlt_meta_schema')    || {}).value || '';
+        var schema  = (document.getElementById('sdp_meta_schema')    || {}).value || '';
         var bTable  = (document.getElementById('bronze_table')        || {}).value || 'bronze_dataflowspec';
         var sTable  = (document.getElementById('silver_table')        || {}).value || 'silver_dataflowspec';
         if (catalog) document.getElementById('specsUcCatalog').value   = catalog;
@@ -3173,7 +3173,7 @@
             if (el && value) el.value = value;
         }
         var catalog      = _val('unity_catalog_name');
-        var specSchema   = _val('dlt_meta_schema');
+        var specSchema   = _val('sdp_meta_schema');
         var bronzeSchema = _val('bronze_schema');
         var silverSchema = _val('silver_schema');
         var bronzeTable  = _val('bronze_table') || 'bronze_dataflowspec';

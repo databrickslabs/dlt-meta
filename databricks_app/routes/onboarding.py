@@ -91,8 +91,8 @@ def handle_onboard_form():
     onboarding_file_path_raw = request.form.get('onboarding_file_path', '').strip()
     if not onboarding_file_path_raw:
         missing.append("Onboarding File Path")
-    if not request.form.get('dlt_meta_schema', '').strip():
-        missing.append("DLT Meta Schema")
+    if not request.form.get('sdp_meta_schema', '').strip():
+        missing.append("SDP Meta Schema")
     if not request.form.get('bronze_schema', '').strip():
         missing.append("Bronze Schema")
     if not request.form.get('silver_schema', '').strip():
@@ -146,23 +146,20 @@ def handle_onboard_form():
     if not local_dir_raw:
         local_dir_raw = os.path.join(current_directory, 'demo') + os.sep
 
-    # NOTE: HTML form field names use the legacy ``dlt_meta_*`` prefix
-    # for UI continuity, but the CLI's ``_load_onboard_config_ui``
-    # reads keys under the new ``sdp_meta_*`` names. Translate at this
-    # boundary \u2014 otherwise the CLI silently falls back to a random-
-    # UUID schema name and ignores whatever the user typed in. See
+    # The HTML form field names match the CLI's ``sdp_meta_*`` keys
+    # 1:1, so this dict is a straight pass-through. See
     # test_onboarding_payload_uses_sdp_meta_keys for the regression
-    # guard.
+    # guard against accidental key drift.
     json_data = {
         "unity_catalog_enabled": "1" if uc_enabled else "0",
         "unity_catalog_name": uc_name,
         "serverless": "1" if request.form.get('serverless') == "1" else "0",
         "onboarding_file_path": onboarding_file_path,
         "local_directory": local_dir_raw,
-        "sdp_meta_schema": request.form.get('dlt_meta_schema', '').strip(),
+        "sdp_meta_schema": request.form.get('sdp_meta_schema', '').strip(),
         "bronze_schema": request.form.get('bronze_schema', '').strip(),
         "silver_schema": request.form.get('silver_schema', '').strip(),
-        "sdp_meta_layer": request.form.get('dlt_meta_layer', '1'),
+        "sdp_meta_layer": request.form.get('sdp_meta_layer', '1'),
         "bronze_table": request.form.get('bronze_table', 'bronze_dataflowspec'),
         "silver_table": request.form.get('silver_table', 'silver_dataflowspec'),
         "overwrite": "1" if request.form.get('overwrite') == "1" else "0",
@@ -225,10 +222,7 @@ def handle_onboarding_preview():
 
     uc_enabled = request.form.get('unity_catalog_enabled') == "1"
     uc_name = request.form.get('unity_catalog_name', '').strip()
-    # The HTML form field is ``name="dlt_meta_schema"`` (UI-continuity
-    # name). The variable / placeholder is ``sdp_meta_schema`` (CLI-
-    # canonical) \u2014 the App translates at this boundary.
-    sdp_meta_schema = request.form.get('dlt_meta_schema', '').strip()
+    sdp_meta_schema = request.form.get('sdp_meta_schema', '').strip()
     bronze_schema = request.form.get('bronze_schema', '').strip()
     silver_schema = request.form.get('silver_schema', '').strip()
     onboarding_file_path_raw = (
@@ -249,7 +243,7 @@ def handle_onboarding_preview():
     if uc_enabled and not uc_name:
         missing.append("Unity Catalog Name")
     if not sdp_meta_schema:
-        missing.append("DLT Meta Schema")
+        missing.append("SDP Meta Schema")
     if not bronze_schema:
         missing.append("Bronze Schema")
     if not silver_schema:
