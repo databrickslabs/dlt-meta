@@ -231,7 +231,7 @@ recipe-discovered streaming tables) materialized two different ways:
 # 1) Split: two LDP pipelines (bronze + silver)
 python demo/launch_dab_template_demo.py \
   --scenario cloudfiles \
-  --uc-catalog-name ravi_dlt_meta_uc \
+  --uc-catalog-name <<your_catalog>> \
   --uc-schema sdp_meta_dab_demo \
   --uc-volume sdp_meta_wheels \
   --apply-prepare-wheel --apply-recipe --apply-deploy \
@@ -241,7 +241,7 @@ python demo/launch_dab_template_demo.py \
 # 2) Combined: one LDP pipeline materializing both layers in a single DAG
 python demo/launch_dab_template_demo.py \
   --scenario cloudfiles_combined \
-  --uc-catalog-name ravi_dlt_meta_uc \
+  --uc-catalog-name <<your_catalog>> \
   --uc-schema sdp_meta_dab_demo \
   --uc-volume sdp_meta_wheels \
   --apply-prepare-wheel --apply-recipe --apply-deploy \

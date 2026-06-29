@@ -13,9 +13,14 @@ sidebar_position: 99
 ### New Features
 
 - **Automatic liquid clustering** (`cluster_by_auto`) for bronze and silver tables. When set to `true`, Databricks automatically determines the optimal clustering columns. Works alongside explicit `cluster_by` to define initial keys followed by automatic optimization. Supported for `bronze_cluster_by_auto`, `bronze_quarantine_table_cluster_by_auto`, and `silver_cluster_by_auto`. ([Issue #238](https://github.com/databrickslabs/dlt-meta/issues/238))
-- **MCP Server support** — AI-assisted pipeline scaffolding via the `mcp` CLI command (stdio transport). Enables use with Claude Code and other MCP-compatible clients.
-- **DAB template** with `bundle-init --quickstart` zero-prompt fast path for instant bundle scaffolding. Includes `bundle-add-flow`, `bundle-prepare-wheel`, and `bundle-validate` commands.
-- **Row filter support** — `where_clause` in silver transformations files for pipeline-time row filtering.
+- **MCP Server support** — opt-in `mcp` CLI command (`databricks labs sdp-meta mcp`) exposes sdp-meta over stdio so MCP-capable clients (Claude Code, Cursor, Claude Desktop) can drive scaffolding and inspection. Install with `pip install databricks-labs-sdp-meta[mcp]`.
+- **Declarative Automation Bundle (DAB) template** with `bundle-init --quickstart` zero-prompt fast path for instant bundle scaffolding. New CLI commands: `bundle-init`, `bundle-add-flow`, `bundle-prepare-wheel`, `bundle-validate`. Packaged template includes onboarding job, Lakeflow Spark Declarative Pipelines, runner notebook, and four flow-generation recipes.
+- **Row filter support** — `where_clause` in silver transformations files for pipeline-time row filtering, with coverage for multi-source CDC flows.
+- **Multi-source AUTO CDC** — multiple CDC sources can now feed into a single target via `create_auto_cdc_flow`.
+- **End-to-end YAML support** — onboarding, DQE rules, silver transformations, and packaged demos all accept YAML in addition to JSON.
+- **`build-and-upload-whl` flag** for `onboard` and `deploy` — builds the local sdp-meta wheel, uploads it to a UC volume, and bakes the path into the runner notebook's `%pip install` (avoids needing PyPI access on the pipeline cluster).
+- **Databricks App refactor** — monolithic `app.py` split into `routes/` (8 blueprints) + `services/onboarding/` helpers, input validation hardened, renamed `lakehouse_app` → `databricks_app`, PyPI install option added, UC preflight probe surfaces required `GRANT` SQL before demos.
+- **Docs site migrated to Docusaurus 3** — 34 pages across Getting Started, Concepts, Reference, Guides, Operations, and Contributing sections.
 
 ### Breaking Changes
 
@@ -24,6 +29,17 @@ sidebar_position: 99
 - **Python imports changed**: `from dlt_meta import ...` → `from databricks.labs.sdp_meta import ...`
 - **Main class renamed**: `DLTMeta` → `SDPMeta`
 - **Source layout changed**: flat `src/` → `src/databricks/labs/sdp_meta/` namespace package
+- **Lakeflow Spark Declarative Pipelines API**: DLT decorators/APIs migrated to `pyspark.pipelines`. Update references that import from `dlt` to use the new `pyspark.pipelines` module. ([Issue #274](https://github.com/databrickslabs/dlt-meta/issues/274))
+- **`quarantine_table` field**: Renamed `quarantine_table_name` to `quarantine_table` in dataflow specs for naming consistency. ([Issue #243](https://github.com/databrickslabs/dlt-meta/issues/243))
+
+### Bug Fixes & Improvements
+
+- **Security**: Replaced unsafe `eval()` on `uc_enabled` widget with a strict parser. ([Issue #260](https://github.com/databrickslabs/dlt-meta/issues/260))
+- **Performance**: O(N+M) schema modification for wide tables in CDC flows (was previously O(N×M)). ([Issue #284](https://github.com/databrickslabs/dlt-meta/issues/284))
+- Fixed cross-platform file URI handling in CLI; updated cloudFiles demo clustering metadata.
+- Fixed SCD Type 2 processing; renamed demo tables to `sdp_meta`.
+- Switched demo paths from DBFS to UC Volumes.
+- Renamed references from "Lakeflow Declarative Pipelines" to "Lakeflow Spark Declarative Pipelines".
 
 ### Backward Compatibility
 
