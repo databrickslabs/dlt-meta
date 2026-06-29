@@ -1,5 +1,52 @@
 # Changelog
 
+## [v0.1.0]
+### ⚠️ Breaking Changes
+- **Project rename `dlt-meta` → `sdp-meta`** to align with the Lakeflow Spark Declarative Pipelines product naming. This affects the PyPI package, CLI command, Python import path, source layout, and main class name. A backward-compatibility wrapper is published so existing installations keep working with a deprecation warning. [PR](https://github.com/databrickslabs/dlt-meta/pull/289)
+  - PyPI package: `dlt-meta` → `databricks-labs-sdp-meta`
+  - CLI command: `databricks labs dlt-meta` → `databricks labs sdp-meta`
+  - Python import: `from dlt_meta import ...` → `from databricks.labs.sdp_meta import ...`
+  - Main class: `DLTMeta` → `SDPMeta`
+  - Source layout: flat `src/` → `src/databricks/labs/sdp_meta/` namespace package
+- **Lakeflow Spark Declarative Pipelines API migration**: DLT decorators/APIs migrated to `pyspark.pipelines`. Update references that import from `dlt` to use the new `pyspark.pipelines` module. [Issue #274](https://github.com/databrickslabs/dlt-meta/issues/274)
+- **`quarantine_table` field**: Renamed `quarantine_table_name` to `quarantine_table` in dataflow specs for naming consistency. [Issue #243](https://github.com/databrickslabs/dlt-meta/issues/243)
+
+### Migration Guide
+The legacy `dlt-meta` PyPI package is preserved as a thin compatibility shim that pulls in `databricks-labs-sdp-meta` and re-exports every public symbol with a `DeprecationWarning`. Legacy `src.*` imports from v0.0.10 also work via a `sys.modules` shim, but **both shims will be removed in v0.2.0**.
+
+See [docs/operations/migration](https://databrickslabs.github.io/dlt-meta/operations/migration) for the step-by-step migration walkthrough.
+
+### Added
+- **Automatic liquid clustering** (`cluster_by_auto`): Databricks automatically determines the optimal clustering columns for bronze and silver tables. Works alongside explicit `cluster_by` to define initial keys followed by automatic optimization. Supported via `bronze_cluster_by_auto`, `bronze_quarantine_table_cluster_by_auto`, and `silver_cluster_by_auto`. [Issue #238](https://github.com/databrickslabs/dlt-meta/issues/238)
+- **MCP Server support**: Optional MCP (Model Context Protocol) stdio server (`databricks labs sdp-meta mcp`) so MCP-capable clients (Claude Code, Cursor, Claude Desktop) can drive sdp-meta scaffolding and inspection. Install with `pip install databricks-labs-sdp-meta[mcp]`. [PR #299](https://github.com/databrickslabs/dlt-meta/pull/299)
+- **Declarative Automation Bundle (DAB) template**: End-to-end DAB-based deployment path for CI/CD, multi-target environments, and agent-driven flows. New CLI commands: `bundle-init` (with `--quickstart` zero-prompt fast path), `bundle-add-flow`, `bundle-prepare-wheel`, `bundle-validate`. Packaged template includes `databricks.yml`, `variables.yml`, onboarding job, Lakeflow Spark Declarative Pipelines, runner notebook, and four flow-generation recipes. [Issue #248](https://github.com/databrickslabs/dlt-meta/issues/248)
+- **Row filter support**: New `where_clause` field in silver transformations files for pipeline-time row filtering, including coverage for multi-source CDC flows. [PR #294](https://github.com/databrickslabs/dlt-meta/pull/294), [PR #306](https://github.com/databrickslabs/dlt-meta/pull/306)
+- **Multi-source AUTO CDC pipeline support**: Multiple CDC sources can now feed into a single target via `create_auto_cdc_flow`. [PR #303](https://github.com/databrickslabs/dlt-meta/pull/303)
+- **End-to-end YAML support**: YAML format now supported for onboarding files, DQE rules, silver transformations, and packaged demos (in addition to JSON). [PR #251](https://github.com/databrickslabs/dlt-meta/pull/251)
+- **`build-and-upload-whl` for `onboard` / `deploy`**: New CLI flag builds the local sdp-meta wheel, uploads it to a UC volume, and uses that wheel for the onboarding/deployment job (avoids needing PyPI access on the pipeline cluster). [PR #299](https://github.com/databrickslabs/dlt-meta/pull/299)
+- **Databricks App refactor**: Monolithic `app.py` split into `routes/` (8 blueprints) + `services/onboarding/` helpers; input validation hardened; renamed `lakehouse_app` → `databricks_app`; PyPI install option added; new UC preflight probe surfaces required `GRANT` SQL before demos. [PR #295](https://github.com/databrickslabs/dlt-meta/pull/295), [PR #325](https://github.com/databrickslabs/dlt-meta/issues/325)
+- **Docs site migrated from Hugo to Docusaurus 3**: 34 pages across 6 sections (Getting Started, Concepts, Reference, Guides, Operations, Contributing) plus a landing page and Databricks-branded CSS. [PR #315](https://github.com/databrickslabs/dlt-meta/pull/315)
+- Added `dlt-meta-dab.md` documentation for Lakeflow Connect and synthetic data generation. [Issue #254](https://github.com/databrickslabs/dlt-meta/issues/254)
+- Added interactive notebook-based demo and LFC (Lakeflow Connect) Python demo. [Issue #172](https://github.com/databrickslabs/dlt-meta/issues/172)
+
+### Changed
+- Renamed references from "Lakeflow Declarative Pipelines" to "Lakeflow Spark Declarative Pipelines". [Issue #285](https://github.com/databrickslabs/dlt-meta/issues/285)
+- Updated Databricks Asset Bundle to Declarative Automation Bundle terminology throughout demos and docs.
+- Switched demo paths from DBFS to UC Volumes. [Issue #254](https://github.com/databrickslabs/dlt-meta/issues/254)
+
+### Fixed
+- **Security**: Replaced unsafe `eval()` on `uc_enabled` widget with a strict parser. [Issue #260](https://github.com/databrickslabs/dlt-meta/issues/260)
+- **Performance**: O(N+M) schema modification for wide tables in CDC flows (was previously O(N×M)). [Issue #284](https://github.com/databrickslabs/dlt-meta/issues/284)
+- Fixed cross-platform file URI handling in CLI; updated cloudFiles demo clustering metadata. [Issue #251](https://github.com/databrickslabs/dlt-meta/issues/251)
+- Fixed integration tests UC volume path construction. [Issue #284](https://github.com/databrickslabs/dlt-meta/issues/284)
+- Fixed SCD Type 2 processing; renamed demo tables to `sdp_meta`. [Issue #266](https://github.com/databrickslabs/dlt-meta/issues/266)
+- Removed orphaned enhanced-CLI subsystem and fixed flake8 lint errors.
+
+### Backward Compatibility
+- The `dlt-meta` compatibility wrapper package re-exports all public symbols and forwards CLI commands to `sdp-meta` with a deprecation banner.
+- `from dlt_meta import ...` and `import src.*` continue to work with `DeprecationWarning`; both shims are scheduled for removal in v0.2.0.
+- Legacy config key `dlt_meta_schema` is still read with a logged warning; prefer `sdp_meta_schema`.
+
 ## [v0.0.10]
 ### ⚠️ Breaking Changes
 - **DPM Mode Flag Removal from v0.0.9**: DLT-META v0.0.9 pipelines using DPM mode flag must be migrated to the default publishing mode before upgrading. This change is metadata-only and doesn't impact existing datasets, but is irreversible.
