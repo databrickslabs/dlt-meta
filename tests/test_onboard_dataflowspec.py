@@ -1316,6 +1316,61 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
         silver_dataflowSpec_df.show(truncate=False)
         self.assertEqual(silver_dataflowSpec_df.count(), 4)
 
+    def test_silver_fanout_single_file_onboarding(self):
+        """Single-file fanout: one onboarding spec contains a base
+        bronze+silver row plus N silver-only consumer rows that
+        reference the same bronze. Onboarding with ``bronze_silver``
+        layer must produce 1 bronze + 4 silvers in ONE pass \u2014 no
+        secondary ``onboard_layer=silver, overwrite=False`` task
+        required.
+
+        Before the fix this would have raised
+        ``Missing field=source_details in onboarding_row`` on the
+        first fanout consumer row, because rows 2-4 set
+        ``bronze_database_<env>`` (pointing at the bronze schema where
+        the producer row writes ``customers``) but lack
+        ``source_details`` (they're silver-only consumers). The
+        ``__get_bronze_dataflow_spec_dataframe`` skip now treats
+        rows lacking ``source_details`` as silver-only \u2014 the silver
+        pass picks them up from the same file.
+        """
+        local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+        local_params["onboarding_file_path"] = (
+            self.onboarding_silver_fanout_single_file
+        )
+        onboardDataFlowSpecs = OnboardDataflowspec(self.spark, local_params)
+        onboardDataFlowSpecs.onboard_dataflow_specs()
+
+        # Bronze: exactly 1 producer row. The 3 fanout consumer rows
+        # must NOT land in the bronze dataflowspec table.
+        bronze_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['bronze_dataflowspec_table'])
+        self.assertEqual(
+            bronze_df.count(), 1,
+            "Bronze pass should produce exactly 1 row (the producer); "
+            "fanout consumers must be skipped",
+        )
+        bronze_tables = [r.targetDetails["table"] for r in bronze_df.collect()]
+        self.assertEqual(bronze_tables, ["customers"])
+
+        # Silver: all 4 silver targets (1 producer + 3 fanout consumers).
+        silver_df = self.read_dataflowspec(
+            self.onboarding_bronze_silver_params_map['database'],
+            self.onboarding_bronze_silver_params_map['silver_dataflowspec_table'])
+        self.assertEqual(
+            silver_df.count(), 4,
+            "Silver pass should produce 4 rows (the producer's silver "
+            "target + 3 fanout consumers)",
+        )
+        silver_tables = sorted(
+            r.targetDetails["table"] for r in silver_df.collect()
+        )
+        self.assertEqual(
+            silver_tables,
+            ["customers_clean", "customers_germany", "customers_japan", "customers_uk"],
+        )
+
     def test_onboard_bronze_silver_with_v7(self):
         local_params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         local_params["onboarding_file_path"] = self.onboarding_json_v7_file

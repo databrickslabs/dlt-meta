@@ -1,9 +1,12 @@
-# Web framework
-flask==3.0.3
+# Web framework + WSGI server
+flask>=3.0
+gunicorn>=21.2
 click==8.1.7
 
-# Databricks SDK — required by demo scripts (launch_*_demo.py) and src/cli.py
-databricks-sdk>=0.20.0
+# Databricks SDK — required by demo scripts (launch_*_demo.py) and the
+# sdp-meta CLI (`python -m databricks.labs.sdp_meta.cli`, installed from
+# the wheel built by databricks_app/start.sh).
+databricks-sdk>=0.25
 
-# Config parsing used by onboarding and demo scripts
+# Config parsing used by onboarding, demo scripts, and parse-spec endpoint
 PyYAML>=6.0

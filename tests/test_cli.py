@@ -166,6 +166,12 @@ class CliTests(unittest.TestCase):
             silver_dataflowspec_path="tests/resources/silver_dataflowspec",
             uc_enabled=True,
             uc_catalog_name="uc_catalog",
+            # ``_get_onboarding_named_parameters`` reads ``cmd.uc_volume_path``
+            # when ``uc_enabled=True`` to compose the remote
+            # ``onboarding_file_path`` (``{volume}/sdp_meta_conf/tmp/<file>``).
+            # Without this set the path-builder dereferences ``None`` and
+            # raises before the wheel-dependency code path under test runs.
+            uc_volume_path="/Volumes/uc_catalog/sdp_meta/files",
             overwrite=True,
             bronze_dataflowspec_table="bronze_dataflowspec",
             silver_dataflowspec_table="silver_dataflowspec",
@@ -240,7 +246,15 @@ class CliTests(unittest.TestCase):
         expected_named_parameters = {
             "onboard_layer": "bronze_silver",
             "database": "uc_catalog.sdp_meta" if cmd.uc_enabled else "sdp_meta",
-            "onboarding_file_path": "uc_catalog/sdp_meta/files/sdp_meta_conf/tests/resources/onboarding.json",
+            # New path scheme (cli.py:683-690 comment): on UC the
+            # onboarding spec is stashed under a ``sdp_meta_conf/tmp/``
+            # subdir of the run's volume and addressed by BASENAME
+            # only \u2014 the original ``tests/resources/`` prefix from
+            # ``cmd.onboarding_file_path`` is intentionally dropped
+            # because by this point the file has already been uploaded
+            # to a known location and the local prefix is meaningless
+            # to the remote job.
+            "onboarding_file_path": "uc_catalog/sdp_meta/files/sdp_meta_conf/tmp/onboarding.json",
             "import_author": "Ravi Gawai",
             "version": "1.0",
             "overwrite": "True",
@@ -1105,6 +1119,69 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(Exception):
             sdp_meta._create_sdp_meta_pipeline(cmd)
 
+    # ── sdp_meta version tag tests ─────────────────────────────────
+    #
+    # Every pipeline created by SDP-META gets a ``sdp_meta`` tag whose
+    # value is the SDP-META version (e.g. "0.1.0"). The Monitor tab in
+    # the Databricks App relies on this tag to filter SDP-META pipelines
+    # out of the workspace-wide pipelines list — and uses the value to
+    # surface a "v<version>" chip alongside the pipeline name. These two
+    # tests pin the producer-side contract for both the UC-enabled and
+    # UC-disabled code paths.
+
+    @patch("databricks.labs.sdp_meta.cli.SDPMeta._install_folder", return_value="/Users/test/sdp-meta")
+    @patch("databricks.labs.sdp_meta.cli.WorkspaceClient")
+    def test_create_sdp_meta_pipeline_tags_carry_version_uc_enabled(
+        self, mock_workspace_client, mock_install_folder
+    ):
+        sdp_meta = SDPMeta(mock_workspace_client)
+        sdp_meta.version = "9.9.9"
+        cmd = DeployCommand(
+            layer="bronze",
+            onboard_bronze_group="groupA",
+            sdp_meta_bronze_schema="schemaA",
+            dataflowspec_bronze_table="tableA",
+            pipeline_name="my_pipeline",
+            dlt_target_schema="my_dlt_schema",
+            uc_enabled=True,
+            uc_catalog_name="my_catalog",
+            serverless=True,
+            num_workers=None,
+        )
+        mock_created = MagicMock()
+        mock_created.pipeline_id = "12345"
+        mock_workspace_client.pipelines.create.return_value = mock_created
+        sdp_meta._create_sdp_meta_pipeline(cmd)
+        kwargs = mock_workspace_client.pipelines.create.call_args.kwargs
+        self.assertEqual(kwargs["tags"], {"sdp_meta": "9.9.9"})
+
+    @patch("databricks.labs.sdp_meta.cli.SDPMeta._install_folder", return_value="/Users/test/sdp-meta")
+    @patch("databricks.labs.sdp_meta.cli.WorkspaceClient")
+    def test_create_sdp_meta_pipeline_tags_carry_version_uc_disabled(
+        self, mock_workspace_client, mock_install_folder
+    ):
+        sdp_meta = SDPMeta(mock_workspace_client)
+        sdp_meta.version = "0.0.1"
+        cmd = DeployCommand(
+            layer="silver",
+            onboard_silver_group="groupB",
+            sdp_meta_silver_schema="schemaB",
+            dataflowspec_silver_table="tableB",
+            dataflowspec_silver_path="tests/resources/silver_dataflowspec",
+            pipeline_name="silver_pipeline",
+            dlt_target_schema="silver_target_schema",
+            uc_enabled=False,
+            uc_catalog_name=None,
+            serverless=False,
+            num_workers=2,
+        )
+        mock_created = MagicMock()
+        mock_created.pipeline_id = "98765"
+        mock_workspace_client.pipelines.create.return_value = mock_created
+        sdp_meta._create_sdp_meta_pipeline(cmd)
+        kwargs = mock_workspace_client.pipelines.create.call_args.kwargs
+        self.assertEqual(kwargs["tags"], {"sdp_meta": "0.0.1"})
+
     @patch("databricks.labs.sdp_meta.cli.WorkspaceInstaller")
     @patch("databricks.labs.sdp_meta.cli.WorkspaceClient")
     def test_load_deploy_config_with_json(self, mock_workspace_client, mock_workspace_installer):
@@ -1278,6 +1355,124 @@ class CliTests(unittest.TestCase):
         ]
         self.assertEqual(expected_calls, actual_calls)
         self.assertEqual(mock_ws.files.upload.call_count, 3)
+
+    @patch("os.walk", return_value=[])
+    @patch("databricks.labs.sdp_meta.cli.SDPMeta._my_username", return_value="test_user")
+    def test_copy_to_uc_volume_local_source_empty_raises(self, mock_my_username, mock_os_walk):
+        """An empty local supporting-files directory used to no-op silently
+        and the onboarding job then produced empty tables. Now it raises so
+        the operator sees the problem immediately instead of debugging an
+        empty pipeline."""
+        mock_ws = MagicMock()
+        sdp_meta = SDPMeta(mock_ws)
+        with self.assertRaises(FileNotFoundError) as ctx:
+            sdp_meta.copy_to_uc_volume("file:/path/to/empty", "/uc_volume/dst")
+        self.assertIn("walked local directory", str(ctx.exception))
+        self.assertIn("zero files", str(ctx.exception))
+        mock_ws.files.upload.assert_not_called()
+
+    @patch("databricks.labs.sdp_meta.cli.SDPMeta._my_username", return_value="test_user")
+    def test_copy_to_uc_volume_uc_source_happy_path(self, mock_my_username):
+        """When ``local_directory`` is itself a UC Volume path (e.g. when the
+        App's Supporting Files Directory field points at a curated UC
+        location), os.walk cannot see /Volumes/ — the App container has no
+        such mount. The SDK Files API has to do the enumeration instead.
+
+        This test mocks ``list_directory_contents`` with a tiny tree:
+
+            /Volumes/src_cat/sch/vol/root/
+                ├── onboarding.yml
+                ├── conf/
+                │     ├── transforms.json
+                │     └── dqe/
+                │           └── rules.yml
+        """
+        from databricks.labs.sdp_meta import cli as cli_mod  # noqa: F401
+        mock_ws = MagicMock()
+        sdp_meta = SDPMeta(mock_ws)
+
+        def _file(path):
+            entry = MagicMock()
+            entry.path = path
+            entry.is_directory = False
+            return entry
+
+        def _dir(path):
+            entry = MagicMock()
+            entry.path = path
+            entry.is_directory = True
+            return entry
+
+        tree = {
+            "/Volumes/src_cat/sch/vol/root": [
+                _file("/Volumes/src_cat/sch/vol/root/onboarding.yml"),
+                _dir("/Volumes/src_cat/sch/vol/root/conf"),
+            ],
+            "/Volumes/src_cat/sch/vol/root/conf": [
+                _file("/Volumes/src_cat/sch/vol/root/conf/transforms.json"),
+                _dir("/Volumes/src_cat/sch/vol/root/conf/dqe"),
+            ],
+            "/Volumes/src_cat/sch/vol/root/conf/dqe": [
+                _file("/Volumes/src_cat/sch/vol/root/conf/dqe/rules.yml"),
+            ],
+        }
+        mock_ws.files.list_directory_contents.side_effect = lambda p: iter(tree.get(p, []))
+        mock_ws.files.download.side_effect = lambda p: MagicMock(contents=f"contents-of:{p}".encode())
+
+        sdp_meta.copy_to_uc_volume(
+            "/Volumes/src_cat/sch/vol/root",
+            "/Volumes/dst_cat/sch/sch/sdp_meta_conf/",
+        )
+
+        expected_upload_targets = {
+            "/Volumes/dst_cat/sch/sch/sdp_meta_conf/root/onboarding.yml",
+            "/Volumes/dst_cat/sch/sch/sdp_meta_conf/root/conf/transforms.json",
+            "/Volumes/dst_cat/sch/sch/sdp_meta_conf/root/conf/dqe/rules.yml",
+        }
+        actual_targets = {
+            call.kwargs["file_path"] for call in mock_ws.files.upload.call_args_list
+        }
+        self.assertEqual(expected_upload_targets, actual_targets)
+        self.assertEqual(mock_ws.files.upload.call_count, 3)
+        # Every upload should have overwrite=True so re-runs are idempotent.
+        for call in mock_ws.files.upload.call_args_list:
+            self.assertTrue(call.kwargs["overwrite"])
+
+    @patch("databricks.labs.sdp_meta.cli.SDPMeta._my_username", return_value="test_user")
+    def test_copy_to_uc_volume_uc_source_empty_raises(self, mock_my_username):
+        """The original bug: pointing the App's Supporting Files Directory at
+        an empty (or unmounted) UC Volume returns zero files. The previous
+        os.walk-only implementation logged 'complete!!!' and the onboarding
+        job then produced empty tables. Now the operator sees the failure
+        at copy time."""
+        mock_ws = MagicMock()
+        sdp_meta = SDPMeta(mock_ws)
+        mock_ws.files.list_directory_contents.return_value = iter([])
+        with self.assertRaises(FileNotFoundError) as ctx:
+            sdp_meta.copy_to_uc_volume(
+                "/Volumes/src_cat/sch/vol/empty",
+                "/Volumes/dst_cat/sch/sch/sdp_meta_conf/",
+            )
+        self.assertIn("empty or unreadable", str(ctx.exception))
+        self.assertIn("tables are empty", str(ctx.exception))
+        mock_ws.files.upload.assert_not_called()
+
+    @patch("databricks.labs.sdp_meta.cli.SDPMeta._my_username", return_value="test_user")
+    def test_copy_to_uc_volume_uc_source_list_failure_raises(self, mock_my_username):
+        """If the SDK raises while listing the source (permission denied,
+        path doesn't exist, transient API error), surface it as a clear
+        FileNotFoundError with the underlying cause chained."""
+        mock_ws = MagicMock()
+        sdp_meta = SDPMeta(mock_ws)
+        mock_ws.files.list_directory_contents.side_effect = PermissionError("READ_VOLUME denied")
+        with self.assertRaises(FileNotFoundError) as ctx:
+            sdp_meta.copy_to_uc_volume(
+                "/Volumes/src_cat/sch/vol/forbidden",
+                "/Volumes/dst_cat/sch/sch/sdp_meta_conf/",
+            )
+        self.assertIn("Could not list UC Volume directory", str(ctx.exception))
+        self.assertIn("READ_VOLUME", str(ctx.exception))
+        mock_ws.files.upload.assert_not_called()
 
     def test_onboard_command_silver_layer_validation(self):
         """Test validation for silver layer specific cases."""
@@ -2427,7 +2622,7 @@ class DeployBuildWheelFlagTests(unittest.TestCase):
 
     def test_deploy_build_and_upload_whl_recovers_from_pflag_spillover(self):
         """Same labs-CLI pflag spillover failure mode as onboard: when users
-        type ``--build-and-upload-whl --profile e2-demo`` the labs CLI's
+        type ``--build-and-upload-whl --profile profile_name`` the labs CLI's
         string-flag parser hands the wrapper
         ``flags["build-and-upload-whl"] == "--profile"``. Deploy must still
         run the build path so the SDP pipeline notebook does not silently
@@ -2835,3 +3030,216 @@ class LabsYmlFlagDeclarationTests(unittest.TestCase):
             "no-create-missing-uc",
         ):
             self.assertIn(flag, flags)
+
+
+class RenderOnboardingTemplateTests(unittest.TestCase):
+    """Unit tests for the pure ``render_onboarding_template`` helper.
+    This is the substitution engine shared by ``update_ws_onboarding_paths``
+    (real onboarding) and the App's ``/onboarding/preview`` endpoint —
+    keeping the two from drifting on YAML / JSON handling, output format,
+    or placeholder semantics."""
+
+    SUBS = {
+        "{uc_catalog_name}": "my_cat",
+        "{bronze_schema}": "br",
+        "{silver_schema}": "sv",
+        "{uc_volume_path}": "/Volumes/my_cat/sch/sch/sdp_meta_conf/",
+    }
+
+    def test_yaml_round_trip_substitutes_and_preserves_format(self):
+        from databricks.labs.sdp_meta.cli import render_onboarding_template
+        yaml_in = (
+            "- data_flow_id: '100'\n"
+            "  bronze_catalog: '{uc_catalog_name}'\n"
+            "  bronze_database: '{bronze_schema}'\n"
+            "  silver_database: '{silver_schema}'\n"
+            "  bronze_path: '{uc_volume_path}/data/bronze/customers'\n"
+        )
+        rendered, parsed = render_onboarding_template(yaml_in, ".yml", self.SUBS)
+        # Output must be valid YAML (we round-tripped through safe_dump).
+        import yaml as _yaml
+        re_parsed = _yaml.safe_load(rendered)
+        self.assertEqual(re_parsed[0]["bronze_catalog"], "my_cat")
+        self.assertEqual(re_parsed[0]["bronze_database"], "br")
+        self.assertEqual(re_parsed[0]["silver_database"], "sv")
+        self.assertEqual(
+            re_parsed[0]["bronze_path"],
+            "/Volumes/my_cat/sch/sch/sdp_meta_conf//data/bronze/customers",
+        )
+        self.assertEqual(parsed, re_parsed)
+        # No placeholders should remain.
+        for token in self.SUBS:
+            self.assertNotIn(token, rendered)
+
+    def test_yaml_extension_uppercase_is_handled(self):
+        from databricks.labs.sdp_meta.cli import render_onboarding_template
+        # source_ext should be lower-cased before the extension dispatch.
+        rendered, _ = render_onboarding_template(
+            "- bronze_catalog: '{uc_catalog_name}'\n", ".YAML", self.SUBS
+        )
+        self.assertIn("my_cat", rendered)
+
+    def test_json_round_trip_substitutes_and_preserves_format(self):
+        from databricks.labs.sdp_meta.cli import render_onboarding_template
+        json_in = json.dumps([{
+            "data_flow_id": "100",
+            "bronze_catalog": "{uc_catalog_name}",
+            "bronze_database": "{bronze_schema}",
+            "silver_database": "{silver_schema}",
+            "bronze_path": "{uc_volume_path}/data/bronze/customers",
+        }])
+        rendered, parsed = render_onboarding_template(json_in, ".json", self.SUBS)
+        re_parsed = json.loads(rendered)
+        self.assertEqual(re_parsed[0]["bronze_catalog"], "my_cat")
+        self.assertEqual(re_parsed[0]["bronze_database"], "br")
+        self.assertEqual(parsed, re_parsed)
+
+    def test_unknown_extension_falls_back_to_json(self):
+        from databricks.labs.sdp_meta.cli import render_onboarding_template
+        # ``.template`` is the legacy JSON-template suffix; anything not
+        # ending in .yml/.yaml goes through the JSON branch.
+        rendered, _ = render_onboarding_template(
+            '[{"x": "{uc_catalog_name}"}]', ".template", self.SUBS
+        )
+        self.assertEqual(json.loads(rendered), [{"x": "my_cat"}])
+
+    def test_none_substitution_becomes_empty_string(self):
+        from databricks.labs.sdp_meta.cli import render_onboarding_template
+        rendered, _ = render_onboarding_template(
+            '[{"x": "{uc_catalog_name}"}]', ".json",
+            {"{uc_catalog_name}": None},
+        )
+        # ``None`` must NOT render as the literal text 'None' (which would
+        # be a sneaky bug — JSON would parse it but the cluster would then
+        # try to look up a catalog called 'None').
+        self.assertEqual(json.loads(rendered), [{"x": ""}])
+
+    def test_malformed_json_raises(self):
+        from databricks.labs.sdp_meta.cli import render_onboarding_template
+        with self.assertRaises(json.JSONDecodeError):
+            render_onboarding_template("{not valid json", ".json", self.SUBS)
+
+
+class CoerceBoolTests(unittest.TestCase):
+    """Unit tests for the ``_coerce_bool`` helper that converts the App's
+    JSON-envelope string values ("1"/"0") into real Python booleans.
+
+    The regression this guards against: when ``serverless`` arrives as
+    the literal string "1" (from an HTML radio button) the SDK happily
+    serializes it as ``"serverless": "1"`` in the request body — a JSON
+    string, not a boolean — and the control-plane treats the field as
+    missing on serverless-only workspaces, defaulting to classic
+    compute and rejecting the pipeline with "You must use serverless
+    compute in this workspace." Same trap on ``uc_enabled``."""
+
+    def test_true_passthrough(self):
+        from databricks.labs.sdp_meta.cli import _coerce_bool
+        self.assertIs(_coerce_bool(True), True)
+
+    def test_false_passthrough(self):
+        from databricks.labs.sdp_meta.cli import _coerce_bool
+        self.assertIs(_coerce_bool(False), False)
+
+    def test_string_one_is_true(self):
+        from databricks.labs.sdp_meta.cli import _coerce_bool
+        self.assertIs(_coerce_bool("1"), True)
+
+    def test_string_zero_is_false_not_truthy(self):
+        from databricks.labs.sdp_meta.cli import _coerce_bool
+        self.assertIs(_coerce_bool("0"), False)
+
+    def test_empty_string_is_false(self):
+        from databricks.labs.sdp_meta.cli import _coerce_bool
+        self.assertIs(_coerce_bool(""), False)
+
+    def test_none_is_false(self):
+        from databricks.labs.sdp_meta.cli import _coerce_bool
+        self.assertIs(_coerce_bool(None), False)
+
+    def test_true_string_variants(self):
+        from databricks.labs.sdp_meta.cli import _coerce_bool
+        self.assertIs(_coerce_bool("True"), True)
+        self.assertIs(_coerce_bool("TRUE"), True)
+        self.assertIs(_coerce_bool("true"), True)
+        self.assertIs(_coerce_bool("yes"), True)
+        self.assertIs(_coerce_bool("on"), True)
+
+    def test_false_string_variants(self):
+        from databricks.labs.sdp_meta.cli import _coerce_bool
+        self.assertIs(_coerce_bool("False"), False)
+        self.assertIs(_coerce_bool("false"), False)
+        self.assertIs(_coerce_bool("no"), False)
+        self.assertIs(_coerce_bool("off"), False)
+        self.assertIs(_coerce_bool("anything-else"), False)
+
+
+class DeployConfigUiStringBoolTests(unittest.TestCase):
+    """End-to-end check that ``_load_deploy_config_ui`` coerces the App's
+    string-bool envelope into the real ``bool`` values that
+    ``self._ws.pipelines.create(serverless=...)`` requires. Without
+    coercion the resulting ``DeployCommand.serverless`` is the literal
+    string ``"1"`` — truthy enough to pass Python ``if`` checks, but the
+    SDK serializes it into the wire body and the control-plane rejects
+    the pipeline on serverless-only workspaces."""
+
+    def _make_sdp_meta(self):
+        from databricks.labs.sdp_meta.cli import SDPMeta
+        return SDPMeta(MagicMock())
+
+    @patch('os.path.isfile')
+    def test_string_one_for_serverless_yields_real_bool(self, mock_isfile):
+        mock_isfile.return_value = False
+        sdp_meta = self._make_sdp_meta()
+        cmd = sdp_meta._load_deploy_config_ui({
+            "uc_enabled": "1",
+            "uc_catalog_name": "my_catalog",
+            "serverless": "1",
+            "layer": "bronze",
+            "onboard_bronze_group": "A1",
+            "sdp_meta_bronze_schema": "specs",
+            "dataflowspec_bronze_table": "bronze_dataflowspec",
+            "pipeline_name": "my_pipeline",
+            "dlt_target_schema": "target",
+        })
+        self.assertIs(cmd.serverless, True)
+        self.assertIs(cmd.uc_enabled, True)
+
+    @patch('os.path.isfile')
+    def test_string_zero_for_serverless_yields_real_bool(self, mock_isfile):
+        mock_isfile.return_value = False
+        sdp_meta = self._make_sdp_meta()
+        cmd = sdp_meta._load_deploy_config_ui({
+            "uc_enabled": "1",
+            "uc_catalog_name": "my_catalog",
+            "serverless": "0",
+            "layer": "bronze",
+            "onboard_bronze_group": "A1",
+            "sdp_meta_bronze_schema": "specs",
+            "dataflowspec_bronze_table": "bronze_dataflowspec",
+            "pipeline_name": "my_pipeline",
+            "dlt_target_schema": "target",
+            "num_workers": 4,
+        })
+        self.assertIs(cmd.serverless, False)
+        self.assertIs(cmd.uc_enabled, True)
+
+    @patch('os.path.isfile')
+    def test_python_bool_passthrough(self, mock_isfile):
+        # If a programmatic caller already sends real bools, the
+        # coercion must not regress them. Same envelope shape, just
+        # booleans instead of strings.
+        mock_isfile.return_value = False
+        sdp_meta = self._make_sdp_meta()
+        cmd = sdp_meta._load_deploy_config_ui({
+            "uc_enabled": True,
+            "uc_catalog_name": "my_catalog",
+            "serverless": True,
+            "layer": "bronze",
+            "onboard_bronze_group": "A1",
+            "sdp_meta_bronze_schema": "specs",
+            "dataflowspec_bronze_table": "bronze_dataflowspec",
+            "pipeline_name": "my_pipeline",
+            "dlt_target_schema": "target",
+        })
+        self.assertIs(cmd.serverless, True)
+        self.assertIs(cmd.uc_enabled, True)

@@ -235,7 +235,7 @@ python demo/launch_dab_template_demo.py \
   --uc-schema sdp_meta_dab_demo \
   --uc-volume sdp_meta_wheels \
   --apply-prepare-wheel --apply-recipe --apply-deploy \
-  --profile e2-demo \
+  --profile <<profile name>> \
   --pip-index-url https://pypi.internal.example.com/simple
 
 # 2) Combined: one LDP pipeline materializing both layers in a single DAG
@@ -245,7 +245,7 @@ python demo/launch_dab_template_demo.py \
   --uc-schema sdp_meta_dab_demo \
   --uc-volume sdp_meta_wheels \
   --apply-prepare-wheel --apply-recipe --apply-deploy \
-  --profile e2-demo \
+  --profile  <<profile name>> \
   --pip-index-url https://pypi.internal.example.com/simple
 ```
 

@@ -1,41 +1,28 @@
----
-id: app
-title: Databricks App
-sidebar_position: 5
----
-
 # SDP-META Databricks App — User Guide
 
-
-The **SDP-META Databricks App** is a browser-based GUI for onboarding,
-deploying, and operating Lakeflow Spark Declarative Pipelines without using the
-CLI or hand-editing YAML. This page is the per-panel reference. For deploy /
-local-dev / auth, see the [databricks_app/README on GitHub](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/README.md).
-
-:::tip
-Cloning the repo? `bash scripts/deploy_app.sh --profile <cli-profile> --app <app-name> --path /Workspace/Users/<you>/<app-folder>` stages the full repo and deploys in one command. The script is documented inline.
-:::
+Quick reference for every panel in the app. For deploy / local-dev / auth see
+[README.md](./README.md).
 
 ## Contents
 
-1. [The flow](#the-flow)
-2. [First-time setup](#first-time-setup)
-3. [Top bar](#top-bar)
-4. [Step 1 — Onboarding](#step-1--onboarding)
-5. [Step 2 — DataflowSpecs](#step-2--dataflowspecs)
-6. [Step 3 — Deployment](#step-3--deployment)
-7. [Monitor](#monitor)
-8. [Metadata](#metadata)
-9. [Demos](#demos)
-10. [App SP permissions](#app-sp-permissions)
-11. [HTTP API](#http-api)
-12. [Troubleshooting](#troubleshooting)
+1. [The flow](#1-the-flow)
+2. [First-time setup](#2-first-time-setup)
+3. [Top bar](#3-top-bar)
+4. [Step 1 — Onboarding](#4-step-1--onboarding)
+5. [Step 2 — DataflowSpecs](#5-step-2--dataflowspecs)
+6. [Step 3 — Deployment](#6-step-3--deployment)
+7. [Monitor](#7-monitor)
+8. [Metadata](#8-metadata)
+9. [Demos](#9-demos)
+10. [App SP permissions](#10-app-sp-permissions)
+11. [HTTP API](#11-http-api)
+12. [Troubleshooting](#12-troubleshooting)
 
 ---
 
-## The flow
+## 1. The flow
 
-```text
+```
 Pipeline    Onboarding  →  DataflowSpecs  →  Deployment
             Step 1          Step 2             Step 3
 
@@ -50,7 +37,7 @@ overwritten — only empty fields are filled.
 
 ---
 
-## First-time setup
+## 2. First-time setup
 
 | # | Action | Where |
 |---|---|---|
@@ -69,7 +56,7 @@ env:
 
 ---
 
-## Top bar
+## 3. Top bar
 
 | Element | Action |
 |---|---|
@@ -79,16 +66,16 @@ env:
 
 Clicking the **Warehouse** chip opens the picker, which lists every warehouse the App SP can see and lets you set the active one for the session (or persist it via `DATABRICKS_SQL_WAREHOUSE_ID` in `app.yaml`):
 
-![Warehouse picker](/img/sdp-meta-app/top-bar-warehouse.png)
+![Warehouse picker](../docs/static/img/sdp-meta-app/top-bar-warehouse.png)
 
 ---
 
-## Step 1 — Onboarding
+## 4. Step 1 — Onboarding
 
 **Output:** bronze + silver `*_dataflowspec` rows in UC + a UC volume holding
 copied JSON/DDL supporting files.
 
-![Onboarding panel](/img/sdp-meta-app/step1-onboarding.png)
+![Onboarding panel](../docs/static/img/sdp-meta-app/step1-onboarding.png)
 
 ### Mode picker
 
@@ -145,12 +132,12 @@ to Step 2 with values pre-filled and the query already run.
 
 ---
 
-## Step 2 — DataflowSpecs
+## 5. Step 2 — DataflowSpecs
 
 **Output:** lets you read back the rows onboarding wrote and pick a
 `data_flow_group` to deploy.
 
-![DataflowSpecs panel — bronze + silver grids with group pills](/img/sdp-meta-app/step2-dataflowspecs.png)
+![DataflowSpecs panel — bronze + silver grids with group pills](../docs/static/img/sdp-meta-app/step2-dataflowspecs.png)
 
 | Element | Behavior |
 |---|---|
@@ -165,11 +152,11 @@ configured (top-bar chip).
 
 ---
 
-## Step 3 — Deployment
+## 6. Step 3 — Deployment
 
 **Output:** a Lakeflow Declarative Pipeline tagged `sdp_meta=<version>`.
 
-![Deployment panel](/img/sdp-meta-app/step3-deployment.png)
+![Deployment panel](../docs/static/img/sdp-meta-app/step3-deployment.png)
 
 ### Fields
 
@@ -180,8 +167,8 @@ configured (top-bar chip).
 | DataFlow Spec schema | Schema containing bronze/silver `*_dataflowspec` |
 | Bronze / Silver DataflowSpec table | Defaults match Step 1 |
 | Layer | `bronze_silver` *(default — ingest + transform in one pipeline)* / `bronze` / `silver`. Drives which group(s) are required |
-| Bronze group | Required when layer ∈ `{bronze, bronze_silver}` |
-| Silver group | Required when layer ∈ `{silver, bronze_silver}` |
+| Bronze group | Required when layer ∈ {bronze, bronze_silver} |
+| Silver group | Required when layer ∈ {silver, bronze_silver} |
 | Target schema | Auto-syncs from layer when blank |
 | Serverless | Submit as serverless pipeline |
 
@@ -192,12 +179,12 @@ includes the workspace URL of the new pipeline.
 
 ---
 
-## Monitor
+## 7. Monitor
 
 **Output:** all SDP-META pipelines in the workspace, with start/stop +
 events + click-through to the Databricks UI.
 
-![Pipeline Monitor — list of SDP-META pipelines with start/stop/events actions](/img/sdp-meta-app/monitor.png)
+![Pipeline Monitor — list of SDP-META pipelines with start/stop/events actions](../docs/static/img/sdp-meta-app/monitor.png)
 
 ### Filter
 
@@ -221,7 +208,7 @@ host can't be resolved.
 
 ---
 
-## Metadata
+## 8. Metadata
 
 Two tools share this panel.
 
@@ -231,7 +218,7 @@ Cascading dropdowns: **Catalog → Schema → Table**. Picking a table runs
 `SELECT * ... LIMIT N` (max 1000) with an optional `WHERE` clause via the
 Statement Execution API.
 
-![Metadata — UC browse with cascading catalog/schema/table dropdowns](/img/sdp-meta-app/metadata-uc-browse.png)
+![Metadata — UC browse with cascading catalog/schema/table dropdowns](../docs/static/img/sdp-meta-app/metadata-uc-browse.png)
 
 ### Spec editor
 
@@ -242,7 +229,7 @@ Statement Execution API.
 | Save file | `POST /api/metadata/workspace-file` | Parse-validates before writing |
 | **Validate** | `POST /api/metadata/parse-spec` | 3-layer (see below) |
 
-![Metadata — Spec editor with parse / validate output](/img/sdp-meta-app/metadata-spec-editor.png)
+![Metadata — Spec editor with parse / validate output](../docs/static/img/sdp-meta-app/metadata-spec-editor.png)
 
 ### Three-layer validation
 
@@ -256,12 +243,12 @@ Supported `spec_type`: `onboarding`, `dqe`, `silver_transform`.
 
 ---
 
-## Demos
+## 9. Demos
 
 Click **Test App access** first — every demo subprocess re-runs the preflight
 and a missing grant returns the GRANT SQL you need.
 
-![Demos panel — Test App access plus the demo launch tiles](/img/sdp-meta-app/demos.png)
+![Demos panel — Test App access plus the demo launch tiles](../docs/static/img/sdp-meta-app/demos.png)
 
 | Demo | What it runs |
 |---|---|
@@ -271,14 +258,12 @@ and a missing grant returns the GRANT SQL you need.
 | DAIS Demo | DAIS end-to-end walkthrough |
 | Interactive Demo | Submits `SDP_META_INTERACTIVE_DEMO` notebook as a 1-step job; `pip install`s `databricks-labs-sdp-meta` from PyPI on every launch |
 
-:::note Removed
-DLT Sink (Kafka/Event-Hubs wiring not available to the App SP)
+**Removed:** DLT Sink (Kafka/Event-Hubs wiring not available to the App SP)
 and DABs (Terraform not in the container). Both still work from a local CLI.
-:::
 
 ---
 
-## App SP permissions
+## 10. App SP permissions
 
 The SP is named `app-XXXXXX_<app-name>`. Required Unity Catalog grants:
 
@@ -295,7 +280,41 @@ can't grant privileges to itself.
 
 ---
 
-## Troubleshooting
+## 11. HTTP API
+
+| Method + Path | Purpose |
+|---|---|
+| `POST /onboarding` | Submit onboarding run → job token |
+| `POST /onboarding/preview` | Dry-run (no UC side effects) |
+| `GET  /onboarding/bundled-specs` | List bundled demo specs |
+| `POST /deploy` | Submit pipeline deploy → job token |
+| `GET  /api/dataflowspecs` | Query bronze + silver spec tables |
+| `GET  /api/pipelines` | List SDP-META pipelines (incl. `sdp_meta_version`, `pipeline_url`) |
+| `GET  /api/pipelines/<id>/events` | Last 50 events |
+| `POST /api/pipelines/<id>/start` | Trigger update |
+| `POST /api/pipelines/<id>/stop` | Stop |
+| `GET  /api/metadata/catalogs` | List UC catalogs |
+| `GET  /api/metadata/schemas` | List schemas |
+| `GET  /api/metadata/tables` | List tables + columns |
+| `POST /api/metadata/table-data` | `SELECT * ... LIMIT N` |
+| `GET  /api/metadata/workspace-ls` | List workspace path |
+| `GET  /api/metadata/workspace-file` | Download workspace file |
+| `POST /api/metadata/workspace-file` | Save workspace file (parse-validated) |
+| `POST /api/metadata/parse-spec` | 3-layer validation |
+| `GET  /api/warehouse/status` | Active warehouse + state |
+| `GET  /api/warehouse/list` | All visible warehouses |
+| `POST /api/warehouse/configure` | Set runtime warehouse |
+| `GET  /check-uc-grants` | Probe App SP UC grants |
+| `POST /rundemo` | Launch a named demo |
+| `GET  /api/job/<token>/logs` | Poll buffered stdout/stderr |
+
+Error shapes: **400** for client-correctable input (`{error}`, sometimes
+`{grant_required:true, grant_sql:"..."}`); **500** for SDK / server
+exceptions (`{error, stdout, stderr, returncode, modal_content}`).
+
+---
+
+## 12. Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -314,6 +333,6 @@ can't grant privileges to itself.
 
 ## See also
 
-- [databricks_app/README on GitHub](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/README.md) — deploy, local dev, auth
-- [Getting Started](./quickstart.md) — overall onboarding workflow
-- [CLI reference](../reference/cli-commands.md) — same flows from the terminal
+- [README.md](./README.md) — deploy, local dev, auth
+- [Repo README](../README.md) — project overview, CLI, bundles
+- [SDP-META docs](https://databrickslabs.github.io/dlt-meta/index.html)

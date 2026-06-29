@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- CSP is set as an HTTP response header by Flask (add_security_headers). -->
-    <title>DLT-META Configuration Portal</title>
+    <title>SDP-META Configuration Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -94,6 +94,69 @@
             transition: color .15s, background .15s;
         }
         .topbar-nav a:hover { color: #fff; background: rgba(255,255,255,.09); }
+        /* ── Warehouse chip (topbar) ─── */
+        .wh-chip {
+            display: flex; align-items: center; gap: 6px;
+            padding: 5px 12px; border-radius: 20px; cursor: pointer;
+            border: 1px solid rgba(255,255,255,.18);
+            background: rgba(255,255,255,.07);
+            font-size: .78rem; font-weight: 600; color: rgba(255,255,255,.75);
+            transition: background .15s, border-color .15s;
+            white-space: nowrap;
+        }
+        .wh-chip:hover { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.30); }
+        .wh-dot {
+            width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+            background: var(--ink-20);
+        }
+        .wh-dot.ok      { background: #4CAF50; box-shadow: 0 0 5px #4CAF5088; }
+        .wh-dot.warn    { background: #FF9800; }
+        .wh-dot.none    { background: var(--ink-40); }
+
+        /* ── Warehouse config modal ─ */
+        #warehouseModal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.55); z-index: 500;
+            align-items: center; justify-content: center;
+        }
+        #warehouseModal.visible { display: flex; }
+        .wh-modal-box {
+            background: var(--surface); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg); width: 100%; max-width: 520px;
+            padding: 28px; display: flex; flex-direction: column; gap: 18px;
+        }
+        .wh-modal-head {
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .wh-modal-head h3 { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+        .wh-option {
+            border: 2px solid var(--border-em); border-radius: var(--radius);
+            padding: 16px; cursor: pointer; transition: border-color .15s, background .15s;
+        }
+        .wh-option:hover { border-color: var(--accent); background: rgba(30,136,229,.04); }
+        .wh-option.selected { border-color: var(--accent); background: rgba(30,136,229,.07); }
+        .wh-option-label {
+            display: flex; align-items: center; gap: 10px;
+            font-weight: 600; font-size: .92rem; margin-bottom: 8px;
+        }
+        .wh-option-label input[type=radio] { accent-color: var(--accent); width: 16px; height: 16px; }
+        .wh-option p { font-size: .83rem; color: var(--ink-60); margin: 0 0 10px 26px; }
+        .wh-option-body { margin-left: 26px; }
+        .wh-option select, .wh-option input[type=text] {
+            width: 100%; height: 36px; padding: 0 10px;
+            border: 1px solid var(--border-em); border-radius: var(--radius-sm);
+            font-size: .86rem; background: var(--surface); color: var(--ink);
+        }
+        .wh-option select:focus, .wh-option input[type=text]:focus {
+            outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        #whStatusMsg {
+            font-size: .85rem; padding: 10px 14px; border-radius: var(--radius-sm);
+            display: none;
+        }
+        #whStatusMsg.ok   { background: #E8F5E9; color: #2E7D32; display: block; }
+        #whStatusMsg.err  { background: #FFEBEE; color: #C62828; display: block; }
+
         .topbar-nav .nav-pill {
             background: rgba(255,255,255,.10);
             color: rgba(255,255,255,.80);
@@ -261,7 +324,55 @@
             font-size: .74rem; font-weight: 600;
             color: var(--ink-40);
             text-transform: uppercase; letter-spacing: .06em;
+            display: flex; align-items: center; gap: 5px;
         }
+        /* ── Field tooltip ───────────────────────────────────────────── */
+        .field-tip {
+            position: relative; display: inline-flex;
+            align-items: center; justify-content: center;
+            width: 15px; height: 15px;
+            border-radius: 50%;
+            background: var(--ink-20);
+            color: var(--surface);
+            font-size: .65rem; font-weight: 700;
+            cursor: default; flex-shrink: 0;
+            text-transform: none; letter-spacing: 0;
+            line-height: 1;
+        }
+        .field-tip::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: calc(100% + 7px);
+            left: 50%; transform: translateX(-50%);
+            background: var(--ink);
+            color: var(--surface);
+            font-size: .78rem; font-weight: 400;
+            line-height: 1.45;
+            padding: 8px 11px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            width: 260px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .15s;
+            z-index: 999;
+            box-shadow: 0 4px 16px rgba(0,0,0,.18);
+            text-transform: none; letter-spacing: 0;
+        }
+        .field-tip::before {
+            content: '';
+            position: absolute;
+            bottom: calc(100% + 1px);
+            left: 50%; transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: var(--ink);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .15s;
+            z-index: 999;
+        }
+        .field-tip:hover::after,
+        .field-tip:hover::before { opacity: 1; }
         .form-input {
             padding: 9px 12px;
             border: 1.5px solid var(--border-em);
@@ -397,6 +508,198 @@
         .uc-access-status.info  { background: rgba(30,136,229,.07); border-color: rgba(30,136,229,.25); color: #0D47A1; }
         .uc-access-status code  { font-size: .8rem; background: rgba(0,0,0,.05); padding: 1px 6px; border-radius: 4px; }
 
+        /* ── Specs panel ─────────────────────────────────────────── */
+        .specs-config-row {
+            display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;
+            margin-bottom: 20px;
+        }
+        .specs-config-row input {
+            flex: 1; min-width: 140px; height: 38px; padding: 0 12px;
+            border: 1px solid var(--border-em); border-radius: var(--radius-sm);
+            font-size: .88rem; background: var(--surface); color: var(--ink);
+        }
+        .specs-config-row input:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .group-pills {
+            display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;
+        }
+        .group-pill {
+            padding: 6px 16px; border-radius: 20px; font-size: .85rem;
+            font-weight: 600; cursor: pointer; border: 2px solid var(--border-em);
+            background: var(--surface); color: var(--ink-60);
+            transition: border-color .15s, background .15s, color .15s;
+        }
+        .group-pill:hover { border-color: var(--accent); color: var(--accent); }
+        .group-pill.selected {
+            border-color: var(--brand); background: var(--brand-subtle);
+            color: var(--brand);
+        }
+        .specs-layer-label {
+            font-size: .78rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .06em; color: var(--ink-40); margin: 18px 0 8px;
+        }
+        .specs-table-wrap {
+            overflow-x: auto; border-radius: var(--radius);
+            border: 1px solid var(--border-em); background: var(--surface);
+            margin-bottom: 6px;
+        }
+        .specs-table {
+            width: 100%; border-collapse: collapse; font-size: .84rem;
+        }
+        .specs-table th {
+            background: var(--bg); padding: 9px 13px; text-align: left;
+            font-weight: 600; font-size: .78rem; color: var(--ink-60);
+            border-bottom: 1px solid var(--border-em); white-space: nowrap;
+        }
+        .specs-table td {
+            padding: 9px 13px; border-bottom: 1px solid var(--border);
+            color: var(--ink); vertical-align: top;
+        }
+        .specs-table tr:last-child td { border-bottom: none; }
+        .specs-table tr:hover td { background: var(--brand-subtle); }
+        .specs-table td code {
+            font-size: .8rem; background: var(--bg);
+            padding: 1px 5px; border-radius: 3px; color: var(--ink-80);
+        }
+        .specs-empty {
+            padding: 28px; text-align: center; color: var(--ink-40);
+            font-size: .9rem;
+        }
+        .deploy-bar {
+            display: flex; align-items: center; gap: 14px;
+            margin-top: 22px; padding: 16px 20px;
+            background: var(--brand-subtle); border: 1px solid rgba(255,54,33,.18);
+            border-radius: var(--radius); flex-wrap: wrap;
+        }
+        .deploy-bar-info { flex: 1; font-size: .88rem; color: var(--ink-80); }
+        .deploy-bar-info strong { color: var(--brand); }
+
+        /* ── Monitor panel ───────────────────────────────────────── */
+        .monitor-toolbar {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 18px;
+        }
+        .pipeline-table-wrap {
+            overflow-x: auto;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-em);
+            background: var(--surface);
+        }
+        .pipeline-table {
+            width: 100%; border-collapse: collapse; font-size: .88rem;
+        }
+        .pipeline-table th {
+            background: var(--bg); padding: 10px 14px;
+            text-align: left; font-weight: 600; font-size: .8rem;
+            color: var(--ink-60); border-bottom: 1px solid var(--border-em);
+            white-space: nowrap;
+        }
+        .pipeline-table td {
+            padding: 10px 14px; border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        .pipeline-table tr:last-child td { border-bottom: none; }
+        .pipeline-table tr:hover td { background: var(--brand-subtle); }
+        .state-badge {
+            display: inline-block; padding: 2px 10px;
+            border-radius: 20px; font-size: .75rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .04em;
+        }
+        .state-running  { background: #E8F5E9; color: #2E7D32; }
+        .state-idle,
+        .state-stopped  { background: var(--bg); color: var(--ink-60); }
+        .state-failed   { background: #FFEBEE; color: #C62828; }
+        .state-default  { background: var(--bg); color: var(--ink-40); }
+        .btn-icon {
+            background: none; border: 1px solid var(--border-em);
+            border-radius: var(--radius-sm); padding: 5px 10px;
+            font-size: .8rem; cursor: pointer; color: var(--ink-60);
+            transition: background .15s, color .15s;
+        }
+        .btn-icon:hover { background: var(--brand-subtle); color: var(--brand); }
+        #monitorEmpty {
+            padding: 40px; text-align: center; color: var(--ink-40);
+            font-size: .95rem;
+        }
+        .events-list { list-style: none; padding: 0; margin: 0; }
+        .events-list li {
+            padding: 8px 0; border-bottom: 1px solid var(--border);
+            font-size: .85rem; display: flex; gap: 12px; align-items: baseline;
+        }
+        .events-list li:last-child { border-bottom: none; }
+        .event-ts { color: var(--ink-40); white-space: nowrap; font-size: .78rem; }
+        .event-msg { color: var(--ink); }
+        .event-type { color: var(--ink-60); font-weight: 600; min-width: 110px; }
+
+        /* ── Metadata panel ──────────────────────────────────────── */
+        .meta-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid var(--border-em); }
+        .meta-tab-btn {
+            background: none; border: none; padding: 10px 22px;
+            font-size: .9rem; font-weight: 600; cursor: pointer;
+            color: var(--ink-60); border-bottom: 3px solid transparent;
+            margin-bottom: -2px; transition: color .15s, border-color .15s;
+        }
+        .meta-tab-btn.active { color: var(--brand); border-bottom-color: var(--brand); }
+        .meta-tab-content { display: none; }
+        .meta-tab-content.active { display: block; }
+        .browse-row {
+            display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; align-items: flex-end;
+        }
+        .browse-row select, .browse-row input {
+            flex: 1; min-width: 160px;
+            height: 38px; padding: 0 12px;
+            border: 1px solid var(--border-em); border-radius: var(--radius-sm);
+            font-size: .88rem; background: var(--surface); color: var(--ink);
+        }
+        .browse-row select:focus, .browse-row input:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .data-grid-wrap {
+            overflow: auto; max-height: 400px;
+            border: 1px solid var(--border-em); border-radius: var(--radius);
+            background: var(--surface);
+        }
+        .data-grid {
+            width: 100%; border-collapse: collapse; font-size: .82rem;
+        }
+        .data-grid th {
+            background: var(--bg); padding: 8px 12px;
+            text-align: left; font-weight: 600; font-size: .78rem;
+            color: var(--ink-60); border-bottom: 1px solid var(--border-em);
+            white-space: nowrap; position: sticky; top: 0;
+        }
+        .data-grid td {
+            padding: 7px 12px; border-bottom: 1px solid var(--border);
+            color: var(--ink); white-space: nowrap;
+        }
+        .data-grid tr:last-child td { border-bottom: none; }
+        .data-grid tr:hover td { background: var(--brand-subtle); }
+        /* Spec editor */
+        .spec-editor-bar {
+            display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;
+        }
+        .spec-editor-bar select, .spec-editor-bar input[type=text] {
+            height: 36px; padding: 0 10px; font-size: .86rem;
+            border: 1px solid var(--border-em); border-radius: var(--radius-sm);
+            background: var(--surface); color: var(--ink);
+        }
+        #specEditorTextarea {
+            width: 100%; min-height: 320px; font-family: monospace; font-size: .82rem;
+            padding: 12px; border: 1px solid var(--border-em); border-radius: var(--radius-sm);
+            background: var(--surface); color: var(--ink); resize: vertical;
+        }
+        .spec-validation-box {
+            margin-top: 10px; padding: 12px 16px;
+            border-radius: var(--radius-sm); font-size: .85rem;
+        }
+        .spec-validation-box.ok { background: #E8F5E9; color: #2E7D32; }
+        .spec-validation-box.error { background: #FFEBEE; color: #C62828; }
+        .spec-validation-box.warn { background: #FFF8E1; color: #E65100; }
+        .spec-validation-box ul { margin: 6px 0 0 18px; padding: 0; }
+
         /* ── Grant-required panel (rendered inside the response modal) */
         .grant-panel { display: flex; flex-direction: column; gap: 14px; }
         .grant-panel .grant-warning {
@@ -529,6 +832,64 @@
         .spinner-label { font-size: .9rem; font-weight: 500; color: var(--ink-40); }
         .spinner-sub   { font-size: .78rem; color: var(--ink-20); margin-top: 4px; }
 
+        /* ── Progress log modal (onboarding streaming) ──────────────── */
+        #progressModal {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(10,16,24,.60);
+            backdrop-filter: blur(6px);
+            z-index: 9200;
+            align-items: center; justify-content: center;
+            padding: 24px;
+        }
+        #progressModal.visible { display: flex; }
+        .progress-box {
+            background: var(--surface);
+            border-radius: var(--radius-xl);
+            width: min(800px, 96vw);
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .progress-head {
+            background: var(--ink);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+        .progress-head h3 { margin: 0; flex: 1; font-size: .95rem; font-weight: 700; color: #fff; }
+        .progress-dots { font-size: .9rem; color: rgba(255,255,255,.65); letter-spacing: 2px; min-width: 30px; text-align: right; }
+        .progress-log {
+            background: #13141f;
+            font-family: 'SF Mono','Cascadia Code','Fira Mono',ui-monospace,monospace;
+            font-size: .77rem;
+            line-height: 1.6;
+            padding: 14px 18px;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 180px;
+            max-height: 54vh;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .progress-log .log-stdout { color: #9cdcfe; }
+        .progress-log .log-stderr { color: #f4bf4f; }
+        .progress-log .log-info   { color: #4ec94e; font-style: italic; }
+        .progress-foot {
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .progress-status { font-size: .82rem; color: var(--ink-40); }
+
         /* ── Response modal ──────────────────────────────────────────── */
         #responseModal {
             display: none;
@@ -633,13 +994,17 @@
 <header class="topbar">
     <div class="topbar-inner">
         <a class="logo" href="#">
-            <span class="logo-word">DLT<em>-META</em></span>
+            <span class="logo-word">SDP<em>-META</em></span>
             <span class="logo-tag">Databricks App</span>
         </a>
         <nav class="topbar-nav">
-            <a href="#">Home</a>
             <a href="https://databrickslabs.github.io/dlt-meta/index.html" target="_blank" rel="noopener noreferrer">Docs</a>
             <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer" class="nav-pill">GitHub &#8599;</a>
+            <!-- Warehouse status chip -->
+            <button class="wh-chip" id="whChip" onclick="openWarehouseModal()" title="Configure SQL warehouse">
+                <span class="wh-dot none" id="whDot"></span>
+                <span id="whChipLabel">Warehouse</span>
+            </button>
         </nav>
     </div>
 </header>
@@ -660,11 +1025,19 @@
             </div>
         </button>
 
+        <button class="nav-item" onclick="showPanel('specs', this)">
+            <div class="nav-item-icon">&#9776;</div>
+            <div class="nav-item-text">
+                <span class="nav-item-label">DataflowSpecs</span>
+                <span class="nav-item-sub">Step 2 &mdash; Review &amp; select</span>
+            </div>
+        </button>
+
         <button class="nav-item" onclick="showPanel('deployment', this)">
             <div class="nav-item-icon">&#9654;</div>
             <div class="nav-item-text">
                 <span class="nav-item-label">Deployment</span>
-                <span class="nav-item-sub">Step 2 &mdash; Launch pipeline</span>
+                <span class="nav-item-sub">Step 3 &mdash; Launch pipeline</span>
             </div>
         </button>
 
@@ -680,8 +1053,28 @@
             </div>
         </button>
 
+        <hr class="sidebar-divider">
+
+        <span class="sidebar-section-label">Operate</span>
+
+        <button class="nav-item" onclick="showPanel('monitor', this)">
+            <div class="nav-item-icon">&#128202;</div>
+            <div class="nav-item-text">
+                <span class="nav-item-label">Monitor</span>
+                <span class="nav-item-sub">Pipeline status &amp; events</span>
+            </div>
+        </button>
+
+        <button class="nav-item" onclick="showPanel('metadata', this)">
+            <div class="nav-item-icon">&#128196;</div>
+            <div class="nav-item-text">
+                <span class="nav-item-label">Metadata</span>
+                <span class="nav-item-sub">Browse UC &amp; edit specs</span>
+            </div>
+        </button>
+
         <div class="sidebar-footer">
-            <p>DLT-META v2 &mdash; Databricks Labs</p>
+            <p>SDP-META v0.1.0 &mdash; Databricks Labs</p>
         </div>
 
     </aside>
@@ -696,7 +1089,7 @@
                     <span class="step-badge">Step 1</span>
                 </div>
                 <h1>Pipeline Onboarding</h1>
-                <p>Register your pipeline metadata into the DLT-META dataflow spec tables</p>
+                <p>Register your pipeline metadata into the SDP-META dataflow spec tables</p>
             </div>
 
             <form id="onboardingForm" novalidate>
@@ -706,7 +1099,9 @@
                     <div class="form-grid">
 
                         <div class="form-group">
-                            <span class="form-label">Unity Catalog</span>
+                            <span class="form-label">Unity Catalog
+                                <span class="field-tip" data-tip="Enable if your workspace uses Unity Catalog (recommended). Disable only for legacy Hive Metastore setups.">?</span>
+                            </span>
                             <div class="radio-toggle">
                                 <input type="radio" id="uc_on" name="unity_catalog_enabled" value="1" checked>
                                 <label for="uc_on">Enabled</label>
@@ -716,13 +1111,17 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="unity_catalog_name">Unity Catalog Name</label>
+                            <label class="form-label" for="unity_catalog_name">Unity Catalog Name <span style="color:var(--brand)" id="ucNameRequired">*</span>
+                                <span class="field-tip" data-tip="The Unity Catalog where DataflowSpec tables and pipeline output schemas will be created. Must already exist and the app service principal must have USE CATALOG on it.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="unity_catalog_name" name="unity_catalog_name"
-                                   placeholder="my_catalog">
+                                   placeholder="my_catalog" required>
                         </div>
 
                         <div class="form-group">
-                            <span class="form-label">Serverless</span>
+                            <span class="form-label">Serverless
+                                <span class="field-tip" data-tip="Use Databricks Serverless compute for the onboarding job. Recommended — no cluster config needed. Disable to use a classic job cluster (requires cloud + DBR version).">?</span>
+                            </span>
                             <div class="radio-toggle">
                                 <input type="radio" id="sl_on" name="serverless" value="1" checked>
                                 <label for="sl_on">Enabled</label>
@@ -736,33 +1135,127 @@
 
                 <div class="form-card">
                     <div class="form-card-title">Source &amp; Paths</div>
-                    <div class="form-grid">
 
-                        <div class="form-group">
-                            <label class="form-label" for="onboarding_file_path">Onboarding File Path</label>
-                            <input class="form-input" type="text" id="onboarding_file_path" name="onboarding_file_path"
-                                   value="demo/conf/json/onboarding.template"
-                                   placeholder="demo/conf/onboarding.template">
+                    <!-- Mode picker. Picks WHICH source the onboarding file
+                         comes from. Each mode shows / hides a different
+                         block below; the underlying hidden inputs
+                         (onboarding_file_path, local_directory,
+                         update_paths) are filled accordingly so the form
+                         submit shape stays unchanged. -->
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <span class="form-label">Source mode
+                            <span class="field-tip" data-tip="Where does your onboarding file live?&#10;&#10;• Bundled demo: pick one of the demos shipped with this app. Zero setup.&#10;• Unity Catalog Volume: you've already uploaded your spec + supporting files to a UC Volume. Paste the volume paths.&#10;• Manual: hand-type repo-relative or DBFS paths (advanced).">?</span>
+                        </span>
+                        <div class="radio-toggle" id="sourceModeToggle" style="flex-wrap: wrap;">
+                            <input type="radio" id="src_mode_bundled" name="source_mode" value="bundled" checked>
+                            <label for="src_mode_bundled">Bundled demo</label>
+                            <input type="radio" id="src_mode_uc" name="source_mode" value="uc_volume">
+                            <label for="src_mode_uc">Unity Catalog Volume</label>
+                            <input type="radio" id="src_mode_manual" name="source_mode" value="manual">
+                            <label for="src_mode_manual">Manual paths</label>
                         </div>
+                    </div>
 
-                        <div class="form-group">
-                            <label class="form-label" for="local_directory">Local Directory</label>
-                            <input class="form-input" type="text" id="local_directory" name="local_directory"
-                                   value="/app/python/source_code/dlt-meta/demo/"
-                                   placeholder="/path/to/dlt-meta/demo/">
-                        </div>
-
-                        <div class="form-group">
-                            <span class="form-label">Update Workspace / DBFS / UC Volume Paths</span>
-                            <div class="radio-toggle">
-                                <input type="radio" id="up_no" name="update_paths" value="0" checked>
-                                <label for="up_no">No</label>
-                                <input type="radio" id="up_yes" name="update_paths" value="1">
-                                <label for="up_yes">Yes</label>
+                    <!-- Mode A: Bundled demo. A dropdown driven by
+                         GET /onboarding/bundled-specs. Selecting an entry
+                         auto-fills the hidden onboarding_file_path +
+                         local_directory inputs and flips update_paths
+                         to "Yes" (every bundled demo uses placeholders). -->
+                    <div id="sourceModeBundled" class="source-mode-pane" style="margin-top: 14px;">
+                        <div class="form-grid">
+                            <div class="form-group" style="grid-column: 1 / -1;">
+                                <label class="form-label" for="bundled_spec_id">Pick a bundled demo <span style="color:var(--brand)">*</span>
+                                    <span class="field-tip" data-tip="Choose a demo to run. The supporting files (DQE rules, silver transformations, DDL schemas, sample data) for the selected demo are bundled in the app container — no upload required.">?</span>
+                                </label>
+                                <select class="form-input" id="bundled_spec_id">
+                                    <option value="">Loading…</option>
+                                </select>
+                                <div id="bundled_spec_meta" class="hint-text" style="margin-top: 8px; min-height: 32px;"></div>
+                            </div>
+                            <div class="form-group">
+                                <span class="form-label">File format
+                                    <span class="field-tip" data-tip="JSON and YAML versions of every bundled demo are identical. Pick whichever you prefer to read.">?</span>
+                                </span>
+                                <div class="radio-toggle">
+                                    <input type="radio" id="bundled_fmt_json" name="bundled_format" value="json" checked>
+                                    <label for="bundled_fmt_json">JSON</label>
+                                    <input type="radio" id="bundled_fmt_yaml" name="bundled_format" value="yaml">
+                                    <label for="bundled_fmt_yaml">YAML</label>
+                                </div>
                             </div>
                         </div>
-
                     </div>
+
+                    <!-- Mode B: UC Volume. The user already uploaded files
+                         to a UC Volume; they paste the volume paths.
+                         Same two inputs as before but with explicit UC-
+                         Volume placeholders / hints. -->
+                    <div id="sourceModeUc" class="source-mode-pane" style="margin-top: 14px; display: none;">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label" for="uc_onboarding_file_path">Onboarding file (UC Volume path) <span style="color:var(--brand)">*</span>
+                                    <span class="field-tip" data-tip="Path to the onboarding spec on a UC Volume.&#10;Format: /Volumes/<catalog>/<schema>/<volume>/<file>.yml&#10;The app SP must have READ VOLUME on this volume.">?</span>
+                                </label>
+                                <input class="form-input" type="text" id="uc_onboarding_file_path"
+                                       placeholder="/Volumes/catalog/schema/volume/onboarding.yml">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="uc_local_directory">Supporting files directory (UC Volume path)
+                                    <span class="field-tip" data-tip="UC Volume directory containing files your spec references (DQE rules, silver transformations, DDL, sample data). The app copies this entire tree into the pipeline's working volume.&#10;&#10;Tip: upload your repo's demo/ folder structure to a UC volume and point here.">?</span>
+                                </label>
+                                <input class="form-input" type="text" id="uc_local_directory"
+                                       placeholder="/Volumes/catalog/schema/volume/">
+                            </div>
+                        </div>
+                        <div class="hint-text" style="margin-top: 10px; padding: 10px 12px; background: rgba(255,54,33,.04); border-left: 3px solid var(--brand); border-radius: 4px;">
+                            <strong>Before you click Run:</strong> upload your onboarding spec AND its supporting tree to a UC Volume using
+                            <code>databricks fs cp -r &lt;local-dir&gt; dbfs:&lt;volume-path&gt;</code> or the workspace UI.
+                            Then use the "Preview rendered template" button below to verify the rendered paths match what you uploaded.
+                        </div>
+                    </div>
+
+                    <!-- Mode C: Manual. The original free-form path entry
+                         for advanced users (DBFS paths, custom layouts,
+                         non-standard env suffixes). -->
+                    <div id="sourceModeManual" class="source-mode-pane" style="margin-top: 14px; display: none;">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label" for="manual_onboarding_file_path">Onboarding file path <span style="color:var(--brand)">*</span>
+                                    <span class="field-tip" data-tip="Three formats accepted:&#10;• Repo-relative: demo/conf/json/onboarding.template&#10;• UC Volume: /Volumes/cat/sch/vol/file.json&#10;• DBFS: dbfs:/path/to/file.json">?</span>
+                                </label>
+                                <input class="form-input" type="text" id="manual_onboarding_file_path"
+                                       placeholder="repo-relative, UC Volume, or DBFS path">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="manual_local_directory">Supporting files directory
+                                    <span class="field-tip" data-tip="Local or UC Volume directory containing supporting files. Leave blank for the bundled demo/ folder.">?</span>
+                                </label>
+                                <input class="form-input" type="text" id="manual_local_directory"
+                                       placeholder="Leave blank to use repo demo/ folder">
+                            </div>
+                            <div class="form-group">
+                                <span class="form-label">Update placeholders
+                                    <span class="field-tip" data-tip="Yes: replaces {uc_volume_path}, {bronze_schema}, {silver_schema}, {uc_catalog_name} in your spec before running. Required for demo templates. No: paths used as-written.">?</span>
+                                </span>
+                                <div class="radio-toggle">
+                                    <input type="radio" id="manual_up_no" name="manual_update_paths" value="0">
+                                    <label for="manual_up_no">No</label>
+                                    <input type="radio" id="manual_up_yes" name="manual_update_paths" value="1" checked>
+                                    <label for="manual_up_yes">Yes</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hidden inputs holding the canonical form-submit
+                         values. The mode-picker JS writes through to
+                         these, the submit handler reads them. Mirrors
+                         the OLD field names so the server-side handler
+                         stays unchanged. -->
+                    <input type="hidden" id="onboarding_file_path" name="onboarding_file_path"
+                           value="demo/conf/json/onboarding.template">
+                    <input type="hidden" id="local_directory" name="local_directory" value="">
+                    <input type="hidden" id="update_paths" name="update_paths" value="1">
                 </div>
 
                 <div class="form-card">
@@ -770,29 +1263,37 @@
                     <div class="form-grid">
 
                         <div class="form-group">
-                            <label class="form-label" for="dlt_meta_schema">DLT Meta Schema</label>
-                            <input class="form-input" type="text" id="dlt_meta_schema" name="dlt_meta_schema"
-                                   value="dlt_meta_dataflowspecs_4e6c360d3e5c4b5ca6687fec8ffe2e14"
-                                   placeholder="dlt_meta_dataflowspecs_...">
+                            <label class="form-label" for="sdp_meta_schema">SDP Meta Schema <span style="color:var(--brand)">*</span>
+                                <span class="field-tip" data-tip="UC schema where the DataflowSpec tables (bronze_dataflowspec / silver_dataflowspec) will be created. Must be inside the Unity Catalog above. Created automatically if it doesn't exist.">?</span>
+                            </label>
+                            <input class="form-input" type="text" id="sdp_meta_schema" name="sdp_meta_schema"
+                                   value=""
+                                   placeholder="e.g. sdp_meta_dataflowspecs" required>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="bronze_schema">Bronze Schema</label>
+                            <label class="form-label" for="bronze_schema">Bronze Schema <span style="color:var(--brand)">*</span>
+                                <span class="field-tip" data-tip="UC schema where bronze pipeline output tables will be written. Referenced in your onboarding spec as {bronze_schema}. Created automatically by the pipeline.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="bronze_schema" name="bronze_schema"
-                                   value="dltmeta_bronze_9c1aa383b36a49198d3e99d25f7180a4"
-                                   placeholder="dltmeta_bronze_...">
+                                   value=""
+                                   placeholder="e.g. sdp_meta_bronze" required>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="silver_schema">Silver Schema</label>
+                            <label class="form-label" for="silver_schema">Silver Schema <span style="color:var(--brand)">*</span>
+                                <span class="field-tip" data-tip="UC schema where silver pipeline output tables will be written. Referenced in your onboarding spec as {silver_schema}. Created automatically by the pipeline.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="silver_schema" name="silver_schema"
-                                   value="dltmeta_silver_7b4e981029b843c799bf61a0a121b3ca"
-                                   placeholder="dltmeta_silver_...">
+                                   value=""
+                                   placeholder="e.g. sdp_meta_silver" required>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="dlt_meta_layer">DLT Meta Layer</label>
-                            <select class="form-input" id="dlt_meta_layer" name="dlt_meta_layer">
+                            <label class="form-label" for="sdp_meta_layer">SDP Meta Layer
+                                <span class="field-tip" data-tip="Which DataflowSpec layers to register. bronze: only bronze specs. silver: only silver specs. bronze_silver: both (most common).">?</span>
+                            </label>
+                            <select class="form-input" id="sdp_meta_layer" name="sdp_meta_layer">
                                 <option value="0">bronze</option>
                                 <option value="1" selected>bronze_silver</option>
                                 <option value="2">silver</option>
@@ -800,13 +1301,17 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="bronze_table">Bronze Dataflow Spec Table</label>
+                            <label class="form-label" for="bronze_table">Bronze Dataflow Spec Table
+                                <span class="field-tip" data-tip="Name of the Delta table that will hold bronze DataflowSpecs inside the SDP Meta Schema. Default: bronze_dataflowspec.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="bronze_table" name="bronze_table"
                                    value="bronze_dataflowspec" placeholder="bronze_dataflowspec">
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="silver_table">Silver Dataflow Spec Table</label>
+                            <label class="form-label" for="silver_table">Silver Dataflow Spec Table
+                                <span class="field-tip" data-tip="Name of the Delta table that will hold silver DataflowSpecs inside the SDP Meta Schema. Default: silver_dataflowspec.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="silver_table" name="silver_table"
                                    value="silver_dataflowspec" placeholder="silver_dataflowspec">
                         </div>
@@ -819,7 +1324,9 @@
                     <div class="form-grid">
 
                         <div class="form-group">
-                            <span class="form-label">Overwrite Dataflow Spec</span>
+                            <span class="form-label">Overwrite Dataflow Spec
+                                <span class="field-tip" data-tip="Yes: replaces existing rows in the DataflowSpec table with new ones from your onboarding file. No: skips rows that already exist (safe for incremental updates).">?</span>
+                            </span>
                             <div class="radio-toggle">
                                 <input type="radio" id="ow_yes" name="overwrite" value="1" checked>
                                 <label for="ow_yes">Yes</label>
@@ -829,19 +1336,25 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="version">Spec Version</label>
+                            <label class="form-label" for="version">Spec Version
+                                <span class="field-tip" data-tip="Version tag stored in the DataflowSpec table for auditing. Use v1, v2, etc. to track changes across onboarding runs.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="version" name="version" value="v1" placeholder="v1">
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="environment">Environment</label>
-                            <input class="form-input" type="text" id="environment" name="environment" value="prod" placeholder="prod">
+                            <label class="form-label" for="environment">Environment
+                                <span class="field-tip" data-tip="Environment tag (demo, prod, dev, staging, etc.). Resolves field names in your onboarding spec like bronze_database_{env}, source_path_{env}, bronze_data_quality_expectations_json_{env}. MUST match the suffix on those fields in your spec file — otherwise the onboarding job will silently produce empty dataflowspec tables. All shipped demo templates use the 'demo' suffix; only templates you've authored yourself with a different convention need a different value here.">?</span>
+                            </label>
+                            <input class="form-input" type="text" id="environment" name="environment" value="demo" placeholder="demo">
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="author">Import Author</label>
+                            <label class="form-label" for="author">Import Author
+                                <span class="field-tip" data-tip="Name or identifier recorded in the DataflowSpec table as the creator of these specs. Used for auditing.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="author" name="author"
-                                   placeholder="author name">
+                                   value="sdp-meta-app" placeholder="author name">
                         </div>
 
                     </div>
@@ -849,6 +1362,10 @@
 
                 <div class="btn-row">
                     <button class="btn-primary" type="submit">&#9654; Run Onboarding</button>
+                    <button class="btn-secondary" type="button" id="onboardingPreviewBtn"
+                            title="Preview the onboarding template with your form values substituted — no side effects, no UC volume created, no job launched.">
+                        &#128270; Preview rendered template
+                    </button>
                     <button class="btn-secondary" type="button" onclick="showPanel('deployment', document.querySelector('.nav-item:nth-child(2)'))">
                         Continue to Deployment &#8594;
                     </button>
@@ -857,7 +1374,7 @@
             </form>
 
             <div class="content-footer">
-                &copy; 2026 DLT-META Databricks App &mdash;
+                &copy; 2026 SDP-META Databricks App &mdash;
                 <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer">Databricks Labs</a>
             </div>
         </section>
@@ -869,7 +1386,7 @@
                     <span class="step-badge">Step 2</span>
                 </div>
                 <h1>Pipeline Deployment</h1>
-                <p>Create and launch the Lakeflow Declarative Pipeline from the registered spec</p>
+                <p>Create and launch the Lakeflow Declarative Pipeline from the registered DataflowSpec</p>
             </div>
 
             <form id="deploymentForm" novalidate>
@@ -879,7 +1396,9 @@
                     <div class="form-grid">
 
                         <div class="form-group">
-                            <span class="form-label">Unity Catalog</span>
+                            <span class="form-label">Unity Catalog
+                                <span class="field-tip" data-tip="Enable if your workspace uses Unity Catalog. Must match what was used during onboarding.">?</span>
+                            </span>
                             <div class="radio-toggle">
                                 <input type="radio" id="d_uc_on" name="uc_enabled" value="1" checked>
                                 <label for="d_uc_on">Enabled</label>
@@ -889,13 +1408,17 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="uc_catalog_name">Unity Catalog Name</label>
+                            <label class="form-label" for="uc_catalog_name">Unity Catalog Name <span style="color:var(--brand)">*</span>
+                                <span class="field-tip" data-tip="The Unity Catalog where the pipeline will be created and output tables written. Must match the catalog used during onboarding.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="uc_catalog_name" name="uc_catalog_name"
                                    placeholder="my_catalog">
                         </div>
 
                         <div class="form-group">
-                            <span class="form-label">Serverless</span>
+                            <span class="form-label">Serverless
+                                <span class="field-tip" data-tip="Use Databricks Serverless compute for the pipeline. Recommended. Must match the compute type supported by your workspace.">?</span>
+                            </span>
                             <div class="radio-toggle">
                                 <input type="radio" id="d_sl_on" name="serverless" value="1" checked>
                                 <label for="d_sl_on">Enabled</label>
@@ -912,34 +1435,44 @@
                     <div class="form-grid">
 
                         <div class="form-group">
-                            <label class="form-label" for="spc_schema_name">DataFlow Spec Schema</label>
+                            <label class="form-label" for="spc_schema_name">DataFlow Spec Schema <span style="color:var(--brand)">*</span>
+                                <span class="field-tip" data-tip="The UC schema that holds your DataflowSpec tables. This is the SDP Meta Schema you set during onboarding (e.g. sdp_meta_dataflowspecs).">?</span>
+                            </label>
                             <input class="form-input" type="text" id="spc_schema_name" name="spc_schema_name"
-                                   placeholder="dataflowspec schema">
+                                   placeholder="e.g. sdp_meta_dataflowspecs">
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="dlt_target_schema">Target Schema</label>
+                            <label class="form-label" for="dlt_target_schema">Target Schema <span style="color:var(--brand)">*</span>
+                                <span class="field-tip" data-tip="UC schema where the pipeline will write its output tables. Can be the same as bronze/silver schemas or a new one. Created automatically by the pipeline.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="dlt_target_schema" name="dlt_target_schema"
-                                   placeholder="target schema">
+                                   placeholder="e.g. sdp_meta_bronze">
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="deploy_layer">Layer</label>
+                            <label class="form-label" for="deploy_layer">Layer
+                                <span class="field-tip" data-tip="Which pipeline layer(s) to deploy. bronze_silver (default): ingest sources to bronze AND transform bronze into silver in one pipeline. bronze: ingest only. silver: silver transformations only (requires bronze tables to already exist).">?</span>
+                            </label>
                             <select class="form-input" id="deploy_layer" name="deploylayer">
-                                <option value="bronze" selected>bronze</option>
-                                <option value="bronze_silver">bronze_silver</option>
+                                <option value="bronze_silver" selected>bronze_silver</option>
+                                <option value="bronze">bronze</option>
                                 <option value="silver">silver</option>
                             </select>
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="bronze_dataflowspec_table">Bronze Dataflow Spec Table</label>
+                            <label class="form-label" for="bronze_dataflowspec_table">Bronze Dataflow Spec Table
+                                <span class="field-tip" data-tip="Name of the Delta table holding bronze DataflowSpecs. Must match what was created during onboarding. Default: bronze_dataflowspec.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="bronze_dataflowspec_table" name="bronze_dataflowspec_table"
                                    placeholder="bronze_dataflowspec">
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="silver_dataflowspec_table">Silver Dataflow Spec Table</label>
+                            <label class="form-label" for="silver_dataflowspec_table">Silver Dataflow Spec Table
+                                <span class="field-tip" data-tip="Name of the Delta table holding silver DataflowSpecs. Must match what was created during onboarding. Default: silver_dataflowspec.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="silver_dataflowspec_table" name="silver_dataflowspec_table"
                                    placeholder="silver_dataflowspec">
                         </div>
@@ -952,19 +1485,25 @@
                     <div class="form-grid">
 
                         <div class="form-group">
-                            <label class="form-label" for="pipeline_name">Pipeline Name</label>
+                            <label class="form-label" for="pipeline_name">Pipeline Name <span style="color:var(--brand)">*</span>
+                                <span class="field-tip" data-tip="Name for the new Lakeflow Declarative Pipeline. Must be unique in the workspace. If a pipeline with this name already exists it will be updated.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="pipeline_name" name="pipeline_name"
-                                   placeholder="dlt_meta_pipeline">
+                                   placeholder="sdp_meta_pipeline">
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="onboard_bronze_group">Bronze Group</label>
+                            <label class="form-label" for="onboard_bronze_group">Bronze Group <span style="color:var(--brand)">*</span>
+                                <span class="field-tip" data-tip="The dataFlowGroup value from your bronze DataflowSpec table. The pipeline will only process specs belonging to this group. Shown as group pills in the DataflowSpecs panel above.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="onboard_bronze_group" name="onboard_bronze_group"
                                    value="A1" placeholder="A1">
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label" for="onboard_silver_group">Silver Group</label>
+                            <label class="form-label" for="onboard_silver_group">Silver Group <span style="color:var(--brand)">*</span>
+                                <span class="field-tip" data-tip="The dataFlowGroup value from your silver DataflowSpec table. The pipeline will only process specs belonging to this group.">?</span>
+                            </label>
                             <input class="form-input" type="text" id="onboard_silver_group" name="onboard_silver_group"
                                    value="A1" placeholder="A1">
                         </div>
@@ -982,7 +1521,75 @@
             </form>
 
             <div class="content-footer">
-                &copy; 2026 DLT-META Databricks App &mdash;
+                &copy; 2026 SDP-META Databricks App &mdash;
+                <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer">Databricks Labs</a>
+            </div>
+        </section>
+
+        <!-- ══════════════ DataflowSpecs panel ══════════════════ -->
+        <section class="panel" id="specs" aria-label="DataflowSpecs">
+            <div class="panel-header">
+                <div class="panel-header-bar">
+                    <span class="step-badge">Step 2</span>
+                </div>
+                <h1>DataflowSpecs</h1>
+                <p>Review registered bronze and silver specs, select a group, and deploy directly</p>
+            </div>
+
+            <!-- Config row — pre-filled from Onboarding form values -->
+            <div class="form-card">
+                <div class="form-card-title">DataflowSpec location</div>
+                <div class="specs-config-row">
+                    <input type="text" id="specsUcCatalog"   placeholder="UC catalog name"    title="Unity Catalog name">
+                    <input type="text" id="specsSchema"      placeholder="SDP-META schema"    title="Schema containing DataflowSpec tables">
+                    <input type="text" id="specsBronzeTable" placeholder="bronze_dataflowspec" value="bronze_dataflowspec" title="Bronze DataflowSpec table">
+                    <input type="text" id="specsSilverTable" placeholder="silver_dataflowspec" value="silver_dataflowspec" title="Silver DataflowSpec table">
+                    <button class="btn-primary" onclick="loadSpecs()">&#8635; Load specs</button>
+                </div>
+                <p id="specsLoadStatus" style="font-size:.85rem;color:var(--ink-60);margin:0"></p>
+            </div>
+
+            <!-- Group selector -->
+            <div id="specsGroupSection" style="display:none">
+                <div class="form-card">
+                    <div class="form-card-title">Select a group</div>
+                    <div class="group-pills" id="specsGroupPills"></div>
+                    <p style="font-size:.82rem;color:var(--ink-40);margin:0">
+                        Click a group pill to filter the tables below and enable deployment.
+                    </p>
+                </div>
+
+                <!-- Bronze specs table -->
+                <div class="specs-layer-label">Bronze DataflowSpec</div>
+                <div class="specs-table-wrap">
+                    <table class="specs-table">
+                        <thead id="specsBronzeHead"></thead>
+                        <tbody id="specsBronzeBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Silver specs table -->
+                <div class="specs-layer-label">Silver DataflowSpec</div>
+                <div class="specs-table-wrap">
+                    <table class="specs-table">
+                        <thead id="specsSilverHead"></thead>
+                        <tbody id="specsSilverBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Deploy bar (visible when a group is selected) -->
+                <div class="deploy-bar" id="specsDeployBar" style="display:none">
+                    <div class="deploy-bar-info">
+                        Selected group: <strong id="specsDeployGroupLabel">—</strong>
+                    </div>
+                    <button class="btn-primary" onclick="deploySelectedGroup()">
+                        Deploy this group &#8594;
+                    </button>
+                </div>
+            </div>
+
+            <div class="content-footer">
+                &copy; 2026 SDP-META Databricks App &mdash;
                 <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer">Databricks Labs</a>
             </div>
         </section>
@@ -991,7 +1598,7 @@
         <section class="panel" id="demos" aria-label="Demos">
             <div class="panel-header">
                 <h1>Run a Demo</h1>
-                <p>Explore DLT-META features with pre-configured end-to-end examples on your Databricks workspace</p>
+                <p>Explore SDP-META features with pre-configured end-to-end examples on your Databricks workspace</p>
             </div>
 
             <div class="uc-callout">
@@ -1035,12 +1642,199 @@
             </div>
 
             <div class="content-footer">
-                &copy; 2026 DLT-META Databricks App &mdash;
+                &copy; 2026 SDP-META Databricks App &mdash;
+                <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer">Databricks Labs</a>
+            </div>
+        </section>
+
+        <!-- ══════════════ Monitor panel ══════════════════════ -->
+        <section class="panel" id="monitor" aria-label="Monitor">
+            <div class="panel-header">
+                <h1>Pipeline Monitor</h1>
+                <p>View status, events, and control SDP-META Lakeflow pipelines in your workspace</p>
+            </div>
+
+            <div class="monitor-toolbar">
+                <button class="btn-primary" onclick="loadPipelines()">&#8635; Refresh</button>
+                <span id="monitorStatus" style="font-size:.85rem;color:var(--ink-60)"></span>
+            </div>
+
+            <div class="pipeline-table-wrap">
+                <table class="pipeline-table" id="pipelineTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>State</th>
+                            <th>Creator</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pipelineTableBody">
+                        <tr><td colspan="4" id="monitorEmpty">Click Refresh to load pipelines&hellip;</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Events drawer (shown below table on row click) -->
+            <div id="eventsDrawer" style="display:none;margin-top:20px">
+                <div class="form-card">
+                    <div class="form-card-title" id="eventsDrawerTitle">Events</div>
+                    <ul class="events-list" id="eventsList"></ul>
+                </div>
+            </div>
+
+            <div class="content-footer">
+                &copy; 2026 SDP-META Databricks App &mdash;
+                <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer">Databricks Labs</a>
+            </div>
+        </section>
+
+        <!-- ══════════════ Metadata panel ═══════════════════════ -->
+        <section class="panel" id="metadata" aria-label="Metadata">
+            <div class="panel-header">
+                <h1>Metadata</h1>
+                <p>Browse Unity Catalog tables and edit pipeline spec files</p>
+            </div>
+
+            <!-- Sub-tab strip -->
+            <div class="meta-tabs">
+                <button class="meta-tab-btn active" onclick="showMetaTab('browse', this)">Browse UC</button>
+                <button class="meta-tab-btn" onclick="showMetaTab('speceditor', this)">Spec Editor</button>
+            </div>
+
+            <!-- ── Browse tab ───────────────────────────────────── -->
+            <div class="meta-tab-content active" id="meta-browse">
+
+                <div class="browse-row">
+                    <select id="browseCatalog" onchange="loadSchemas()">
+                        <option value="">— Select catalog —</option>
+                    </select>
+                    <select id="browseSchema" onchange="loadTables()">
+                        <option value="">— Select schema —</option>
+                    </select>
+                    <select id="browseTable" onchange="loadTablePreview()">
+                        <option value="">— Select table —</option>
+                    </select>
+                    <button class="btn-primary" onclick="loadCatalogs()">Load catalogs</button>
+                </div>
+
+                <div class="browse-row" id="browseWhereRow" style="display:none">
+                    <input type="text" id="browseWhere" placeholder="Optional WHERE clause (e.g. region = 'US')"
+                           style="flex:2">
+                    <input type="number" id="browseLimit" value="100" min="1" max="1000" style="max-width:90px">
+                    <button class="btn-primary" onclick="loadTablePreview()">Run</button>
+                </div>
+
+                <div id="browseStatus" style="font-size:.85rem;color:var(--ink-60);margin-bottom:10px"></div>
+
+                <div class="data-grid-wrap" id="browseGridWrap" style="display:none">
+                    <table class="data-grid" id="browseGrid">
+                        <thead id="browseGridHead"></thead>
+                        <tbody id="browseGridBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ── Spec Editor tab ──────────────────────────────── -->
+            <div class="meta-tab-content" id="meta-speceditor">
+
+                <div class="spec-editor-bar">
+                    <select id="specType">
+                        <option value="onboarding">Onboarding</option>
+                        <option value="dqe">DQE Rules</option>
+                        <option value="silver_transform">Silver Transformation</option>
+                    </select>
+                    <select id="specFormat">
+                        <option value="json">JSON</option>
+                        <option value="yaml">YAML</option>
+                    </select>
+                    <select id="specEnv">
+                        <option value="prod">prod</option>
+                        <option value="dev">dev</option>
+                    </select>
+                    <label style="font-size:.85rem;cursor:pointer;color:var(--accent)">
+                        <input type="file" id="specLocalFile" accept=".json,.yml,.yaml" style="display:none"
+                               onchange="readLocalSpecFile(this)">
+                        &#128194; Load local file
+                    </label>
+                </div>
+
+                <div class="spec-editor-bar">
+                    <input type="text" id="specWorkspacePath" placeholder="/Users/me/specs/onboarding.json" style="flex:1;min-width:260px">
+                    <button class="btn-secondary btn-sm" onclick="loadFromWorkspace()">&#8615; Load from workspace</button>
+                    <button class="btn-secondary btn-sm" onclick="saveToWorkspace()">&#8613; Save to workspace</button>
+                </div>
+
+                <textarea id="specEditorTextarea" spellcheck="false"
+                          placeholder="Paste or load your onboarding JSON / YAML here&hellip;"></textarea>
+
+                <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+                    <button class="btn-primary" onclick="parseAndPreview()">&#9654; Validate</button>
+                    <button class="btn-secondary" onclick="runOnboardingFromEditor()"
+                            id="btnRunFromEditor" disabled title="Fix all errors before running">Run Onboarding &rarr;</button>
+                </div>
+
+                <div id="specValidationResult" style="margin-top:14px"></div>
+
+                <div id="specStructuredPreview" style="margin-top:18px"></div>
+
+            </div>
+
+            <div class="content-footer">
+                &copy; 2026 SDP-META Databricks App &mdash;
                 <a href="https://github.com/databrickslabs/dlt-meta" target="_blank" rel="noopener noreferrer">Databricks Labs</a>
             </div>
         </section>
 
     </main>
+</div>
+
+<!-- ── Warehouse config modal ───────────────────────────────── -->
+<div id="warehouseModal" role="dialog" aria-modal="true" aria-labelledby="whModalTitle">
+    <div class="wh-modal-box">
+        <div class="wh-modal-head">
+            <h3 id="whModalTitle">&#128202; SQL Warehouse</h3>
+            <button class="modal-close" onclick="closeWarehouseModal()" aria-label="Close">&times;</button>
+        </div>
+        <p style="font-size:.85rem;color:var(--ink-60);margin:0">
+            A SQL warehouse is required for the DataflowSpecs browser and the Metadata Browse tab.
+            You can also set <code>DATABRICKS_SQL_WAREHOUSE_ID</code> in <code>app.yaml</code> to skip this step on every restart.
+        </p>
+
+        <!-- Option A: pick existing -->
+        <div class="wh-option selected" id="whOptionExisting" onclick="selectWhMode('existing')">
+            <div class="wh-option-label">
+                <input type="radio" name="whMode" id="whModeExisting" value="existing" checked>
+                <label for="whModeExisting">Use an existing warehouse</label>
+            </div>
+            <p>Select from warehouses your App service principal can access.</p>
+            <div class="wh-option-body" id="whExistingBody">
+                <select id="whExistingSelect">
+                    <option value="">Loading warehouses&hellip;</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Option B: create new serverless -->
+        <div class="wh-option" id="whOptionCreate" onclick="selectWhMode('create')">
+            <div class="wh-option-label">
+                <input type="radio" name="whMode" id="whModeCreate" value="create">
+                <label for="whModeCreate">Create a new serverless warehouse</label>
+            </div>
+            <p>Spins up a 2X-Small serverless warehouse (auto-stops after 30 min).</p>
+            <div class="wh-option-body" id="whCreateBody" style="display:none">
+                <input type="text" id="whCreateName" value="sdp-meta-app-warehouse"
+                       placeholder="Warehouse name">
+            </div>
+        </div>
+
+        <div id="whStatusMsg"></div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+            <button class="btn-secondary" onclick="closeWarehouseModal()">Cancel</button>
+            <button class="btn-primary" id="whApplyBtn" onclick="applyWarehouseConfig()">Apply</button>
+        </div>
+    </div>
 </div>
 
 <!-- ── Loading overlay ──────────────────────────────────────── -->
@@ -1049,6 +1843,21 @@
         <div class="spinner"></div>
         <p class="spinner-label" id="loadingMessage">Processing&hellip;</p>
         <p class="spinner-sub">This may take a moment</p>
+    </div>
+</div>
+
+<!-- ── Onboarding progress log modal ────────────────────────── -->
+<div id="progressModal" role="dialog" aria-modal="true" aria-labelledby="progressTitle">
+    <div class="progress-box">
+        <div class="progress-head">
+            <h3 id="progressTitle">Running Onboarding&hellip;</h3>
+            <span class="progress-dots" id="progressDots">&#9679;</span>
+        </div>
+        <div class="progress-log" id="progressLog"></div>
+        <div class="progress-foot">
+            <span class="progress-status" id="progressStatus">Starting&hellip;</span>
+            <button class="btn-secondary" id="progressClose" disabled onclick="closeProgressModal()">Close</button>
+        </div>
     </div>
 </div>
 
@@ -1097,6 +1906,79 @@
         document.getElementById('loadingOverlay').classList.remove('visible');
     }
 
+    /* ── Progress log modal (onboarding) ───────────────────── */
+    var _progressPoll = null;
+    var _dotsTimer    = null;
+
+    function showProgressModal(title) {
+        document.getElementById('progressTitle').textContent = title || 'Running…';
+        document.getElementById('progressLog').innerHTML = '';
+        document.getElementById('progressStatus').textContent = 'Starting…';
+        document.getElementById('progressClose').disabled = true;
+        document.getElementById('progressDots').textContent = '●';
+        document.getElementById('progressDots').style.color = '';
+        document.getElementById('progressModal').classList.add('visible');
+        _startDots();
+    }
+
+    function closeProgressModal() {
+        document.getElementById('progressModal').classList.remove('visible');
+        if (_progressPoll) { clearInterval(_progressPoll); _progressPoll = null; }
+        if (_dotsTimer)    { clearInterval(_dotsTimer);    _dotsTimer    = null; }
+    }
+
+    function _startDots() {
+        var el = document.getElementById('progressDots');
+        var frames = ['●', '●●', '●●●'];
+        var i = 0;
+        if (_dotsTimer) clearInterval(_dotsTimer);
+        _dotsTimer = setInterval(function() { el.textContent = frames[i++ % frames.length]; }, 500);
+    }
+
+    function _appendProgressLine(stream, line) {
+        var log = document.getElementById('progressLog');
+        var span = document.createElement('span');
+        span.className = stream === 'stderr' ? 'log-stderr'
+                       : stream === 'info'   ? 'log-info'
+                       :                       'log-stdout';
+        span.textContent = line + '\n';
+        log.appendChild(span);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function _finishProgressModal(success, statusText) {
+        var dotsEl = document.getElementById('progressDots');
+        dotsEl.textContent = success ? '✓' : '✗';
+        dotsEl.style.color = success ? '#4ec94e' : '#f47c7c';
+        document.getElementById('progressStatus').textContent = statusText || (success ? 'Done' : 'Failed');
+        document.getElementById('progressClose').disabled = false;
+        if (_dotsTimer)    { clearInterval(_dotsTimer);    _dotsTimer    = null; }
+        if (_progressPoll) { clearInterval(_progressPoll); _progressPoll = null; }
+    }
+
+    function _pollJob(token, onDone) {
+        var offset = 0;
+        _progressPoll = setInterval(function() {
+            fetch('/api/job/' + token + '/logs?offset=' + offset)
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    (d.logs || []).forEach(function(entry) {
+                        _appendProgressLine(entry.stream, entry.line);
+                    });
+                    offset += (d.logs || []).length;
+                    if (offset > 0) {
+                        document.getElementById('progressStatus').textContent = 'Running… (' + offset + ' lines)';
+                    }
+                    if (d.done) {
+                        clearInterval(_progressPoll);
+                        _progressPoll = null;
+                        onDone(d);
+                    }
+                })
+                .catch(function(err) { console.warn('Progress poll error:', err); });
+        }, 1500);
+    }
+
     /* ── Modal ──────────────────────────────────────────────── */
     function showModal(html, title) {
         document.getElementById('modalTitle').textContent = title || 'Response';
@@ -1128,27 +2010,753 @@
         }
     }
     function handleError(err, title) {
-        showModal('<p style="color:var(--brand);font-weight:500">Error: ' + escapeHtml(err.message) + '</p>', title);
+        hideLoading();
+        showModal('<p style="color:var(--brand);font-weight:500">' + escapeHtml(err.message || String(err)) + '</p>', title);
+    }
+
+    /* Safe JSON parser — checks Content-Type before calling .json() so an
+       HTML error page from gunicorn never causes a confusing parse error. */
+    function _parseJSON(r) {
+        var ct = r.headers.get('content-type') || '';
+        if (ct.indexOf('application/json') >= 0) return r.json();
+        return r.text().then(function() {
+            throw new Error('Server error (HTTP ' + r.status + '). Check the app logs for the full traceback.');
+        });
+    }
+
+    /* Safe fetch — always resolves to parsed JSON or throws a readable Error. */
+    function fetchJSON(url, opts) {
+        return fetch(url, opts).then(function(r) {
+            var ct = r.headers.get('content-type') || '';
+            if (ct.indexOf('application/json') >= 0) {
+                return r.json().then(function(d) {
+                    if (!r.ok && !d.error) d.error = 'Request failed (HTTP ' + r.status + ')';
+                    return d;
+                });
+            }
+            /* Non-JSON (HTML error page from gunicorn / Flask). */
+            return r.text().then(function() {
+                throw new Error('Server error (HTTP ' + r.status + '). Check the app logs for the full traceback.');
+            });
+        });
+    }
+
+    function renderApiResponse(data, defaultTitle) {
+        hideLoading();
+        /* Explicit error field (validation, 4xx, etc.) */
+        if (data.error) {
+            showModal(
+                '<p style="color:var(--brand);font-weight:500;white-space:pre-wrap">' +
+                escapeHtml(data.error) + '</p>',
+                defaultTitle
+            );
+            return;
+        }
+        /* CLI subprocess failed */
+        if (data.returncode !== undefined && data.returncode !== 0) {
+            var body = '';
+            if (data.stderr && data.stderr.trim()) {
+                body += '<pre style="color:var(--brand);white-space:pre-wrap;font-size:.82rem;max-height:320px;overflow:auto">'
+                     + escapeHtml(data.stderr.trim()) + '</pre>';
+            }
+            if (data.stdout && data.stdout.trim()) {
+                body += '<pre style="white-space:pre-wrap;font-size:.82rem;max-height:200px;overflow:auto">'
+                     + escapeHtml(data.stdout.trim()) + '</pre>';
+            }
+            if (!body) body = '<p>Command exited with code ' + data.returncode + '.</p>';
+            showModal(body, defaultTitle + ' — Failed');
+            return;
+        }
+        /* Success with job details */
+        if (data.modal_content) {
+            var safeUrl = isValidHttpsUrl(data.modal_content.job_url) ? data.modal_content.job_url : null;
+            var html = '';
+            if (data.modal_content.job_id) {
+                html += '<div class="job-chip">Job ID&nbsp;<strong>' + escapeHtml(data.modal_content.job_id) + '</strong></div><br>';
+            }
+            if (safeUrl) {
+                html += '<a class="result-link" href="' + escapeHtml(safeUrl) + '" target="_blank" rel="noopener noreferrer">Open in Databricks &#8599;</a>';
+            }
+            showModal(html, escapeHtml(data.modal_content.title) || defaultTitle);
+            return;
+        }
+        /* Generic success */
+        var successBody = '';
+        if (data.stdout && data.stdout.trim()) {
+            successBody = '<pre style="white-space:pre-wrap;font-size:.82rem;max-height:320px;overflow:auto">'
+                        + escapeHtml(data.stdout.trim()) + '</pre>';
+        } else {
+            successBody = '<p>&#10003; Completed successfully.</p>';
+        }
+        showModal(successBody, defaultTitle);
+    }
+
+    /* ── Onboarding-success → DataflowSpecs CTA ─────────────────
+       After a successful onboarding run the user almost always wants
+       to (1) confirm the rows landed and (2) pick a group to deploy.
+       Both happen on the DataflowSpecs panel. To save the user from
+       re-typing the catalog / schema / table names they just used,
+       we append a "View DataflowSpecs" call-to-action to the success
+       modal. Clicking it switches to the specs panel — where the
+       existing showPanel('specs', …) wrapper auto-fills the form
+       from the onboarding inputs via _prefillSpecsFromOnboarding —
+       and immediately fires loadSpecs() so the user sees rows
+       without an extra click.
+
+       Only invoked on returncode === 0; the /deploy success modal is
+       intentionally untouched (it has no equivalent next step). */
+    function _findNavItemFor(panelId) {
+        var items = document.querySelectorAll('.nav-item');
+        for (var i = 0; i < items.length; i++) {
+            var oc = items[i].getAttribute('onclick') || '';
+            if (oc.indexOf("'" + panelId + "'") !== -1) return items[i];
+        }
+        return null;
+    }
+
+    function _appendViewSpecsCta() {
+        var body = document.getElementById('responseContent');
+        if (!body) return;
+        var card = document.createElement('div');
+        card.style.marginTop      = '18px';
+        card.style.padding        = '14px 16px';
+        card.style.background     = 'rgba(255,54,33,.06)';
+        card.style.borderLeft     = '3px solid var(--brand,#ff3621)';
+        card.style.borderRadius   = '6px';
+        card.innerHTML =
+            '<div style="font-weight:500;margin-bottom:6px">Next step</div>' +
+            '<p style="margin:0 0 12px 0;font-size:.82rem;color:var(--ink-60,#666);line-height:1.45">' +
+            'Inspect the DataflowSpec rows that just landed, pick a group, then deploy. ' +
+            'Catalog, schema, and table names are carried forward from this onboarding run.' +
+            '</p>' +
+            '<button class="btn-primary" id="goToSpecsBtn" type="button">' +
+            'View DataflowSpecs &#8594;' +
+            '</button>';
+        body.appendChild(card);
+        var btn = document.getElementById('goToSpecsBtn');
+        if (!btn) return;
+        btn.addEventListener('click', function() {
+            closeModal();
+            var navBtn = _findNavItemFor('specs');
+            showPanel('specs', navBtn);
+            /* Auto-load the specs after the panel becomes visible. The
+               showPanel wrapper has already called _prefillSpecsFromOnboarding,
+               so specsUcCatalog / specsSchema / specsBronzeTable / specsSilverTable
+               are populated by the time loadSpecs() reads them. If no SQL
+               warehouse is configured _requireWarehouse will surface its own
+               modal — safe in all cases. */
+            setTimeout(function() {
+                try { loadSpecs(); }
+                catch (e) { /* user can click Load specs manually */ }
+            }, 200);
+        });
     }
 
     /* ── Onboarding form ────────────────────────────────────── */
     document.getElementById('onboardingForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        showLoading('Running onboarding…');
-        fetch('/onboarding', { method: 'POST', body: new FormData(this) })
-            .then(function(r) { return r.json(); })
-            .then(function(d) { hideLoading(); renderApiResponse(d, 'Onboarding Result'); })
-            .catch(function(e) { hideLoading(); handleError(e, 'Onboarding Error'); });
+        var form = this;
+        showProgressModal('Running Onboarding…');
+        _appendProgressLine('info', '→ Submitting onboarding request…');
+
+        fetch('/onboarding', { method: 'POST', body: new FormData(form) })
+            .then(function(r) {
+                var ct = r.headers.get('content-type') || '';
+                if (ct.indexOf('application/json') < 0) {
+                    return r.text().then(function() {
+                        throw new Error('Server error (HTTP ' + r.status + '). Check app logs.');
+                    });
+                }
+                return r.json();
+            })
+            .then(function(d) {
+                if (d.error) {
+                    /* Validation / download error — surfaced before thread starts */
+                    _finishProgressModal(false, 'Validation failed');
+                    setTimeout(function() {
+                        closeProgressModal();
+                        showModal(
+                            '<p style="color:var(--brand);font-weight:500;white-space:pre-wrap">' +
+                            escapeHtml(d.error) + '</p>',
+                            'Onboarding Error'
+                        );
+                    }, 400);
+                    return;
+                }
+                if (d.token) {
+                    /* "Job started" was misleading — the backend has only
+                       accepted the request at this point. The actual
+                       Databricks job hasn't been created yet; the CLI
+                       subprocess still needs to (a) build the UC volume,
+                       (b) create the schemas, (c) copy supporting files
+                       into the volume, then (d) submit the onboarding
+                       job. Expect ~30-60 seconds before the job URL
+                       appears in the log stream below. */
+                    _appendProgressLine('info',
+                        '→ Launching onboarding job… preparing UC volume, schemas, and uploading supporting files. ' +
+                        'The job URL will appear below once Databricks accepts it (typically ~30–60 s).');
+                    _pollJob(d.token, function(jobData) {
+                        var success = jobData.returncode === 0;
+                        var label   = success ? 'Completed successfully' : 'Failed (exit ' + jobData.returncode + ')';
+                        _finishProgressModal(success, label);
+                        setTimeout(function() {
+                            closeProgressModal();
+                            renderApiResponse(jobData.result || {returncode: jobData.returncode}, 'Onboarding Result');
+                            if (success) _appendViewSpecsCta();
+                        }, success ? 800 : 1200);
+                    });
+                }
+            })
+            .catch(function(err) {
+                closeProgressModal();
+                handleError(err, 'Onboarding Error');
+            });
     });
 
+    /* ── Onboarding source-mode picker ──────────────────────────
+       Tri-state selector on the Onboarding page: "Bundled demo /
+       Unity Catalog Volume / Manual". Drives THREE visible UI panes
+       and writes through to three hidden inputs the server already
+       expects (``onboarding_file_path``, ``local_directory``,
+       ``update_paths``). The hidden inputs keep the form-submit
+       wire shape identical to before — backend changes optional.
+
+       Why a mode picker instead of a single free-text path field?
+       The old form mixed three very different mental models:
+       repo-relative, UC volume, DBFS. Most users (especially
+       demoers) just want a turnkey demo; the picker hides everything
+       not relevant to their mode.
+    */
+    (function wireOnboardingSourceModes() {
+        var hiddenOnbPath = document.getElementById('onboarding_file_path');
+        var hiddenLocalDir = document.getElementById('local_directory');
+        var hiddenUpdate = document.getElementById('update_paths');
+        if (!hiddenOnbPath || !hiddenLocalDir || !hiddenUpdate) return;
+
+        var paneBundled = document.getElementById('sourceModeBundled');
+        var paneUc      = document.getElementById('sourceModeUc');
+        var paneManual  = document.getElementById('sourceModeManual');
+
+        var bundledSelect = document.getElementById('bundled_spec_id');
+        var bundledMeta   = document.getElementById('bundled_spec_meta');
+        var bundledData   = []; /* cache of /onboarding/bundled-specs */
+
+        /* Read which file format radio is checked for bundled mode. */
+        function _currentBundledFormat() {
+            var checked = document.querySelector('input[name="bundled_format"]:checked');
+            return checked ? checked.value : 'json';
+        }
+
+        /* Find the cached spec entry by id. */
+        function _bundledSpecById(id) {
+            for (var i = 0; i < bundledData.length; i++) {
+                if (bundledData[i].id === id) return bundledData[i];
+            }
+            return null;
+        }
+
+        /* Build the meta panel under the dropdown — description, tags,
+           and a yellow warning if the spec declares a companion. */
+        function _renderBundledMeta(entry) {
+            if (!entry) {
+                bundledMeta.innerHTML = '';
+                return;
+            }
+            var tagsHtml = (entry.tags || []).map(function(t) {
+                return '<span style="display:inline-block;background:rgba(0,0,0,.06);' +
+                       'padding:2px 8px;border-radius:10px;font-size:11px;' +
+                       'margin-right:4px;color:var(--ink-80,#444)">' +
+                       escapeHtml(t) + '</span>';
+            }).join('');
+            var companionHtml = '';
+            if (entry.companion && entry.companion.length) {
+                var compLabels = entry.companion.map(function(cid) {
+                    var c = _bundledSpecById(cid);
+                    return c ? c.label : cid;
+                });
+                companionHtml =
+                    '<div style="margin-top:8px;padding:8px 10px;background:#fff8e1;' +
+                    'border-left:3px solid #f9a825;border-radius:4px;font-size:12px;' +
+                    'color:#5d4037">' +
+                    '<strong>Companion required:</strong> this demo references tables ' +
+                    'produced by ' + escapeHtml(compLabels.join(', ')) + '. ' +
+                    'Onboard that spec FIRST (with overwrite=False) before this one ' +
+                    'or the silver layer will fail with TABLE_OR_VIEW_NOT_FOUND.' +
+                    '</div>';
+            }
+            /* ``note`` is a free-form per-entry paragraph for non-trivial
+               behaviour the user should know about (e.g. the DAIS demo
+               auto-overrides Environment to ``prod``). Rendered as an
+               informational blue ribbon, distinct from the yellow
+               companion-required warning above. */
+            var noteHtml = '';
+            if (entry.note) {
+                noteHtml =
+                    '<div style="margin-top:8px;padding:8px 10px;background:#e3f2fd;' +
+                    'border-left:3px solid #1976d2;border-radius:4px;font-size:12px;' +
+                    'color:#0d3c61">' +
+                    escapeHtml(entry.note) +
+                    '</div>';
+            }
+            bundledMeta.innerHTML =
+                '<div style="font-size:13px;color:var(--ink-80,#444);line-height:1.5">' +
+                escapeHtml(entry.description) + '</div>' +
+                (tagsHtml ? '<div style="margin-top:6px">' + tagsHtml + '</div>' : '') +
+                companionHtml +
+                noteHtml;
+        }
+
+        /* Push the picked bundled spec's paths into the hidden inputs.
+           Also apply any per-entry ``env_override`` to the Environment
+           field \u2014 some demos (DAIS) ship with a non-default env
+           suffix and would otherwise be rejected by the env-mismatch
+           preview guard. */
+        function _syncBundledToHidden() {
+            var entry = _bundledSpecById(bundledSelect.value);
+            if (!entry) return;
+            var fmt = _currentBundledFormat();
+            /* Prefer the user's chosen format, but fall back to whichever
+               this spec actually ships if the chosen format is missing. */
+            var path = entry.formats[fmt] ||
+                       entry.formats.json || entry.formats.yaml || '';
+            hiddenOnbPath.value = path;
+            hiddenLocalDir.value = entry.default_local_directory || '';
+            hiddenUpdate.value = entry.default_update_paths ? '1' : '0';
+            if (entry.env_override) {
+                var envInput = document.getElementById('environment');
+                if (envInput && envInput.value !== entry.env_override) {
+                    envInput.value = entry.env_override;
+                }
+            }
+            _renderBundledMeta(entry);
+        }
+
+        /* Push the UC-Volume inputs into the hidden inputs. UC mode
+           ALWAYS uses ``update_paths=Yes`` — UC-Volume specs that
+           reference ``{uc_volume_path}`` need the substitution to
+           target the actual volume the App creates. */
+        function _syncUcToHidden() {
+            var onbInput = document.getElementById('uc_onboarding_file_path');
+            var dirInput = document.getElementById('uc_local_directory');
+            hiddenOnbPath.value = (onbInput && onbInput.value || '').trim();
+            hiddenLocalDir.value = (dirInput && dirInput.value || '').trim();
+            hiddenUpdate.value = '1';
+        }
+
+        /* Push the Manual inputs into the hidden inputs. */
+        function _syncManualToHidden() {
+            var onbInput = document.getElementById('manual_onboarding_file_path');
+            var dirInput = document.getElementById('manual_local_directory');
+            var upChecked = document.querySelector('input[name="manual_update_paths"]:checked');
+            hiddenOnbPath.value = (onbInput && onbInput.value || '').trim();
+            hiddenLocalDir.value = (dirInput && dirInput.value || '').trim();
+            hiddenUpdate.value = (upChecked && upChecked.value) || '1';
+        }
+
+        /* Show / hide the three panes based on the mode radio, then
+           sync the relevant inputs through. */
+        function _onModeChange() {
+            var mode = (document.querySelector('input[name="source_mode"]:checked') || {}).value
+                       || 'bundled';
+            paneBundled.style.display = (mode === 'bundled') ? '' : 'none';
+            paneUc.style.display      = (mode === 'uc_volume') ? '' : 'none';
+            paneManual.style.display  = (mode === 'manual') ? '' : 'none';
+            if (mode === 'bundled')      _syncBundledToHidden();
+            else if (mode === 'uc_volume') _syncUcToHidden();
+            else                         _syncManualToHidden();
+        }
+
+        /* Fetch the bundled-spec catalogue, populate the dropdown,
+           and select the flagship demo by default. */
+        function _loadBundledSpecs() {
+            fetch('/onboarding/bundled-specs')
+                .then(function(r) { return r.json(); })
+                .then(function(body) {
+                    bundledData = body.specs || [];
+                    if (!bundledData.length) {
+                        bundledSelect.innerHTML = '<option value="">(no bundled demos found)</option>';
+                        bundledMeta.innerHTML = '<em>The App container has no bundled demos. Switch to "Unity Catalog Volume" or "Manual paths" mode.</em>';
+                        return;
+                    }
+                    bundledSelect.innerHTML = bundledData.map(function(s) {
+                        return '<option value="' + escapeHtml(s.id) + '">' +
+                               escapeHtml(s.label) + '</option>';
+                    }).join('');
+                    /* Default-pick priority: the flagship ``onboarding``
+                       (DAIS end-to-end demo) leads the picker because
+                       it's the demo the App is most often shown with
+                       \u2014 it exercises CDC + DQE + silver transforms
+                       in a single pass and surfaces the most surface
+                       area of SDP-META. Fall back to the simpler
+                       ``onboarding_cars`` if DAIS is missing from the
+                       container, then to the first entry. */
+                    var defaultIdx = 0;
+                    var preferenceOrder = ['onboarding', 'onboarding_cars'];
+                    for (var p = 0; p < preferenceOrder.length; p++) {
+                        var found = false;
+                        for (var i = 0; i < bundledData.length; i++) {
+                            if (bundledData[i].id === preferenceOrder[p]) {
+                                defaultIdx = i;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found) break;
+                    }
+                    bundledSelect.selectedIndex = defaultIdx;
+                    _syncBundledToHidden();
+                })
+                .catch(function(err) {
+                    bundledSelect.innerHTML = '<option value="">(failed to load bundled demos)</option>';
+                    bundledMeta.innerHTML = '<em style="color:var(--brand)">' +
+                        escapeHtml('Could not load bundled demos: ' + err.message) + '</em>';
+                });
+        }
+
+        /* Wire the listeners. ``change`` on radios, ``input`` on text
+           fields — keep the hidden inputs always-current so the form
+           submit and preview both see the latest user state. */
+        document.querySelectorAll('input[name="source_mode"]').forEach(function(el) {
+            el.addEventListener('change', _onModeChange);
+        });
+        document.querySelectorAll('input[name="bundled_format"]').forEach(function(el) {
+            el.addEventListener('change', _syncBundledToHidden);
+        });
+        bundledSelect.addEventListener('change', _syncBundledToHidden);
+        ['uc_onboarding_file_path', 'uc_local_directory'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('input', _syncUcToHidden);
+        });
+        ['manual_onboarding_file_path', 'manual_local_directory'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('input', _syncManualToHidden);
+        });
+        document.querySelectorAll('input[name="manual_update_paths"]').forEach(function(el) {
+            el.addEventListener('change', _syncManualToHidden);
+        });
+
+        _loadBundledSpecs();
+        _onModeChange();
+    })();
+
+    /* ── Onboarding preview button ──────────────────────────────
+       Side-effect-free dry-run. POSTs the same form payload to
+       /onboarding/preview, which substitutes {placeholders} server-
+       side using the form's values and the deterministic UC volume
+       path (catalog/schema), then returns the rendered text. No
+       WorkspaceClient call, no UC volume creation, no job launched.
+       Caches no state — re-run after every form edit.
+    */
+    (function wireOnboardingPreview() {
+        var btn = document.getElementById('onboardingPreviewBtn');
+        if (!btn) return;
+        var form = document.getElementById('onboardingForm');
+        btn.addEventListener('click', function() {
+            btn.disabled = true;
+            var origLabel = btn.innerHTML;
+            btn.innerHTML = '&#8987; Rendering…';
+
+            fetch('/onboarding/preview', { method: 'POST', body: new FormData(form) })
+                .then(function(r) {
+                    var ct = r.headers.get('content-type') || '';
+                    if (ct.indexOf('application/json') < 0) {
+                        return r.text().then(function() {
+                            throw new Error('Server error (HTTP ' + r.status + '). Check app logs.');
+                        });
+                    }
+                    return r.json().then(function(body) { return { ok: r.ok, body: body }; });
+                })
+                .then(function(res) {
+                    if (!res.ok || res.body.error) {
+                        showModal(
+                            '<p style="color:var(--brand);font-weight:500;white-space:pre-wrap">' +
+                            escapeHtml(res.body.error || 'Preview failed.') + '</p>',
+                            'Preview Error'
+                        );
+                        return;
+                    }
+                    var b = res.body;
+                    var ext = b.source_extension || '';
+                    var ucPath = b.uc_volume_path_used || '';
+                    var note = b.note || '';
+                    var rendered = b.rendered || '';
+                    var detectedEnvs = b.detected_envs || [];
+                    var envWarning = b.env_warning || '';
+                    var requiredFiles = b.required_files || [];
+                    var supDir = b.supporting_files_directory_used || '';
+
+                    // Build the required-files preflight panel. Three
+                    // states per row: known-exists (green), known-missing
+                    // (red), unknown / can't classify (grey). When any
+                    // row is missing we surface an aggregate header
+                    // warning so the user can't miss it — empty
+                    // supporting files are the second-most-common cause
+                    // of "job SUCCESS, tables empty" after env mismatch.
+                    var missingCount = 0, presentCount = 0, unknownCount = 0;
+                    var rowsHtml = requiredFiles.map(function(f) {
+                        var statusIcon, statusColor, statusLabel;
+                        if (f.exists === true) {
+                            statusIcon = '&#10004;'; statusColor = '#2e7d32';
+                            statusLabel = 'present'; presentCount++;
+                        } else if (f.exists === false) {
+                            statusIcon = '&#10006;'; statusColor = '#c62828';
+                            statusLabel = 'missing'; missingCount++;
+                        } else {
+                            statusIcon = '&#9888;'; statusColor = '#f9a825';
+                            statusLabel = 'unknown'; unknownCount++;
+                        }
+                        return '<tr>' +
+                          '<td style="padding:4px 8px;color:' + statusColor +
+                          ';font-weight:bold;text-align:center;width:24px">' + statusIcon + '</td>' +
+                          '<td style="padding:4px 8px;font-size:11px;color:var(--ink-60,#777);white-space:nowrap">' +
+                            escapeHtml(f.entity || '') + '</td>' +
+                          '<td style="padding:4px 8px;font-size:11px;color:var(--ink-80,#444);' +
+                            'font-family:Menlo,Consolas,monospace;white-space:nowrap">' +
+                            escapeHtml(f.field || '') + '</td>' +
+                          '<td style="padding:4px 8px;font-size:11px;font-family:Menlo,Consolas,monospace;' +
+                            'word-break:break-all">' + escapeHtml(f.check_path || f.path || '') + '</td>' +
+                          '<td style="padding:4px 8px;font-size:11px;color:' + statusColor + '">' +
+                            statusLabel + '</td>' +
+                        '</tr>';
+                    }).join('');
+                    var requiredHeader = '';
+                    var requiredTable = '';
+                    if (requiredFiles.length > 0) {
+                        var headerColor = (missingCount > 0) ? '#c62828' :
+                                          (unknownCount > 0) ? '#f9a825' : '#2e7d32';
+                        var headerBg = (missingCount > 0) ? '#fff4f4' :
+                                       (unknownCount > 0) ? '#fff8e1' : '#e8f5e9';
+                        var summary = presentCount + ' present';
+                        if (missingCount > 0) summary += ', ' + missingCount + ' missing';
+                        if (unknownCount > 0) summary += ', ' + unknownCount + ' unknown';
+                        var headerWarning = (missingCount > 0)
+                            ? '<div style="margin-top:4px;font-size:12px;color:' + headerColor + '">' +
+                              '<strong>Missing files will cause the onboarding job to ' +
+                              'silently produce empty dataflowspec tables.</strong> Upload ' +
+                              'the missing files to your supporting-files directory or pick ' +
+                              'a different spec.</div>' : '';
+                        requiredHeader =
+                            '<div style="background:' + headerBg + ';border-left:3px solid ' +
+                            headerColor + ';padding:10px 14px;border-radius:4px;margin-bottom:12px;' +
+                            'font-size:13px;line-height:1.5">' +
+                              '<strong>Required files:</strong> ' + escapeHtml(summary) + '. ' +
+                              'Supporting directory: <code style="font-size:11px">' +
+                              escapeHtml(supDir) + '</code>' + headerWarning +
+                            '</div>';
+                        requiredTable =
+                            '<details style="margin-bottom:14px" open>' +
+                            '<summary style="cursor:pointer;font-weight:500;font-size:13px;' +
+                            'margin-bottom:6px">Show per-file detail</summary>' +
+                            '<div style="max-height:32vh;overflow:auto;border:1px solid ' +
+                            'var(--border-1,#e5e5e8);border-radius:4px">' +
+                            '<table style="width:100%;border-collapse:collapse;font-size:11px">' +
+                            '<thead><tr style="background:var(--surface-2,#f5f5f7);' +
+                            'text-align:left">' +
+                              '<th style="padding:6px 8px;width:24px"></th>' +
+                              '<th style="padding:6px 8px">Entity</th>' +
+                              '<th style="padding:6px 8px">Field</th>' +
+                              '<th style="padding:6px 8px">Path checked</th>' +
+                              '<th style="padding:6px 8px">Status</th>' +
+                            '</tr></thead>' +
+                            '<tbody>' + rowsHtml + '</tbody></table></div></details>';
+                    }
+
+                    // Build a compact preview modal: metadata bar, note,
+                    // monospace rendered text. The metadata bar surfaces
+                    // exactly what the user will see at onboard time —
+                    // catalog / schema → deterministic UC volume path.
+                    // An env_warning bar (red) is rendered above the
+                    // metadata when the form's Environment doesn't match
+                    // the template's env suffix — this is the single
+                    // most common cause of "job SUCCESS, tables empty".
+                    var html =
+                        (envWarning
+                          ? '<div style="background:#fff4f4;border:1px solid var(--brand,#e53935);' +
+                            'color:var(--brand,#c62828);padding:10px 14px;border-radius:6px;' +
+                            'margin-bottom:12px;font-size:13px;line-height:1.5">' +
+                              '<strong>Environment mismatch:</strong> ' + escapeHtml(envWarning) +
+                            '</div>'
+                          : '') +
+                        requiredHeader +
+                        requiredTable +
+                        '<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px;' +
+                        'background:var(--surface-2,#f5f5f7);padding:10px 14px;border-radius:6px;' +
+                        'margin-bottom:12px">' +
+                          '<div><strong>Format:</strong> ' + escapeHtml(ext || '(detected as JSON)') + '</div>' +
+                          '<div><strong>UC volume:</strong> <code style="font-size:12px">' +
+                              escapeHtml(ucPath) + '</code></div>' +
+                          (detectedEnvs.length
+                            ? '<div><strong>Detected env suffix(es):</strong> <code style="font-size:12px">' +
+                              escapeHtml(detectedEnvs.join(', ')) + '</code></div>'
+                            : '') +
+                        '</div>' +
+                        (note ? '<p style="font-size:12px;color:var(--text-muted,#666);' +
+                                'margin:0 0 12px 0">' + escapeHtml(note) + '</p>' : '') +
+                        '<details style="margin:0"><summary style="cursor:pointer;' +
+                        'font-weight:500;font-size:13px;margin-bottom:6px">' +
+                        'Show rendered template</summary>' +
+                        '<pre style="background:#1e1e1e;color:#e0e0e0;padding:14px 16px;' +
+                        'border-radius:6px;max-height:50vh;overflow:auto;font-family:Menlo,Consolas,monospace;' +
+                        'font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-all;' +
+                        'margin:0">' + escapeHtml(rendered) + '</pre></details>';
+                    showModal(html, 'Onboarding Template Preview');
+                })
+                .catch(function(err) {
+                    handleError(err, 'Preview Error');
+                })
+                .finally(function() {
+                    btn.disabled = false;
+                    btn.innerHTML = origLabel;
+                });
+        });
+    })();
+
     /* ── Deployment form ────────────────────────────────────── */
+    /* Surface a single mandatory-field error inline on the form. The
+       previous build relied entirely on the server-side check, which
+       meant the user had to wait for a network round-trip and a modal
+       to learn that "Pipeline Name" was empty — bad UX for a form with
+       9+ fields. The required-field set is conditional on Layer and
+       Unity Catalog Enabled, so HTML5 ``required`` alone isn't enough
+       (the form intentionally carries ``novalidate``). Validate
+       here, mirror the same rule set in the server-side
+       ``handle_deploy_form`` for defence in depth. */
+    function _validateDeploymentForm(form) {
+        function _val(name) {
+            var el = form.elements[name];
+            return el ? (el.value || '').trim() : '';
+        }
+        var ucEnabled = (form.querySelector('input[name="uc_enabled"]:checked') || {}).value === '1';
+        /* Default falls back to ``bronze_silver`` to match the visible
+           dropdown default. The required-field set below treats
+           ``bronze_silver`` as the strict-superset of bronze and silver
+           (both groups + both DataflowSpec tables required), so if the
+           dropdown is somehow missing the validation errs on the side
+           of catching more missing fields rather than waving them through. */
+        var layer = _val('deploylayer') || 'bronze_silver';
+        var requiredFields = [
+            ['pipeline_name',         'Pipeline Name'],
+            ['spc_schema_name',       'DataFlow Spec Schema'],
+            ['dlt_target_schema',     'Target Schema'],
+        ];
+        if (ucEnabled) {
+            requiredFields.push(['uc_catalog_name', 'Unity Catalog Name']);
+        }
+        if (layer === 'bronze' || layer === 'bronze_silver') {
+            requiredFields.push(['onboard_bronze_group',        'Bronze Group']);
+            requiredFields.push(['bronze_dataflowspec_table',   'Bronze Dataflow Spec Table']);
+        }
+        if (layer === 'silver' || layer === 'bronze_silver') {
+            requiredFields.push(['onboard_silver_group',        'Silver Group']);
+            requiredFields.push(['silver_dataflowspec_table',   'Silver Dataflow Spec Table']);
+        }
+        var missing = [];
+        var firstMissingEl = null;
+        requiredFields.forEach(function(pair) {
+            var name = pair[0], label = pair[1];
+            var el = form.elements[name];
+            var v = _val(name);
+            if (!v) {
+                missing.push(label);
+                if (!firstMissingEl && el) firstMissingEl = el;
+                if (el) {
+                    el.style.borderColor = '#FF3621';
+                    el.style.boxShadow = '0 0 0 3px rgba(255,54,33,.16)';
+                }
+            } else if (el) {
+                el.style.borderColor = '';
+                el.style.boxShadow = '';
+            }
+        });
+        if (missing.length > 0) {
+            if (firstMissingEl && firstMissingEl.focus) firstMissingEl.focus();
+            return missing;
+        }
+        return null;
+    }
+
+    /* Clear the red highlight as soon as the user starts typing in
+       a previously-flagged field, so the form doesn't stay angry-red
+       after the issue is fixed. */
+    (function() {
+        var form = document.getElementById('deploymentForm');
+        if (!form) return;
+        form.addEventListener('input', function(evt) {
+            var t = evt.target;
+            if (t && t.style && (t.style.borderColor || t.style.boxShadow)) {
+                t.style.borderColor = '';
+                t.style.boxShadow = '';
+            }
+        });
+    })();
+
     document.getElementById('deploymentForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        showLoading('Deploying pipeline…');
+
+        var missing = _validateDeploymentForm(this);
+        if (missing) {
+            showModal(
+                '<p style="color:var(--brand);font-weight:500;margin-bottom:8px">' +
+                'Please fill in the following required field' + (missing.length > 1 ? 's' : '') + ':</p>' +
+                '<ul style="margin:0;padding-left:1.2em">' +
+                missing.map(function(m) { return '<li>' + escapeHtml(m) + '</li>'; }).join('') +
+                '</ul>',
+                'Missing Required Fields'
+            );
+            return;
+        }
+
+        showProgressModal('Deploying Pipeline…');
+        _appendProgressLine('info', '→ Submitting deploy request…');
+
         fetch('/deploy', { method: 'POST', body: new FormData(this) })
-            .then(function(r) { return r.json(); })
-            .then(function(d) { hideLoading(); renderApiResponse(d, 'Deploy Result'); })
-            .catch(function(e) { hideLoading(); handleError(e, 'Deploy Error'); });
+            .then(function(r) {
+                var ct = r.headers.get('content-type') || '';
+                if (ct.indexOf('application/json') < 0) {
+                    return r.text().then(function() {
+                        throw new Error('Server error (HTTP ' + r.status + '). Check app logs.');
+                    });
+                }
+                return r.json();
+            })
+            .then(function(d) {
+                if (d.error) {
+                    _finishProgressModal(false, 'Validation failed');
+                    setTimeout(function() {
+                        closeProgressModal();
+                        showModal(
+                            '<p style="color:var(--brand);font-weight:500;white-space:pre-wrap">' +
+                            escapeHtml(d.error) + '</p>',
+                            'Deploy Error'
+                        );
+                    }, 400);
+                    return;
+                }
+                if (d.token) {
+                    /* Same caveat as the onboarding flow: the request has
+                       been accepted, but the actual Databricks pipeline
+                       hasn't been created yet. The CLI subprocess is
+                       still rendering the deployment payload + calling
+                       pipelines.create; the pipeline URL appears in the
+                       log stream once Databricks accepts it. */
+                    _appendProgressLine('info',
+                        '→ Launching pipeline deployment… generating the pipeline definition and submitting to Databricks. ' +
+                        'The pipeline URL will appear below once it\u2019s registered (typically ~15\u201330 s).');
+                    _pollJob(d.token, function(jobData) {
+                        var success = jobData.returncode === 0;
+                        var label   = success ? 'Completed successfully' : 'Failed (exit ' + jobData.returncode + ')';
+                        _finishProgressModal(success, label);
+                        setTimeout(function() {
+                            closeProgressModal();
+                            renderApiResponse(jobData.result || {returncode: jobData.returncode}, 'Deploy Result');
+                        }, success ? 800 : 1200);
+                    });
+                }
+            })
+            .catch(function(err) {
+                closeProgressModal();
+                handleError(err, 'Deploy Error');
+            });
     });
 
     /* ── UC catalog access pre-flight ───────────────────────── */
@@ -1196,7 +2804,7 @@
         _setUcStatus('info', 'Checking access on <code>' + escapeHtml(ucName) + '</code>…');
 
         fetch('/check-uc-grants?uc_name=' + encodeURIComponent(ucName))
-            .then(function(r) { return r.json().then(function(d) { return { status: r.status, body: d }; }); })
+            .then(function(r) { return _parseJSON(r).then(function(d) { return { status: r.status, body: d }; }); })
             .then(function(resp) {
                 btn.disabled = false; btn.textContent = originalLabel;
                 if (resp.status >= 400 || (resp.body.error && !resp.body.grant_sql)) {
@@ -1286,7 +2894,7 @@
         if (!ucName) { _flashUcInputInvalid(); return; }
         showLoading('Verifying access…');
         fetch('/check-uc-grants?uc_name=' + encodeURIComponent(ucName))
-            .then(function(r) { return r.json(); })
+            .then(_parseJSON)
             .then(function(d) {
                 hideLoading();
                 if (d.ok) {
@@ -1321,7 +2929,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ demo_name: command, uc_name: ucInput.value.trim() })
         })
-        .then(function(r) { return r.json().then(function(d) { return { status: r.status, body: d }; }); })
+        .then(function(r) { return _parseJSON(r).then(function(d) { return { status: r.status, body: d }; }); })
         .then(function(resp) {
             hideLoading();
             /* /rundemo returns 400 + grant_required:true when the App SP
@@ -1349,6 +2957,920 @@
        name — a stale "OK" indicator for a different catalog name would
        be misleading. */
     document.getElementById('demo_uc_name').addEventListener('input', _clearUcStatus);
+
+    /* ── Warehouse configuration ────────────────────────────── */
+    var _warehouseMode = 'existing';
+
+    function selectWhMode(mode) {
+        _warehouseMode = mode;
+        document.getElementById('whModeExisting').checked = (mode === 'existing');
+        document.getElementById('whModeCreate').checked   = (mode === 'create');
+        document.getElementById('whOptionExisting').classList.toggle('selected', mode === 'existing');
+        document.getElementById('whOptionCreate').classList.toggle('selected', mode === 'create');
+        document.getElementById('whExistingBody').style.display = mode === 'existing' ? 'block' : 'none';
+        document.getElementById('whCreateBody').style.display   = mode === 'create'   ? 'block' : 'none';
+        document.getElementById('whStatusMsg').className = '';
+        document.getElementById('whStatusMsg').textContent = '';
+    }
+
+    function openWarehouseModal() {
+        document.getElementById('warehouseModal').classList.add('visible');
+        document.getElementById('whStatusMsg').className = '';
+        document.getElementById('whStatusMsg').textContent = '';
+        _loadWarehouseList();
+        _refreshWhChip();  // show current state
+    }
+
+    function closeWarehouseModal() {
+        document.getElementById('warehouseModal').classList.remove('visible');
+    }
+
+    document.getElementById('warehouseModal').addEventListener('click', function(e) {
+        if (e.target === this) closeWarehouseModal();
+    });
+
+    function _loadWarehouseList() {
+        var sel = document.getElementById('whExistingSelect');
+        sel.innerHTML = '<option value="">Loading&hellip;</option>';
+        fetch('/api/warehouse/list')
+            .then(_parseJSON)
+            .then(function(list) {
+                if (list.error) {
+                    sel.innerHTML = '<option value="">Error: ' + escapeHtml(list.error) + '</option>';
+                    return;
+                }
+                if (!list.length) {
+                    sel.innerHTML = '<option value="">No warehouses found</option>';
+                    return;
+                }
+                sel.innerHTML = list.map(function(w) {
+                    var label = w.name + ' (' + (w.state || '?') + ')';
+                    return '<option value="' + escapeHtml(w.id) + '">' + escapeHtml(label) + '</option>';
+                }).join('');
+            })
+            .catch(function(e) {
+                sel.innerHTML = '<option value="">Error: ' + escapeHtml(e.message) + '</option>';
+            });
+    }
+
+    function applyWarehouseConfig() {
+        var btn = document.getElementById('whApplyBtn');
+        var msgEl = document.getElementById('whStatusMsg');
+        msgEl.className = ''; msgEl.textContent = '';
+        btn.disabled = true; btn.textContent = 'Applying…';
+
+        var body = { mode: _warehouseMode };
+        if (_warehouseMode === 'existing') {
+            var sel = document.getElementById('whExistingSelect');
+            body.warehouse_id = sel.value;
+            if (!body.warehouse_id) {
+                msgEl.className = 'err'; msgEl.textContent = 'Select a warehouse first.';
+                btn.disabled = false; btn.textContent = 'Apply';
+                return;
+            }
+        } else {
+            body.name = document.getElementById('whCreateName').value.trim() || 'sdp-meta-app-warehouse';
+        }
+
+        fetch('/api/warehouse/configure', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        })
+        .then(_parseJSON)
+        .then(function(d) {
+            btn.disabled = false; btn.textContent = 'Apply';
+            if (d.error) {
+                msgEl.className = 'err';
+                msgEl.textContent = 'Error: ' + d.error;
+            } else {
+                msgEl.className = 'ok';
+                msgEl.textContent = d.message || 'Configured.';
+                _updateWhChip(d.name, d.state);
+                /* Dismiss modal after a brief pause so the user sees the message */
+                setTimeout(closeWarehouseModal, 1800);
+            }
+        })
+        .catch(function(e) {
+            btn.disabled = false; btn.textContent = 'Apply';
+            msgEl.className = 'err'; msgEl.textContent = 'Error: ' + e.message;
+        });
+    }
+
+    function _updateWhChip(name, state) {
+        var dot   = document.getElementById('whDot');
+        var label = document.getElementById('whChipLabel');
+        dot.className = 'wh-dot';
+        if (!name && !state) {
+            dot.classList.add('none');
+            label.textContent = 'Warehouse';
+            return;
+        }
+        var s = (state || '').toUpperCase();
+        if (s === 'RUNNING') dot.classList.add('ok');
+        else if (s === 'STARTING' || s === 'STOPPING') dot.classList.add('warn');
+        else dot.classList.add('none');
+        label.textContent = name ? name : 'Warehouse';
+    }
+
+    function _refreshWhChip() {
+        fetch('/api/warehouse/status')
+            .then(_parseJSON)
+            .then(function(d) {
+                if (d.configured) _updateWhChip(d.name || d.warehouse_id, d.state);
+                else _updateWhChip(null, null);
+            })
+            .catch(function() { /* silent — chip stays in default state */ });
+    }
+
+    /* Prompt the warehouse modal if a feature needs a warehouse but none is set */
+    function _requireWarehouse(onReady) {
+        fetch('/api/warehouse/status')
+            .then(_parseJSON)
+            .then(function(d) {
+                if (d.configured) { onReady(); }
+                else { openWarehouseModal(); }
+            })
+            .catch(function() { onReady(); /* try anyway */ });
+    }
+
+    /* Check warehouse on page load */
+    _refreshWhChip();
+
+    /* ── Specs panel ────────────────────────────────────────── */
+
+    /** Case-insensitive indexOf for column name arrays.
+     *  Databricks SQL warehouses may return column names in lowercase
+     *  even when the Delta schema stores them as camelCase. */
+    function _colIdx(colArray, name) {
+        var lower = name.toLowerCase();
+        for (var i = 0; i < colArray.length; i++) {
+            if ((colArray[i] || '').toLowerCase() === lower) return i;
+        }
+        return -1;
+    }
+
+    /* State shared between loadSpecs() and deploySelectedGroup() */
+    var _specsData    = { bronze: null, silver: null };
+    var _selectedGroup = null;
+
+    /* KEY DISPLAY COLUMNS — shown in the specs table in this order.
+       Any column not in this list is still stored in _specsData but not rendered.
+       Adjust to match the actual DataflowSpec schema if columns are renamed. */
+    /* DataflowSpec Delta columns are camelCase (matching the dataclass field names). */
+    var BRONZE_DISPLAY_COLS = [
+        'dataFlowId', 'dataFlowGroup', 'sourceFormat',
+        'sourceDetails', 'cdcApplyChanges', 'appendFlows',
+        'version', 'createDate', 'createdBy'
+    ];
+    var SILVER_DISPLAY_COLS = [
+        'dataFlowId', 'dataFlowGroup', 'sourceFormat',
+        'sourceDetails', 'selectExp', 'cdcApplyChanges',
+        'version', 'createDate', 'createdBy'
+    ];
+
+    /* Pre-fill downstream panels (Specs + Deployment) from the onboarding
+       form whenever the user navigates to them. Single wrapper around
+       showPanel so the prefill logic runs exactly once per panel visit. */
+    (function wirePanelAutoFill() {
+        var origShow = window.showPanel;
+        window.showPanel = function(panelId, btn) {
+            origShow(panelId, btn);
+            if (panelId === 'specs')      _prefillSpecsFromOnboarding();
+            if (panelId === 'deployment') _prefillDeployFromOnboarding();
+        };
+    })();
+
+    function _prefillSpecsFromOnboarding() {
+        var catalog = (document.getElementById('unity_catalog_name') || {}).value || '';
+        var schema  = (document.getElementById('sdp_meta_schema')    || {}).value || '';
+        var bTable  = (document.getElementById('bronze_table')        || {}).value || 'bronze_dataflowspec';
+        var sTable  = (document.getElementById('silver_table')        || {}).value || 'silver_dataflowspec';
+        if (catalog) document.getElementById('specsUcCatalog').value   = catalog;
+        if (schema)  document.getElementById('specsSchema').value       = schema;
+        if (bTable)  document.getElementById('specsBronzeTable').value  = bTable;
+        if (sTable)  document.getElementById('specsSilverTable').value  = sTable;
+    }
+
+    /* Pre-fill the Deployment form from the Onboarding form. Catalog,
+       spec-schema, and the two dataflowspec table names map 1:1.
+       The pipeline's *target* schema (where output tables land) depends
+       on which layer the user picks in the deploy_layer dropdown:
+         bronze        → onboarding's bronze_schema
+         silver        → onboarding's silver_schema
+         bronze_silver → bronze_schema (deployment guidance is to deploy
+                         bronze and silver as separate pipelines anyway).
+       The deployment-time fields (pipeline_name, bronze_group,
+       silver_group, deploy_layer) are intentionally NOT touched — those
+       are user choices made *after* reviewing the DataflowSpec rows. */
+    function _prefillDeployFromOnboarding() {
+        function _val(id) {
+            var el = document.getElementById(id);
+            return el ? (el.value || '').trim() : '';
+        }
+        function _set(id, value) {
+            var el = document.getElementById(id);
+            if (el && value) el.value = value;
+        }
+        var catalog      = _val('unity_catalog_name');
+        var specSchema   = _val('sdp_meta_schema');
+        var bronzeSchema = _val('bronze_schema');
+        var silverSchema = _val('silver_schema');
+        var bronzeTable  = _val('bronze_table') || 'bronze_dataflowspec';
+        var silverTable  = _val('silver_table') || 'silver_dataflowspec';
+
+        _set('uc_catalog_name',           catalog);
+        _set('spc_schema_name',           specSchema);
+        _set('bronze_dataflowspec_table', bronzeTable);
+        _set('silver_dataflowspec_table', silverTable);
+
+        var layerEl     = document.getElementById('deploy_layer');
+        /* Default to ``bronze_silver`` to match the visible dropdown
+           default. Both ``bronze`` and ``bronze_silver`` target the
+           bronze schema (the pipeline writes there even when it also
+           writes silver), so the schema mapping below is unaffected. */
+        var currentLayer = layerEl ? (layerEl.value || 'bronze_silver') : 'bronze_silver';
+        var targetSchema = (currentLayer === 'silver') ? silverSchema : bronzeSchema;
+        _set('dlt_target_schema', targetSchema);
+    }
+
+    /* Keep the deployment target schema in sync when the user toggles the
+       layer dropdown — but only if onboarding actually has values for both
+       bronze and silver schemas. Avoids clobbering a manual edit when the
+       onboarding bronze/silver schemas are blank. */
+    (function wireDeployLayerSync() {
+        var layerEl = document.getElementById('deploy_layer');
+        if (!layerEl) return;
+        layerEl.addEventListener('change', function() {
+            var bronzeSchema = ((document.getElementById('bronze_schema') || {}).value || '').trim();
+            var silverSchema = ((document.getElementById('silver_schema') || {}).value || '').trim();
+            var targetEl = document.getElementById('dlt_target_schema');
+            if (!targetEl) return;
+            var next = (layerEl.value === 'silver') ? silverSchema : bronzeSchema;
+            if (next) targetEl.value = next;
+        });
+    })();
+
+    function loadSpecs() {
+        _requireWarehouse(_doLoadSpecs);
+    }
+    function _doLoadSpecs() {
+        var catalog     = document.getElementById('specsUcCatalog').value.trim();
+        var schema      = document.getElementById('specsSchema').value.trim();
+        var bronzeTable = document.getElementById('specsBronzeTable').value.trim() || 'bronze_dataflowspec';
+        var silverTable = document.getElementById('specsSilverTable').value.trim() || 'silver_dataflowspec';
+        var statusEl    = document.getElementById('specsLoadStatus');
+
+        if (!catalog || !schema) {
+            statusEl.style.color = 'var(--brand)';
+            statusEl.textContent = 'Enter a UC catalog and schema name first.';
+            return;
+        }
+
+        statusEl.style.color = 'var(--ink-60)';
+        statusEl.textContent = 'Querying DataflowSpec tables…';
+        document.getElementById('specsGroupSection').style.display = 'none';
+        _selectedGroup = null;
+
+        var url = '/api/dataflowspecs?'
+            + 'catalog='      + encodeURIComponent(catalog)
+            + '&schema='      + encodeURIComponent(schema)
+            + '&bronze_table=' + encodeURIComponent(bronzeTable)
+            + '&silver_table=' + encodeURIComponent(silverTable);
+
+        fetch(url)
+            .then(_parseJSON)
+            .then(function(d) {
+                if (d.error) {
+                    statusEl.style.color = 'var(--brand)';
+                    statusEl.textContent = 'Error: ' + d.error;
+                    return;
+                }
+                _specsData = d;
+
+                /* Collect per-layer errors (table not found, etc.) */
+                var layerErrors = [];
+                if (d.bronze && d.bronze.error) layerErrors.push('Bronze: ' + d.bronze.error);
+                if (d.silver && d.silver.error) layerErrors.push('Silver: ' + d.silver.error);
+
+                /* Derive groups directly from rows (robust against backend case issues).
+                   Fall back to backend-provided groups array if rows yield nothing. */
+                var allGroups = [];
+                var seen = {};
+                function _extractGroups(layerData) {
+                    if (!layerData || layerData.error) return;
+                    var cols = layerData.columns || [];
+                    var gi = _colIdx(cols, 'dataFlowGroup');
+                    (layerData.rows || []).forEach(function(r) {
+                        var g = gi >= 0 ? r[gi] : null;
+                        if (g && !seen[g]) { seen[g] = true; allGroups.push(g); }
+                    });
+                }
+                _extractGroups(d.bronze);
+                _extractGroups(d.silver);
+                if (!allGroups.length) {
+                    /* Backend already did this extraction — use it as fallback */
+                    (d.bronze && !d.bronze.error ? d.bronze.groups || [] : [])
+                        .concat(d.silver && !d.silver.error ? d.silver.groups || [] : [])
+                        .forEach(function(g) {
+                            if (g && !seen[g]) { seen[g] = true; allGroups.push(g); }
+                        });
+                }
+
+                var bronzeCount = (d.bronze && !d.bronze.error) ? (d.bronze.rows || []).length : 0;
+                var silverCount = (d.silver && !d.silver.error) ? (d.silver.rows || []).length : 0;
+
+                /* Status line */
+                if (layerErrors.length && !bronzeCount && !silverCount) {
+                    /* Both layers failed — show info box, not raw SQL */
+                    statusEl.style.color = 'var(--ink-60)';
+                    statusEl.innerHTML =
+                        '<span style="background:var(--ink-05);border:1px solid var(--border-em);border-radius:6px;' +
+                        'padding:10px 14px;display:block;line-height:1.5">' +
+                        '<strong style="color:var(--brand)">DataflowSpec tables not found.</strong><br>' +
+                        'Run <strong>Onboarding</strong> (Step 1) first to create the spec tables, ' +
+                        'then return here to load the specs.<br>' +
+                        '<span style="color:var(--ink-40);font-size:.8rem">' +
+                        escapeHtml(layerErrors.join(' | ')) + '</span></span>';
+                } else {
+                    var msg = allGroups.length + ' group(s) found — '
+                        + bronzeCount + ' bronze flow(s), ' + silverCount + ' silver flow(s).';
+                    if (layerErrors.length) msg += '  ⚠ ' + layerErrors.join('; ');
+                    statusEl.style.color = 'var(--ink-60)';
+                    statusEl.textContent = msg;
+                }
+
+                /* Build group pills */
+                var pillsEl = document.getElementById('specsGroupPills');
+                if (allGroups.length === 0) {
+                    pillsEl.innerHTML = '<span style="color:var(--ink-40);font-size:.88rem">No groups found — run onboarding first.</span>';
+                } else {
+                    pillsEl.innerHTML = allGroups.map(function(g) {
+                        return '<button class="group-pill" onclick="selectGroup(\'' + escapeHtml(g) + '\', this)">'
+                             + escapeHtml(g) + '</button>';
+                    }).join('');
+                }
+
+                document.getElementById('specsGroupSection').style.display = 'block';
+                document.getElementById('specsDeployBar').style.display = 'none';
+
+                /* Render full tables (all groups visible initially) */
+                _renderSpecsTable('bronze', null);
+                _renderSpecsTable('silver', null);
+            })
+            .catch(function(e) {
+                statusEl.style.color = 'var(--brand)';
+                statusEl.textContent = 'Error: ' + e.message;
+            });
+    }
+
+    function selectGroup(groupName, pillBtn) {
+        _selectedGroup = groupName;
+        /* Update pill highlight */
+        document.querySelectorAll('.group-pill').forEach(function(p) { p.classList.remove('selected'); });
+        if (pillBtn) pillBtn.classList.add('selected');
+        /* Re-render tables filtered to selected group */
+        _renderSpecsTable('bronze', groupName);
+        _renderSpecsTable('silver', groupName);
+        /* Show deploy bar */
+        document.getElementById('specsDeployGroupLabel').textContent = groupName;
+        document.getElementById('specsDeployBar').style.display = 'flex';
+        document.getElementById('specsDeployBar').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function _displayCols(layer, availableCols) {
+        /* Return the actual column names from availableCols that match the
+           preferred display list, case-insensitively. Preserves the case that
+           the warehouse actually returned so indexOf() works correctly later. */
+        var preferred = layer === 'bronze' ? BRONZE_DISPLAY_COLS : SILVER_DISPLAY_COLS;
+        var preferredLower = preferred.map(function(c) { return c.toLowerCase(); });
+        var matched = [];
+        preferredLower.forEach(function(pl) {
+            for (var i = 0; i < availableCols.length; i++) {
+                if (availableCols[i].toLowerCase() === pl) {
+                    matched.push(availableCols[i]);  // keep actual returned case
+                    break;
+                }
+            }
+        });
+        return matched.length ? matched : availableCols.slice(0, 8);
+    }
+
+    function _renderSpecsTable(layer, filterGroup) {
+        var data  = _specsData[layer];
+        var headEl = document.getElementById('specs' + (layer === 'bronze' ? 'Bronze' : 'Silver') + 'Head');
+        var bodyEl = document.getElementById('specs' + (layer === 'bronze' ? 'Bronze' : 'Silver') + 'Body');
+
+        if (!data || data.error) {
+            headEl.innerHTML = '';
+            bodyEl.innerHTML = '<tr><td class="specs-empty">'
+                + escapeHtml(data && data.error ? 'Error: ' + data.error : 'No data')
+                + '</td></tr>';
+            return;
+        }
+
+        var allCols  = data.columns || [];
+        var dispCols = _displayCols(layer, allCols);
+        var rows     = (data.rows || []).filter(function(r) {
+            if (!filterGroup) return true;
+            var gi = _colIdx(allCols, 'dataFlowGroup');
+            return gi >= 0 && r[gi] === filterGroup;
+        });
+
+        /* Header */
+        headEl.innerHTML = '<tr>'
+            + dispCols.map(function(c) { return '<th>' + escapeHtml(c) + '</th>'; }).join('')
+            + '</tr>';
+
+        /* Body */
+        if (rows.length === 0) {
+            bodyEl.innerHTML = '<tr><td colspan="' + dispCols.length + '" class="specs-empty">'
+                + (filterGroup ? 'No ' + layer + ' flows for group "' + escapeHtml(filterGroup) + '"'
+                               : 'No rows found — run onboarding first.')
+                + '</td></tr>';
+            return;
+        }
+
+        bodyEl.innerHTML = rows.map(function(r) {
+            return '<tr>' + dispCols.map(function(col) {
+                var idx = allCols.indexOf(col);
+                var val = idx >= 0 && idx < r.length ? r[idx] : '';
+                return '<td><code>' + escapeHtml(String(val == null ? '' : val)) + '</code></td>';
+            }).join('') + '</tr>';
+        }).join('');
+    }
+
+    function deploySelectedGroup() {
+        if (!_selectedGroup) return;
+
+        var catalog     = document.getElementById('specsUcCatalog').value.trim();
+        var schema      = document.getElementById('specsSchema').value.trim();
+        var bronzeTable = document.getElementById('specsBronzeTable').value.trim() || 'bronze_dataflowspec';
+        var silverTable = document.getElementById('specsSilverTable').value.trim() || 'silver_dataflowspec';
+
+        /* Pre-fill the Deployment form */
+        function _set(id, val) {
+            var el = document.getElementById(id);
+            if (el && val) el.value = val;
+        }
+        /* UC catalog */
+        _set('uc_catalog_name', catalog);
+        /* Enable UC radio */
+        var ucOnRadio = document.querySelector('[name="uc_enabled"][value="1"]');
+        if (ucOnRadio && catalog) ucOnRadio.checked = true;
+        /* Schema + tables */
+        _set('spc_schema_name', schema);
+        _set('bronze_dataflowspec_table', bronzeTable);
+        _set('silver_dataflowspec_table', silverTable);
+        /* Group names */
+        _set('onboard_bronze_group', _selectedGroup);
+        _set('onboard_silver_group', _selectedGroup);
+        /* Derive layer from which specs exist for this group */
+        var hasBronze = (_specsData.bronze && (_specsData.bronze.rows || [])
+            .some(function(r) {
+                var gi = _colIdx(_specsData.bronze.columns || [], 'dataFlowGroup');
+                return gi >= 0 && r[gi] === _selectedGroup;
+            }));
+        var hasSilver = (_specsData.silver && (_specsData.silver.rows || [])
+            .some(function(r) {
+                var gi = _colIdx(_specsData.silver.columns || [], 'dataFlowGroup');
+                return gi >= 0 && r[gi] === _selectedGroup;
+            }));
+        var layer = (hasBronze && hasSilver) ? 'bronze_silver'
+                  : (hasSilver ? 'silver' : 'bronze');
+        var layerSel = document.getElementById('deploylayer');
+        if (layerSel) layerSel.value = layer;
+
+        /* Navigate to Deployment panel */
+        var deployBtn = document.querySelector('.nav-item[onclick*="deployment"]');
+        showPanel('deployment', deployBtn);
+    }
+
+    /* ── Meta sub-tabs ──────────────────────────────────────── */
+    function showMetaTab(tabId, btn) {
+        document.querySelectorAll('.meta-tab-content').forEach(function(el) { el.classList.remove('active'); });
+        document.querySelectorAll('.meta-tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.getElementById('meta-' + tabId).classList.add('active');
+        if (btn) btn.classList.add('active');
+    }
+
+    /* ── Monitor panel ──────────────────────────────────────── */
+    var _pipelineCache = {};
+
+    function _stateBadge(state) {
+        var s = (state || 'UNKNOWN').toLowerCase();
+        var cls = 'state-default';
+        if (s.includes('run')) cls = 'state-running';
+        else if (s.includes('fail') || s.includes('error')) cls = 'state-failed';
+        else if (s === 'idle' || s === 'stopped') cls = 'state-idle';
+        return '<span class="state-badge ' + cls + '">' + escapeHtml(state || '—') + '</span>';
+    }
+
+    function loadPipelines() {
+        var statusEl = document.getElementById('monitorStatus');
+        statusEl.textContent = 'Loading…';
+        fetch('/api/pipelines')
+            .then(_parseJSON)
+            .then(function(pipelines) {
+                statusEl.textContent = pipelines.error
+                    ? 'Error: ' + pipelines.error
+                    : pipelines.length + ' SDP-META pipeline(s) found';
+                var tbody = document.getElementById('pipelineTableBody');
+                if (!Array.isArray(pipelines) || pipelines.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" id="monitorEmpty">No SDP-META pipelines found in this workspace.</td></tr>';
+                    document.getElementById('eventsDrawer').style.display = 'none';
+                    return;
+                }
+                _pipelineCache = {};
+                pipelines.forEach(function(p) { _pipelineCache[p.id] = p; });
+                tbody.innerHTML = pipelines.map(function(p) {
+                    /* Version chip — surfaces which SDP-META release created this
+                       pipeline. Pulled from sdp_meta_version on the JSON response
+                       (tag value or configuration.version fallback for legacy
+                       pipelines tagged sdp_meta=true). */
+                    var versionChip = '';
+                    if (p.sdp_meta_version) {
+                        versionChip =
+                            ' <span title="Created by SDP-META v' + escapeHtml(p.sdp_meta_version) + '"' +
+                            ' style="display:inline-block;margin-left:8px;padding:1px 7px;' +
+                            'border-radius:10px;background:rgba(255,54,33,.10);color:var(--brand,#ff3621);' +
+                            'font-size:.7rem;font-weight:500;vertical-align:middle">v' +
+                            escapeHtml(p.sdp_meta_version) + '</span>';
+                    }
+                    /* Pipeline-name cell: prefer a deep link to the Databricks
+                       pipeline UI (new tab) when the backend supplied a URL.
+                       Falls back to the legacy in-app events click target if
+                       the backend couldn't resolve the workspace host. The
+                       in-app events drawer is still reachable from the
+                       Events button in the Actions column either way. */
+                    var nameCell;
+                    if (p.pipeline_url && isValidHttpsUrl(p.pipeline_url)) {
+                        nameCell =
+                            '<a href="' + escapeHtml(p.pipeline_url) + '"' +
+                            ' target="_blank" rel="noopener noreferrer"' +
+                            ' title="Open pipeline in Databricks (new tab)"' +
+                            ' style="color:var(--accent);text-decoration:none;font-weight:500">' +
+                            escapeHtml(p.name) +
+                            ' <span style="font-size:.78rem;opacity:.7" aria-hidden="true">&#8599;</span>' +
+                            '</a>';
+                    } else {
+                        nameCell =
+                            '<a href="#" onclick="showEvents(\'' + escapeHtml(p.id) + '\');return false"' +
+                            ' style="color:var(--accent);text-decoration:none;font-weight:500">' +
+                            escapeHtml(p.name) + '</a>';
+                    }
+                    return '<tr data-pid="' + escapeHtml(p.id) + '">' +
+                        '<td>' + nameCell + versionChip + '</td>' +
+                        '<td>' + _stateBadge(p.state) + '</td>' +
+                        '<td style="color:var(--ink-60);font-size:.82rem">' + escapeHtml(p.creator || '—') + '</td>' +
+                        '<td style="display:flex;gap:6px">' +
+                            '<button class="btn-icon" title="Start pipeline" onclick="pipelineAction(\'' + escapeHtml(p.id) + '\', \'start\')">&#9654; Start</button>' +
+                            '<button class="btn-icon" title="Stop pipeline" onclick="pipelineAction(\'' + escapeHtml(p.id) + '\', \'stop\')">&#9632; Stop</button>' +
+                            '<button class="btn-icon" title="View events" onclick="showEvents(\'' + escapeHtml(p.id) + '\')">&#128203; Events</button>' +
+                        '</td>' +
+                        '</tr>';
+                }).join('');
+            })
+            .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; });
+    }
+
+    function pipelineAction(pipelineId, action) {
+        var name = (_pipelineCache[pipelineId] || {}).name || pipelineId;
+        showLoading((action === 'start' ? 'Starting' : 'Stopping') + ' pipeline…');
+        fetch('/api/pipelines/' + encodeURIComponent(pipelineId) + '/' + action, { method: 'POST' })
+            .then(_parseJSON)
+            .then(function(d) {
+                hideLoading();
+                showModal('<p>' + escapeHtml(d.error || (name + ' ' + (action === 'start' ? 'started' : 'stopped') + '.')) + '</p>',
+                          action === 'start' ? 'Pipeline Started' : 'Pipeline Stopped');
+                setTimeout(loadPipelines, 1500);
+            })
+            .catch(function(e) { hideLoading(); handleError(e, 'Pipeline action error'); });
+    }
+
+    function showEvents(pipelineId) {
+        var name = (_pipelineCache[pipelineId] || {}).name || pipelineId;
+        var drawer = document.getElementById('eventsDrawer');
+        var list = document.getElementById('eventsList');
+        var title = document.getElementById('eventsDrawerTitle');
+        title.textContent = 'Events — ' + name;
+        list.innerHTML = '<li><span class="event-msg" style="color:var(--ink-40)">Loading events…</span></li>';
+        drawer.style.display = 'block';
+        drawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        fetch('/api/pipelines/' + encodeURIComponent(pipelineId) + '/events')
+            .then(_parseJSON)
+            .then(function(events) {
+                if (!Array.isArray(events) || events.length === 0) {
+                    list.innerHTML = '<li><span class="event-msg" style="color:var(--ink-40)">No events found.</span></li>';
+                    return;
+                }
+                list.innerHTML = events.map(function(e) {
+                    var ts = e.timestamp ? new Date(e.timestamp).toLocaleString() : '—';
+                    return '<li>' +
+                        '<span class="event-ts">' + escapeHtml(ts) + '</span>' +
+                        '<span class="event-type">' + escapeHtml(e.event_type || '—') + '</span>' +
+                        '<span class="event-msg">' + escapeHtml(e.message || '') + '</span>' +
+                        '</li>';
+                }).join('');
+            })
+            .catch(function(e) {
+                list.innerHTML = '<li><span class="event-msg" style="color:var(--brand)">Error: ' + escapeHtml(e.message) + '</span></li>';
+            });
+    }
+
+    /* ── Metadata — Browse ──────────────────────────────────── */
+    function _browseStatus(msg, isError) {
+        var el = document.getElementById('browseStatus');
+        if (!el) return;
+        el.textContent = msg;
+        el.style.color = isError ? 'var(--brand, #e74c3c)' : 'var(--ink-60, #666)';
+    }
+
+    function loadCatalogs() {
+        var sel = document.getElementById('browseCatalog');
+        sel.innerHTML = '<option value="">Loading…</option>';
+        _browseStatus('Loading catalogs…', false);
+        fetch('/api/metadata/catalogs')
+            .then(_parseJSON)
+            .then(function(cats) {
+                if (!Array.isArray(cats)) {
+                    sel.innerHTML = '<option value="">— Select catalog —</option>';
+                    _browseStatus('Error loading catalogs: ' + (cats.error || 'unknown error'), true);
+                    return;
+                }
+                sel.innerHTML = '<option value="">— Select catalog —</option>' +
+                    cats.map(function(c) { return '<option>' + escapeHtml(c) + '</option>'; }).join('');
+                document.getElementById('browseSchema').innerHTML = '<option value="">— Select schema —</option>';
+                document.getElementById('browseTable').innerHTML = '<option value="">— Select table —</option>';
+                document.getElementById('browseGridWrap').style.display = 'none';
+                document.getElementById('browseWhereRow').style.display = 'none';
+                _browseStatus(cats.length + ' catalog(s) loaded. Select a catalog to continue.', false);
+            })
+            .catch(function(e) {
+                sel.innerHTML = '<option value="">— Select catalog —</option>';
+                _browseStatus('Error: ' + e.message, true);
+            });
+    }
+
+    function loadSchemas() {
+        var catalog = document.getElementById('browseCatalog').value;
+        var sel = document.getElementById('browseSchema');
+        sel.innerHTML = '<option value="">— Select schema —</option>';
+        document.getElementById('browseTable').innerHTML = '<option value="">— Select table —</option>';
+        document.getElementById('browseGridWrap').style.display = 'none';
+        document.getElementById('browseWhereRow').style.display = 'none';
+        if (!catalog) return;
+        sel.innerHTML = '<option value="">Loading…</option>';
+        _browseStatus('Loading schemas for ' + catalog + '…', false);
+        fetch('/api/metadata/schemas?catalog=' + encodeURIComponent(catalog))
+            .then(_parseJSON)
+            .then(function(schemas) {
+                if (!Array.isArray(schemas)) {
+                    sel.innerHTML = '<option value="">— Select schema —</option>';
+                    _browseStatus('Error loading schemas: ' + (schemas.error || 'unknown error'), true);
+                    return;
+                }
+                sel.innerHTML = '<option value="">— Select schema —</option>' +
+                    schemas.map(function(s) {
+                        return '<option>' + escapeHtml(s) + '</option>';
+                    }).join('');
+                _browseStatus(schemas.length + ' schema(s) in ' + catalog + '. Select a schema to continue.', false);
+            })
+            .catch(function(e) {
+                sel.innerHTML = '<option value="">— Select schema —</option>';
+                _browseStatus('Error: ' + e.message, true);
+            });
+    }
+
+    function loadTables() {
+        var catalog = document.getElementById('browseCatalog').value;
+        var schema = document.getElementById('browseSchema').value;
+        var sel = document.getElementById('browseTable');
+        sel.innerHTML = '<option value="">— Select table —</option>';
+        document.getElementById('browseGridWrap').style.display = 'none';
+        document.getElementById('browseWhereRow').style.display = 'none';
+        if (!catalog || !schema) return;
+        sel.innerHTML = '<option>Loading…</option>';
+        _browseStatus('Loading tables for ' + catalog + '.' + schema + '…', false);
+        fetch('/api/metadata/tables?catalog=' + encodeURIComponent(catalog) + '&schema=' + encodeURIComponent(schema))
+            .then(_parseJSON)
+            .then(function(tables) {
+                if (!Array.isArray(tables)) {
+                    sel.innerHTML = '<option value="">— Select table —</option>';
+                    _browseStatus('Error loading tables: ' + (tables.error || 'unknown error'), true);
+                    return;
+                }
+                sel.innerHTML = '<option value="">— Select table —</option>' +
+                    tables.map(function(t) {
+                        return '<option>' + escapeHtml(t.name) + '</option>';
+                    }).join('');
+                _browseStatus(tables.length + ' table(s) in ' + catalog + '.' + schema + '. Select a table to preview.', false);
+            })
+            .catch(function(e) {
+                sel.innerHTML = '<option value="">— Select table —</option>';
+                _browseStatus('Error: ' + e.message, true);
+            });
+    }
+
+    function loadTablePreview() {
+        _requireWarehouse(_doLoadTablePreview);
+    }
+    function _doLoadTablePreview() {
+        var catalog = document.getElementById('browseCatalog').value;
+        var schema  = document.getElementById('browseSchema').value;
+        var table   = document.getElementById('browseTable').value;
+        var where   = document.getElementById('browseWhere') ? document.getElementById('browseWhere').value.trim() : '';
+        var limit   = document.getElementById('browseLimit') ? parseInt(document.getElementById('browseLimit').value) || 100 : 100;
+        var statusEl = document.getElementById('browseStatus');
+        var gridWrap = document.getElementById('browseGridWrap');
+        var whereRow = document.getElementById('browseWhereRow');
+
+        if (!catalog || !schema || !table) {
+            statusEl.textContent = 'Select a catalog, schema, and table first.';
+            gridWrap.style.display = 'none';
+            return;
+        }
+
+        whereRow.style.display = 'flex';
+        statusEl.textContent = 'Loading data…';
+        gridWrap.style.display = 'none';
+
+        fetch('/api/metadata/table-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ catalog: catalog, schema: schema, table: table,
+                                   where_clause: where, limit: limit })
+        })
+        .then(_parseJSON)
+        .then(function(d) {
+            if (d.error) {
+                statusEl.textContent = 'Error: ' + d.error;
+                return;
+            }
+            var cols = d.columns || [];
+            var rows = d.rows || [];
+            statusEl.textContent = rows.length + ' row(s) returned from ' + catalog + '.' + schema + '.' + table;
+            var head = '<tr>' + cols.map(function(c) { return '<th>' + escapeHtml(c) + '</th>'; }).join('') + '</tr>';
+            var body = rows.map(function(r) {
+                return '<tr>' + r.map(function(v) { return '<td>' + escapeHtml(String(v == null ? '' : v)) + '</td>'; }).join('') + '</tr>';
+            }).join('');
+            document.getElementById('browseGridHead').innerHTML = head;
+            document.getElementById('browseGridBody').innerHTML = body || '<tr><td colspan="' + cols.length + '" style="color:var(--ink-40);padding:20px">No rows returned</td></tr>';
+            gridWrap.style.display = 'block';
+        })
+        .catch(function(e) { statusEl.textContent = 'Error: ' + e.message; });
+    }
+
+    /* ── Metadata — Spec Editor ─────────────────────────────── */
+    /* Tracks parsed state and whether Run Onboarding is safe to enable */
+    var _specState = { specType: 'onboarding', format: 'json', env: 'prod', parsed: null, hasErrors: false };
+
+    function readLocalSpecFile(input) {
+        var file = input.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('specEditorTextarea').value = e.target.result;
+            var ext = file.name.split('.').pop().toLowerCase();
+            var fmtSel = document.getElementById('specFormat');
+            fmtSel.value = (ext === 'yml' || ext === 'yaml') ? 'yaml' : 'json';
+            document.getElementById('specValidationResult').innerHTML = '';
+            document.getElementById('specStructuredPreview').innerHTML = '';
+            _specState.hasErrors = false;
+            document.getElementById('btnRunFromEditor').disabled = true;
+        };
+        reader.readAsText(file);
+        input.value = ''; // reset so same file can be re-loaded
+    }
+
+    function parseAndPreview() {
+        var content   = document.getElementById('specEditorTextarea').value.trim();
+        var specType  = document.getElementById('specType').value;
+        var format    = document.getElementById('specFormat').value;
+        var env       = document.getElementById('specEnv').value;
+        var resultEl  = document.getElementById('specValidationResult');
+        var previewEl = document.getElementById('specStructuredPreview');
+        var runBtn    = document.getElementById('btnRunFromEditor');
+
+        if (!content) {
+            resultEl.innerHTML = '<div class="spec-validation-box warn">Nothing to validate — paste or load a spec file first.</div>';
+            return;
+        }
+
+        showLoading('Validating spec…');
+        fetch('/api/metadata/parse-spec', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: content, format: format, spec_type: specType, env: env })
+        })
+        .then(function(r) {
+            if (r.status === 400) return _parseJSON(r).then(function(d) { throw new Error(d.error || 'Parse error'); });
+            return _parseJSON(r);
+        })
+        .then(function(d) {
+            hideLoading();
+            _specState.parsed = d.parsed;
+            _specState.hasErrors = d.errors && d.errors.length > 0;
+            var html = '';
+
+            if (_specState.hasErrors) {
+                html += '<div class="spec-validation-box error"><strong>&#10005; ' + d.errors.length + ' error(s)</strong>';
+                html += '<ul>' + d.errors.map(function(e) { return '<li>' + escapeHtml(e) + '</li>'; }).join('') + '</ul></div>';
+            }
+            if (d.warnings && d.warnings.length) {
+                html += '<div class="spec-validation-box warn"><strong>&#9888; ' + d.warnings.length + ' warning(s)</strong>';
+                html += '<ul>' + d.warnings.map(function(w) { return '<li>' + escapeHtml(w) + '</li>'; }).join('') + '</ul></div>';
+            }
+            if (!_specState.hasErrors) {
+                html += '<div class="spec-validation-box ok"><strong>&#10003; ' + (d.validators_available ? 'Layer 1 + Layer 2 validation passed' : 'Syntax valid') + '</strong>';
+                if (!d.validators_available) {
+                    html += ' <span style="font-size:.82rem">(sdp-meta wheel not installed locally — identifier checks skipped)</span>';
+                }
+                html += '</div>';
+            }
+            resultEl.innerHTML = html;
+            runBtn.disabled = _specState.hasErrors;
+
+            // Structured preview for onboarding
+            if (specType === 'onboarding' && Array.isArray(d.parsed)) {
+                var rows = d.parsed;
+                previewEl.innerHTML = '<div class="form-card"><div class="form-card-title">Preview — ' + rows.length + ' flow(s)</div>' +
+                    '<div class="data-grid-wrap"><table class="data-grid">' +
+                    '<thead><tr><th>#</th><th>id</th><th>group</th><th>source_format</th><th>bronze_table</th><th>silver_table</th></tr></thead>' +
+                    '<tbody>' + rows.map(function(r, i) {
+                        return '<tr>' +
+                            '<td style="color:var(--ink-40)">' + (i+1) + '</td>' +
+                            '<td>' + escapeHtml(r.data_flow_id || '—') + '</td>' +
+                            '<td>' + escapeHtml(r.data_flow_group || '—') + '</td>' +
+                            '<td>' + escapeHtml(r.source_format || '—') + '</td>' +
+                            '<td>' + escapeHtml(r.bronze_table || '—') + '</td>' +
+                            '<td>' + escapeHtml(r.silver_table || '—') + '</td>' +
+                            '</tr>';
+                    }).join('') + '</tbody></table></div></div>';
+            } else {
+                previewEl.innerHTML = '';
+            }
+        })
+        .catch(function(e) {
+            hideLoading();
+            _specState.hasErrors = true;
+            resultEl.innerHTML = '<div class="spec-validation-box error"><strong>&#10005; ' + escapeHtml(e.message) + '</strong></div>';
+            document.getElementById('btnRunFromEditor').disabled = true;
+        });
+    }
+
+    function loadFromWorkspace() {
+        var path = document.getElementById('specWorkspacePath').value.trim();
+        if (!path) { alert('Enter a workspace path first.'); return; }
+        showLoading('Loading from workspace…');
+        fetch('/api/metadata/workspace-file?path=' + encodeURIComponent(path))
+            .then(_parseJSON)
+            .then(function(d) {
+                hideLoading();
+                if (d.error) { showModal('<p style="color:var(--brand)">' + escapeHtml(d.error) + '</p>', 'Load error'); return; }
+                document.getElementById('specEditorTextarea').value = d.content;
+                var fmtSel = document.getElementById('specFormat');
+                if (d.format) fmtSel.value = d.format;
+                document.getElementById('specValidationResult').innerHTML = '';
+                document.getElementById('specStructuredPreview').innerHTML = '';
+                _specState.hasErrors = false;
+                document.getElementById('btnRunFromEditor').disabled = true;
+            })
+            .catch(function(e) { hideLoading(); handleError(e, 'Load error'); });
+    }
+
+    function saveToWorkspace() {
+        var path    = document.getElementById('specWorkspacePath').value.trim();
+        var content = document.getElementById('specEditorTextarea').value;
+        var format  = document.getElementById('specFormat').value;
+        if (!path) { alert('Enter a workspace path first.'); return; }
+        if (!content.trim()) { alert('Nothing to save.'); return; }
+        showLoading('Saving to workspace…');
+        fetch('/api/metadata/workspace-file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: path, content: content, format: format })
+        })
+        .then(_parseJSON)
+        .then(function(d) {
+            hideLoading();
+            if (d.error) { showModal('<p style="color:var(--brand)">' + escapeHtml(d.error) + '</p>', 'Save error'); return; }
+            showModal('<p>Saved <code>' + escapeHtml(d.path) + '</code> (' + d.bytes_written + ' bytes)</p>', 'Saved');
+        })
+        .catch(function(e) { hideLoading(); handleError(e, 'Save error'); });
+    }
+
+    function runOnboardingFromEditor() {
+        /* Copy workspace path to Onboarding form and navigate there */
+        var path = document.getElementById('specWorkspacePath').value.trim();
+        if (path) {
+            var inp = document.getElementById('onboarding_file_path');
+            if (inp) inp.value = path;
+        }
+        var onbBtn = document.querySelector('.nav-item[onclick*="onboarding"]');
+        showPanel('onboarding', onbBtn);
+    }
 </script>
 </body>
 </html>
