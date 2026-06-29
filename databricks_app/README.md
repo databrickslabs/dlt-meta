@@ -23,6 +23,15 @@ app will work.
 
 ## Deploy to Databricks
 
+Two supported paths — pick whichever fits your workflow:
+
+| Path | When to use | Steps |
+|---|---|---|
+| **A. CLI + deploy script** *(below)* | You have the Databricks CLI installed and want to deploy from your local working tree (including unmerged changes). | Steps 1–4 below. |
+| **B. Apps UI + Databricks Git folder** *(no CLI)* | Click-only workflow against a published branch on github.com, no local CLI/Python. | Quick pointer [below](#deploy-via-apps-ui--git-folder-no-cli); full walkthrough in [UI_GIT_DEPLOY.md](./UI_GIT_DEPLOY.md). |
+
+---
+
 ### 1. Authenticate
 
 ```bash
@@ -139,6 +148,21 @@ databricks_app/
 
 Open the URL shown in step 2, or navigate:
 **Databricks Web UI → Compute → Apps → select `<your-app-name>`**
+
+---
+
+## Deploy via Apps UI + Git folder (no CLI)
+
+Click-only alternative — point a Databricks Git folder at this repo,
+create an App in the UI, and aim it at `databricks_app/`.
+`start.sh`'s **Mode B** clones the full `dlt-meta` repo into
+`/tmp/dlt-meta` at container start, so `setup.py`, `src/`, `demo/`,
+and `integration_tests/` are all available without any local sync.
+
+See **[UI_GIT_DEPLOY.md](./UI_GIT_DEPLOY.md)** for the full
+step-by-step (Git-folder setup, App creation, source-code-path
+configuration, UC grants, re-deploy flow, and the cases where this
+path doesn't work — air-gapped clusters, unmerged changes, forks).
 
 ---
 
