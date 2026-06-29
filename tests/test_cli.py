@@ -525,6 +525,15 @@ class CliTests(unittest.TestCase):
 
     @patch("databricks.labs.sdp_meta.cli.WorkspaceClient")
     def test_update_ws_onboarding_paths_with_uc_enabled(self, mock_workspace_client):
+        """H-2: UC-enabled flow uploads the rendered template
+        DIRECTLY to UC Volume \u2014 no local staging file. The
+        cluster running the onboarding job reads from UC, so writing
+        the rendered file to the App's local filesystem (in /tmp, in
+        the App wheel folder, or in the user's local_directory)
+        would either leak files, risk overwriting the user's own
+        content, or put the spec somewhere the job can't open. We
+        assert on the ``ws.files.upload`` call shape and confirm
+        ``cmd.onboarding_file_path`` was rewritten to the UC path."""
         cmd = OnboardCommand(
             onboarding_file_path="tests/resources/template/onboarding.template",
             onboarding_files_dir_path="tests/resources/",
@@ -536,7 +545,7 @@ class CliTests(unittest.TestCase):
             sdp_meta_schema="sdp_meta",
             uc_enabled=True,
             uc_catalog_name="uc_catalog",
-            uc_volume_path="uc_catalog/sdp_meta/files",
+            uc_volume_path="/Volumes/uc_catalog/sdp_meta/sdp_meta",
             overwrite=True,
             bronze_dataflowspec_table="bronze_dataflowspec",
             silver_dataflowspec_table="silver_dataflowspec",
@@ -545,9 +554,157 @@ class CliTests(unittest.TestCase):
         sdp_meta = SDPMeta(mock_workspace_client)
         sdp_meta._wsi = mock_workspace_client.return_value
         sdp_meta.update_ws_onboarding_paths(cmd)
-        check_file = os.path.exists("tests/resources/template/onboarding.json")
-        self.assertEqual(check_file, True)
-        os.remove("tests/resources/template/onboarding.json")
+
+        # 1. files.upload was called with the UC Volume destination.
+        upload = mock_workspace_client.files.upload
+        self.assertTrue(
+            upload.called,
+            "update_ws_onboarding_paths must publish rendered bytes to "
+            "UC Volume directly when uc_enabled \u2014 instead it produced "
+            "no upload (local-staging regression).",
+        )
+        kwargs = upload.call_args.kwargs
+        expected_uc_dest = (
+            "/Volumes/uc_catalog/sdp_meta/sdp_meta/sdp_meta_conf/tmp/"
+            "onboarding.json"
+        )
+        self.assertEqual(kwargs.get("file_path"), expected_uc_dest)
+        self.assertTrue(kwargs.get("overwrite"))
+        # The contents are a file-like object holding the rendered
+        # bytes \u2014 read them back to confirm substitution actually ran.
+        contents = kwargs.get("contents")
+        self.assertIsNotNone(contents)
+        body = contents.read()
+        if isinstance(body, bytes):
+            body = body.decode("utf-8")
+        self.assertIn("uc_catalog", body)
+        self.assertNotIn("{uc_catalog_name}", body)
+
+        # 2. cmd.onboarding_file_path now points at UC, NOT a local path.
+        self.assertEqual(cmd.onboarding_file_path, expected_uc_dest)
+
+        # 3. NO local staging file was written next to the source.
+        leaked = "tests/resources/template/onboarding.json"
+        self.assertFalse(
+            os.path.exists(leaked),
+            f"UC flow leaked a local staging file at {leaked}",
+        )
+
+    @patch("databricks.labs.sdp_meta.cli.WorkspaceClient")
+    def test_update_ws_onboarding_paths_uc_app_tempfile_source(
+        self, mock_workspace_client
+    ):
+        """Same UC-direct-upload contract when the App downloaded the
+        source to a ``/tmp/sdp_onboarding_*`` tempfile (the original
+        H-2 trigger). Nothing should land on the App's local
+        filesystem; the rendered bytes go straight to UC Volume."""
+        import shutil
+        import tempfile
+
+        tmp_src_dir = tempfile.mkdtemp(prefix="sdp_meta_test_src_")
+        try:
+            tempfile_path = os.path.join(tmp_src_dir, "sdp_onboarding_xyz.template")
+            with open(tempfile_path, "w", encoding="utf-8") as fh:
+                fh.write(
+                    '[{"data_flow_id": "1", '
+                    '"uc_volume_path": "{uc_volume_path}"}]'
+                )
+
+            cmd = OnboardCommand(
+                onboarding_file_path=tempfile_path,
+                onboarding_files_dir_path="/Workspace/dlt-meta/demo/",
+                onboard_layer="bronze",
+                env="dev",
+                import_author="t",
+                version="1.0",
+                cloud="aws",
+                sdp_meta_schema="sdp_meta",
+                uc_enabled=True,
+                uc_catalog_name="uc_catalog",
+                uc_volume_path="/Volumes/uc_catalog/sdp_meta/sdp_meta",
+                bronze_schema="b",
+                silver_schema="s",
+                update_paths=True,
+            )
+
+            sdp_meta = SDPMeta(mock_workspace_client)
+            sdp_meta._wsi = mock_workspace_client.return_value
+            sdp_meta.update_ws_onboarding_paths(cmd)
+
+            upload = mock_workspace_client.files.upload
+            self.assertTrue(upload.called)
+            self.assertEqual(
+                upload.call_args.kwargs.get("file_path"),
+                "/Volumes/uc_catalog/sdp_meta/sdp_meta/sdp_meta_conf/tmp/"
+                "onboarding.json",
+            )
+
+            # cmd.onboarding_file_path is now the UC destination,
+            # NOT the /tmp tempfile dirname.
+            self.assertTrue(
+                cmd.onboarding_file_path.startswith("/Volumes/"),
+                f"expected UC path, got {cmd.onboarding_file_path!r}",
+            )
+
+            # Nothing leaked in /tmp next to the tempfile.
+            leaked = os.path.join(tmp_src_dir, "onboarding.json")
+            self.assertFalse(
+                os.path.exists(leaked),
+                f"rendered file leaked next to tempfile: {leaked}",
+            )
+        finally:
+            shutil.rmtree(tmp_src_dir, ignore_errors=True)
+
+    @patch("databricks.labs.sdp_meta.cli.WorkspaceClient")
+    def test_update_ws_onboarding_paths_dbfs_writes_locally(
+        self, mock_workspace_client
+    ):
+        """Non-UC (DBFS) flow keeps the historical behaviour: render
+        next to the source on local disk, then let ``onboard()`` push
+        it via ``dbfs.upload``. The DBFS SDK surface and its staging
+        contract are intentionally untouched here."""
+        import shutil
+        import tempfile
+
+        src_dir = tempfile.mkdtemp(prefix="sdp_meta_test_dbfs_")
+        try:
+            src = os.path.join(src_dir, "foo.template")
+            with open(src, "w", encoding="utf-8") as fh:
+                fh.write(
+                    '[{"data_flow_id": "1", '
+                    '"uc_volume_path": "{uc_volume_path}"}]'
+                )
+
+            cmd = OnboardCommand(
+                onboarding_file_path=src,
+                onboarding_files_dir_path=src_dir,
+                onboard_layer="bronze",
+                env="dev",
+                import_author="t",
+                version="1.0",
+                cloud="aws",
+                sdp_meta_schema="sdp_meta",
+                uc_enabled=False,
+                dbfs_path="/dbfs/sdp_meta",
+                bronze_dataflowspec_path="/dbfs/sdp_meta/bronze",
+                silver_dataflowspec_path="/dbfs/sdp_meta/silver",
+                bronze_schema="b",
+                silver_schema="s",
+                update_paths=True,
+            )
+
+            sdp_meta = SDPMeta(mock_workspace_client)
+            sdp_meta._wsi = mock_workspace_client.return_value
+            sdp_meta.update_ws_onboarding_paths(cmd)
+
+            # DBFS path \u2014 NO UC upload, AND a local file at the
+            # expected stable basename.
+            self.assertFalse(mock_workspace_client.files.upload.called)
+            expected_local = os.path.join(src_dir, "onboarding.json")
+            self.assertTrue(os.path.exists(expected_local))
+            self.assertEqual(cmd.onboarding_file_path, expected_local)
+        finally:
+            shutil.rmtree(src_dir, ignore_errors=True)
 
     @patch("databricks.labs.sdp_meta.cli.WorkspaceClient")
     def test_my_username(self, mock_workspace_client):

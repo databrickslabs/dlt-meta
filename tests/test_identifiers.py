@@ -17,6 +17,7 @@ from databricks.labs.sdp_meta.identifiers import (
     is_regular_identifier,
     validate_scd_type,
     validate_source_format,
+    validate_sql_where_clause,
     validate_uc_column_list,
     validate_uc_identifier,
 )
@@ -291,6 +292,100 @@ class ValidateScdTypeTests(unittest.TestCase):
     def test_kind_appears_in_error(self):
         with self.assertRaisesRegex(ValueError, r"silver scd"):
             validate_scd_type("0", kind="silver scd")
+
+
+class ValidateSqlWhereClauseTests(unittest.TestCase):
+    """``where_clause`` denylist for the Metadata Browse table preview.
+
+    The Databricks Statement Execution API can't parameterise a
+    structural WHERE expression, so any user-supplied fragment must be
+    denylist-validated at the App boundary. These tests pin both the
+    accept set (legitimate column comparisons) and the reject set
+    (statement separators, comments, identifier delimiters, set ops,
+    DDL / DML keywords) so a refactor can't quietly relax the contract.
+    """
+
+    def test_empty_returns_empty(self):
+        self.assertEqual(validate_sql_where_clause(""), "")
+
+    def test_none_returns_empty(self):
+        self.assertEqual(validate_sql_where_clause(None), "")
+
+    def test_non_string_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"must be a string"):
+            validate_sql_where_clause(123)
+
+    def test_oversized_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"maximum allowed"):
+            validate_sql_where_clause("a" * 5000)
+
+    def test_simple_comparison_passes(self):
+        v = "col1 = 'CA' AND col2 > 10"
+        self.assertEqual(validate_sql_where_clause(v), v)
+
+    def test_like_passes(self):
+        v = "name LIKE 'foo%'"
+        self.assertEqual(validate_sql_where_clause(v), v)
+
+    def test_in_list_passes(self):
+        v = "state IN ('CA', 'NY', 'TX')"
+        self.assertEqual(validate_sql_where_clause(v), v)
+
+    def test_semicolon_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"';'"):
+            validate_sql_where_clause("1=1; DROP TABLE x")
+
+    def test_line_comment_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"'--'"):
+            validate_sql_where_clause("1=1 --")
+
+    def test_block_comment_open_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"'/\*'"):
+            validate_sql_where_clause("1=1 /* hi")
+
+    def test_block_comment_close_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"'\*/'"):
+            validate_sql_where_clause("1=1 hi */")
+
+    def test_backtick_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"'`'"):
+            validate_sql_where_clause("1=1 AND `evil`.col=1")
+
+    def test_union_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"'UNION'"):
+            validate_sql_where_clause(
+                "1=1 UNION SELECT * FROM system.information_schema.columns"
+            )
+
+    def test_union_case_insensitive(self):
+        with self.assertRaisesRegex(ValueError, r"'UNION'"):
+            validate_sql_where_clause("1=1 union select 1")
+
+    def test_drop_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"'DROP'"):
+            validate_sql_where_clause("DROP TABLE x")
+
+    def test_insert_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"'INSERT'"):
+            validate_sql_where_clause("INSERT INTO x VALUES (1)")
+
+    def test_grant_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"'GRANT'"):
+            validate_sql_where_clause("GRANT ALL ON x TO me")
+
+    def test_unionized_state_is_not_union(self):
+        """Word-boundary regex must not flag the substring ``UNION``
+        inside legitimate column names like ``unionized_state``."""
+        v = "unionized_state = 'CA'"
+        self.assertEqual(validate_sql_where_clause(v), v)
+
+    def test_intersection_column_is_not_intersect(self):
+        v = "intersection_id = 42"
+        self.assertEqual(validate_sql_where_clause(v), v)
+
+    def test_kind_appears_in_error(self):
+        with self.assertRaisesRegex(ValueError, r"row_filter"):
+            validate_sql_where_clause("1=1;", kind="row_filter")
 
 
 if __name__ == "__main__":

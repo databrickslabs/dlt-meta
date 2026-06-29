@@ -1,5 +1,6 @@
 """Main entry point for the CLI."""
 
+import io
 import logging
 import json
 import os
@@ -556,30 +557,33 @@ class SDPMeta:
 
     def onboard(self, cmd: OnboardCommand):
         """launch the onboarding job."""
-        onboarding_filename = os.path.basename(cmd.onboarding_file_path)
-        ob_file = open(cmd.onboarding_file_path, "rb")
-
         if cmd.uc_enabled:
             self.create_uc_schema(cmd.uc_catalog_name, cmd.sdp_meta_schema)
             cmd.uc_volume_path = self.create_uc_volume(cmd.uc_catalog_name, cmd.sdp_meta_schema)
+            # ``update_ws_onboarding_paths`` renders the template AND
+            # uploads it directly to UC Volume \u2014 there is no local
+            # staging file to upload separately. ``cmd.onboarding_file_path``
+            # is rewritten to the ``/Volumes/...`` destination on
+            # return so downstream consumers (named_parameters,
+            # ``copy_to_uc_volume``, ``create_onnboarding_job``) see
+            # the canonical UC location.
             self.update_ws_onboarding_paths(cmd)
-            # Upload the resolved onboarding JSON to the UC Volume so the
-            # Spark job can read it. update_ws_onboarding_paths() only writes
-            # the file locally; this step makes it cluster-accessible.
-            _uc_onboard_dest = (
-                f"{cmd.uc_volume_path.rstrip('/')}/sdp_meta_conf/tmp/"
-                f"{os.path.basename(cmd.onboarding_file_path)}"
-            )
-            with open(cmd.onboarding_file_path, "rb") as _f:
-                self._ws.files.upload(file_path=_uc_onboard_dest, contents=_f, overwrite=True)
-            logger.info(f"Uploaded onboarding JSON to {_uc_onboard_dest}")
             self.copy_to_uc_volume(cmd.onboarding_files_dir_path, cmd.uc_volume_path + "/sdp_meta_conf/")
             logger.info(f"uploading to  {cmd.uc_volume_path}/sdp_meta_conf complete!!!")
         else:
-            self._ws.dbfs.mkdirs(f"{cmd.dbfs_path}/sdp_meta_conf/")
-            self._ws.dbfs.upload(f"{cmd.dbfs_path}/sdp_meta_conf/{onboarding_filename}", ob_file, overwrite=True)
-            self.update_ws_onboarding_paths(cmd)
+            # DBFS flow keeps the historical local-then-upload shape:
+            # render writes a local file, then ``dbfs.upload`` pushes
+            # it to ``{dbfs_path}/sdp_meta_conf/``. Distinct SDK
+            # surface from UC; intentionally untouched here.
             onboarding_filename = os.path.basename(cmd.onboarding_file_path)
+            ob_file = open(cmd.onboarding_file_path, "rb")
+            self._ws.dbfs.mkdirs(f"{cmd.dbfs_path}/sdp_meta_conf/")
+            self._ws.dbfs.upload(
+                f"{cmd.dbfs_path}/sdp_meta_conf/{onboarding_filename}",
+                ob_file,
+                overwrite=True,
+            )
+            self.update_ws_onboarding_paths(cmd)
             self.copy_to_dbfs(cmd.onboarding_files_dir_path, cmd.dbfs_path + "/sdp_meta_conf/")
             logger.info(f"uploading to  {cmd.dbfs_path}/sdp_meta_conf complete!!!")
         created_job = self.create_onnboarding_job(cmd)
@@ -1149,16 +1153,48 @@ class SDPMeta:
         return DeployCommand(**deploy_cmd_dict)
 
     def update_ws_onboarding_paths(self, cmd: OnboardCommand):
-        """Substitute ``{placeholder}`` tokens in the onboarding file and write
-        the result next to the original.
+        """Substitute ``{placeholder}`` tokens in the onboarding file and
+        publish the rendered result to a location the onboarding job
+        can actually read.
 
         Delegates the in-memory substitution and parse-validate round-trip to
         :func:`render_onboarding_template` so the same logic powers the
         App's ``/onboarding/preview`` endpoint. We preserve the source
         extension so downstream consumers (``onboard_dataflowspec.py``) read
-        the file with the matching parser — JSON sources stay
+        the file with the matching parser \u2014 JSON sources stay
         ``onboarding.json``, YAML sources stay ``onboarding.yml`` (or
-        ``.yaml``)."""
+        ``.yaml``).
+
+        Output-location strategy
+        ------------------------
+        UC-enabled flows (the supported path for the Databricks App):
+            The rendered bytes are uploaded DIRECTLY to
+            ``{cmd.uc_volume_path}/sdp_meta_conf/tmp/onboarding.{ext}``
+            and ``cmd.onboarding_file_path`` is rewritten to point at
+            that UC Volume path. No local file is written. This is
+            the only place the cluster running the onboarding job
+            can read from anyway \u2014 staging on the App
+            container's local filesystem (in ``/tmp``, in the App
+            wheel folder, or under the user's
+            ``onboarding_files_dir_path``) would either leak files
+            on every run, risk overwriting the user's own files, or
+            put the spec somewhere the job can't open.
+
+            Callers that previously did a follow-up local-to-UC
+            upload (see :meth:`onboard`) MUST skip that step now
+            \u2014 doing both is wasteful but harmless (same bytes,
+            same destination, ``overwrite=True``); the local
+            ``open()`` would simply fail because
+            ``cmd.onboarding_file_path`` is now a ``/Volumes/...``
+            path.
+
+        Non-UC (DBFS) flows:
+            Preserve the historical behaviour \u2014 render to
+            ``<src_dir>/onboarding.{json|yml}`` and let
+            :meth:`onboard` push it to DBFS with ``dbfs.upload``.
+            The DBFS code path uses a different SDK surface and
+            its own staging contract; we don't change it here.
+        """
         string_subs = {
             "{uc_volume_path}": f"{cmd.uc_volume_path}/sdp_meta_conf/",
             "{uc_catalog_name}": cmd.uc_catalog_name,
@@ -1169,13 +1205,34 @@ class SDPMeta:
             content = f.read()
 
         src_ext = os.path.splitext(cmd.onboarding_file_path)[1].lower()
-        src_dir = os.path.dirname(cmd.onboarding_file_path)
         rendered, _ = render_onboarding_template(content, src_ext, string_subs)
 
         if src_ext in (".yml", ".yaml"):
-            updated_ob_file_path = os.path.join(src_dir, f"onboarding{src_ext}")
+            rendered_basename = f"onboarding{src_ext}"
         else:
-            updated_ob_file_path = os.path.join(src_dir, "onboarding.json")
+            rendered_basename = "onboarding.json"
+
+        if cmd.uc_enabled and cmd.uc_volume_path:
+            uc_dest = (
+                f"{cmd.uc_volume_path.rstrip('/')}/sdp_meta_conf/tmp/"
+                f"{rendered_basename}"
+            )
+            self._ws.files.upload(
+                file_path=uc_dest,
+                contents=io.BytesIO(rendered.encode("utf-8")),
+                overwrite=True,
+            )
+            logger.info(
+                "Uploaded rendered onboarding file directly to UC Volume "
+                "at %s (no local staging file written).",
+                uc_dest,
+            )
+            cmd.onboarding_file_path = uc_dest
+            return
+
+        # Non-UC (DBFS) flow: keep historical write-next-to-source.
+        src_dir = os.path.dirname(cmd.onboarding_file_path)
+        updated_ob_file_path = os.path.join(src_dir, rendered_basename)
         with open(updated_ob_file_path, "w") as out:
             out.write(rendered)
         cmd.onboarding_file_path = updated_ob_file_path

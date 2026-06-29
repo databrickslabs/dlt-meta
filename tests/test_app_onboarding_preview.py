@@ -14,6 +14,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import shutil
 import sys
 import tempfile
 import time
@@ -40,7 +41,13 @@ class OnboardingPreviewRouteTests(unittest.TestCase):
 
     def setUp(self):
         self.client = app_mod.app.test_client()
-        self.tmpdir = tempfile.mkdtemp()
+        # Anchor the tempdir INSIDE the repo so the path resolver's
+        # boundary check (S-2 hardening) accepts the absolute paths
+        # the tests pass to ``onboarding_file_path``. A system
+        # tempdir (``/var/folders/...``) would now be rejected as
+        # "escapes the repo root".
+        self.tmpdir = tempfile.mkdtemp(dir=_REPO_ROOT)
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
 
     def tearDown(self):
         # Leave the tempfile cleanup to the OS — tests are fast and the
@@ -256,7 +263,13 @@ class OnboardingPreflightParseTests(unittest.TestCase):
 
     def setUp(self):
         self.client = app_mod.app.test_client()
-        self.tmpdir = tempfile.mkdtemp()
+        # Anchor the tempdir INSIDE the repo so the path resolver's
+        # boundary check (S-2 hardening) accepts the absolute paths
+        # the tests pass to ``onboarding_file_path``. A system
+        # tempdir (``/var/folders/...``) would now be rejected as
+        # "escapes the repo root".
+        self.tmpdir = tempfile.mkdtemp(dir=_REPO_ROOT)
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
 
     def _write(self, name: str, content: str) -> str:
         path = os.path.join(self.tmpdir, name)
@@ -391,7 +404,13 @@ class OnboardingEnvMismatchRejectionTests(unittest.TestCase):
 
     def setUp(self):
         self.client = app_mod.app.test_client()
-        self.tmpdir = tempfile.mkdtemp()
+        # Anchor the tempdir INSIDE the repo so the path resolver's
+        # boundary check (S-2 hardening) accepts the absolute paths
+        # the tests pass to ``onboarding_file_path``. A system
+        # tempdir (``/var/folders/...``) would now be rejected as
+        # "escapes the repo root".
+        self.tmpdir = tempfile.mkdtemp(dir=_REPO_ROOT)
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
 
     def _write(self, name: str, content: str) -> str:
         path = os.path.join(self.tmpdir, name)
@@ -512,7 +531,13 @@ class OnboardingPreviewEnvWarningTests(unittest.TestCase):
 
     def setUp(self):
         self.client = app_mod.app.test_client()
-        self.tmpdir = tempfile.mkdtemp()
+        # Anchor the tempdir INSIDE the repo so the path resolver's
+        # boundary check (S-2 hardening) accepts the absolute paths
+        # the tests pass to ``onboarding_file_path``. A system
+        # tempdir (``/var/folders/...``) would now be rejected as
+        # "escapes the repo root".
+        self.tmpdir = tempfile.mkdtemp(dir=_REPO_ROOT)
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
 
     def _write(self, name, content):
         path = os.path.join(self.tmpdir, name)
@@ -580,7 +605,13 @@ class OnboardingPayloadKeyMappingTests(unittest.TestCase):
 
     def setUp(self):
         self.client = app_mod.app.test_client()
-        self.tmpdir = tempfile.mkdtemp()
+        # Anchor the tempdir INSIDE the repo so the path resolver's
+        # boundary check (S-2 hardening) accepts the absolute paths
+        # the tests pass to ``onboarding_file_path``. A system
+        # tempdir (``/var/folders/...``) would now be rejected as
+        # "escapes the repo root".
+        self.tmpdir = tempfile.mkdtemp(dir=_REPO_ROOT)
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         self.template = os.path.join(self.tmpdir, "onboarding.yml")
         with open(self.template, "w", encoding="utf-8") as fh:
             fh.write("- bronze_catalog: '{uc_catalog_name}'\n")
@@ -600,7 +631,13 @@ class OnboardingPayloadKeyMappingTests(unittest.TestCase):
                 self.stderr = io.StringIO("")
                 self.returncode = 0
 
-            def wait(self):
+            def wait(self, timeout=None):
+                return 0
+
+            def poll(self):
+                # H-1: the runner's reap-on-cleanup path now calls
+                # ``proc.poll()`` to decide whether to terminate.
+                # Returning a non-None value mimics "already exited".
                 return 0
 
         def _fake_popen(args, **kwargs):
@@ -1056,7 +1093,13 @@ class OnboardingPreviewRequiredFilesIntegrationTests(unittest.TestCase):
 
     def setUp(self):
         self.client = app_mod.app.test_client()
-        self.tmpdir = tempfile.mkdtemp()
+        # Anchor the tempdir INSIDE the repo so the path resolver's
+        # boundary check (S-2 hardening) accepts the absolute paths
+        # the tests pass to ``onboarding_file_path``. A system
+        # tempdir (``/var/folders/...``) would now be rejected as
+        # "escapes the repo root".
+        self.tmpdir = tempfile.mkdtemp(dir=_REPO_ROOT)
+        self.addCleanup(shutil.rmtree, self.tmpdir, True)
         # Spec on disk references three files under {uc_volume_path}/demo/...
         # Create two of them on the local supporting tree, leave one
         # missing \u2014 the response must classify accordingly.
