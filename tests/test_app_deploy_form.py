@@ -244,7 +244,13 @@ class _SilentProc:
         self.stderr = io.StringIO("")
         self.returncode = 0
 
-    def wait(self):
+    def wait(self, timeout=None):
+        return 0
+
+    def poll(self):
+        # H-1: the runner's reap-on-cleanup path calls ``proc.poll()``
+        # to decide whether to terminate. Returning a non-None value
+        # mimics "already exited".
         return 0
 
 

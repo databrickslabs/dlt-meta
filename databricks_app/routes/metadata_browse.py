@@ -15,10 +15,24 @@ from flask import Blueprint, jsonify, request
 from _config import _get_warehouse_id
 
 try:
-    from databricks.labs.sdp_meta.identifiers import validate_uc_identifier
+    from databricks.labs.sdp_meta.identifiers import (
+        validate_sql_where_clause,
+        validate_uc_identifier,
+    )
 except ImportError:  # pragma: no cover
     def validate_uc_identifier(name, *, kind: str = "identifier") -> str:
         return name
+
+    def validate_sql_where_clause(value, *, kind: str = "where_clause") -> str:
+        # Local-dev fallback: when the wheel isn't installed, refuse any
+        # non-empty WHERE clause rather than allow unsafe passthrough.
+        if value:
+            raise ValueError(
+                "where_clause validation is unavailable because the "
+                "sdp-meta wheel is not installed; clear the filter to "
+                "preview the table."
+            )
+        return ""
 
 
 logger = logging.getLogger(__name__)
@@ -113,13 +127,10 @@ def table_data():
         }), 400
     limit = min(limit, 1000)
 
-    warehouse_id = _get_warehouse_id()
-    if not warehouse_id:
-        return jsonify({
-            'error': 'No SQL warehouse configured. Use the Warehouse '
-                     'button in the top bar to set one.'
-        }), 400
-
+    # Validate every user-supplied component BEFORE any external
+    # resource check (warehouse config etc.) so a malformed input
+    # always surfaces the actionable validation error, not "no
+    # warehouse" \u2014 the user's first task is to fix the input.
     for kind, val in [('catalog', catalog), ('schema', schema), ('table', table)]:
         if not val:
             return jsonify({'error': f'{kind} is required'}), 400
@@ -128,8 +139,27 @@ def table_data():
         except ValueError as exc:
             return jsonify({'error': str(exc)}), 400
 
-    # Build a safe SELECT \u2014 table name comes from SDK-enumerated
-    # lists only.
+    # Reject WHERE clauses that contain SQL statement separators,
+    # comments, or DDL/DML/set-operation keywords. The Databricks
+    # Statement Execution API can't parameterise a structural WHERE
+    # expression, so denylist-validation at the App boundary is the
+    # only place to stop ``'; DROP TABLE x --`` and
+    # ``UNION SELECT * FROM system.\u2026`` style injection. See
+    # ``validate_sql_where_clause`` for the full rule set.
+    try:
+        where_clause = validate_sql_where_clause(where_clause, kind='where_clause')
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    warehouse_id = _get_warehouse_id()
+    if not warehouse_id:
+        return jsonify({
+            'error': 'No SQL warehouse configured. Use the Warehouse '
+                     'button in the top bar to set one.'
+        }), 400
+
+    # Build a safe SELECT \u2014 table identifier components are validated
+    # above and the WHERE clause (if any) is denylist-checked.
     sql = f"SELECT * FROM `{catalog}`.`{schema}`.`{table}`"
     if where_clause:
         sql += f" WHERE {where_clause}"

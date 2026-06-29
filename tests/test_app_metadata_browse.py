@@ -102,5 +102,103 @@ class TableDataLimitValidationTests(unittest.TestCase):
         self.assertIn("warehouse", err)
 
 
+class TableDataWhereClauseRejectionTests(unittest.TestCase):
+    """``where_clause`` denylist rejects SQL-injection vectors at the
+    App boundary BEFORE any SDK / warehouse work.
+
+    The Databricks Statement Execution API cannot bind a structural
+    WHERE expression as a parameter, so validation is the only line of
+    defence \u2014 see ``validate_sql_where_clause``. These tests pin the
+    rejected token set in place so a future refactor of
+    ``table_data()`` cannot accidentally remove the check or weaken it
+    into a passthrough.
+    """
+
+    def setUp(self):
+        app_mod.app.testing = True
+        self.client = app_mod.app.test_client()
+
+    def _post(self, where):
+        return self.client.post(
+            "/api/metadata/table-data",
+            data=json.dumps({
+                "catalog": "c", "schema": "s", "table": "t",
+                "limit": 50, "where_clause": where,
+            }),
+            content_type="application/json",
+        )
+
+    def test_semicolon_is_rejected(self):
+        """Statement separator: classic stacked-query injection."""
+        resp = self._post("1=1; DROP TABLE x")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn(";", resp.get_json()["error"])
+
+    def test_double_dash_comment_is_rejected(self):
+        """Line comment would comment out the trailing LIMIT."""
+        resp = self._post("1=1 --")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("--", resp.get_json()["error"])
+
+    def test_block_comment_open_is_rejected(self):
+        resp = self._post("1=1 /* hi */")
+        self.assertEqual(resp.status_code, 400)
+        err = resp.get_json()["error"]
+        self.assertTrue("/*" in err or "*/" in err)
+
+    def test_backtick_is_rejected(self):
+        """Identifier delimiter would let caller escape to a different
+        table reference."""
+        resp = self._post("1=1 AND `evil`.`tbl`.col=1")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("`", resp.get_json()["error"])
+
+    def test_union_select_is_rejected(self):
+        """The poster-child data-exfiltration vector from the review."""
+        resp = self._post(
+            "1=1 UNION SELECT * FROM system.information_schema.columns"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("UNION", resp.get_json()["error"].upper())
+
+    def test_drop_keyword_is_rejected(self):
+        resp = self._post("1=1 OR DROP TABLE x")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("DROP", resp.get_json()["error"].upper())
+
+    def test_insert_keyword_is_rejected(self):
+        resp = self._post("INSERT INTO x VALUES (1)")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("INSERT", resp.get_json()["error"].upper())
+
+    def test_keyword_match_is_word_boundary(self):
+        """``unionized_state`` is a legitimate column name. Word-boundary
+        regex must not flag it as the ``UNION`` keyword."""
+        resp = self._post("unionized_state = 'CA'")
+        # We expect to short-circuit at the warehouse check (no
+        # warehouse configured in tests), NOT at the WHERE-clause
+        # validator.
+        self.assertEqual(resp.status_code, 400)
+        err = resp.get_json()["error"].lower()
+        self.assertNotIn("disallowed", err)
+        self.assertIn("warehouse", err)
+
+    def test_simple_comparison_passes_validation(self):
+        """A legitimate WHERE clause is allowed through to the
+        warehouse-not-configured short-circuit."""
+        resp = self._post("col1 = 'CA' AND col2 > 10")
+        self.assertEqual(resp.status_code, 400)
+        err = resp.get_json()["error"].lower()
+        self.assertNotIn("disallowed", err)
+        self.assertIn("warehouse", err)
+
+    def test_empty_where_clause_is_allowed(self):
+        """An empty WHERE clause means "no filter" \u2014 still has to
+        reach the warehouse-config short-circuit."""
+        resp = self._post("")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("warehouse", resp.get_json()["error"].lower())
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

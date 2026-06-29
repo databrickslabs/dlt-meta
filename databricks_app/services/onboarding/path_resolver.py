@@ -72,8 +72,38 @@ def _resolve_local_onboarding_path(raw_path: str, repo_root: str):
                 f"Could not download onboarding file from {raw_path}: {exc}"
             ) from exc
 
-    # Local / relative path \u2014 anchor at repo root.
-    local_path = raw_path if os.path.isabs(raw_path) else os.path.join(repo_root, raw_path)
+    # Local / relative path \u2014 anchor at repo root and verify the
+    # resolved path stays inside it.
+    #
+    # The security hole this guards against: without canonicalisation,
+    # a caller-supplied ``../../etc/passwd`` (relative) or
+    # ``/etc/passwd`` (absolute) would resolve to an arbitrary file on
+    # the App container's filesystem, and the existing ``isfile()``
+    # gate only confirms existence \u2014 the contents are then returned
+    # verbatim to the browser via the ``rendered`` field on the
+    # preview endpoint.
+    #
+    # We accept BOTH absolute and relative inputs and apply the same
+    # boundary check to both: ``os.path.realpath`` collapses any ``..``
+    # / symlink hops, and we then assert the final path is within
+    # ``repo_root_real``. The trailing ``os.sep`` is required so
+    # ``/repo_root_evil`` is rejected even when ``repo_root`` is
+    # ``/repo_root`` \u2014 plain ``startswith`` is a footgun otherwise.
+    if os.path.isabs(raw_path):
+        candidate = raw_path
+    else:
+        candidate = os.path.join(repo_root, raw_path)
+    local_path = os.path.realpath(candidate)
+    repo_root_real = os.path.realpath(repo_root)
+    if not (
+        local_path == repo_root_real
+        or local_path.startswith(repo_root_real + os.sep)
+    ):
+        raise _OnboardingFileError(
+            f"Onboarding path escapes the repo root: {raw_path}\n"
+            f"Provide a path that resolves inside {repo_root_real!r}, "
+            f"or a UC Volume path (/Volumes/catalog/schema/volume/file.yml)."
+        )
     if not os.path.isfile(local_path):
         raise _OnboardingFileError(
             f"Onboarding file not found: {local_path}\n"

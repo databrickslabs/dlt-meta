@@ -244,6 +244,99 @@ def validate_scd_type(value, *, kind: str = "scd_type") -> str:
     return value
 
 
+# SQL fragments (e.g. an optional WHERE clause on the App's Metadata
+# Browse tab) cannot be parameterised by the Databricks Statement
+# Execution API for structural positions, so anything user-supplied
+# must be denylist-validated before being spliced into a query. We
+# block the tokens that make second-statement / comment-out / DDL
+# escapes possible. The set is intentionally narrow: legitimate
+# WHERE clauses (column comparisons, AND / OR / IN / LIKE on a list
+# of literal values) all pass; anything that smells like
+# ``'; DROP TABLE x --`` or ``UNION SELECT … FROM system.…`` is
+# rejected at the App boundary with an actionable 400.
+#
+# Why a denylist rather than a strict allowlist regex: even a
+# minimal real-world WHERE clause exercises CASE / BETWEEN /
+# subexpressions / quoted string literals containing arbitrary
+# bytes, all of which are awkward to express as a single allow
+# pattern without rejecting legitimate input. The denylist below
+# covers every escape vector the Databricks SQL grammar exposes for
+# stacking, commenting out the trailing LIMIT, or invoking DDL /
+# DML — those are exactly the structural primitives the dialect
+# requires for an injection to do damage. Everything else stays
+# scoped to the SELECT we own.
+_DANGEROUS_SQL_TOKENS = (
+    ";",      # statement separator
+    "--",     # line comment (would comment out the trailing LIMIT)
+    "/*",     # block comment open
+    "*/",     # block comment close
+    "`",      # identifier delimiter — would let caller escape to a
+              # different table reference
+)
+
+# Case-insensitive keyword denylist. A WHERE clause genuinely needs
+# none of these — they only appear in injection payloads that try to
+# escape the SELECT we built. Word-boundary matched (``\bUNION\b``)
+# so column names like ``unionized_state`` aren't false-positives.
+_DANGEROUS_SQL_KEYWORDS = (
+    "UNION", "INTERSECT", "EXCEPT",      # set operations (data exfil)
+    "INSERT", "UPDATE", "DELETE", "MERGE", "TRUNCATE", "COPY",
+    "DROP", "CREATE", "ALTER", "RENAME", "REPLACE",
+    "GRANT", "REVOKE",
+    "EXEC", "EXECUTE", "CALL",
+)
+
+_DANGEROUS_KEYWORD_RE = re.compile(
+    r"\b(" + "|".join(_DANGEROUS_SQL_KEYWORDS) + r")\b",
+    re.IGNORECASE,
+)
+
+_MAX_WHERE_CLAUSE_LEN = 2000
+
+
+def validate_sql_where_clause(value, *, kind: str = "where_clause") -> str:
+    """Reject SQL fragments that contain statement-separation,
+    comment, or DDL/DML escape tokens.
+
+    Returns ``value`` unchanged on success. Raises ``ValueError`` with
+    an actionable message identifying the offending token so the user
+    can adjust their input.
+
+    Intended for the narrow case where a SELECT's WHERE clause is
+    composed from user input (Metadata Browse table preview) and the
+    Statement Execution API cannot bind it as a parameter. Callers
+    that can use named parameters (``ws.statement_execution.execute_statement(..., parameters=[...])``)
+    should prefer that path.
+    """
+    if value is None or value == "":
+        return ""
+    if not isinstance(value, str):
+        raise ValueError(
+            f"{kind} must be a string, got {type(value).__name__}: {value!r}"
+        )
+    if len(value) > _MAX_WHERE_CLAUSE_LEN:
+        raise ValueError(
+            f"{kind} is {len(value)} characters; maximum allowed is "
+            f"{_MAX_WHERE_CLAUSE_LEN}"
+        )
+    for token in _DANGEROUS_SQL_TOKENS:
+        if token in value:
+            raise ValueError(
+                f"{kind} contains disallowed token {token!r}. Statement "
+                f"separators, comments, and identifier delimiters are not "
+                f"permitted in user-supplied WHERE clauses."
+            )
+    match = _DANGEROUS_KEYWORD_RE.search(value)
+    if match:
+        raise ValueError(
+            f"{kind} contains disallowed keyword "
+            f"{match.group(1).upper()!r}. Only simple filter expressions "
+            f"(column comparisons joined by AND / OR) are permitted; set "
+            f"operations and DDL / DML are not."
+        )
+    return value
+
+
 def _format_prompt_error(message: str) -> str:
     """Format an error message for an interactive UC-identifier prompt.
 
