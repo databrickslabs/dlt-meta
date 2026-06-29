@@ -28,7 +28,7 @@ const config = {
       ({
         docs: {
           sidebarPath: './sidebars.js',
-          editUrl: 'https://github.com/databrickslabs/sdp-meta/tree/main/docs-new/',
+          editUrl: 'https://github.com/databrickslabs/sdp-meta/tree/main/docs/docs/',
           showLastUpdateTime: true,
           showLastUpdateAuthor: true,
         },
