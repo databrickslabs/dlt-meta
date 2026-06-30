@@ -2723,7 +2723,6 @@ snapshot_runner_content = (
     "# COMMAND ----------\n"
     "\n"
     "# DBTITLE 1,Snapshot reader for apply_changes_from_snapshot\n"
-    "import dlt\n"
     "from databricks.labs.sdp_meta.dataflow_spec "
     "import BronzeDataflowSpec\n"
     "\n"

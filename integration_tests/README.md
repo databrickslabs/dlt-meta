@@ -213,11 +213,12 @@ python integration_tests/run_backward_compat_tests.py \
     --profile=<<DEFAULT>>
 
 # Custom branches with explicit profile pins (used when the branch
-# name doesn't match a registered prefix):
+# name doesn't match a registered prefix). Source ≠ target so the test
+# actually exercises the legacy → current shim path:
 python integration_tests/run_backward_compat_tests.py \
     --uc_catalog_name=<<uc catalog name>> \
-    --source_version=feature/legacy-bugfix --source_profile=legacy \
-    --target_version=feature/sdp-meta     --target_profile=current \
+    --source_version=v0.0.10            --source_profile=legacy \
+    --target_version=feature/sdp-meta   --target_profile=current \
     --profile=<<DEFAULT>>
 
 # Skip cleanup on success/failure so the run state is debuggable;
