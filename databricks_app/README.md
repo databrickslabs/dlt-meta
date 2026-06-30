@@ -23,6 +23,15 @@ app will work.
 
 ## Deploy to Databricks
 
+Two supported paths — pick whichever fits your workflow:
+
+| Path | When to use | Steps |
+|---|---|---|
+| **A. CLI + deploy script** *(below)* | You have the Databricks CLI installed and want to deploy from your local working tree (including unmerged changes). | Steps 1–4 below. |
+| **B. Apps UI + Databricks Git folder** *(no CLI)* | Click-only workflow against a published branch on github.com, no local CLI/Python. | Quick pointer [below](#deploy-via-apps-ui--git-folder-no-cli); full walkthrough in [UI_GIT_DEPLOY.md](./UI_GIT_DEPLOY.md). |
+
+---
+
 ### 1. Authenticate
 
 ```bash
@@ -37,7 +46,12 @@ databricks apps create demo-sdp-meta
 
 > Wait a couple of minutes for the app compute to provision.
 
-### 3. Deploy with `scripts/deploy_app.sh` (recommended)
+### 3. Deploy with the deploy script (recommended)
+
+Pick the script for your shell — they perform identical staging and produce
+the same result in the workspace.
+
+#### macOS / Linux / WSL — `scripts/deploy_app.sh`
 
 ```bash
 # Run from the sdp-meta repo root
@@ -52,27 +66,55 @@ cd /path/to/sdp-meta
 Run `./scripts/deploy_app.sh -h` for the full argument list. `--app` defaults
 to `demo-sdp-meta` (matches step 2).
 
-**Why this script and not raw `databricks sync` + `databricks apps deploy`?**
-Two things the platform-native commands won't do for you:
+#### Windows (native PowerShell) — `scripts/deploy_app.ps1`
+
+The bash script doesn't run on Windows (POSIX + `rsync`). Use
+`scripts/deploy_app.ps1` instead — same staging + sync + deploy flow, native
+`robocopy`, no Git Bash / WSL needed.
+
+```powershell
+# Run from the sdp-meta repo root
+cd C:\path\to\sdp-meta
+
+.\scripts\deploy_app.ps1 -DatabricksProfile <DATABRICKS_CLI_PROFILE> `
+                         -App <YOUR_APP_NAME> `
+                         -Path /Workspace/Users/email/<workspace-folder>
+```
+
+See **[WINDOWS_DEPLOY.md](./WINDOWS_DEPLOY.md)** for the full argument
+reference, env-var fallbacks, execution-policy notes, and Windows-specific
+troubleshooting (CRLF line-ending crash on first deploy, `robocopy` exit
+codes, etc.).
+
+**Why these scripts and not raw `databricks sync` + `databricks apps deploy`?**
+Three things the platform-native commands won't do for you (both
+`deploy_app.sh` and `deploy_app.ps1` handle them identically):
 
 1. **Inject `app.yaml` at the deploy root.** The Apps platform requires
    `app.yaml` at the source-code-path root, but we keep the working tree
-   identical to upstream so the file isn't committed. `deploy_app.sh` stages
-   the repo into a tempdir, writes `app.yaml` + `requirements.txt` at the
-   staging root, and syncs that — not the raw working tree.
+   identical to upstream so the file isn't committed. The deploy scripts
+   stage the repo into a tempdir, write `app.yaml` + `requirements.txt` at
+   the staging root, and sync that — not the raw working tree.
 2. **Disguise the interactive demo notebook.** `demo/SDP_META_INTERACTIVE_DEMO.py`
    starts with `# Databricks notebook source`, which causes plain
    `databricks sync` to upload it as a Notebook (the `.py` extension is
    stripped). The Apps container then can't find `demo/SDP_META_INTERACTIVE_DEMO.py`
    and the Interactive Demo fails with `Demo notebook source not found`.
-   `deploy_app.sh` renames the staged copy to `.nbsource` so the workspace
+   The deploy scripts rename the staged copy to `.nbsource` so the workspace
    stores it as a regular FILE; `databricks_app/start.sh` restores the `.py`
    inside the container at startup.
+3. **Normalize line endings on Windows (PowerShell only).** Windows git's
+   default `core.autocrlf=true` checks out `start.sh` with CRLF, and the
+   Linux App container would crash on `bad interpreter: /bin/bash\r`.
+   `deploy_app.ps1` strips `\r` from every staged text file before sync;
+   the repo's `.gitattributes` pins LF for shell scripts so this stops
+   being an issue after a one-time `git add --renormalize .`. Details in
+   [WINDOWS_DEPLOY.md](./WINDOWS_DEPLOY.md#troubleshooting).
 
-If you skip the script and run `databricks sync . <WS_PATH> && databricks apps deploy …`
+If you skip the scripts and run `databricks sync . <WS_PATH> && databricks apps deploy …`
 manually, expect both issues — the app will crash with `error: no commands supplied`
 on startup, and the Interactive Demo will be broken even if you patch the
-crash.
+crash. On Windows you'll additionally hit the CRLF crash.
 
 **What `start.sh` does inside the container:**
 1. Detects Mode A vs Mode B layout (`demo/` + `src/` next to `start.sh`?).
@@ -106,6 +148,21 @@ databricks_app/
 
 Open the URL shown in step 2, or navigate:
 **Databricks Web UI → Compute → Apps → select `<your-app-name>`**
+
+---
+
+## Deploy via Apps UI + Git folder (no CLI)
+
+Click-only alternative — point a Databricks Git folder at this repo,
+create an App in the UI, and aim it at `databricks_app/`.
+`start.sh`'s **Mode B** clones the full `dlt-meta` repo into
+`/tmp/dlt-meta` at container start, so `setup.py`, `src/`, `demo/`,
+and `integration_tests/` are all available without any local sync.
+
+See **[UI_GIT_DEPLOY.md](./UI_GIT_DEPLOY.md)** for the full
+step-by-step (Git-folder setup, App creation, source-code-path
+configuration, UC grants, re-deploy flow, and the cases where this
+path doesn't work — air-gapped clusters, unmerged changes, forks).
 
 ---
 
@@ -203,9 +260,14 @@ This means:
   different `--port`.
 - **`Demo notebook source not found at .../SDP_META_INTERACTIVE_DEMO.py`** —
   you deployed the app with raw `databricks sync .` + `databricks apps deploy`
-  instead of `./scripts/deploy_app.sh`. The sync uploaded the file as a
-  Databricks notebook (extension stripped) and `start.sh` had no
-  `.nbsource` staged copy to restore from. Redeploy with the script.
+  instead of `./scripts/deploy_app.sh` (or `.\scripts\deploy_app.ps1` on
+  Windows). The sync uploaded the file as a Databricks notebook (extension
+  stripped) and `start.sh` had no `.nbsource` staged copy to restore from.
+  Redeploy with the script.
+- **App crashes on first deploy from Windows with `bad interpreter: /bin/bash\r`
+  or `\r: command not found`** — CRLF line endings reached the Linux App
+  container. Fix steps and the underlying `.gitattributes` policy are in
+  [WINDOWS_DEPLOY.md → Troubleshooting](./WINDOWS_DEPLOY.md#troubleshooting).
 
 ### 6. Mirror the App container's full boot path (optional)
 

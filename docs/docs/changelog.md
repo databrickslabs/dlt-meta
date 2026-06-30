@@ -12,6 +12,9 @@ sidebar_position: 99
 
 ### New Features
 
+- **Windows PowerShell deploy script** — `scripts/deploy_app.ps1` is a native port of `scripts/deploy_app.sh` using `robocopy` + the `databricks` CLI. No Git Bash / WSL / Python required. Mirrors the bash flow (stage → sync → deploy) and adds a CRLF → LF normalization pass so `start.sh` reaches the Linux App container with LF endings. Uses `-DatabricksProfile` to avoid shadowing PowerShell's built-in `$PROFILE` variable. See [databricks_app/WINDOWS_DEPLOY.md](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/WINDOWS_DEPLOY.md).
+- **Apps UI + Git folder deploy path** — click-only alternative documented in [databricks_app/UI_GIT_DEPLOY.md](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/UI_GIT_DEPLOY.md). Create a Databricks Git folder pointing at the repo, aim the App at `databricks_app/` only, and `start.sh`'s Mode B clones the full `dlt-meta` repo into `/tmp/dlt-meta` at container start.
+- **Repo-wide line-ending policy** — `.gitattributes` pins LF for shell/Python/YAML/JSON/template files, CRLF for `.bat`/`.cmd`, binary for images/archives. Prevents the `bad interpreter: /bin/bash\r` App-container crash from recurring via any tooling path.
 - **Automatic liquid clustering** (`cluster_by_auto`) for bronze and silver tables. When set to `true`, Databricks automatically determines the optimal clustering columns. Works alongside explicit `cluster_by` to define initial keys followed by automatic optimization. Supported for `bronze_cluster_by_auto`, `bronze_quarantine_table_cluster_by_auto`, and `silver_cluster_by_auto`. ([Issue #238](https://github.com/databrickslabs/dlt-meta/issues/238))
 - **MCP Server support** — opt-in `mcp` CLI command (`databricks labs sdp-meta mcp`) exposes sdp-meta over stdio so MCP-capable clients (Claude Code, Cursor, Claude Desktop) can drive scaffolding and inspection. Install with `pip install databricks-labs-sdp-meta[mcp]`.
 - **Declarative Automation Bundle (DAB) template** with `bundle-init --quickstart` zero-prompt fast path for instant bundle scaffolding. New CLI commands: `bundle-init`, `bundle-add-flow`, `bundle-prepare-wheel`, `bundle-validate`. Packaged template includes onboarding job, Lakeflow Spark Declarative Pipelines, runner notebook, and four flow-generation recipes.
@@ -34,6 +37,7 @@ sidebar_position: 99
 
 ### Bug Fixes & Improvements
 
+- **Git portability for DAB template filenames** — renamed three template files under `src/databricks/labs/sdp_meta/templates/dab/template/{{.bundle_name}}/conf/` (`onboarding.*.tmpl`, `silver_transformations.*.tmpl`, `dqe/example_table/bronze_expectations.*.tmpl`) to use Go `text/template` backtick string literals instead of double-quoted ones. The literal `"` in the previous filenames clashed with Git's `core.protectNTFS=true` (default on all platforms since Git 2.22, 2019) and caused `error: invalid path` on checkout. Functionally identical to `databricks bundle init`.
 - **Security**: Replaced unsafe `eval()` on `uc_enabled` widget with a strict parser. ([Issue #260](https://github.com/databrickslabs/dlt-meta/issues/260))
 - **Performance**: O(N+M) schema modification for wide tables in CDC flows (was previously O(N×M)). ([Issue #284](https://github.com/databrickslabs/dlt-meta/issues/284))
 - Fixed cross-platform file URI handling in CLI; updated cloudFiles demo clustering metadata.
