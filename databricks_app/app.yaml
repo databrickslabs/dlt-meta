@@ -1,0 +1,13 @@
+command: [
+  "bash",
+  "start.sh"
+]
+display_name: "SDP-META"
+description: "Metadata-driven Lakeflow Spark Declarative Pipelines"
+
+env:
+  # SQL warehouse used by the DataflowSpecs browser and the Metadata → Browse tab.
+  # Leave blank ("") to configure the warehouse interactively via the app UI
+  # (Warehouse button in the top bar → enter an existing ID or create a new serverless one).
+  - name: DATABRICKS_SQL_WAREHOUSE_ID
+    value: ""

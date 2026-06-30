@@ -46,7 +46,7 @@ def main():
     uc_catalog_name = args.uc_catalog_name
     schema_list = workspace_client.schemas.list(catalog_name=uc_catalog_name)
     for schema in schema_list:
-        if schema.name.startswith("dlt_meta_dataflowspecs_it_"):
+        if schema.name.startswith("sdp_meta_dataflowspecs_it_"):
             print(f" schema: {schema.name}")
             vol_list = workspace_client.volumes.list(catalog_name=uc_catalog_name, schema_name=schema.name)
             for vol in vol_list:

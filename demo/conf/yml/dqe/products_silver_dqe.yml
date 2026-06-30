@@ -1,0 +1,2 @@
+expect_or_drop:
+  valid_product_id: product_id IS NOT NULL

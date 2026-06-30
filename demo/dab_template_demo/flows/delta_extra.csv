@@ -1,0 +1,5 @@
+source_format,source_database,source_table,bronze_table,silver_table,data_flow_id,source_system
+delta,{uc_source_catalog}.{uc_source_schema},customers,customers,customers,auto,{uc_source_schema}
+delta,{uc_source_catalog}.{uc_source_schema},transactions,transactions,transactions,auto,{uc_source_schema}
+delta,{uc_source_catalog}.{uc_source_schema},stores,stores,stores,auto,{uc_source_schema}
+delta,{uc_source_catalog}.{uc_source_schema},products,products,products,auto,{uc_source_schema}

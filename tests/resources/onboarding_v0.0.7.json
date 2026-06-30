@@ -85,8 +85,8 @@
             "cloudFiles.rescuedDataColumn": "_rescued_data"
         },
         "bronze_table_path_dev": "tests/resources/delta/transactions",
-        "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/transactions",
-        "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/transactions",
+        "bronze_table_path_staging": "s3://db-sdp-meta-staging/demo/data/bronze/transactions",
+        "bronze_table_path_prd": "s3://db-sdp-meta-prod/demo/data/bronze/transactions",
         "bronze_table_properties": {
             "pipelines.reset.allowed": "false"
         },
@@ -149,8 +149,8 @@
             "kafka.session.timeout.ms": "60000"
         },
         "bronze_table_path_dev": "tests/resources/delta/iot_cdc",
-        "bronze_table_path_staging": "s3://db-dlt-meta-staging/demo/data/bronze/iot_cdc",
-        "bronze_table_path_prd": "s3://db-dlt-meta-prod/demo/data/bronze/iot_cdc",
+        "bronze_table_path_staging": "s3://db-sdp-meta-staging/demo/data/bronze/iot_cdc",
+        "bronze_table_path_prd": "s3://db-sdp-meta-prod/demo/data/bronze/iot_cdc",
         "bronze_data_quality_expectations_json_dev": "tests/resources/dqe/iot_cdc/bronze_data_quality_expectations.json",
         "silver_database_dev": "silver",
         "silver_table": "iot_cdc",

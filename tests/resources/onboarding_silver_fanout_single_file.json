@@ -1,0 +1,56 @@
+[
+    {
+        "data_flow_id": "200",
+        "data_flow_group": "A1",
+        "source_system": "MYSQL",
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_database": "APP",
+            "source_table": "CUSTOMERS",
+            "source_path_dev": "tests/resources/data/customers",
+            "source_schema_path": "tests/resources/schema/customer_schema.ddl"
+        },
+        "bronze_database_dev": "bronze",
+        "bronze_table": "customers",
+        "bronze_table_path_dev": "tests/resources/delta/customers",
+        "bronze_reader_options": {
+            "cloudFiles.format": "json",
+            "cloudFiles.rescuedDataColumn": "_rescued_data",
+            "cloudFiles.inferColumnTypes": "true"
+        },
+        "silver_database_dev": "silver",
+        "silver_table": "customers_clean",
+        "silver_table_path_dev": "tests/resources/data/silver/customers_clean",
+        "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
+    },
+    {
+        "data_flow_id": "201",
+        "data_flow_group": "A1",
+        "bronze_database_dev": "bronze",
+        "bronze_table": "customers",
+        "silver_database_dev": "silver",
+        "silver_table": "customers_germany",
+        "silver_table_path_dev": "tests/resources/data/silver/customers_germany",
+        "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
+    },
+    {
+        "data_flow_id": "202",
+        "data_flow_group": "A1",
+        "bronze_database_dev": "bronze",
+        "bronze_table": "customers",
+        "silver_database_dev": "silver",
+        "silver_table": "customers_uk",
+        "silver_table_path_dev": "tests/resources/data/silver/customers_uk",
+        "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
+    },
+    {
+        "data_flow_id": "203",
+        "data_flow_group": "A1",
+        "bronze_database_dev": "bronze",
+        "bronze_table": "customers",
+        "silver_database_dev": "silver",
+        "silver_table": "customers_japan",
+        "silver_table_path_dev": "tests/resources/data/silver/customers_japan",
+        "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
+    }
+]
