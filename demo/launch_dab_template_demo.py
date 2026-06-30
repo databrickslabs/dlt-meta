@@ -89,7 +89,6 @@ from databricks.labs.sdp_meta.bundle import (  # noqa: E402
     BundlePrepareWheelCommand,
     BundleValidateCommand,
     _flows_from_csv,
-    _sdp_meta_sanity_checks,
     bundle_add_flow,
     bundle_init,
     bundle_prepare_wheel,
@@ -868,9 +867,9 @@ def stage_bundle_init(scenario: Scenario, out_dir: Path, uc_catalog_name: str,
     # For the `delta` scenario that table doesn't exist (and the launcher
     # never seeds it), so leaving it in produces an extra dataflow spec
     # that fails at pipeline runtime with `TABLE_OR_VIEW_NOT_FOUND`.
-    # Strip it so STAGE 4's `from_uc.py` (which mirrors the real source
-    # schema) is the only thing populating onboarding.yml.
-    if scenario.name in _DELTA_SCENARIO_NAMES:
+    # Strip it so STAGE 4's recipe (from_uc.py for delta, from_topics.py
+    # for kafka/eventhub) is the only thing populating onboarding.yml.
+    if scenario.name in _DELTA_SCENARIO_NAMES or scenario.name in {"kafka", "eventhub"}:
         _strip_example_onboarding_entry(bundle_dir)
 
     print(f"\n[STAGE 1] Bundle scaffolded at {bundle_dir}")
@@ -1103,13 +1102,6 @@ def stage_recipe(scenario: Scenario, bundle_dir: Path, *, apply_recipe: bool,
 
 def stage_validate(bundle_dir: Path, profile: Optional[str]) -> None:
     _banner("STAGE 5", "bundle-validate  (sdp-meta sanity checks + databricks validate)")
-    errors = _sdp_meta_sanity_checks(bundle_dir)
-    if errors:
-        print("[STAGE 5] sdp-meta sanity checks reported issues:")
-        for e in errors:
-            print(f"  - {e}")
-    else:
-        print("[STAGE 5] sdp-meta sanity checks: clean")
     rc = bundle_validate(BundleValidateCommand(
         bundle_dir=str(bundle_dir),
         profile=profile,
