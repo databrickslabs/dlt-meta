@@ -255,6 +255,54 @@ class OnboardingPreviewRouteTests(unittest.TestCase):
         self.assertIn("my_chosen_schema_name", body["rendered"])
         self.assertNotIn("sdp_meta_dataflowspecs_", body["rendered"])
 
+    def test_preview_accepts_merged_bundled_spec_path(self):
+        """Regression for the production-reported failure:
+
+            Onboarding path escapes the repo root: /tmp/sdp_meta_app_bundled_merged/
+            cloudfiles-onboarding.merged.template.yml
+
+        Repro: user picks "Cloud Files Autoloader (YAML)" from the
+        bundled-demo dropdown. ``bundled_specs._materialise_merged_spec``
+        writes the flattened spec under ``BUNDLED_SPEC_MERGED_DIR``
+        (deliberately outside the repo root \u2014 the Apps container's
+        repo tree is read-only). The frontend pre-fills the path into
+        the form. Preview submits, and the S-2 traversal guard rejects
+        the absolute path.
+
+        Fix: ``BUNDLED_SPEC_MERGED_DIR`` is now in the resolver's
+        trusted-prefix allow-list. This test confirms the end-to-end
+        flow: a real file written under the trusted dir survives the
+        full preview pipeline (resolve \u2192 pre-flight parse \u2192 substitute
+        \u2192 200).
+        """
+        from services.onboarding.path_resolver import BUNDLED_SPEC_MERGED_DIR
+        os.makedirs(BUNDLED_SPEC_MERGED_DIR, exist_ok=True)
+        merged_path = os.path.join(
+            BUNDLED_SPEC_MERGED_DIR,
+            "cloudfiles-onboarding.merged.template.yml",
+        )
+        with open(merged_path, "w", encoding="utf-8") as fh:
+            fh.write(
+                "- data_flow_id: '100'\n"
+                "  bronze_catalog: '{uc_catalog_name}'\n"
+                "  bronze_path: '{uc_volume_path}/cloudfiles/bronze'\n"
+            )
+        self.addCleanup(
+            lambda: os.path.exists(merged_path) and os.unlink(merged_path)
+        )
+
+        resp = self.client.post(
+            "/onboarding/preview", data=self._form(merged_path)
+        )
+        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True))
+        body = resp.get_json()
+        # Render must have substituted both placeholders \u2014 same contract
+        # as the in-repo preview tests.
+        self.assertIn("my_cat", body["rendered"])
+        self.assertIn("/Volumes/my_cat/sch/sch/sdp_meta_conf", body["rendered"])
+        self.assertNotIn("{uc_catalog_name}", body["rendered"])
+        self.assertNotIn("{uc_volume_path}", body["rendered"])
+
 
 class OnboardingPreflightParseTests(unittest.TestCase):
     """Pre-flight parse on ``POST /onboarding`` — the real endpoint must

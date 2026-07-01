@@ -43,8 +43,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-import tempfile
 from typing import Iterable
+
+from .path_resolver import BUNDLED_SPEC_MERGED_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -147,10 +148,16 @@ _BUNDLED_DEMO_SPECS = {
 # The merged files live under ``<tempdir>/sdp_meta_app_bundled_merged/``
 # \u2014 guaranteed writable inside the App container, and outside the
 # repo tree so they don't pollute git.
+#
+# The output dir is sourced from ``path_resolver.BUNDLED_SPEC_MERGED_DIR``
+# rather than defined locally, because the path-traversal guard in
+# ``_resolve_local_onboarding_path`` needs to allow this exact directory
+# through its repo-root boundary check. Sharing the constant guarantees
+# the writer (this module) and the verifier (path_resolver) agree on
+# the path \u2014 if we ever rename it, both ends move together and the
+# allow-list never falls out of sync with the producer.
 
-_MERGED_OUTPUT_DIR = os.path.join(
-    tempfile.gettempdir(), "sdp_meta_app_bundled_merged"
-)
+_MERGED_OUTPUT_DIR = BUNDLED_SPEC_MERGED_DIR
 
 
 def _load_json_rows(path: str):
@@ -299,9 +306,12 @@ def _list_bundled_specs(repo_root: str):
         # Prefer merged paths when ``merge_with`` is declared AND the
         # merge succeeded; otherwise fall back to the un-merged source.
         # Both branches yield strings the resolver can ingest \u2014
-        # repo-relative for un-merged sources, absolute paths for
-        # merged outputs (resolver accepts both \u2014 see
-        # ``_resolve_local_onboarding_path``).
+        # repo-relative for un-merged sources, absolute paths under
+        # ``BUNDLED_SPEC_MERGED_DIR`` for merged outputs. The
+        # path-traversal guard in ``_resolve_local_onboarding_path``
+        # has an explicit allow-list entry for the merged directory
+        # so these absolute paths bypass the repo-root boundary check
+        # without weakening it for caller-supplied input.
         if json_exists:
             formats["json"] = (
                 merged_paths["json"]

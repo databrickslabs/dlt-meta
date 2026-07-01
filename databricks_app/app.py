@@ -85,6 +85,41 @@ def handle_404(exc):
     return jsonify({'error': 'Not found'}), 404
 
 
+# ── App version injection ────────────────────────────────────────────────────
+# Surface the installed ``databricks.labs.sdp_meta`` package version to
+# every Jinja template via ``{{ app_version }}``. The landing page
+# footer renders ``SDP-META v{{ app_version }}`` so the UI footer stays
+# in lock-step with the wheel version automatically \u2014 no more drift
+# between ``__about__.__version__`` and a hardcoded string in the HTML.
+#
+# Resolution order:
+#   1. Installed package ``databricks.labs.sdp_meta.__about__.__version__``
+#      \u2014 the canonical source. Both PYTHONPATH-based dev runs and
+#      wheel-installed Apps containers hit this branch.
+#   2. Fallback to ``"unknown"`` if the import fails. The App can still
+#      boot for diagnostic purposes (e.g. wheel removed mid-debug)
+#      without crashing on a missing version string.
+try:
+    from databricks.labs.sdp_meta.__about__ import (  # noqa: E402
+        __version__ as _SDP_META_VERSION,
+    )
+except Exception:  # noqa: BLE001 \u2014 any import failure must not crash the App
+    _SDP_META_VERSION = "unknown"
+    logger.warning(
+        "Could not resolve sdp-meta package version; landing page will "
+        "show 'unknown'. Check that databricks.labs.sdp_meta is on "
+        "PYTHONPATH or installed as a wheel."
+    )
+
+
+@app.context_processor
+def _inject_app_version():
+    """Make the package version available in every Jinja template as
+    ``{{ app_version }}``. Single source of truth; safe to add more
+    keys here if other globals need surfacing to the UI later."""
+    return {"app_version": _SDP_META_VERSION}
+
+
 # ── Security headers ─────────────────────────────────────────────────────────
 @app.after_request
 def add_security_headers(response):

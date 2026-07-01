@@ -26,6 +26,7 @@ if _APP_DIR not in sys.path:
     sys.path.insert(0, _APP_DIR)
 
 from services.onboarding.path_resolver import (  # noqa: E402
+    BUNDLED_SPEC_MERGED_DIR,
     _OnboardingFileError,
     _resolve_local_onboarding_path,
 )
@@ -155,6 +156,91 @@ class ResolveLocalOnboardingPathTraversalTests(unittest.TestCase):
     def test_empty_path_rejected(self):
         with self.assertRaisesRegex(_OnboardingFileError, r"required"):
             _resolve_local_onboarding_path("", self._repo)
+
+
+class ResolveLocalOnboardingPathTrustedPrefixTests(unittest.TestCase):
+    """The S-2 boundary check rejects absolute paths outside the repo
+    root \u2014 except for an explicit allow-list of server-generated paths
+    (``_TRUSTED_GENERATED_PREFIXES``). This pins the allow-list contract:
+
+      * a file under ``BUNDLED_SPEC_MERGED_DIR`` (the merged-bundled-demo
+        output dir, server-materialised, never browser-supplied) is
+        accepted even though it lives outside the repo
+      * a sibling temp dir with a confusingly-similar prefix is NOT
+        accepted (defends against ``..._evil`` startswith bypass)
+      * a generic ``<tempdir>/random.yml`` is still rejected, so the
+        allow-list is narrow and explicit
+    """
+
+    def setUp(self):
+        self._repo = tempfile.mkdtemp(prefix="sdp_meta_test_repo_")
+        os.makedirs(BUNDLED_SPEC_MERGED_DIR, exist_ok=True)
+
+    def tearDown(self):
+        for dirpath, _, fnames in os.walk(self._repo, topdown=False):
+            for fn in fnames:
+                try:
+                    os.unlink(os.path.join(dirpath, fn))
+                except OSError:
+                    pass
+            try:
+                os.rmdir(dirpath)
+            except OSError:
+                pass
+
+    def _write_trusted(self, name: str, body: str = "- a: 1\n") -> str:
+        path = os.path.join(BUNDLED_SPEC_MERGED_DIR, name)
+        with open(path, "w") as f:
+            f.write(body)
+        self.addCleanup(lambda p=path: os.path.exists(p) and os.unlink(p))
+        return path
+
+    def test_file_under_trusted_merged_dir_accepted(self):
+        # Reproduces the production failure: bundled-demo picker pre-fills
+        # ``<tempdir>/sdp_meta_app_bundled_merged/cloudfiles-onboarding.
+        # merged.template.yml`` and Preview must accept it.
+        trusted_file = self._write_trusted(
+            "cloudfiles-onboarding.merged.template.yml"
+        )
+        local, tmp = _resolve_local_onboarding_path(trusted_file, self._repo)
+        self.assertEqual(local, os.path.realpath(trusted_file))
+        self.assertIsNone(tmp)
+
+    def test_sibling_dir_with_similar_prefix_still_rejected(self):
+        # ``<tempdir>/sdp_meta_app_bundled_merged_evil/x.yml`` must not
+        # be accepted just because its prefix starts the same way \u2014
+        # the trailing ``os.sep`` guard in the prefix check protects
+        # against this startswith-bypass.
+        evil_dir = BUNDLED_SPEC_MERGED_DIR + "_evil"
+        os.makedirs(evil_dir, exist_ok=True)
+        self.addCleanup(lambda: os.path.isdir(evil_dir) and os.rmdir(evil_dir))
+        evil_file = os.path.join(evil_dir, "x.yml")
+        with open(evil_file, "w") as f:
+            f.write("- a: 1\n")
+        self.addCleanup(
+            lambda: os.path.exists(evil_file) and os.unlink(evil_file)
+        )
+        with self.assertRaisesRegex(
+            _OnboardingFileError, r"escapes the repo root"
+        ):
+            _resolve_local_onboarding_path(evil_file, self._repo)
+
+    def test_random_tempfile_outside_allowlist_still_rejected(self):
+        # The allow-list is narrow: a hand-crafted ``<tempdir>/random.yml``
+        # path (not under the bundled-merged dir) is NOT a server-managed
+        # path and must still be rejected, so the S-2 guarantee survives.
+        with tempfile.NamedTemporaryFile(
+            suffix=".yml", delete=False, prefix="sdp_meta_attack_"
+        ) as tf:
+            tf.write(b"- a: 1\n")
+            attack = tf.name
+        self.addCleanup(
+            lambda: os.path.exists(attack) and os.unlink(attack)
+        )
+        with self.assertRaisesRegex(
+            _OnboardingFileError, r"escapes the repo root"
+        ):
+            _resolve_local_onboarding_path(attack, self._repo)
 
 
 if __name__ == "__main__":  # pragma: no cover

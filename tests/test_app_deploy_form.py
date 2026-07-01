@@ -95,16 +95,26 @@ class DeployServerSideValidationTests(unittest.TestCase):
         body = resp.get_json()
         self.assertIn("Unity Catalog Name", body["error"])
 
-    def test_missing_uc_catalog_when_uc_disabled_is_ok(self):
-        # When UC is off, ``uc_catalog_name`` is no longer required —
-        # the catalog field doesn't exist for non-UC pipelines.
+    def test_uc_disabled_post_is_rejected_uc_only_contract(self):
+        # The App is Unity Catalog-only; the legacy ``uc_enabled``
+        # toggle was removed from the UI in favour of a hidden input
+        # pinned to "1". A hand-crafted POST with ``uc_enabled=0`` is
+        # unreachable from the App UI and must be rejected with a
+        # clear 400 instead of being silently routed through the
+        # deploy pipeline (which would build a pipeline config that
+        # fails at runtime against any modern Databricks workspace).
+        # Locks in the UC-only product contract -- see
+        # ``handle_deploy_form`` for the matching guard.
         data = dict(_VALID_DEPLOY_FORM)
         data["uc_enabled"] = "0"
         data.pop("uc_catalog_name", None)
         with mock.patch.object(app_mod.subprocess, "Popen",
                                side_effect=lambda *a, **kw: _SilentProc()):
             resp = self.client.post("/deploy", data=data)
-        self.assertEqual(resp.status_code, 200, resp.get_data(as_text=True))
+        self.assertEqual(resp.status_code, 400, resp.get_data(as_text=True))
+        body = resp.get_json()
+        self.assertIn("Unity Catalog", body["error"])
+        self.assertIn("uc_enabled", body["error"])
 
     def test_missing_bronze_group_for_bronze_layer_returns_400(self):
         resp = self._post_missing("onboard_bronze_group")
