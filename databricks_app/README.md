@@ -1,11 +1,14 @@
 # SDP-META Databricks App
 
+> **Requires Unity Catalog.** The App is Unity Catalog–only. 
+
 ## Prerequisites
 
 ### System Requirements
 - Python 3.10 or higher
 - [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/tutorial.html) (v0.244.0 or later)
 - Configured Databricks workspace access
+- **Unity Catalog enabled** on the target workspace, with a catalog the App service principal can `USE CATALOG` and `CREATE SCHEMA` on (use the in-App **Test App access** button to verify before running a demo or onboarding).
 
 ### How paths work
 

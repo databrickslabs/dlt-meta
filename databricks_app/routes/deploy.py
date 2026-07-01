@@ -35,6 +35,24 @@ def handle_deploy_form():
 
     uc_enabled = request.form.get('uc_enabled') == "1"
     uc_name = (request.form.get('uc_catalog_name') or '').strip()
+
+    # ── UC-only App contract ───────────────────────────────────────
+    # The App ships with UC as the only supported mode (the legacy
+    # enable/disable toggle was removed from the UI in favour of a
+    # hidden input pinned to "1"). The underlying ``sdp-meta`` CLI
+    # still supports HMS, but a UC=Disabled POST to the App is
+    # unreachable via the UI and almost always indicates a hand-
+    # crafted / stale client. Fail fast with a clear 400 instead of
+    # letting the request fan out through the deploy pipeline.
+    if not uc_enabled:
+        return jsonify({
+            'error': (
+                "The SDP-META App supports Unity Catalog only. The "
+                "form field ``uc_enabled`` must be '1'. If you need "
+                "HMS support, drive sdp-meta via the ``databricks "
+                "labs sdp-meta`` CLI directly."
+            )
+        }), 400
     layer = request.form.get('deploylayer', 'bronze')
     pipeline_name = (request.form.get('pipeline_name') or '').strip()
     spc_schema = (request.form.get('spc_schema_name') or '').strip()
