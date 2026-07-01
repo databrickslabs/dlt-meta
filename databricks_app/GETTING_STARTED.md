@@ -4,6 +4,8 @@ A browser-based front-end for SDP-META: onboard pipelines, preview the
 generated DataflowSpec rows, deploy Lakeflow Spark Declarative Pipelines,
 and monitor them — all without leaving the workspace.
 
+> **Requires Unity Catalog.** The App is UC-only. 
+
 > **Looking for something else?**
 >
 > - **I need to deploy the app into a workspace** → see [`README.md`](./README.md)

@@ -234,9 +234,9 @@ class OnboardCommand:
                 raise ValueError("dbr_version is required")
         if self.onboard_layer and self.onboard_layer.lower() == "bronze_silver":
             if not self.uc_enabled:
-                if not self.bronze_dataflowspec_path or self.silver_dataflowspec_path == "":
+                if not self.bronze_dataflowspec_path:
                     raise ValueError("bronze_dataflowspec_path is required")
-                if not self.silver_dataflowspec_path or self.silver_dataflowspec_path == "":
+                if not self.silver_dataflowspec_path:
                     raise ValueError("silver_dataflowspec_path is required")
         elif self.onboard_layer.lower() == "bronze":
             if not self.uc_enabled:
@@ -456,10 +456,10 @@ class SDPMeta:
         file_count = 0
         for root, dirs, files in os.walk(main_dir):
             for filename in files:
-                target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
+                target_dir = root[len(main_dir):]
                 uc_volume_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}".replace("//", "/")
-                contents = open(os.path.join(root, filename), "rb")
-                self._ws.files.upload(file_path=uc_volume_path, contents=contents, overwrite=True)
+                with open(os.path.join(root, filename), "rb") as contents:
+                    self._ws.files.upload(file_path=uc_volume_path, contents=contents, overwrite=True)
                 file_count += 1
         if file_count == 0:
             raise FileNotFoundError(
@@ -534,14 +534,14 @@ class SDPMeta:
             base_dir_name = base_dir_name[base_dir_name.rfind('/') + 1:]
         for root, dirs, files in os.walk(main_dir):
             for filename in files:
-                target_dir = root[root.index(main_dir) + len(main_dir):len(root)]
+                target_dir = root[len(main_dir):]
                 dbfs_path = f"{dst}/{base_dir_name}/{target_dir}/{filename}"
-                contents = open(os.path.join(root, filename), "rb")
                 logger.info(
                     f"local_path={os.path.join(root, filename)} "
                     f"dbfs_path={dst}/{base_dir_name}/{target_dir}/{filename}"
                 )
-                self._ws.dbfs.upload(dbfs_path, contents, overwrite=True)
+                with open(os.path.join(root, filename), "rb") as contents:
+                    self._ws.dbfs.upload(dbfs_path, contents, overwrite=True)
 
     def create_uc_volume(self, uc_catalog_name, sdp_meta_schema):
         try:
@@ -576,13 +576,13 @@ class SDPMeta:
             # it to ``{dbfs_path}/sdp_meta_conf/``. Distinct SDK
             # surface from UC; intentionally untouched here.
             onboarding_filename = os.path.basename(cmd.onboarding_file_path)
-            ob_file = open(cmd.onboarding_file_path, "rb")
             self._ws.dbfs.mkdirs(f"{cmd.dbfs_path}/sdp_meta_conf/")
-            self._ws.dbfs.upload(
-                f"{cmd.dbfs_path}/sdp_meta_conf/{onboarding_filename}",
-                ob_file,
-                overwrite=True,
-            )
+            with open(cmd.onboarding_file_path, "rb") as ob_file:
+                self._ws.dbfs.upload(
+                    f"{cmd.dbfs_path}/sdp_meta_conf/{onboarding_filename}",
+                    ob_file,
+                    overwrite=True,
+                )
             self.update_ws_onboarding_paths(cmd)
             self.copy_to_dbfs(cmd.onboarding_files_dir_path, cmd.dbfs_path + "/sdp_meta_conf/")
             logger.info(f"uploading to  {cmd.dbfs_path}/sdp_meta_conf complete!!!")
@@ -987,7 +987,7 @@ class SDPMeta:
                     kind="dataflowspec_silver_table",
                     default='silver_dataflowspec')
                 if not deploy_cmd_dict["uc_enabled"]:
-                    deploy_cmd_dict["dataflowspec_path"] = self._wsi._question(
+                    deploy_cmd_dict["dataflowspec_silver_path"] = self._wsi._question(
                         "Provide silver dataflowspec path",
                         default=f'{self._install_folder()}/silver_dataflow_specs')
             if not deploy_cmd_dict["serverless"]:

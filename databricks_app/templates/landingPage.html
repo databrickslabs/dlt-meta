@@ -246,6 +246,24 @@
             color: rgba(255,255,255,.22);
             line-height: 1.5;
         }
+        /* "Unity Catalog required" pill surfaced in the sidebar footer.
+           Visible on every panel so a first-time user / demoer cannot
+           miss the constraint that this App only supports UC workspaces.
+           See ``databricks_app/README.md`` + the matching server-side
+           guards in ``routes/onboarding.py`` / ``routes/deploy.py``. */
+        .uc-required-pill {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 9px;
+            font-size: .62rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,.88);
+            background: rgba(30,136,229,.22);
+            border: 1px solid rgba(30,136,229,.45);
+            border-radius: 999px;
+        }
 
         /* ── Content area ───────────────────────────────────────────── */
         .content {
@@ -503,10 +521,47 @@
             display: flex; align-items: center; gap: 10px;
             border: 1px solid var(--border);
         }
+        /* The base ``.uc-access-status`` rule sets ``display: flex`` at
+           class-level specificity, which silently beats the user agent's
+           ``[hidden] { display: none }`` rule and leaves the empty
+           status box rendered (padding + border + top-margin) even when
+           the JS hasn't populated it yet. Re-assert the hidden contract
+           with a more-specific selector so an empty placeholder div on
+           Onboarding / Deployment / Demo doesn't ship as a phantom
+           bordered rectangle below the "Test App access" button. */
+        .uc-access-status[hidden] { display: none; }
         .uc-access-status.ok    { background: rgba(46,160,67,.08); border-color: rgba(46,160,67,.30); color: #1B5E20; }
         .uc-access-status.warn  { background: rgba(255,54,33,.08); border-color: rgba(255,54,33,.30); color: #B22A19; }
         .uc-access-status.info  { background: rgba(30,136,229,.07); border-color: rgba(30,136,229,.25); color: #0D47A1; }
         .uc-access-status code  { font-size: .8rem; background: rgba(0,0,0,.05); padding: 1px 6px; border-radius: 4px; }
+
+        /* Smaller "Test App access" variant for inline use inside a
+           form-grid cell on the Onboarding / Deployment forms. Lighter
+           padding / font so it sits under the catalog input without
+           dominating the column. */
+        .uc-access-inline { margin-top: 8px; display: flex; }
+        .btn-test-access.btn-test-access-sm {
+            padding: 6px 12px;
+            font-size: .78rem;
+            font-weight: 600;
+        }
+        /* Card-wide status row: spans the full .form-card under the
+           .form-grid so the message (which may contain several padded
+           <code> chips) has room to flow without wrapping the chips
+           mid-word into a tall stack. */
+        .uc-access-status.uc-access-status-inline {
+            margin: 14px 0 0;
+            font-size: .82rem;
+            padding: 10px 14px;
+            line-height: 1.55;
+            word-break: normal;
+            overflow-wrap: anywhere;
+        }
+        .uc-access-status.uc-access-status-inline code {
+            display: inline;
+            white-space: normal;
+            word-break: break-all;
+        }
 
         /* ── Specs panel ─────────────────────────────────────────── */
         .specs-config-row {
@@ -1074,7 +1129,7 @@
         </button>
 
         <div class="sidebar-footer">
-            <p>SDP-META v0.1.0 &mdash; Databricks Labs</p>
+            <p>SDP-META v{{ app_version }} &mdash; Databricks Labs</p>
         </div>
 
     </aside>
@@ -1096,19 +1151,18 @@
 
                 <div class="form-card">
                     <div class="form-card-title">Catalog &amp; Compute</div>
+                    <!-- The App is Unity Catalog-only. The legacy
+                         ``unity_catalog_enabled`` enable/disable toggle
+                         has been removed from the UI, but the form
+                         value is still submitted as "1" via this hidden
+                         input so the server route, CLI, onboarding
+                         library, integration tests, and demo runners
+                         (all of which key off this field name) keep
+                         working unchanged. Flip this only if you're
+                         intentionally adding Hive Metastore support
+                         back to the App. -->
+                    <input type="hidden" name="unity_catalog_enabled" value="1">
                     <div class="form-grid">
-
-                        <div class="form-group">
-                            <span class="form-label">Unity Catalog
-                                <span class="field-tip" data-tip="Enable if your workspace uses Unity Catalog (recommended). Disable only for legacy Hive Metastore setups.">?</span>
-                            </span>
-                            <div class="radio-toggle">
-                                <input type="radio" id="uc_on" name="unity_catalog_enabled" value="1" checked>
-                                <label for="uc_on">Enabled</label>
-                                <input type="radio" id="uc_off" name="unity_catalog_enabled" value="0">
-                                <label for="uc_off">Disabled</label>
-                            </div>
-                        </div>
 
                         <div class="form-group">
                             <label class="form-label" for="unity_catalog_name">Unity Catalog Name <span style="color:var(--brand)" id="ucNameRequired">*</span>
@@ -1116,6 +1170,13 @@
                             </label>
                             <input class="form-input" type="text" id="unity_catalog_name" name="unity_catalog_name"
                                    placeholder="my_catalog" required>
+                            <div class="uc-access-inline">
+                                <button type="button"
+                                        class="btn-test-access btn-test-access-sm"
+                                        id="btnTestAccessOnboarding"
+                                        onclick="checkUcGrants('unity_catalog_name', 'btnTestAccessOnboarding', 'ucAccessStatusOnboarding')"
+                                        title="Verify the App service principal can CREATE SCHEMA on this catalog before onboarding">Test App access</button>
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -1131,6 +1192,12 @@
                         </div>
 
                     </div>
+                    <!-- Card-wide status row for the "Test App access"
+                         probe above. Sits OUTSIDE the .form-grid so the
+                         message (incl. its inline <code> chips) gets the
+                         full card width to flow naturally instead of
+                         being squeezed into one grid column. -->
+                    <div id="ucAccessStatusOnboarding" class="uc-access-status uc-access-status-inline info" data-inline="1" hidden></div>
                 </div>
 
                 <div class="form-card">
@@ -1393,19 +1460,16 @@
 
                 <div class="form-card">
                     <div class="form-card-title">Catalog &amp; Compute</div>
+                    <!-- The App is Unity Catalog-only. The legacy
+                         ``uc_enabled`` enable/disable toggle has been
+                         removed from the UI, but the form value is
+                         still submitted as "1" via this hidden input so
+                         the deployment route, CLI, pipeline library,
+                         integration tests, and demo runners (all of
+                         which key off this field name) keep working
+                         unchanged. -->
+                    <input type="hidden" name="uc_enabled" value="1">
                     <div class="form-grid">
-
-                        <div class="form-group">
-                            <span class="form-label">Unity Catalog
-                                <span class="field-tip" data-tip="Enable if your workspace uses Unity Catalog. Must match what was used during onboarding.">?</span>
-                            </span>
-                            <div class="radio-toggle">
-                                <input type="radio" id="d_uc_on" name="uc_enabled" value="1" checked>
-                                <label for="d_uc_on">Enabled</label>
-                                <input type="radio" id="d_uc_off" name="uc_enabled" value="0">
-                                <label for="d_uc_off">Disabled</label>
-                            </div>
-                        </div>
 
                         <div class="form-group">
                             <label class="form-label" for="uc_catalog_name">Unity Catalog Name <span style="color:var(--brand)">*</span>
@@ -1413,6 +1477,13 @@
                             </label>
                             <input class="form-input" type="text" id="uc_catalog_name" name="uc_catalog_name"
                                    placeholder="my_catalog">
+                            <div class="uc-access-inline">
+                                <button type="button"
+                                        class="btn-test-access btn-test-access-sm"
+                                        id="btnTestAccessDeployment"
+                                        onclick="checkUcGrants('uc_catalog_name', 'btnTestAccessDeployment', 'ucAccessStatusDeployment')"
+                                        title="Verify the App service principal can CREATE SCHEMA on this catalog before deploying">Test App access</button>
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -1428,6 +1499,12 @@
                         </div>
 
                     </div>
+                    <!-- Card-wide status row for the "Test App access"
+                         probe above. Sits OUTSIDE the .form-grid so the
+                         message (incl. its inline <code> chips) gets the
+                         full card width to flow naturally instead of
+                         being squeezed into one grid column. -->
+                    <div id="ucAccessStatusDeployment" class="uc-access-status uc-access-status-inline info" data-inline="1" hidden></div>
                 </div>
 
                 <div class="form-card">
@@ -2306,6 +2383,37 @@
                 noteHtml;
         }
 
+        /* Canonical schema names that every shipped bundled demo
+           expects via the ``{bronze_schema}`` / ``{silver_schema}``
+           placeholder substitution. Matches the DAB template defaults
+           and the names referenced throughout the demo notebooks /
+           README, so a first-time user who picks any bundled demo
+           gets a runnable configuration with zero typing. */
+        var BUNDLED_SCHEMA_DEFAULTS = {
+            sdp_meta_schema: 'sdp_meta_dataflowspecs',
+            bronze_schema:   'sdp_meta_bronze',
+            silver_schema:   'sdp_meta_silver',
+        };
+
+        /* Pre-fill the Schema & Tables card with canonical defaults
+           ONLY for fields the user hasn't already typed into. Picking
+           a bundled demo should never overwrite a value the user
+           explicitly entered \u2014 we just paper over blanks so
+           "Bundled demo" is truly turnkey.
+
+           No-op for UC-Volume / Manual source modes (caller decides
+           when to invoke this; we don't auto-fire on every mode
+           change). */
+        function _fillBundledSchemaDefaultsIfBlank() {
+            Object.keys(BUNDLED_SCHEMA_DEFAULTS).forEach(function(fieldId) {
+                var el = document.getElementById(fieldId);
+                if (!el) return;
+                if ((el.value || '').trim() === '') {
+                    el.value = BUNDLED_SCHEMA_DEFAULTS[fieldId];
+                }
+            });
+        }
+
         /* Push the picked bundled spec's paths into the hidden inputs.
            Also apply any per-entry ``env_override`` to the Environment
            field \u2014 some demos (DAIS) ship with a non-default env
@@ -2328,6 +2436,7 @@
                     envInput.value = entry.env_override;
                 }
             }
+            _fillBundledSchemaDefaultsIfBlank();
             _renderBundledMeta(entry);
         }
 
@@ -2361,9 +2470,19 @@
             paneBundled.style.display = (mode === 'bundled') ? '' : 'none';
             paneUc.style.display      = (mode === 'uc_volume') ? '' : 'none';
             paneManual.style.display  = (mode === 'manual') ? '' : 'none';
-            if (mode === 'bundled')      _syncBundledToHidden();
-            else if (mode === 'uc_volume') _syncUcToHidden();
-            else                         _syncManualToHidden();
+            if (mode === 'bundled') {
+                /* Fill the canonical schema defaults synchronously on
+                   page load so the user sees them instantly, even if
+                   the /onboarding/bundled-specs fetch hasn't resolved
+                   yet. ``_syncBundledToHidden`` will fill them again
+                   (idempotently) once the dropdown is populated. */
+                _fillBundledSchemaDefaultsIfBlank();
+                _syncBundledToHidden();
+            } else if (mode === 'uc_volume') {
+                _syncUcToHidden();
+            } else {
+                _syncManualToHidden();
+            }
         }
 
         /* Fetch the bundled-spec catalogue, populate the dropdown,
@@ -2626,7 +2745,15 @@
             var el = form.elements[name];
             return el ? (el.value || '').trim() : '';
         }
-        var ucEnabled = (form.querySelector('input[name="uc_enabled"]:checked') || {}).value === '1';
+        /* UC is now always-on (the enable/disable toggle was removed
+           from the UI in favour of a hidden input always set to "1").
+           Read the value directly instead of using ``:checked`` (which
+           only matches radio/checkbox, not hidden inputs). Falls back
+           to ``true`` if the field is missing entirely so the form
+           still validates as UC-enabled — matches the App's product
+           contract of "UC-only". */
+        var ucEnabledEl = form.elements['uc_enabled'];
+        var ucEnabled = ucEnabledEl ? ((ucEnabledEl.value || '').trim() === '1') : true;
         /* Default falls back to ``bronze_silver`` to match the visible
            dropdown default. The required-field set below treats
            ``bronze_silver`` as the strict-superset of bronze and silver
@@ -2765,20 +2892,44 @@
        re-issue the same /rundemo call after the grant is applied. */
     var __lastDemoCommand = null;
 
-    function _setUcStatus(kind, html) {
-        var el = document.getElementById('ucAccessStatus');
+    /* The catalog-access probe is reused from THREE surfaces now —
+       the Demo panel "Test App access" button (original), and the
+       new buttons on the Onboarding and Deployment forms next to
+       their respective Unity Catalog inputs. ``__ucContext`` tracks
+       which input/button/status-div the current probe targets so the
+       shared helpers (``_setUcStatus``, ``_flashUcInputInvalid``,
+       ``verifyAndRetry``) can route to the right DOM nodes.
+
+       The default values preserve the original Demo-panel behaviour
+       for any callers that don't pass explicit ids. */
+    var __ucContext = {
+        inputId: 'demo_uc_name',
+        btnId: 'btnTestAccess',
+        statusId: 'ucAccessStatus',
+    };
+
+    function _setUcStatus(kind, html, statusId) {
+        var el = document.getElementById(statusId || __ucContext.statusId);
+        if (!el) return;
         el.className = 'uc-access-status ' + kind;
+        /* Preserve the inline-form variant if it was originally
+           rendered with it — only the kind class should toggle. */
+        if (el.dataset.inline === '1') {
+            el.classList.add('uc-access-status-inline');
+        }
         el.innerHTML = html;
         el.hidden = false;
     }
-    function _clearUcStatus() {
-        var el = document.getElementById('ucAccessStatus');
+    function _clearUcStatus(statusId) {
+        var el = document.getElementById(statusId || __ucContext.statusId);
+        if (!el) return;
         el.hidden = true;
         el.innerHTML = '';
     }
 
-    function _flashUcInputInvalid() {
-        var ucInput = document.getElementById('demo_uc_name');
+    function _flashUcInputInvalid(inputId) {
+        var ucInput = document.getElementById(inputId || __ucContext.inputId);
+        if (!ucInput) return;
         ucInput.focus();
         ucInput.style.borderColor = '#FF3621';
         ucInput.style.boxShadow   = '0 0 0 3px rgba(255,54,33,.16)';
@@ -2789,26 +2940,37 @@
     }
 
     /* "Test App access" button — non-blocking probe. Calls
-       /check-uc-grants and renders the result inline above the demo
-       grid. On missing privileges, also opens the grant-required modal
-       so the SQL block + Copy button are immediately usable. */
-    function checkUcGrants() {
-        var ucInput = document.getElementById('demo_uc_name');
-        var ucName = ucInput.value.trim();
-        if (!ucName) { _flashUcInputInvalid(); return; }
+       /check-uc-grants and renders the result inline next to the
+       triggering input. On missing privileges, also opens the
+       grant-required modal so the SQL block + Copy button are
+       immediately usable.
 
-        var btn = document.getElementById('btnTestAccess');
-        btn.disabled = true;
-        var originalLabel = btn.textContent;
-        btn.textContent = 'Checking…';
-        _setUcStatus('info', 'Checking access on <code>' + escapeHtml(ucName) + '</code>…');
+       Reused by THREE surfaces: the Demo panel (no args → defaults),
+       the Onboarding form, and the Deployment form. Explicit ids let
+       each surface render status into its own inline container. */
+    function checkUcGrants(inputId, btnId, statusId) {
+        inputId  = inputId  || 'demo_uc_name';
+        btnId    = btnId    || 'btnTestAccess';
+        statusId = statusId || 'ucAccessStatus';
+        __ucContext = { inputId: inputId, btnId: btnId, statusId: statusId };
+
+        var ucInput = document.getElementById(inputId);
+        if (!ucInput) return;
+        var ucName = (ucInput.value || '').trim();
+        if (!ucName) { _flashUcInputInvalid(inputId); return; }
+
+        var btn = document.getElementById(btnId);
+        if (btn) btn.disabled = true;
+        var originalLabel = btn ? btn.textContent : '';
+        if (btn) btn.textContent = 'Checking…';
+        _setUcStatus('info', 'Checking access on <code>' + escapeHtml(ucName) + '</code>…', statusId);
 
         fetch('/check-uc-grants?uc_name=' + encodeURIComponent(ucName))
             .then(function(r) { return _parseJSON(r).then(function(d) { return { status: r.status, body: d }; }); })
             .then(function(resp) {
-                btn.disabled = false; btn.textContent = originalLabel;
+                if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
                 if (resp.status >= 400 || (resp.body.error && !resp.body.grant_sql)) {
-                    _setUcStatus('warn', '<strong>Error:</strong> ' + escapeHtml(resp.body.error || ('HTTP ' + resp.status)));
+                    _setUcStatus('warn', '<strong>Error:</strong> ' + escapeHtml(resp.body.error || ('HTTP ' + resp.status)), statusId);
                     return;
                 }
                 var d = resp.body;
@@ -2816,17 +2978,19 @@
                     _setUcStatus('ok',
                         '<strong>✓ Access OK.</strong> App SP <code>' + escapeHtml(d.sp_display_name) +
                         '</code> has ' + (d.have || []).map(escapeHtml).join(', ') +
-                        ' on <code>' + escapeHtml(d.uc_name) + '</code>.');
+                        ' on <code>' + escapeHtml(d.uc_name) + '</code>.',
+                        statusId);
                 } else {
                     _setUcStatus('warn',
                         '<strong>Grant required.</strong> Missing ' + (d.missing || []).map(escapeHtml).join(', ') +
-                        ' on <code>' + escapeHtml(d.uc_name) + '</code>. See modal for SQL.');
+                        ' on <code>' + escapeHtml(d.uc_name) + '</code>. See modal for SQL.',
+                        statusId);
                     showGrantRequiredModal(d);
                 }
             })
             .catch(function(e) {
-                btn.disabled = false; btn.textContent = originalLabel;
-                _setUcStatus('warn', '<strong>Error:</strong> ' + escapeHtml(e.message));
+                if (btn) { btn.disabled = false; btn.textContent = originalLabel; }
+                _setUcStatus('warn', '<strong>Error:</strong> ' + escapeHtml(e.message), statusId);
             });
     }
 
@@ -2888,9 +3052,13 @@
 
     /* Re-runs /check-uc-grants for the current input. If access is now
        OK and we got here from a /rundemo blocker, automatically launches
-       the demo the user originally tried to run. */
+       the demo the user originally tried to run.
+
+       Uses ``__ucContext`` so it can re-probe whichever input the user
+       originally clicked from (Demo, Onboarding, or Deployment panel). */
     function verifyAndRetry() {
-        var ucName = document.getElementById('demo_uc_name').value.trim();
+        var inputEl = document.getElementById(__ucContext.inputId);
+        var ucName = inputEl ? (inputEl.value || '').trim() : '';
         if (!ucName) { _flashUcInputInvalid(); return; }
         showLoading('Verifying access…');
         fetch('/check-uc-grants?uc_name=' + encodeURIComponent(ucName))
@@ -2901,7 +3069,11 @@
                     _setUcStatus('ok',
                         '<strong>✓ Access OK.</strong> App SP <code>' + escapeHtml(d.sp_display_name) +
                         '</code> can now use <code>' + escapeHtml(d.uc_name) + '</code>.');
-                    if (__lastDemoCommand) {
+                    /* Only auto-relaunch a demo if the verify came from
+                       the Demo-panel context (where ``__lastDemoCommand``
+                       was captured). Onboarding / Deployment buttons
+                       just close the modal — they don't trigger /rundemo. */
+                    if (__lastDemoCommand && __ucContext.inputId === 'demo_uc_name') {
                         var cmd = __lastDemoCommand;
                         closeModal();
                         runDemo(cmd);
@@ -2920,7 +3092,11 @@
     /* ── Demo cards ─────────────────────────────────────────── */
     function runDemo(command) {
         var ucInput = document.getElementById('demo_uc_name');
-        if (!ucInput.value.trim()) { _flashUcInputInvalid(); return; }
+        if (!ucInput.value.trim()) { _flashUcInputInvalid('demo_uc_name'); return; }
+        /* Restore the Demo-panel ucContext so the grant-required modal
+           opened by /rundemo (if any) targets the Demo-panel status
+           container, not whichever input the user last tested. */
+        __ucContext = { inputId: 'demo_uc_name', btnId: 'btnTestAccess', statusId: 'ucAccessStatus' };
 
         __lastDemoCommand = command;
         showLoading('Launching demo…');
@@ -2955,8 +3131,21 @@
 
     /* Clear the inline access status when the user edits the catalog
        name — a stale "OK" indicator for a different catalog name would
-       be misleading. */
-    document.getElementById('demo_uc_name').addEventListener('input', _clearUcStatus);
+       be misleading. Wired for ALL three catalog inputs (Demo,
+       Onboarding, Deployment) so each surface clears its own status. */
+    (function _wireCatalogStatusClearers() {
+        var pairs = [
+            { input: 'demo_uc_name',        status: 'ucAccessStatus' },
+            { input: 'unity_catalog_name',  status: 'ucAccessStatusOnboarding' },
+            { input: 'uc_catalog_name',     status: 'ucAccessStatusDeployment' },
+        ];
+        pairs.forEach(function(p) {
+            var el = document.getElementById(p.input);
+            if (el) {
+                el.addEventListener('input', function() { _clearUcStatus(p.status); });
+            }
+        });
+    })();
 
     /* ── Warehouse configuration ────────────────────────────── */
     var _warehouseMode = 'existing';
@@ -3413,11 +3602,10 @@
             var el = document.getElementById(id);
             if (el && val) el.value = val;
         }
-        /* UC catalog */
+        /* UC catalog. UC is always-on App-wide now (the enable/disable
+           toggle was removed from the UI in favour of a hidden input
+           pinned to "1"), so no radio-flip step is needed here. */
         _set('uc_catalog_name', catalog);
-        /* Enable UC radio */
-        var ucOnRadio = document.querySelector('[name="uc_enabled"][value="1"]');
-        if (ucOnRadio && catalog) ucOnRadio.checked = true;
         /* Schema + tables */
         _set('spc_schema_name', schema);
         _set('bronze_dataflowspec_table', bronzeTable);

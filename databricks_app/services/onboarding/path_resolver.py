@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,61 @@ logger = logging.getLogger(__name__)
 # ``.template`` is the historical JSON template suffix; ``.json`` /
 # ``.yml`` / ``.yaml`` match every onboarding file shipped in ``demo/``.
 _VALID_ONBOARDING_EXTS = (".json", ".yml", ".yaml", ".template")
+
+
+# ── Trusted server-generated paths (S-2 allow-list) ─────────────────
+# The S-2 traversal guard below rejects any absolute path that resolves
+# outside the repo root. That's correct for caller-supplied paths
+# (user typed an absolute path into the form), but the App also has
+# server-generated paths that legitimately live in ``<tempdir>`` and
+# are NEVER caller-controlled \u2014 most notably the merged bundled-demo
+# specs produced by ``services.onboarding.bundled_specs`` when a demo
+# declares ``merge_with``. Without this allow-list, the user picks
+# "Cloud Files Autoloader (YAML)" from the bundled-demo dropdown,
+# the form gets pre-filled with ``<tempdir>/sdp_meta_app_bundled_merged/
+# cloudfiles-onboarding.merged.template.yml``, and the next ``Preview``
+# click 400s with "Onboarding path escapes the repo root" \u2014 a true
+# false-positive of the security check.
+#
+# Trust criteria (must be ALL of):
+#   - Path is materialised by App code, never by the browser.
+#   - Path lives under a fixed prefix the App owns end-to-end.
+#   - Prefix is computed at module import via ``tempfile.gettempdir()``
+#     so the writer and the verifier agree on the value by construction
+#     (single source of truth \u2014 ``bundled_specs.py`` imports
+#     ``BUNDLED_SPEC_MERGED_DIR`` from this module).
+#
+# To add a new trusted source: append it to ``_TRUSTED_GENERATED_PREFIXES``
+# AND document the writer here. Anything not on this list still goes
+# through the repo-root boundary check.
+
+BUNDLED_SPEC_MERGED_DIR = os.path.join(
+    tempfile.gettempdir(), "sdp_meta_app_bundled_merged"
+)
+
+_TRUSTED_GENERATED_PREFIXES = (
+    BUNDLED_SPEC_MERGED_DIR,
+)
+
+
+def _is_under_trusted_prefix(local_real: str) -> bool:
+    """``True`` if ``local_real`` (already ``realpath``'d) resolves
+    under any prefix in ``_TRUSTED_GENERATED_PREFIXES``.
+
+    Mirrors the boundary-check semantics used for the repo root:
+    accepts both the exact prefix and any subpath, with the trailing
+    ``os.sep`` guard so ``/tmp/sdp_meta_app_bundled_merged_evil/x.yml``
+    is correctly rejected even when the trusted prefix is
+    ``/tmp/sdp_meta_app_bundled_merged``.
+    """
+    for raw_prefix in _TRUSTED_GENERATED_PREFIXES:
+        prefix_real = os.path.realpath(raw_prefix)
+        if (
+            local_real == prefix_real
+            or local_real.startswith(prefix_real + os.sep)
+        ):
+            return True
+    return False
 
 
 class _OnboardingFileError(ValueError):
@@ -95,10 +151,17 @@ def _resolve_local_onboarding_path(raw_path: str, repo_root: str):
         candidate = os.path.join(repo_root, raw_path)
     local_path = os.path.realpath(candidate)
     repo_root_real = os.path.realpath(repo_root)
-    if not (
+    inside_repo = (
         local_path == repo_root_real
         or local_path.startswith(repo_root_real + os.sep)
-    ):
+    )
+    # The second branch (``_is_under_trusted_prefix``) is the
+    # S-2 allow-list for server-generated paths \u2014 see the prologue
+    # comment on ``_TRUSTED_GENERATED_PREFIXES`` above. Most callers
+    # land in ``inside_repo``; the trusted branch exists specifically
+    # so the bundled-demo merge flow doesn't get caught by its own
+    # security check.
+    if not (inside_repo or _is_under_trusted_prefix(local_path)):
         raise _OnboardingFileError(
             f"Onboarding path escapes the repo root: {raw_path}\n"
             f"Provide a path that resolves inside {repo_root_real!r}, "

@@ -204,10 +204,27 @@ cat > "$STAGING/app.yaml" <<'EOF'
 # local repo. The Databricks Apps platform requires app.yaml at the source-
 # code-path root; databricks_app/start.sh detects Mode A (full repo) and runs
 # the Flask app from the repo root so demo/ and src/ resolve correctly.
-command: [
-  "bash",
-  "databricks_app/start.sh"
-]
+#
+# `bash -c` form is deliberate: it normalizes CRLF -> LF on start.sh in the
+# container BEFORE invoking it. Belt-and-suspenders defense against Windows-
+# origin deploys where start.sh slipped past .gitattributes / the staging
+# normalization (e.g. an older deploy_app.ps1 without the CRLF pass, or a
+# checkout pre-dating .gitattributes with core.autocrlf=true). Without this,
+# `set -euo pipefail` crashes with "set: pipefail : invalid option name"
+# because the trailing \r becomes part of the option token.
+#
+# YAML SINGLE-quoted scalars are used here so backslashes in the sed
+# regex are passed through literally. Some YAML parsers (Apps platform
+# has gone through more than one) interpret '\\r' inside a DOUBLE-quoted
+# scalar as backslash+CR (0x0D) instead of backslash+r, which silently
+# breaks the regex. Single quotes only need '' -> ' escaping.
+# `s/\r//g` strips EVERY CR byte (not just trailing) for max defense.
+# `printf` is an in-band diagnostic; if the Apps log shows the normalizer
+# message but start.sh still errors, the file is unreachable or unwritable.
+command:
+  - 'bash'
+  - '-c'
+  - 'printf ">>> CRLF normalizer: stripping CRs from databricks_app/start.sh\n"; sed -i ''s/\r//g'' databricks_app/start.sh; printf ">>> exec start.sh\n"; exec bash databricks_app/start.sh'
 EOF
 
 cp "$REPO_ROOT/databricks_app/requirements.txt" "$STAGING/requirements.txt"
