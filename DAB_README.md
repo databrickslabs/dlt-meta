@@ -41,7 +41,7 @@ databricks bundle run pipelines  --target dev
 | `notebooks/init_sdp_meta_pipeline.py` | Runner notebook installed by each pipeline; pip-installs sdp-meta from `${var.sdp_meta_dependency}` and calls `DataflowPipeline.invoke_dlt_pipeline(spark, layer)`. |
 | `conf/onboarding.{yml,json}` | Seeded flow definition. Branches at render time on the chosen `source_format`. |
 | `conf/silver_transformations.{yml,json}` | Per-target SELECT projections (silver layers only). |
-| `conf/dqe/example_table/bronze_expectations.{yml,json}` | LDP expectations applied to the bronze table. |
+| `conf/dqe/example_table/bronze_expectations.{yml,json}` | SDP expectations applied to the bronze table. |
 | `README.md` | Generated, layer-aware getting-started doc inside the bundle. |
 | `.gitignore` | Ignores `.databricks/`, `.venv/`, `__pycache__/`. |
 
@@ -86,10 +86,10 @@ Listed in the order the template asks for them.
 | 1 | `bundle_name` | `my_sdp_meta_pipeline` | Folder name and prefix for every job/pipeline name. |
 | 2 | `uc_catalog_name` | `main` | UC catalog holding the sdp-meta schema and target schemas. |
 | 3 | `sdp_meta_schema` | `sdp_meta_dataflowspecs` | Holds the `bronze_dataflowspec` / `silver_dataflowspec` tables. |
-| 4 | `bronze_target_schema` | `sdp_meta_bronze` | Where the bronze LDP pipeline writes its tables. |
-| 5 | `silver_target_schema` | `sdp_meta_silver` | Where the silver LDP pipeline writes its tables. |
+| 4 | `bronze_target_schema` | `sdp_meta_bronze` | Where the bronze SDP Pipeline writes its tables. |
+| 5 | `silver_target_schema` | `sdp_meta_silver` | Where the silver SDP Pipeline writes its tables. |
 | 6 | `layer` | `bronze_silver` | One of `bronze`, `silver`, `bronze_silver`. |
-| 7 | `pipeline_mode` | `split` | Only used when `layer=bronze_silver`. `split` deploys two LDP pipelines (silver depends on bronze); `combined` deploys ONE LDP pipeline that materializes both layers in the same DAG. |
+| 7 | `pipeline_mode` | `split` | Only used when `layer=bronze_silver`. `split` deploys two SDP Pipelines (silver depends on bronze); `combined` deploys ONE SDP Pipeline that materializes both layers in the same DAG. |
 | 8 | `source_format` | `cloudFiles` | Seed for the example flow: `cloudFiles` / `delta` / `kafka` / `eventhub` / `snapshot`. |
 | 9 | `onboarding_file_format` | `yaml` | `yaml` or `json` — chosen format flows into the seeded onboarding, silver, and DQE files. |
 | 10 | `dataflow_group` | `my_group` | Ties flows in the onboarding file to the pipeline's `*.group` configuration. |
@@ -99,8 +99,8 @@ Listed in the order the template asks for them.
 
 ## Choosing pipeline_mode (when `layer=bronze_silver`)
 
-- **`split` (default)** — two LDP pipelines (`bronze`, `silver`), one job that runs silver after bronze. Each pipeline has its own update history; you can recompute one without disturbing the other. Recommended when the layers have different SLAs or lifecycles.
-- **`combined`** — one LDP pipeline (`bronze_silver`) whose `configuration.layer = bronze_silver` makes sdp-meta build both layers in the same DAG. Lower fixed overhead (one pipeline to schedule and monitor), one update cycle, single set of expectations metrics. Recommended when bronze→silver is a tight unit.
+- **`split` (default)** — two SDP Pipelines (`bronze`, `silver`), one job that runs silver after bronze. Each pipeline has its own update history; you can recompute one without disturbing the other. Recommended when the layers have different SLAs or lifecycles.
+- **`combined`** — one SDP Pipeline (`bronze_silver`) whose `configuration.layer = bronze_silver` makes sdp-meta build both layers in the same DAG. Lower fixed overhead (one pipeline to schedule and monitor), one update cycle, single set of expectations metrics. Recommended when bronze→silver is a tight unit.
 
 You can switch later: change `pipeline_mode` in `resources/variables.yml`, redeploy, re-run.
 
@@ -340,7 +340,7 @@ databricks labs sdp-meta bundle-validate
 # 5. Deploy + run in dev
 databricks bundle deploy --target dev
 databricks bundle run onboarding --target dev   # writes dataflow specs
-databricks bundle run pipelines  --target dev   # runs LDP
+databricks bundle run pipelines  --target dev   # runs SDP
 
 # 6. Promote to prod
 databricks bundle deploy --target prod
@@ -405,7 +405,7 @@ DataflowPipeline.invoke_dlt_pipeline(spark, layer)
 
 `invoke_dlt_pipeline` accepts several optional kwargs that hook user code into the pipeline. Three patterns ship as worked examples in [`examples/`](./examples/) — each is a one- or two-cell change to the runner notebook. Pick the variant that matches your source and copy the relevant block in **above** the `invoke_dlt_pipeline(...)` call, then update that call to pass the new function(s).
 
-> Important: keep cell 1 of the notebook untouched. Serverless LDP rejects the runner with `SyntaxError: incomplete input` if there is any multi-line Python before `%pip install` in cell 1. Add your callbacks in **cell 2** (or in a new third cell, with a `# COMMAND ----------` break before it).
+> Important: keep cell 1 of the notebook untouched. Serverless SDP rejects the runner with `SyntaxError: incomplete input` if there is any multi-line Python before `%pip install` in cell 1. Add your callbacks in **cell 2** (or in a new third cell, with a `# COMMAND ----------` break before it).
 
 ### Pattern 1 — snapshot ingestion (`source_format: snapshot`)
 

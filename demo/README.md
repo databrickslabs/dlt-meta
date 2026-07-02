@@ -647,7 +647,7 @@ End-to-end demo for the new `databricks labs sdp-meta bundle-*` CLI commands. On
 | 3 | `databricks labs sdp-meta bundle-add-flow` | Bulk-append flow entries from a CSV (the demo supplies one per scenario under `demo/dab_template_demo/flows/`). |
 | 4 | `python recipes/from_*.py` | Run the rendered recipe (one of `from_uc.py`, `from_volume.py`, `from_topics.py`, `from_inventory.py`) to programmatically generate flows from real workspace state. |
 | 5 | `databricks labs sdp-meta bundle-validate` | Run `databricks bundle validate` plus sdp-meta-specific sanity checks (layer/topology consistency, `wheel_source` vs `sdp_meta_dependency`, unedited `<your-...>` placeholders, dangling `dataflow_group` references). |
-| 6 | `databricks bundle deploy` + `bundle run onboarding` + `bundle run pipelines` | Deploy to the workspace, write the `bronze_dataflowspec` / `silver_dataflowspec` rows, and run the LDP pipelines end-to-end. |
+| 6 | `databricks bundle deploy` + `bundle run onboarding` + `bundle run pipelines` | Deploy to the workspace, write the `bronze_dataflowspec` / `silver_dataflowspec` rows, and run the SDP Pipelines end-to-end. |
 
 > For the full CLI reference (every prompt, every variable, every recipe, the full flag surface, and how to extend the runner notebook for snapshot / CDC / custom transforms), see [`DAB_README.md`](../DAB_README.md) at the repo root. This demo section is the *runnable* walkthrough; `DAB_README.md` is the *reference*.
 
@@ -655,8 +655,8 @@ The demo supports six scenarios via `--scenario`:
 
 | Scenario | Source | Pipeline mode |
 | --- | --- | --- |
-| `cloudfiles` | UC volume CSVs (Customers / Transactions / Products / Stores) | `split` (separate bronze + silver LDP pipelines) |
-| `cloudfiles_combined` | Same data, same recipe | `combined` (bronze + silver in **one** LDP pipeline) |
+| `cloudfiles` | UC volume CSVs (Customers / Transactions / Products / Stores) | `split` (separate bronze + silver SDP Pipelines) |
+| `cloudfiles_combined` | Same data, same recipe | `combined` (bronze + silver in **one** SDP Pipeline) |
 | `kafka` | Kafka topic list at `demo/dab_template_demo/topics/kafka_topics.txt` | `split` |
 | `eventhub` | Event Hub namespace + topic list | `split` |
 | `delta` | Existing UC delta tables | `split` |
@@ -704,7 +704,7 @@ The demo supports six scenarios via `--scenario`:
         --profile <your_profile>
     ```
 
-4. **Combined-pipeline variant** (bronze + silver in a single LDP pipeline rather than two):
+4. **Combined-pipeline variant** (bronze + silver in a single SDP Pipeline rather than two):
     ```commandline
     python demo/launch_dab_template_demo.py \
         --scenario cloudfiles_combined \

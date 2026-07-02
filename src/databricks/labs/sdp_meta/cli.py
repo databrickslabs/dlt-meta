@@ -135,6 +135,43 @@ def _coerce_bool(v):
     return bool(v)
 
 
+def _recover_swallowed_flag(flags: dict, bool_flag_name: str) -> None:
+    """Undo the labs CLI string-flag parser eating a boolean flag's neighbor.
+
+    Every flag declared in ``labs.yml`` is registered as a *string* flag by
+    the labs (cobra) CLI. A bare boolean-style flag such as ``--quickstart``
+    therefore consumes the NEXT token as its value, so
+    ``--quickstart --output-dir=./x`` arrives here as
+    ``{"quickstart": "--output-dir=./x"}`` with ``output-dir`` missing.
+
+    Detect that case in place: when ``bool_flag_name``'s value looks like a
+    swallowed ``--key=value`` token, split it back out, restore the real flag
+    (unless already set explicitly), and normalize the boolean flag to
+    ``"true"`` since the user clearly meant it as an on-switch. Only the
+    ``--key=value`` form is recoverable; a swallowed bare ``--flag`` (no
+    ``=``) is dropped because its value is unknowable here.
+
+    Mutates ``flags`` and returns ``None``.
+    """
+    raw = flags.get(bool_flag_name)
+    if not isinstance(raw, str):
+        return
+    stripped = raw.strip()
+    if not stripped.startswith("-"):
+        return
+    token = stripped.lstrip("-")
+    if "=" in token:
+        key, _, value = token.partition("=")
+        key = key.strip()
+        # The labs CLI still emits the swallowed flag's own key, but with an
+        # empty value (e.g. {"output-dir": "", "quickstart": "--output-dir=x"}).
+        # Restore it whenever the caller hasn't provided a real value, so an
+        # explicit later `--output-dir=y` is never clobbered.
+        if key and not flags.get(key):
+            flags[key] = value
+    flags[bool_flag_name] = "true"
+
+
 def _path_to_file_uri(local_path: str) -> str:
     """Convert a local filesystem path to a file URI.
 
@@ -1671,7 +1708,14 @@ def bundle_init(sdp_meta: SDPMeta, flags: dict = None):
     )
 
     flags = flags or {}
-    quickstart = bool(flags.get("quickstart"))
+    # The labs (cobra) CLI declares every flag as a *string* flag, so a bare
+    # `--quickstart` greedily consumes the following CLI token as its value:
+    # `--quickstart --output-dir=./x` parses as quickstart="--output-dir=./x"
+    # with output-dir never set (the bundle then lands in the default dir).
+    # Recover the swallowed `--key=value` and treat quickstart as the on-switch
+    # the user obviously intended. `--quickstart=true` still works unchanged.
+    _recover_swallowed_flag(flags, "quickstart")
+    quickstart = _coerce_bool(flags.get("quickstart"))
     output_dir = flags.get("output-dir") or flags.get("output_dir") or "."
 
     if quickstart:
@@ -1770,14 +1814,47 @@ def mcp(sdp_meta: SDPMeta, flags: dict = None):
     Cursor, Claude Desktop) can drive sdp-meta workflows.
     """
     del flags
+
+    # ── Module-shadowing guard ───────────────────────────────────────
+    # The `databricks labs` CLI runs this file as a script, so
+    # ``sys.path[0]`` is this module's own directory
+    # (``.../databricks/labs/sdp_meta``). That directory contains a
+    # local ``mcp`` subpackage (``sdp_meta/mcp/``), which SHADOWS the
+    # PyPI ``mcp`` SDK: ``server.py``'s ``from mcp.server import
+    # Server`` then resolves ``mcp`` to the local package and
+    # ``mcp.server`` to server.py itself → a circular self-import that
+    # surfaces as ``ImportError: cannot import name 'Server' from
+    # partially initialized module 'mcp.server'``. Drop the script dir
+    # from ``sys.path`` so the top-level ``mcp`` resolves to the
+    # installed SDK. (Absolute ``databricks.labs.sdp_meta.mcp`` imports
+    # still work — those go through the fully-qualified package path,
+    # not the bare ``mcp`` name.)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if sys.path and os.path.abspath(sys.path[0]) == script_dir:
+        sys.path.pop(0)
+
     try:
         from databricks.labs.sdp_meta.mcp.server import run_stdio
     except ImportError as exc:
-        msg = (
-            "The `mcp` extra is not installed. "
-            "Install it with: pip install 'databricks-labs-sdp-meta[mcp]'"
-        )
-        raise ImportError(msg) from exc
+        # Only the genuinely-missing PyPI SDK should be reported as a
+        # missing extra. A circular import / partially-initialized
+        # ``mcp.server`` means shadowing (or a broken install), NOT a
+        # missing dependency — misreporting it as "install the extra"
+        # sends users down the wrong path (they already have it).
+        import importlib.util
+
+        sdk_present = importlib.util.find_spec("mcp") is not None
+        if not sdk_present:
+            raise ImportError(
+                "The `mcp` extra is not installed. Install it with: "
+                "pip install 'databricks-labs-sdp-meta[mcp]'"
+            ) from exc
+        raise ImportError(
+            "Failed to import the sdp-meta MCP server even though the "
+            "`mcp` SDK is installed. This usually means the local "
+            "`sdp_meta/mcp` package shadowed the PyPI `mcp` SDK on "
+            f"sys.path. Original error: {exc}"
+        ) from exc
     run_stdio(sdp_meta)
 
 

@@ -16,8 +16,8 @@ talk to Databricks.
 | Feature added in the DAB work | Where it shows up in the demo |
 |---|---|
 | `bundle-init` (12-prompt template) | STAGE 1, one bundle per scenario, pre-answered via `answers/<scenario>.json` |
-| `pipeline_mode = split` | `cloudfiles` and `delta` scenarios -> TWO LDP pipelines (`bronze` + `silver`, silver depends_on bronze) |
-| `pipeline_mode = combined` | `cloudfiles_combined` and `eventhub` scenarios -> ONE LDP pipeline (`bronze_silver`) materializing both layers in a single DAG |
+| `pipeline_mode = split` | `cloudfiles` and `delta` scenarios -> TWO SDP Pipelines (`bronze` + `silver`, silver depends_on bronze) |
+| `pipeline_mode = combined` | `cloudfiles_combined` and `eventhub` scenarios -> ONE SDP Pipeline (`bronze_silver`) materializing both layers in a single DAG |
 | `layer = bronze` only | `kafka` scenario |
 | `source_format = cloudFiles` | `cloudfiles` (split) and `cloudfiles_combined` (combined) — same demo data, different topology |
 | `source_format = kafka` | `kafka` scenario |
@@ -61,9 +61,9 @@ demo/
 ### Pipeline mode: `split` vs `combined`
 
 The DAB template's `pipeline_mode` answer controls how many Lakeflow
-Declarative Pipelines (LDP) are rendered when `layer=bronze_silver`:
+Declarative Pipelines (SDP) are rendered when `layer=bronze_silver`:
 
-| `pipeline_mode` | LDP pipelines rendered in `resources/sdp_meta_pipelines.yml` | Runner notebook call |
+| `pipeline_mode` | SDP Pipelines rendered in `resources/sdp_meta_pipelines.yml` | Runner notebook call |
 |---|---|---|
 | `split` | TWO pipelines: `bronze` and `silver`. The `pipelines` job runs `silver` after `bronze` (`depends_on`). | per-pipeline: `invoke_dlt_pipeline(spark, "bronze")` and `invoke_dlt_pipeline(spark, "silver")` |
 | `combined` | ONE pipeline: `bronze_silver`, with both `bronze.dataflowspecTable` and `silver.dataflowspecTable` in `configuration`. | `invoke_dlt_pipeline(spark, "bronze_silver")` — registers both layers' `@dp.table` decorators in a single graph |
@@ -83,7 +83,7 @@ hand-editing answers:
 | `eventhub` | `bronze_silver` | **`combined`** | Event Hubs | Placeholder topics |
 | `delta` | `bronze_silver` | **`split`** | Delta tables | Mirrors `<catalog>.staging.*` |
 
-To run the same data through a combined LDP instead of the split topology,
+To run the same data through a combined SDP instead of the split topology,
 just swap `--scenario cloudfiles` for `--scenario cloudfiles_combined`:
 
 ```bash
@@ -107,7 +107,7 @@ each onboarding row's `silver_transformation_json_dev` file against the
 per-row silver target details on `target_table`. If the transformations
 file has no row for a `silver_table`, that silver flow is silently dropped,
 and if NONE of the silver_tables match, the silver dataflowspec gets
-overwritten with zero rows — at which point the silver LDP pipeline fails
+overwritten with zero rows — at which point the silver SDP Pipeline fails
 at startup with `[NO_TABLES_IN_PIPELINE] Pipelines are expected to have at
 least one table defined`.
 
@@ -151,7 +151,7 @@ Because those datasets are CSV (not JSON), each CSV row in
 If you skip `--apply-prepare-wheel` (offline mode), the launcher writes a
 clearly-fake `/Volumes/<cat>/__placeholder__/__placeholder__/demo_data`
 path so the CSV still parses for `bundle-validate`; deploying that bundle
-would fail loudly when the LDP pipeline can't find the source files.
+would fail loudly when the SDP Pipeline can't find the source files.
 
 ### Other placeholder substitutions
 
@@ -228,7 +228,7 @@ exact same data (`customers`, `transactions`, `products`, `stores`, plus the
 recipe-discovered streaming tables) materialized two different ways:
 
 ```bash
-# 1) Split: two LDP pipelines (bronze + silver)
+# 1) Split: two SDP Pipelines (bronze + silver)
 python demo/launch_dab_template_demo.py \
   --scenario cloudfiles \
   --uc-catalog-name <<your_catalog>> \
@@ -238,7 +238,7 @@ python demo/launch_dab_template_demo.py \
   --profile <<profile name>> \
   --pip-index-url https://pypi.internal.example.com/simple
 
-# 2) Combined: one LDP pipeline materializing both layers in a single DAG
+# 2) Combined: one SDP Pipeline materializing both layers in a single DAG
 python demo/launch_dab_template_demo.py \
   --scenario cloudfiles_combined \
   --uc-catalog-name <<your_catalog>> \
@@ -318,18 +318,18 @@ The terminal will end with a summary like:
   - data_flow_id=  105  source_format=cloudFiles   bronze_table=stores
 ```
 
-## Running just the LDP pipeline (debugging `INTERNAL_ERROR`)
+## Running just the SDP Pipeline (debugging `INTERNAL_ERROR`)
 
 When `bundle run pipelines` fails with the generic
 `INTERNAL_ERROR: Workload failed, see run output for details.`, the **wrapper
-job** is hiding the real error — the actual stack trace lives in the LDP
+job** is hiding the real error — the actual stack trace lives in the SDP
 pipeline's event log, not the job log. Two ways to bypass the wrapper and
 trigger the underlying pipeline directly:
 
 ### Option 1 (preferred): `bundle run <pipeline_resource_name>`
 
 DAB knows the pipeline names from `resources/sdp_meta_pipelines.yml` and will
-start an LDP update inline, streaming the event log so the failure surfaces
+start an SDP update inline, streaming the event log so the failure surfaces
 in your terminal:
 
 ```bash
@@ -422,7 +422,7 @@ databricks bundle destroy --target dev --profile DEFAULT
 | `STAGE 5 sdp-meta sanity checks reported issues` and one is about `__SET_ME__` | You ran without `--apply-prepare-wheel` and the placeholder pinning didn't run for some reason; check that STAGE 2 ran for the failing scenario. |
 | Recipe (STAGE 4) returns 1 with `data_flow_id collision` | The CSV in STAGE 3 already used the IDs the recipe is now trying to claim. Either skip the CSV or run with `--scenario <one-only>` and a clean `--out-dir`. |
 | `bundle prepare-wheel` fails with permission errors | Your profile needs `WRITE_VOLUME` on the target schema. Either change `--uc-schema` to one you own or pre-create the volume manually. |
-| Silver LDP pipeline starts then fails with `[NO_TABLES_IN_PIPELINE] Pipelines are expected to have at least one table defined` | The silver dataflowspec table was overwritten with zero rows because no `target_table` in `silver_transformations.{yml,json}` matched any `silver_table` in `onboarding.{yml,json}`. Fixed automatically by `bundle-add-flow` (auto-seeds a `target_table: <silver_table>, select_exp: ["*"]` row per new flow). If you hit this on an old / hand-edited bundle: open `conf/silver_transformations.{yml,json}` and add one row per `silver_table` listed in `onboarding.{yml,json}`, then re-run `bundle run onboarding` followed by `bundle run pipelines`. |
-| Pipeline deploy fails with `cannot update pipeline: Whl libraries are not supported. Please remove them from the pipeline settings.` | You're on serverless LDP, which rejects both `whl:` and `pypi:` library entries on the pipeline. The template ships the `sdp-meta` install inside the runner notebook (`%pip install $sdp_meta_dependency`) for exactly this reason — make sure your `resources/sdp_meta_pipelines.yml` `libraries:` block ONLY contains the `notebook:` entry. |
+| Silver SDP Pipeline starts then fails with `[NO_TABLES_IN_PIPELINE] Pipelines are expected to have at least one table defined` | The silver dataflowspec table was overwritten with zero rows because no `target_table` in `silver_transformations.{yml,json}` matched any `silver_table` in `onboarding.{yml,json}`. Fixed automatically by `bundle-add-flow` (auto-seeds a `target_table: <silver_table>, select_exp: ["*"]` row per new flow). If you hit this on an old / hand-edited bundle: open `conf/silver_transformations.{yml,json}` and add one row per `silver_table` listed in `onboarding.{yml,json}`, then re-run `bundle run onboarding` followed by `bundle run pipelines`. |
+| Pipeline deploy fails with `cannot update pipeline: Whl libraries are not supported. Please remove them from the pipeline settings.` | You're on serverless SDP, which rejects both `whl:` and `pypi:` library entries on the pipeline. The template ships the `sdp-meta` install inside the runner notebook (`%pip install $sdp_meta_dependency`) for exactly this reason — make sure your `resources/sdp_meta_pipelines.yml` `libraries:` block ONLY contains the `notebook:` entry. |
 | `NOTEBOOK_PIP_INSTALL_ERROR` / `SyntaxError: incomplete input` from the runner notebook | Cell 1 of `notebooks/init_sdp_meta_pipeline.py` must be exactly `<var = spark.conf.get(...)>` followed immediately by `%pip install $var`, then a `# COMMAND ----------` cell break — any multi-line Python before the `%pip` line breaks Databricks's `.py`-notebook parser. Mirror the layout used by the existing `demo/notebooks/*_runners/init_sdp_meta_pipeline.py`. |
-| `bundle run pipelines` fails with `INTERNAL_ERROR: Workload failed, see run output for details.` | The wrapper job is masking the real error — it lives in the LDP pipeline event log, not the job log. Run the LDP pipeline directly with `databricks bundle run bronze_silver --target dev --profile <profile>` (combined) or `... bronze` / `... silver` (split). See [Running just the LDP pipeline](#running-just-the-ldp-pipeline-debugging-internal_error). |
+| `bundle run pipelines` fails with `INTERNAL_ERROR: Workload failed, see run output for details.` | The wrapper job is masking the real error — it lives in the SDP Pipeline event log, not the job log. Run the SDP Pipeline directly with `databricks bundle run bronze_silver --target dev --profile <profile>` (combined) or `... bronze` / `... silver` (split). See [Running just the SDP Pipeline](#running-just-the-sdp-pipeline-debugging-internal_error). |

@@ -1,4 +1,3 @@
-
 """
 This module contains classes for writing data to Lakeflow Spark Declarative Pipelines and other sinks.
 

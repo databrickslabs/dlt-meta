@@ -178,6 +178,21 @@ class OnboardingPreviewRouteTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Onboarding File Path", resp.get_json()["error"])
 
+    def test_malformed_schema_identifiers_rejected(self):
+        """Schema identifiers are validated too, not just the catalog: a
+        hyphen in sdp_meta_schema / bronze_schema / silver_schema (all
+        spliced into the volume path + substitutions) must return 400."""
+        path = self._write("onboarding.yml", "- data_flow_id: '100'\n")
+        for field in ("unity_catalog_name", "sdp_meta_schema",
+                      "bronze_schema", "silver_schema"):
+            with self.subTest(field=field):
+                data = self._form(path, **{field: "bad-name"})
+                resp = self.client.post("/onboarding/preview", data=data)
+                self.assertEqual(
+                    resp.status_code, 400, resp.get_data(as_text=True)
+                )
+                self.assertIn("identifier", resp.get_json()["error"])
+
     def test_file_not_found_returns_400(self):
         resp = self.client.post(
             "/onboarding/preview",
@@ -358,6 +373,26 @@ class OnboardingPreflightParseTests(unittest.TestCase):
         body = resp.get_json()
         self.assertNotIn("token", body)
         self.assertIn("empty", body["error"].lower())
+
+    def test_onboarding_rejects_malformed_schema_identifiers(self):
+        """The /onboarding endpoint validates schema + table identifiers,
+        not just the catalog: a hyphen in any of them must 400 before a
+        background job is started (issue #261)."""
+        path = self._write("ok.yml", "- data_flow_id: '100'\n")
+        for field in ("unity_catalog_name", "sdp_meta_schema",
+                      "bronze_schema", "silver_schema",
+                      "bronze_table", "silver_table"):
+            with self.subTest(field=field):
+                resp = self.client.post("/onboarding", data=dict(
+                    self._ONBOARD_FORM, onboarding_file_path=path,
+                    **{field: "bad-name"},
+                ))
+                self.assertEqual(
+                    resp.status_code, 400, resp.get_data(as_text=True)
+                )
+                body = resp.get_json()
+                self.assertNotIn("token", body)
+                self.assertIn("identifier", body["error"])
 
 
 class DetectEnvSuffixesTests(unittest.TestCase):
