@@ -23,7 +23,7 @@ order, against a UC catalog the caller owns:
      CANNOT run after onboarding.
    * `onboarding_job` writes the dataflow spec rows into BOTH the
      `bronze_dataflowspec_cdc` and `silver_dataflowspec_cdc` tables.
-   * `sdp_meta_pipeline` is the single combined LDP -- it reads both
+   * `sdp_meta_pipeline` is the single combined SDP -- it reads both
      dataflowspec tables and materializes bronze + silver in one DAG.
    * `validate` reads bronze + silver `customers` and asserts the
      filter is enforced (non-admin sees only `region IN ('US','UK')`,
@@ -166,7 +166,7 @@ class SDPMETARowFilterDemo(SDPMETARunner):
             "sdp_meta_whl": runner_conf.remote_whl_path,
             "pipelines.externalSink.enabled": "true",
         }
-        # `schema` is the LDP-level default; sdp-meta still writes each
+        # `schema` is the SDP-level default; sdp-meta still writes each
         # table to its own (catalog, schema) from the dataflowspec rows
         # (bronze rows -> bronze_schema, silver rows -> silver_schema).
         created = self.ws.pipelines.create(
@@ -271,7 +271,7 @@ class SDPMETARowFilterDemo(SDPMETARunner):
                 # 3) Combined sdp-meta pipeline -- materializes BOTH
                 # bronze.customers (with `bronze_row_filter`) and
                 # silver.customers (with `silver_row_filter`) in a
-                # single LDP DAG via `layer=bronze_silver`.
+                # single SDP DAG via `layer=bronze_silver`.
                 jobs.Task(
                     task_key="sdp_meta_pipeline",
                     description=(

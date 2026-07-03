@@ -29,7 +29,7 @@
       "order": 4,
       "type": "string",
       "default": "sdp_meta_bronze",
-      "description": "Schema where the bronze LDP pipeline writes its tables.",
+      "description": "Schema where the bronze SDP-META pipeline writes its tables.",
       "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
       "pattern_match_failure_message": "bronze_target_schema must be a regular SQL identifier (letters, digits, underscores; must start with a letter or underscore)."
     },
@@ -37,7 +37,7 @@
       "order": 5,
       "type": "string",
       "default": "sdp_meta_silver",
-      "description": "Schema where the silver LDP pipeline writes its tables.",
+      "description": "Schema where the silver SDP-META pipeline writes its tables.",
       "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
       "pattern_match_failure_message": "silver_target_schema must be a regular SQL identifier (letters, digits, underscores; must start with a letter or underscore)."
     },
@@ -45,14 +45,14 @@
       "order": 6,
       "type": "string",
       "default": "bronze_silver",
-      "description": "Which LDP pipelines to deploy.",
+      "description": "Which SDP-META pipelines to deploy.",
       "enum": ["bronze", "silver", "bronze_silver"]
     },
     "pipeline_mode": {
       "order": 7,
       "type": "string",
       "default": "split",
-      "description": "Only used when layer=bronze_silver. `split` (default) deploys two separate LDP pipelines (silver depends on bronze). `combined` deploys ONE LDP pipeline that materializes both layers in the same DAG via sdp-meta's `bronze_silver` layer mode.",
+      "description": "Only used when layer=bronze_silver. `split` (default) deploys two separate SDP Pipelines (silver depends on bronze). `combined` deploys ONE SDP Pipeline that materializes both layers in the same DAG via sdp-meta's `bronze_silver` layer mode.",
       "enum": ["split", "combined"]
     },
     "source_format": {
@@ -73,7 +73,9 @@
       "order": 10,
       "type": "string",
       "default": "my_group",
-      "description": "data_flow_group used by the seeded flow(s) and referenced from the bronze/silver pipeline `configuration.*.group` settings."
+      "description": "data_flow_group used by the seeded flow(s) and referenced from the bronze/silver pipeline `configuration.*.group` settings.",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "pattern_match_failure_message": "dataflow_group must be a regular SQL identifier (letters, digits, underscores; must start with a letter or underscore). It is written unquoted into the seeded onboarding YAML."
     },
     "wheel_source": {
       "order": 11,
@@ -92,7 +94,9 @@
       "order": 13,
       "type": "string",
       "default": "sdp-meta-user",
-      "description": "Value written as `import_author` on the dataflowspec rows."
+      "description": "Value written as `import_author` on the dataflowspec rows.",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_. @-]*$",
+      "pattern_match_failure_message": "author may contain letters, digits, spaces and _ . @ - and must start with a letter, digit, or underscore. It is written unquoted into the seeded bundle YAML, so YAML metacharacters (: # { } etc.) are not allowed."
     }
   },
   "success_message": "\nBundle created in ./{{.bundle_name}}.\n\nNext steps:\n  cd {{.bundle_name}}\n{{if eq .wheel_source \"volume_path\"}}\n  # 1. Build + upload the sdp-meta wheel to a UC volume.\n  databricks labs sdp-meta bundle-prepare-wheel\n  #    -> paste the printed /Volumes/... path into resources/variables.yml\n  #       as the default for `sdp_meta_dependency` (replacing __SET_ME__).\n\n  # 2. Edit conf/onboarding* with your actual data sources, OR generate\n  #    flows in bulk using one of the recipes (see recipes/README.md):\n  #      python recipes/from_uc.py        # mirror tables from a UC schema\n  #      python recipes/from_volume.py    # one cloudFiles flow per UC-volume subdir\n  #      python recipes/from_topics.py    # one kafka/eventhub flow per topic\n  #      python recipes/from_inventory.py # apply a naming convention to a list\n  # 3. Validate, deploy, run.\n{{else}}\n  # 1. Replace `__SET_ME__` in resources/variables.yml with the PyPI coordinate\n  #    you want, e.g. `databricks-labs-sdp-meta==0.1.0`.\n  # 2. Edit conf/onboarding* with your actual data sources, OR generate\n  #    flows in bulk using one of the recipes (see recipes/README.md):\n  #      python recipes/from_uc.py        # mirror tables from a UC schema\n  #      python recipes/from_volume.py    # one cloudFiles flow per UC-volume subdir\n  #      python recipes/from_topics.py    # one kafka/eventhub flow per topic\n  #      python recipes/from_inventory.py # apply a naming convention to a list\n  # 3. Validate, deploy, run.\n{{end}}  databricks labs sdp-meta bundle-validate\n  databricks bundle deploy --target dev\n  databricks bundle run onboarding --target dev\n  databricks bundle run pipelines  --target dev\n\nSee README.md inside the bundle for the full variable reference."

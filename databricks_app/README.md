@@ -297,7 +297,7 @@ of every panel and feature in the running app, see **[USER_GUIDE.md](./USER_GUID
 |---|---|---|
 | **Pipeline** | Onboarding | Step 1 — register a spec → bronze/silver DataflowSpec rows in UC |
 | | DataflowSpecs | Step 2 — review the rows onboarding wrote, pick a `data_flow_group` to deploy |
-| | Deployment | Step 3 — generate a Lakeflow Declarative Pipeline from the selected group |
+| | Deployment | Step 3 — generate a Lakeflow Spark Declarative Pipeline from the selected group |
 | **Explore** | Demos | Pre-built end-to-end examples (Cloud Files, ACFS, Silver Fanout, DAIS, Interactive) |
 | **Operate** | Monitor | Filtered list of SDP-META pipelines with start/stop, in-app events, and click-through to the Databricks pipeline UI |
 | | Metadata | Browse UC catalogs/schemas/tables + in-app spec editor with 3-layer validation |

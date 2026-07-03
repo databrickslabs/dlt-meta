@@ -359,10 +359,23 @@ class DataflowSpecUtils:
             dataflow_spec_table = spark.conf.get(f"{layer}.dataflowspecTable")
             dataflow_spec_df = spark.read.table(dataflow_spec_table)
 
-        if group or dataflow_ids:
-            dataflow_spec_df = dataflow_spec_df.where(
-                col("dataFlowGroup") == lit(group) if group else f"dataFlowId in ({dataflow_ids})"
-            )
+        if group:
+            dataflow_spec_df = dataflow_spec_df.where(col("dataFlowGroup") == lit(group))
+        elif dataflow_ids:
+            # Parse the comma-separated dataflowIds and filter with a typed
+            # ``isin(...)`` instead of splicing the raw conf string into a SQL
+            # predicate (``dataFlowId in (<raw>)``). This keeps operator-supplied
+            # input out of the SQL text entirely — no injection surface — while
+            # preserving the previous membership-filter behaviour. Surrounding
+            # quotes/whitespace are stripped so both ``100,101`` and ``'a','b'``
+            # styles work.
+            id_list = [
+                token.strip().strip("'\"")
+                for token in dataflow_ids.split(",")
+                if token.strip()
+            ]
+            if id_list:
+                dataflow_spec_df = dataflow_spec_df.where(col("dataFlowId").isin(*id_list))
 
         version_history = Window.partitionBy(col("dataFlowGroup"), col("dataFlowId")).orderBy(col("version").desc())
         dataflow_spec_df = (

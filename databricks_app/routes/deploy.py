@@ -1,4 +1,4 @@
-"""``POST /deploy`` \u2014 launch a Spark Declarative Pipeline.
+"""``POST /deploy`` \u2014 launch a Lakeflow Spark Declarative Pipeline.
 
 Builds the JSON payload the CLI's ``deploy_ui`` command consumes and
 spawns the CLI subprocess in a background thread (same machinery as
@@ -91,11 +91,28 @@ def handle_deploy_form():
             )
         }), 400
 
-    # Validate UC identifier at the App boundary \u2014 same reasoning as
-    # /onboarding. Only enforced when UC is enabled.
+    # Validate UC identifiers at the App boundary \u2014 same reasoning as
+    # /onboarding. Not just the catalog: the spec schema, target schema,
+    # and both dataflowspec table names all get spliced into the pipeline
+    # config's fully-qualified ``catalog.schema.table`` references (read
+    # later via ``spark.read.table`` without backtick-quoting), so a
+    # malformed one must fail here with an actionable 400 instead of a
+    # cryptic Spark name-resolution error at pipeline runtime (issue #261).
+    # Catalog is only enforced when UC is enabled; schema/table names are
+    # required regardless (checked above) and validated whenever present.
+    uc_identifiers = [
+        (spc_schema, "spc_schema_name"),
+        (target_schema, "dlt_target_schema"),
+        (bronze_spec_table, "bronze_dataflowspec_table"),
+        (silver_spec_table, "silver_dataflowspec_table"),
+    ]
     if uc_enabled and uc_name:
+        uc_identifiers.insert(0, (uc_name, "uc_catalog_name"))
+    for value, kind in uc_identifiers:
+        if not value:
+            continue
         try:
-            validate_uc_identifier(uc_name, kind="uc_catalog_name")
+            validate_uc_identifier(value, kind=kind)
         except ValueError as exc:
             return jsonify({'error': str(exc)}), 400
 
