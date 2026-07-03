@@ -11,11 +11,11 @@ variables:
     default: {{.sdp_meta_schema}}
 
   bronze_target_schema:
-    description: Schema where the bronze LDP pipeline writes its tables.
+    description: Schema where the bronze SDP Pipeline writes its tables.
     default: {{.bronze_target_schema}}
 
   silver_target_schema:
-    description: Schema where the silver LDP pipeline writes its tables.
+    description: Schema where the silver SDP Pipeline writes its tables.
     default: {{.silver_target_schema}}
 
   layer:
@@ -24,20 +24,29 @@ variables:
 
   pipeline_mode:
     description: |
-      Only consulted when layer=bronze_silver. `split` keeps two LDP pipelines
+      Only consulted when layer=bronze_silver. `split` keeps two SDP Pipelines
       (silver depends on bronze); `combined` collapses both layers into one
-      LDP pipeline using sdp-meta's `bronze_silver` runtime mode.
+      SDP Pipeline using sdp-meta's `bronze_silver` runtime mode.
     default: {{.pipeline_mode}}
 
   dataflow_group:
     description: |
-      data_flow_group used by the seeded flow(s) and referenced from the LDP
+      data_flow_group used by the seeded flow(s) and referenced from the SDP
       pipeline `configuration` as `bronze.group` / `silver.group`.
     default: {{.dataflow_group}}
 
   onboarding_file_name:
     description: Filename (inside conf/) of the onboarding file uploaded with this bundle.
     default: onboarding.{{if eq .onboarding_file_format "yaml"}}yml{{else}}json{{end}}
+
+  conf_volume:
+    description: |
+      UC Volume (inside sdp_meta_schema) that the onboarding job stages conf/
+      into before onboarding runs. Serverless Spark cannot read conf files from
+      the workspace file path, so the `stage_conf` task copies conf/ here and the
+      onboarding + pipelines read from the volume. Created automatically if it
+      does not exist.
+    default: bundle_conf
 
   bronze_dataflowspec_table:
     description: Bronze dataflowspec table name inside `sdp_meta_schema`.
@@ -50,6 +59,18 @@ variables:
   dataflowspec_version:
     description: Value written to the `version` column of dataflowspec rows.
     default: v1
+
+  sdp_meta_version:
+    description: |
+      Value stamped on every SDP Pipeline as the `sdp_meta` tag. The SDP-META
+      monitoring App (and the workspace UI tag search) find pipelines by this
+      tag, so bundle-deployed pipelines show up next to ones created by
+      `sdp-meta deploy` / `deploy_ui`. Any non-empty value is enough for
+      discovery; a version string (e.g. 0.1.0) is additionally shown as the
+      pipeline's version in the App. `databricks labs sdp-meta bundle-init`
+      stamps the installed sdp-meta version here automatically; the `true`
+      sentinel is the safe fallback for a raw `databricks bundle init`.
+    default: "true"
 
   author:
     description: Value written to the `import_author` column of dataflowspec rows.
@@ -74,17 +95,21 @@ variables:
       `__SET_ME__` will fail-fast at validate and at runtime.
     default: {{.sdp_meta_dependency}}
 
+  # NOTE: no `type:` on these booleans. Databricks bundles only accept
+  # `type: complex` (for maps/arrays); `type: bool` is rejected with
+  # "invalid value \"bool\" for enum field. Valid values are [complex]".
+  # Each is consumed as a lone reference (e.g. `serverless: ${var.serverless}`),
+  # and DAB preserves the resolved value's type for lone references, so the
+  # unquoted YAML boolean `default: true` stays a real boolean at the SDK
+  # boundary without any `type:` declaration.
   serverless:
-    description: Run the LDP pipelines on serverless compute.
-    type: bool
+    description: Run the SDP Pipelines on serverless compute.
     default: true
 
   photon_enabled:
-    description: Enable Photon on the LDP pipelines (ignored on serverless).
-    type: bool
+    description: Enable Photon on the SDP Pipelines (ignored on serverless).
     default: true
 
   development_enabled:
-    description: Set the LDP pipeline `development` flag. Overridden per-target in databricks.yml.
-    type: bool
+    description: Set the SDP Pipeline `development` flag. Overridden per-target in databricks.yml.
     default: true

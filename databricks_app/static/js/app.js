@@ -251,7 +251,24 @@ function appendToTerminal(text, className = '') {
     terminal.scrollTop = terminal.scrollHeight;
 }
 
+function escapeHtml(text) {
+    // Escape HTML metacharacters so untrusted CLI output cannot inject markup
+    // when the result is assigned to innerHTML (DOM XSS guard).
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function ansiToHtml(text) {
+    // Escape FIRST, then apply our own ANSI-to-markup substitutions. This
+    // ensures any '<', '>', etc. in subprocess stdout/stderr (which echoes
+    // user-supplied paths, catalog names, file contents and tracebacks) is
+    // rendered as text, not executed as HTML.
+    text = escapeHtml(text);
+
     // Handle bold text
     text = text.replace(/\[1m(.*?)\[0m/g, '<strong>$1</strong>');
     

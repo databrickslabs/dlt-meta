@@ -110,8 +110,15 @@ setup(
     entry_points={
         "console_scripts": [
             "sdp-meta=databricks.labs.sdp_meta.__main__:main",
+            # `stage_conf` is invoked by the bundle onboarding job's first task
+            # (python_wheel_task entry_point: stage_conf) to copy conf/ onto a
+            # UC Volume so serverless Spark can read it.
+            "stage_conf=databricks.labs.sdp_meta.stage_conf:main",
         ],
-        "group_1": "run=databricks.labs.sdp_meta.__main__:main",
+        "group_1": [
+            "run=databricks.labs.sdp_meta.__main__:main",
+            "stage_conf=databricks.labs.sdp_meta.stage_conf:main",
+        ],
     },
     classifiers=[
         "Programming Language :: Python :: 3",

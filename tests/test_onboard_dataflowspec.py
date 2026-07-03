@@ -852,6 +852,568 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
+    # ── Issue #343: single-layer entrypoints must also pre-flight ────
+    # https://github.com/databrickslabs/dlt-meta/issues/343
+    #
+    # Finding #1: --onboard_layer bronze / silver routes to
+    # onboard_bronze_dataflow_spec() / onboard_silver_dataflow_spec()
+    # respectively, and NEITHER used to call
+    # __pre_validate_onboarding_uc_names(). Column-list, cluster_by,
+    # partition_columns, cdc column names, scd_type, and append_flows
+    # source_format checks were silently skipped for the majority of
+    # CLI usage.
+    #
+    # Finding #2: the pre-flight walker gated every check with
+    # ``if row_dict.get(field):`` which is falsy for "". A required
+    # field like ``bronze_database_dev: ""`` used to sail through
+    # pre-flight and only surface as a confusing runtime failure.
+    #
+    # The four tests below pin the fixes.
+
+    def test_issue343_bronze_only_entrypoint_runs_preflight(self):
+        """``onboard_bronze_dataflow_spec`` must run pre-flight itself.
+
+        Reproduces the exact --onboard_layer bronze code path from
+        ``__main__.py:58-59``: a caller (SDP-META onboarding job in
+        production, or a notebook user) reaches the single-layer
+        method WITHOUT going through ``onboard_dataflow_specs``. The
+        pre-flight walker must fire from inside the single-layer
+        method so bad cluster_by / partition / cdc column names get
+        surfaced before any Spark side-effect.
+        """
+        bad_rows = [
+            {
+                "data_flow_id": "343B1",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/x"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "ok_table",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/x",
+                # Bad column-list \u2014 must be caught by the pre-flight
+                # that the single-layer entrypoint now invokes.
+                "bronze_cluster_by": ["ok_col", "bad-col"],
+                "bronze_partition_columns": "1bad_col",
+                "bronze_cdc_apply_changes": {
+                    "keys": ["id"],
+                    "sequence_by": "ts",
+                    "scd_type": "3",  # invalid enum
+                },
+            },
+        ]
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_i343_bronze_")
+        try:
+            bad_file = os.path.join(tmp_dir, "onboarding_bad.json")
+            with open(bad_file, "w") as f:
+                json.dump(bad_rows, f)
+
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = bad_file
+
+            with self.assertRaises(ValueError) as ctx:
+                OnboardDataflowspec(
+                    self.spark, params
+                ).onboard_bronze_dataflow_spec()
+
+            msg = str(ctx.exception)
+            for needle in (
+                "flow 343B1 bronze_cluster_by",
+                "flow 343B1 bronze_partition_columns",
+                "flow 343B1 bronze_cdc_apply_changes.scd_type",
+            ):
+                self.assertIn(needle, msg)
+            # Silver-layer categories must NOT appear \u2014 the caller
+            # only asked for bronze onboarding, and the row is
+            # deliberately bronze-only. This pins the ``layers=`` scope
+            # so a future refactor can't silently widen the walk.
+            self.assertNotIn("silver_", msg)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_row_filter_injection_rejected_by_preflight(self):
+        """Row-filter values must be denylist-validated at onboarding.
+
+        Code-review finding #3: ``*_row_filter`` /
+        ``*_quarantine_row_filter`` (issue #303/#306) are read verbatim
+        and later spliced into ``dp.table(row_filter=...)`` /
+        ``create_streaming_table(row_filter=...)`` DDL that the
+        pipelines API cannot parameterise. Pre-flight now runs them
+        through ``validate_sql_where_clause`` so a statement-separator /
+        comment / DDL-keyword payload is caught before any Spark
+        side-effect.
+        """
+        bad_rows = [
+            {
+                "data_flow_id": "RF1",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/rf1"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "ok_table",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/rf1",
+                # Injection payload: statement separator + DDL keyword.
+                "bronze_row_filter": (
+                    "ROW FILTER main.b.fn ON (r); DROP TABLE secrets"
+                ),
+                # Independent quarantine filter with a comment-escape.
+                "bronze_quarantine_row_filter": (
+                    "ROW FILTER main.b.qfn ON (r) -- bypass"
+                ),
+            },
+        ]
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_rowfilter_")
+        try:
+            bad_file = os.path.join(tmp_dir, "onboarding_bad.json")
+            with open(bad_file, "w") as f:
+                json.dump(bad_rows, f)
+
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = bad_file
+
+            with self.assertRaises(ValueError) as ctx:
+                OnboardDataflowspec(
+                    self.spark, params
+                ).onboard_bronze_dataflow_spec()
+
+            msg = str(ctx.exception)
+            self.assertIn("flow RF1 bronze_row_filter", msg)
+            self.assertIn("flow RF1 bronze_quarantine_row_filter", msg)
+            # The specific offending tokens are surfaced to the user.
+            self.assertIn("';'", msg)
+            self.assertIn("'--'", msg)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_legitimate_row_filter_passes_preflight(self):
+        """A well-formed ``ROW FILTER ... ON (...)`` clause must NOT be
+        rejected by the new pre-flight denylist \u2014 guards against the
+        validator being too aggressive and breaking issue #303/#306
+        row-level-security specs.
+        """
+        good_rows = [
+            {
+                "data_flow_id": "RF2",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/rf2"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "ok_table",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/rf2",
+                "bronze_row_filter": (
+                    "ROW FILTER main.bronze.region_filter ON (region)"
+                ),
+                "bronze_quarantine_row_filter": (
+                    "ROW FILTER main.bronze.quarantine_region_filter "
+                    "ON (region)"
+                ),
+            },
+        ]
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_rowfilter_ok_")
+        try:
+            good_file = os.path.join(tmp_dir, "onboarding_ok.json")
+            with open(good_file, "w") as f:
+                json.dump(good_rows, f)
+
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = good_file
+
+            onboard = OnboardDataflowspec(self.spark, params)
+            # Should not raise from the pre-flight walker. We call the
+            # private walker directly so the test doesn't depend on the
+            # full Spark onboarding side-effects.
+            onboard._OnboardDataflowspec__pre_validate_onboarding_uc_names(
+                layers=("bronze",)
+            )
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_issue343_silver_only_entrypoint_runs_preflight(self):
+        """``onboard_silver_dataflow_spec`` must run pre-flight itself.
+
+        Mirror of the bronze test above for the --onboard_layer silver
+        route. Confirms the pre-flight walker now covers this
+        entrypoint too, and that bronze-side checks are NOT applied
+        to a silver-only row (no false-positives from the wider walk).
+        """
+        bad_rows = [
+            {
+                "data_flow_id": "343S1",
+                "data_flow_group": "A1",
+                # Present so the row is a legitimate silver participant.
+                "silver_database_dev": "ok_db",
+                "silver_table": "ok_silver_table",
+                "silver_table_path_dev": "/tmp/silver/x",
+                "silver_transformation_json_dev": "/tmp/xform.json",
+                # Bad silver cluster_by \u2014 must be caught by the
+                # pre-flight that the silver entrypoint now invokes.
+                "silver_cluster_by": ["ok_col", "1bad_col"],
+                "silver_apply_changes_from_snapshot": {
+                    "keys": ["id"],
+                    "scd_type": "scd_1",  # invalid enum
+                },
+            },
+        ]
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_i343_silver_")
+        try:
+            bad_file = os.path.join(tmp_dir, "onboarding_bad.json")
+            with open(bad_file, "w") as f:
+                json.dump(bad_rows, f)
+
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = bad_file
+
+            with self.assertRaises(ValueError) as ctx:
+                OnboardDataflowspec(
+                    self.spark, params
+                ).onboard_silver_dataflow_spec()
+
+            msg = str(ctx.exception)
+            for needle in (
+                "flow 343S1 silver_cluster_by",
+                "flow 343S1 silver_apply_changes_from_snapshot.scd_type",
+            ):
+                self.assertIn(needle, msg)
+            # Bronze-side categories must NOT appear on a silver-only
+            # row when the caller only asked for silver onboarding.
+            self.assertNotIn("bronze_cluster_by", msg)
+            self.assertNotIn("bronze_partition_columns", msg)
+
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_issue343_empty_required_field_rejected(self):
+        """Empty ``<layer>_database_<env>`` / ``<layer>_table`` \u2192 400.
+
+        Finding #2: the pre-flight used to gate every check with
+        ``if row_dict.get(field):`` which is falsy for ``""``. A row
+        with ``bronze_database_dev: ""`` (empty string) used to pass
+        pre-flight silently and blow up mid-onboarding with a
+        confusing Spark error, leaving the dataflowspec table
+        half-written.
+
+        The two layer-anchor fields ``<layer>_database_<env>`` and
+        ``<layer>_table`` are now enforced as required *when the row
+        participates in that layer*. Optional fields (quarantine
+        tables, cluster_by, partition_columns) keep the previous
+        skip-if-falsy semantics.
+        """
+        bad_rows = [
+            {
+                # Bronze participant (has source_details) with an EMPTY
+                # required bronze_database_dev. Must be rejected.
+                "data_flow_id": "343E1",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/e1"},
+                "bronze_database_dev": "",  # empty string!
+                "bronze_table": "ok_table",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/e1",
+            },
+            {
+                # Silver participant with an empty silver_table.
+                "data_flow_id": "343E2",
+                "data_flow_group": "A1",
+                "silver_database_dev": "ok_db",
+                "silver_table": "",  # empty string!
+                "silver_table_path_dev": "/tmp/silver/e2",
+                "silver_transformation_json_dev": "/tmp/xform.json",
+            },
+        ]
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_i343_empty_")
+        try:
+            bad_file = os.path.join(tmp_dir, "onboarding_bad.json")
+            with open(bad_file, "w") as f:
+                json.dump(bad_rows, f)
+
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = bad_file
+
+            with self.assertRaises(ValueError) as ctx:
+                OnboardDataflowspec(
+                    self.spark, params
+                ).onboard_dataflow_specs()
+
+            msg = str(ctx.exception)
+            # The verbose required-field message names the flow, the
+            # field, and the empty-vs-absent state, and includes a
+            # fix-example so users don't have to guess what the field
+            # is for. Assert on the anchor prefix + the actionable
+            # substrings independently so the test doesn't over-fit
+            # to the exact wording.
+            self.assertIn("flow 343E1 bronze_database_dev", msg)
+            self.assertIn("required key is present but empty", msg)
+            self.assertIn("bronze_database_dev: main.my_bronze_schema", msg)
+            self.assertIn("flow 343E2 silver_table", msg)
+            self.assertIn("required key is present but empty", msg)
+            self.assertIn("silver_table: my_silver_table", msg)
+            # And the summary header should surface both affected
+            # flows so a scanner can jump straight to the offenders.
+            self.assertIn("343E1", msg)
+            self.assertIn("343E2", msg)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_issue343_absent_required_field_reports_missing_not_empty(self):
+        """Distinguish absent key from present-but-empty in the report.
+
+        The two states have different fixes: absent means the user has
+        to *add* the key, present-but-empty means they have to *fill
+        in* a value. Verbose reporting has to name which state so the
+        user doesn't grep the onboarding file for a key that isn't
+        there.
+
+        Row A: participates in bronze (source_details present) but
+        never mentions bronze_table \u2014 the key is absent. Expect
+        "missing from this onboarding row".
+
+        Row B: mentions bronze_database_dev with value "" \u2014 present
+        but empty. Expect "present but empty (value='')".
+        """
+        bad_rows = [
+            {
+                "data_flow_id": "343A1",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/a1"},
+                "bronze_database_dev": "ok_db",
+                # bronze_table intentionally OMITTED here \u2014 absent, not empty.
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/a1",
+            },
+            {
+                "data_flow_id": "343A2",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/a2"},
+                "bronze_database_dev": "",  # present but empty
+                "bronze_table": "ok_table",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/a2",
+            },
+        ]
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_i343_absent_")
+        try:
+            bad_file = os.path.join(tmp_dir, "onboarding_bad.json")
+            with open(bad_file, "w") as f:
+                json.dump(bad_rows, f)
+
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = bad_file
+
+            with self.assertRaises(ValueError) as ctx:
+                OnboardDataflowspec(
+                    self.spark, params
+                ).onboard_bronze_dataflow_spec()
+
+            msg = str(ctx.exception)
+            # Row A: absent bronze_table \u2014 phrase names "missing".
+            self.assertIn("flow 343A1 bronze_table", msg)
+            self.assertIn("required key is missing", msg)
+            # Row B: present-but-empty bronze_database_dev \u2014 names "empty" + value.
+            self.assertIn("flow 343A2 bronze_database_dev", msg)
+            self.assertIn("required key is present but empty", msg)
+            self.assertIn("value=''", msg)
+            # And the fix-example is inlined for the user to copy.
+            self.assertIn("bronze_table: my_bronze_table", msg)
+            self.assertIn("bronze_database_dev: main.my_bronze_schema", msg)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_issue343_error_report_groups_by_flow_id(self):
+        """The aggregation should sort errors by flow_id, not by
+        discovery order, so all violations for one row read together.
+
+        Rows are interleaved (100, 200, 100, 200) intentionally \u2014
+        without sorting, the bullets would follow that order. With
+        sorting, all "flow 100" bullets appear before any "flow 200"
+        bullet. This matches how a human fixes a spec file: row by
+        row, not violation by violation.
+        """
+        bad_rows = [
+            {
+                "data_flow_id": "GRP100",
+                "data_flow_group": "G",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/g100"},
+                "bronze_database_dev": "bad-db",  # hyphen \u2014 identifier error
+                "bronze_table": "ok_t",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/g100",
+            },
+            {
+                "data_flow_id": "GRP200",
+                "data_flow_group": "G",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/g200"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "1bad_t",  # leading digit
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/g200",
+                "bronze_partition_columns": "bad-col",  # hyphen
+            },
+        ]
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_i343_group_")
+        try:
+            bad_file = os.path.join(tmp_dir, "onboarding_bad.json")
+            with open(bad_file, "w") as f:
+                json.dump(bad_rows, f)
+
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = bad_file
+
+            with self.assertRaises(ValueError) as ctx:
+                OnboardDataflowspec(
+                    self.spark, params
+                ).onboard_bronze_dataflow_spec()
+
+            msg = str(ctx.exception)
+            grp100_pos = msg.find("flow GRP100")
+            grp200_pos = msg.find("flow GRP200")
+            self.assertGreater(grp100_pos, -1, msg)
+            self.assertGreater(grp200_pos, -1, msg)
+            self.assertLess(
+                grp100_pos,
+                grp200_pos,
+                msg=(
+                    "Errors should be grouped by flow_id \u2014 GRP100 "
+                    "bullets should all precede GRP200 bullets so the "
+                    "report is scannable row-by-row.\n" + msg
+                ),
+            )
+            # Header lists the affected flows explicitly (issue #343 verbose ask).
+            self.assertIn("GRP100", msg)
+            self.assertIn("GRP200", msg)
+            self.assertIn("pre-flight validation error", msg)
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_issue343_bronze_silver_wrapper_still_aggregates_once(self):
+        """``onboard_dataflow_specs`` must remain a single aggregation.
+
+        With the single-layer methods now also calling pre-validate on
+        their own layer, we need to make sure the wrapper's up-front
+        ``__pre_validate_onboarding_uc_names(layers=("bronze","silver"))``
+        + the two subsequent single-layer calls don't produce three
+        pre-flight runs (and thus three separate error reports) for
+        the same file. The idempotency guard collapses them into one.
+
+        This test exercises the happy-path wrapper on a file with
+        errors in BOTH layers and asserts a single ValueError carrying
+        every violation. If the guard breaks, we'd see the wrapper's
+        aggregation report plus a second bronze-only aggregation
+        report from the subsequent call, or the second call would
+        double-report the same violation.
+        """
+        bad_rows = [
+            {
+                "data_flow_id": "343I1",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/i1"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "1bad_bronze_table",  # bad
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/i1",
+                "silver_database_dev": "ok_db",
+                "silver_table": "bad.silver.table",  # bad
+                "silver_table_path_dev": "/tmp/silver/i1",
+            },
+        ]
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_i343_idem_")
+        try:
+            bad_file = os.path.join(tmp_dir, "onboarding_bad.json")
+            with open(bad_file, "w") as f:
+                json.dump(bad_rows, f)
+
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = bad_file
+
+            with self.assertRaises(ValueError) as ctx:
+                OnboardDataflowspec(
+                    self.spark, params
+                ).onboard_dataflow_specs()
+
+            msg = str(ctx.exception)
+            # Both violations reported.
+            self.assertIn("flow 343I1 bronze_table", msg)
+            self.assertIn("flow 343I1 silver_table", msg)
+            # Each violation reported EXACTLY ONCE \u2014 idempotency
+            # guard prevented the second wrapper-triggered call to
+            # ``onboard_bronze_dataflow_spec`` from re-walking bronze.
+            self.assertEqual(
+                msg.count("flow 343I1 bronze_table"), 1,
+                f"bronze_table violation reported more than once "
+                f"(idempotency guard leaking?):\n{msg}",
+            )
+            self.assertEqual(
+                msg.count("flow 343I1 silver_table"), 1,
+                f"silver_table violation reported more than once "
+                f"(idempotency guard leaking?):\n{msg}",
+            )
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    def test_issue343_preflight_rerun_after_fix_actually_reruns(self):
+        """The idempotency guard must NOT skip a rerun after a fix.
+
+        Concrete scenario: the user runs onboarding, the pre-flight
+        raises, they edit the onboarding file to fix a bad
+        identifier, then call the same onboarder instance again. The
+        second call must actually revalidate \u2014 if the guard cached
+        "already validated" from the FAILED first call, the second
+        call would silently skip the walk and the fix would appear
+        to have taken effect without any pre-flight coverage.
+
+        Pins the "only set _prevalidated_layers after successful walk"
+        contract in the fix.
+        """
+        good_rows = [
+            {
+                "data_flow_id": "343R1",
+                "data_flow_group": "A1",
+                "source_format": "cloudFiles",
+                "source_details": {"source_path_dev": "/tmp/r1"},
+                "bronze_database_dev": "ok_db",
+                "bronze_table": "ok_bronze_table",
+                "bronze_reader_options": {},
+                "bronze_table_path_dev": "/tmp/bronze/r1",
+            },
+        ]
+        bad_rows = copy.deepcopy(good_rows)
+        bad_rows[0]["bronze_table"] = "1bad_bronze_table"
+
+        tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_i343_rerun_")
+        try:
+            spec_path = os.path.join(tmp_dir, "onboarding.json")
+            # First write: bad file. Trigger pre-flight failure.
+            with open(spec_path, "w") as f:
+                json.dump(bad_rows, f)
+            params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
+            params["onboarding_file_path"] = spec_path
+            onboarder = OnboardDataflowspec(self.spark, params)
+            with self.assertRaises(ValueError):
+                onboarder.onboard_bronze_dataflow_spec()
+
+            # Second write: fixed file. Rerun MUST re-walk pre-flight
+            # (otherwise the "already validated" flag from the failed
+            # first call would silently accept a still-bad file). We
+            # test this by re-triggering with a DIFFERENT bad row and
+            # asserting the new violation surfaces.
+            different_bad_rows = copy.deepcopy(good_rows)
+            different_bad_rows[0]["data_flow_id"] = "343R2"
+            different_bad_rows[0]["bronze_table"] = "bad.table.name"
+            with open(spec_path, "w") as f:
+                json.dump(different_bad_rows, f)
+            with self.assertRaises(ValueError) as ctx:
+                onboarder.onboard_bronze_dataflow_spec()
+            self.assertIn("flow 343R2 bronze_table", str(ctx.exception))
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
     def test_onboardDataFlowSpecs_with_merge(self):
         """Test for onboardDataflowspec with merge scenario."""
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
@@ -1563,6 +2125,33 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
         self.assertEqual(quarantine_target_details["table"], "quarantine_table")
         self.assertNotIn("path", quarantine_target_details)
         self.assertEqual(quarantine_table_properties, {"property_key": "property_value"})
+
+    def test_get_quarantine_details_passes_through_table_comment(self):
+        """Quarantine-table comment must flow into target details.
+
+        Regression for the dead ``if "{layer}_quarantine_table_comment"``
+        branch: the key test was a plain string literal (missing the
+        ``f`` prefix), so ``bronze_quarantine_table_comment`` never
+        matched and any comment defined in the onboarding file was
+        silently dropped. This asserts the comment now propagates.
+        """
+        onboarding_row = {
+            "bronze_database_quarantine_it": "quarantine_db",
+            "bronze_quarantine_table": "quarantine_table",
+            "bronze_quarantine_table_comment": "bronze customers quarantine table",
+        }
+        onboardDataFlowSpecs = OnboardDataflowspec(
+            self.spark, self.onboarding_bronze_silver_params_map, uc_enabled=True
+        )
+        quarantine_target_details, _ = (
+            onboardDataFlowSpecs._OnboardDataflowspec__get_quarantine_details(
+                "it", "bronze", onboarding_row
+            )
+        )
+        self.assertEqual(
+            quarantine_target_details["comment"],
+            "bronze customers quarantine table",
+        )
 
     def test_get_quarantine_details_with_cluster_by_and_properties(self):
         """Test get_quarantine_details with partitions and properties."""

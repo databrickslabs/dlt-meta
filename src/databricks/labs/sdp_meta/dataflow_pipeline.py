@@ -933,26 +933,28 @@ class DataflowPipeline:
         if struct_schema is None:
             return None
 
-        sequenced_by_data_type = None
+        # Resolve the sequence-by column's dtype up front, independent of
+        # ``except_column_list``. Previously this lookup lived *inside* the
+        # ``if except_column_list:`` block, so an SCD2 table with an explicit
+        # schema but no except-list never got its __START_AT/__END_AT columns
+        # appended. The lookup uses the full (pre-prune) schema; the sequence
+        # column is never a member of except_column_list, so ordering is safe.
+        sequence_by = cdc_apply_changes.sequence_by.strip()
+        sequence_lookup_col = (
+            sequence_by if ',' not in sequence_by
+            else sequence_by.split(',', 1)[0].strip()
+        )
+        name_to_dtype = {f.name: f.dataType for f in struct_schema.fields}
+        sequenced_by_data_type = name_to_dtype.get(sequence_lookup_col)
 
         if cdc_apply_changes.except_column_list:
-            if struct_schema:
-                # Hoist all per-field-invariant work out of the loop. On wide schemas
-                # (hundreds of columns) the previous O(N*M) membership check plus
-                # repeated string parsing dominated graph build time.
-                except_set = set(cdc_apply_changes.except_column_list)
-                sequence_by = cdc_apply_changes.sequence_by.strip()
-                sequence_lookup_col = (
-                    sequence_by if ',' not in sequence_by
-                    else sequence_by.split(',', 1)[0].strip()
-                )
-                name_to_dtype = {f.name: f.dataType for f in struct_schema.fields}
-                sequenced_by_data_type = name_to_dtype.get(sequence_lookup_col)
-                struct_schema = StructType(
-                    [f for f in struct_schema.fields if f.name not in except_set]
-                )
-            else:
-                raise Exception(f"Schema is None for {self.dataflowSpec} for cdc_apply_changes! ")
+            # Hoist per-field-invariant work out of the loop. On wide schemas
+            # (hundreds of columns) the previous O(N*M) membership check plus
+            # repeated string parsing dominated graph build time.
+            except_set = set(cdc_apply_changes.except_column_list)
+            struct_schema = StructType(
+                [f for f in struct_schema.fields if f.name not in except_set]
+            )
 
         if struct_schema and cdc_apply_changes.scd_type == "2" and sequenced_by_data_type is not None:
             struct_schema.add(StructField("__START_AT", sequenced_by_data_type))

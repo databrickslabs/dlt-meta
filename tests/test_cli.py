@@ -128,9 +128,12 @@ class CliTests(unittest.TestCase):
         with patch.object(sdp_meta._wsi, "_upload_wheel", return_value="/path/to/wheel"):
             sdp_meta.onboard(self.onboard_cmd_without_uc)
         mock_workspace_client.dbfs.mkdirs.assert_called_once_with("/dbfs/sdp_meta_conf/")
+        # The onboard() upload uses ``with open(...) as ob_file:`` (a
+        # context manager), so the object handed to dbfs.upload is the
+        # ``__enter__()`` result, not the raw ``open()`` return value.
         mock_workspace_client.dbfs.upload.assert_called_with(
             "/dbfs/sdp_meta_conf/onboarding.json",
-            mock_open.return_value,
+            mock_open.return_value.__enter__.return_value,
             overwrite=True
         )
         mock_workspace_client.jobs.create.assert_called_once()
@@ -3000,6 +3003,58 @@ class BundleInitQuickstartFlagTests(unittest.TestCase):
             cli_bundle_init(sdp_meta, flags={"output-dir": "/cli/wins"})
             cmd = fake_run.call_args[0][0]
             self.assertEqual(cmd.output_dir, "/cli/wins")
+
+    def test_bare_quickstart_recovers_swallowed_output_dir(self):
+        """Regression: the labs string-flag parser lets a bare `--quickstart`
+        eat the next token, arriving as
+        ``{"output-dir": "", "quickstart": "--output-dir=./x"}``. The wrapper
+        must recover the swallowed --output-dir so the bundle still lands where
+        the user asked, and still take the quickstart (config-file) path."""
+        from databricks.labs.sdp_meta.cli import bundle_init as cli_bundle_init
+
+        sdp_meta = MagicMock()
+        with self._patched_run() as fake_run:
+            fake_run.return_value = 0
+            cli_bundle_init(
+                sdp_meta,
+                flags={"output-dir": "", "quickstart": "--output-dir=./my_pipeline"},
+            )
+            cmd = fake_run.call_args[0][0]
+            self.assertEqual(cmd.output_dir, "./my_pipeline")
+            # quickstart path taken: a config file was written, no prompts.
+            self.assertIsNotNone(cmd.config_file)
+            sdp_meta._wsi._question.assert_not_called()
+
+    def test_quickstart_false_disables_quickstart(self):
+        """`--quickstart=false` must NOT trigger the non-interactive path.
+        The old `bool(flags.get("quickstart"))` treated the string "false" as
+        truthy; _coerce_bool fixes that."""
+        from databricks.labs.sdp_meta.cli import bundle_init as cli_bundle_init
+
+        sdp_meta = MagicMock()
+        sdp_meta._wsi._question.return_value = "."
+        with self._patched_run() as fake_run:
+            fake_run.return_value = 0
+            cli_bundle_init(sdp_meta, flags={"quickstart": "false"})
+            cmd = fake_run.call_args[0][0]
+            self.assertIsNone(cmd.config_file)
+            sdp_meta._wsi._question.assert_called()
+
+    def test_explicit_output_dir_not_clobbered_by_recovery(self):
+        """If both a real --output-dir and a swallowed one are present, the
+        real value wins (recovery only fills an empty slot)."""
+        from databricks.labs.sdp_meta.cli import bundle_init as cli_bundle_init
+        import tempfile
+
+        sdp_meta = MagicMock()
+        with tempfile.TemporaryDirectory() as tmp, self._patched_run() as fake_run:
+            fake_run.return_value = 0
+            cli_bundle_init(
+                sdp_meta,
+                flags={"output-dir": tmp, "quickstart": "--output-dir=/swallowed"},
+            )
+            cmd = fake_run.call_args[0][0]
+            self.assertEqual(cmd.output_dir, tmp)
 
 
 class TestFileUriHelpers(unittest.TestCase):
