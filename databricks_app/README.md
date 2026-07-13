@@ -1,6 +1,24 @@
 # SDP-META Databricks App
 
-> **Requires Unity Catalog.** The App is Unity Catalog–only. 
+Browser-based GUI for onboarding, deploying, and operating Lakeflow Spark
+Declarative Pipelines — no CLI, no hand-edited YAML. **Deploying it? Keep
+reading. Using it? Jump to [USER_GUIDE.md](./USER_GUIDE.md).**
+
+![SDP-META App — Onboarding panel](../docs/static/img/sdp-meta-app/step1-onboarding.png)
+
+> **Requires Unity Catalog.** The App is Unity Catalog–only.
+
+## Documentation
+
+| Doc | Read when |
+|---|---|
+| **README** *(this file)* | Deploying to Databricks, running locally, authenticating |
+| **[USER_GUIDE.md](./USER_GUIDE.md)** | Actually *using* the running app — every panel, form field, validation rule, and HTTP endpoint |
+| [GETTING_STARTED.md](./GETTING_STARTED.md) | First-time end-to-end onboarding walkthrough |
+| [WINDOWS_DEPLOY.md](./WINDOWS_DEPLOY.md) | Windows-specific deploy details (PowerShell + `.gitattributes` gotcha) |
+| [UI_GIT_DEPLOY.md](./UI_GIT_DEPLOY.md) | Deploy from the Databricks UI + a Git folder (no local CLI) |
+
+---
 
 ## Prerequisites
 
@@ -24,14 +42,50 @@ app will work.
 
 ---
 
+## App service principal permissions
+
+Read this **before** you deploy — the App can't do anything useful in
+Unity Catalog until its service principal has the right grants, and
+those grants can only be issued by a catalog admin (the SP cannot
+grant privileges to itself).
+
+The app runs as a dedicated service principal whose name follows the form
+`app-XXXXXX_<app-name>` (the `XXXXXX` prefix is platform-assigned; the
+suffix matches the App resource name you'll create in *Deploy → step 2*).
+Grant it the following in your Unity Catalog:
+
+- `USE CATALOG` on the target catalog
+- `CREATE SCHEMA`, `USE SCHEMA` on the target schemas
+- `CREATE TABLE` on the bronze and silver schemas
+
+Copy-paste template (fill in the placeholders after step 2 below):
+
+```sql
+GRANT USE CATALOG ON CATALOG <target_catalog>
+    TO `app-XXXXXX_<app-name>`;
+GRANT CREATE SCHEMA, USE SCHEMA ON CATALOG <target_catalog>
+    TO `app-XXXXXX_<app-name>`;
+GRANT CREATE TABLE ON SCHEMA <target_catalog>.<bronze_schema>
+    TO `app-XXXXXX_<app-name>`;
+GRANT CREATE TABLE ON SCHEMA <target_catalog>.<silver_schema>
+    TO `app-XXXXXX_<app-name>`;
+```
+
+**Verification.** The Demos tab ships a **Test App access** button that
+calls `/check-uc-grants` and probes whether the App SP currently has
+`USE_CATALOG` + `CREATE_SCHEMA` on the catalog you entered. If a grant
+is missing, the response includes the exact `GRANT` SQL the catalog
+owner should run — so you can copy-paste and retry without guessing.
+
+---
+
 ## Deploy to Databricks
 
-Two supported paths — pick whichever fits your workflow:
+Primary path — `scripts/deploy_app.sh` from a macOS / Linux / WSL shell.
+Alternatives are documented at the end of this file:
 
-| Path | When to use | Steps |
-|---|---|---|
-| **A. CLI + deploy script** *(below)* | You have the Databricks CLI installed and want to deploy from your local working tree (including unmerged changes). | Steps 1–4 below. |
-| **B. Apps UI + Databricks Git folder** *(no CLI)* | Click-only workflow against a published branch on github.com, no local CLI/Python. | Quick pointer [below](#deploy-via-apps-ui--git-folder-no-cli); full walkthrough in [UI_GIT_DEPLOY.md](./UI_GIT_DEPLOY.md). |
+- **Windows (native PowerShell)** → [Appendix A](#appendix-a-windows-deployment-native-powershell)
+- **No CLI, Databricks UI + Git folder only** → [Appendix B](#appendix-b-deploy-via-apps-ui--git-folder-no-cli)
 
 ---
 
@@ -51,11 +105,6 @@ databricks apps create demo-sdp-meta
 
 ### 3. Deploy with the deploy script (recommended)
 
-Pick the script for your shell — they perform identical staging and produce
-the same result in the workspace.
-
-#### macOS / Linux / WSL — `scripts/deploy_app.sh`
-
 ```bash
 # Run from the sdp-meta repo root
 cd /path/to/sdp-meta
@@ -67,57 +116,31 @@ cd /path/to/sdp-meta
 ```
 
 Run `./scripts/deploy_app.sh -h` for the full argument list. `--app` defaults
-to `demo-sdp-meta` (matches step 2).
+to `demo-sdp-meta` (matches step 2). Windows users: see
+[Appendix A](#appendix-a-windows-deployment-native-powershell) for the
+PowerShell equivalent.
 
-#### Windows (native PowerShell) — `scripts/deploy_app.ps1`
-
-The bash script doesn't run on Windows (POSIX + `rsync`). Use
-`scripts/deploy_app.ps1` instead — same staging + sync + deploy flow, native
-`robocopy`, no Git Bash / WSL needed.
-
-```powershell
-# Run from the sdp-meta repo root
-cd C:\path\to\sdp-meta
-
-.\scripts\deploy_app.ps1 -DatabricksProfile <DATABRICKS_CLI_PROFILE> `
-                         -App <YOUR_APP_NAME> `
-                         -Path /Workspace/Users/email/<workspace-folder>
-```
-
-See **[WINDOWS_DEPLOY.md](./WINDOWS_DEPLOY.md)** for the full argument
-reference, env-var fallbacks, execution-policy notes, and Windows-specific
-troubleshooting (CRLF line-ending crash on first deploy, `robocopy` exit
-codes, etc.).
-
-**Why these scripts and not raw `databricks sync` + `databricks apps deploy`?**
-Three things the platform-native commands won't do for you (both
-`deploy_app.sh` and `deploy_app.ps1` handle them identically):
+**Why this script and not raw `databricks sync` + `databricks apps deploy`?**
+Two things the platform-native commands won't do for you:
 
 1. **Inject `app.yaml` at the deploy root.** The Apps platform requires
    `app.yaml` at the source-code-path root, but we keep the working tree
-   identical to upstream so the file isn't committed. The deploy scripts
-   stage the repo into a tempdir, write `app.yaml` + `requirements.txt` at
-   the staging root, and sync that — not the raw working tree.
+   identical to upstream so the file isn't committed. The deploy script
+   stages the repo into a tempdir, writes `app.yaml` + `requirements.txt`
+   at the staging root, and syncs that — not the raw working tree.
 2. **Disguise the interactive demo notebook.** `demo/SDP_META_INTERACTIVE_DEMO.py`
    starts with `# Databricks notebook source`, which causes plain
    `databricks sync` to upload it as a Notebook (the `.py` extension is
    stripped). The Apps container then can't find `demo/SDP_META_INTERACTIVE_DEMO.py`
    and the Interactive Demo fails with `Demo notebook source not found`.
-   The deploy scripts rename the staged copy to `.nbsource` so the workspace
+   The deploy script renames the staged copy to `.nbsource` so the workspace
    stores it as a regular FILE; `databricks_app/start.sh` restores the `.py`
    inside the container at startup.
-3. **Normalize line endings on Windows (PowerShell only).** Windows git's
-   default `core.autocrlf=true` checks out `start.sh` with CRLF, and the
-   Linux App container would crash on `bad interpreter: /bin/bash\r`.
-   `deploy_app.ps1` strips `\r` from every staged text file before sync;
-   the repo's `.gitattributes` pins LF for shell scripts so this stops
-   being an issue after a one-time `git add --renormalize .`. Details in
-   [WINDOWS_DEPLOY.md](./WINDOWS_DEPLOY.md#troubleshooting).
 
-If you skip the scripts and run `databricks sync . <WS_PATH> && databricks apps deploy …`
+If you skip the script and run `databricks sync . <WS_PATH> && databricks apps deploy …`
 manually, expect both issues — the app will crash with `error: no commands supplied`
 on startup, and the Interactive Demo will be broken even if you patch the
-crash. On Windows you'll additionally hit the CRLF crash.
+crash.
 
 **What `start.sh` does inside the container:**
 1. Detects Mode A vs Mode B layout (`demo/` + `src/` next to `start.sh`?).
@@ -152,20 +175,10 @@ databricks_app/
 Open the URL shown in step 2, or navigate:
 **Databricks Web UI → Compute → Apps → select `<your-app-name>`**
 
----
-
-## Deploy via Apps UI + Git folder (no CLI)
-
-Click-only alternative — point a Databricks Git folder at this repo,
-create an App in the UI, and aim it at `databricks_app/`.
-`start.sh`'s **Mode B** clones the full `dlt-meta` repo into
-`/tmp/dlt-meta` at container start, so `setup.py`, `src/`, `demo/`,
-and `integration_tests/` are all available without any local sync.
-
-See **[UI_GIT_DEPLOY.md](./UI_GIT_DEPLOY.md)** for the full
-step-by-step (Git-folder setup, App creation, source-code-path
-configuration, UC grants, re-deploy flow, and the cases where this
-path doesn't work — air-gapped clusters, unmerged changes, forks).
+> **Next: use the app.** Every panel, form field, validation rule, and
+> HTTP endpoint is documented in **[USER_GUIDE.md](./USER_GUIDE.md)** —
+> start there for the canonical **Onboarding → DataflowSpecs →
+> Deployment** walkthrough.
 
 ---
 
@@ -291,35 +304,94 @@ production locally short of deploying.
 This README focuses on **deploy / local dev / auth**. For a complete walkthrough
 of every panel and feature in the running app, see **[USER_GUIDE.md](./USER_GUIDE.md)**.
 
-### What's inside the app at a glance
+### The canonical pipeline flow
 
-| Section | Panel | What it's for |
+Three panels, left-to-right, each auto-filling the next — you type the
+catalog / schema / table names exactly once.
+
+| 1 · Onboarding | 2 · DataflowSpecs | 3 · Deployment |
 |---|---|---|
-| **Pipeline** | Onboarding | Step 1 — register a spec → bronze/silver DataflowSpec rows in UC |
-| | DataflowSpecs | Step 2 — review the rows onboarding wrote, pick a `data_flow_group` to deploy |
-| | Deployment | Step 3 — generate a Lakeflow Declarative Pipeline from the selected group |
-| **Explore** | Demos | Pre-built end-to-end examples (Cloud Files, ACFS, Silver Fanout, DAIS, Interactive) |
-| **Operate** | Monitor | Filtered list of SDP-META pipelines with start/stop, in-app events, and click-through to the Databricks pipeline UI |
-| | Metadata | Browse UC catalogs/schemas/tables + in-app spec editor with 3-layer validation |
-| **Top bar** | Warehouse chip | Configure the SQL warehouse used by DataflowSpecs + Metadata |
+| ![Step 1 — Onboarding](../docs/static/img/sdp-meta-app/step1-onboarding.png) | ![Step 2 — DataflowSpecs](../docs/static/img/sdp-meta-app/step2-dataflowspecs.png) | ![Step 3 — Deployment](../docs/static/img/sdp-meta-app/step3-deployment.png) |
+| Register a spec → bronze/silver `dataflowspec` rows in UC | Review the rows onboarding wrote, pick a `data_flow_group` | Generate a Lakeflow Spark Declarative Pipeline from the selected group |
 
-The canonical first-time flow is **Onboarding → DataflowSpecs → Deployment**;
-each step auto-fills the next so you only type the catalog / schema / table
-names once. Full details in [USER_GUIDE.md](./USER_GUIDE.md).
+### Operate & explore
 
-### App service principal permissions
+| Monitor | Metadata browser | Demos |
+|---|---|---|
+| ![Pipeline Monitor](../docs/static/img/sdp-meta-app/monitor.png) | ![Metadata UC browse](../docs/static/img/sdp-meta-app/metadata-uc-browse.png) | ![Demos panel](../docs/static/img/sdp-meta-app/demos.png) |
+| Filtered list of SDP-META pipelines with start/stop, in-app events, and click-through to the Databricks pipeline UI | Browse UC catalogs / schemas / tables + in-app spec editor with 3-layer validation | Pre-built end-to-end examples (Cloud Files, ACFS, Silver Fanout, DAIS, Interactive) |
 
-The app runs as a dedicated service principal whose name follows the form
-`app-XXXXXX_<app-name>` (the prefix is platform-assigned, the suffix matches
-the App resource name). Grant it the following in your Unity Catalog:
+### Top bar
 
-- `USE CATALOG` on the target catalog
-- `CREATE SCHEMA`, `USE SCHEMA` on the target schemas
-- `CREATE TABLE` on the bronze and silver schemas
+The warehouse chip configures the SQL warehouse used by DataflowSpecs and
+the Metadata browser. Green = running, amber = stopped, grey = unset.
 
-The Demos tab ships a **Test App access** button that calls `/check-uc-grants`
-and probes whether the App SP currently has `USE_CATALOG` + `CREATE_SCHEMA`
-on the catalog you entered. If a grant is missing, the response includes the
-exact `GRANT` SQL the catalog owner should run in a SQL editor (the App SP
-cannot grant privileges to itself), so you can copy-paste and retry without
-guessing.
+![Top-bar warehouse chip](../docs/static/img/sdp-meta-app/top-bar-warehouse.png)
+
+Full per-panel reference (fields, endpoints, validation rules) lives in
+[USER_GUIDE.md](./USER_GUIDE.md).
+
+> **Reminder.** Nothing in the app works until the App SP has the Unity
+> Catalog grants listed in [App service principal permissions](#app-service-principal-permissions)
+> near the top of this doc. Use the Demos → **Test App access** button
+> to verify.
+
+---
+
+## Appendix A: Windows deployment (native PowerShell)
+
+The bash script (`scripts/deploy_app.sh`) doesn't run on Windows
+`cmd.exe` or PowerShell — it uses POSIX constructs and `rsync`.
+`scripts/deploy_app.ps1` is a native PowerShell port that performs the
+same staging + sync + deploy flow using only Windows-built-in tooling
+(`robocopy`) and the `databricks` CLI.
+
+```powershell
+# Run from the sdp-meta repo root
+cd C:\path\to\sdp-meta
+
+.\scripts\deploy_app.ps1 -DatabricksProfile <DATABRICKS_CLI_PROFILE> `
+                         -App <YOUR_APP_NAME> `
+                         -Path /Workspace/Users/email/<workspace-folder>
+```
+
+**Windows-specific behavior the script handles for you** (in addition to
+the two things `deploy_app.sh` handles per *Deploy → step 3* above):
+
+- **Line-ending normalization.** Windows git's default `core.autocrlf=true`
+  checks out `start.sh` with CRLF, and the Linux App container would crash
+  on `bad interpreter: /bin/bash\r`. The script strips `\r` from every
+  staged text file before sync. The repo also ships a `.gitattributes`
+  policy that pins LF for shell scripts so this stops being an issue
+  after a one-time `git add --renormalize .`.
+
+See **[WINDOWS_DEPLOY.md](./WINDOWS_DEPLOY.md)** for the full argument
+reference, env-var fallbacks, execution-policy notes, and Windows-specific
+troubleshooting.
+
+---
+
+## Appendix B: Deploy via Apps UI + Git folder (no CLI)
+
+Click-only alternative — no Databricks CLI, no local Python, no
+`rsync` / `robocopy`. Point a Databricks Git folder at this repo,
+create an App in the UI, and aim it at `databricks_app/`.
+`start.sh`'s **Mode B** clones the full `dlt-meta` repo into
+`/tmp/dlt-meta` at container start, so `setup.py`, `src/`, `demo/`,
+and `integration_tests/` are all available without any local sync.
+
+**When to use:** You have Databricks workspace access but no local CLI
+setup, and you're deploying a **published branch** on
+github.com/databrickslabs/dlt-meta (not local unmerged changes).
+
+**When *not* to use:**
+- Air-gapped App compute that can't reach github.com — Mode B's
+  `git clone` fails at boot.
+- You want to deploy local unmerged edits — Git folders only see
+  pushed commits.
+- You need a fork or private mirror — Mode B's `REPO_URL` is hard-coded
+  to `databricks/dlt-meta`.
+
+See **[UI_GIT_DEPLOY.md](./UI_GIT_DEPLOY.md)** for the full
+step-by-step (Git-folder setup, App creation, source-code-path
+configuration, UC grants, re-deploy flow).
