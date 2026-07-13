@@ -738,7 +738,7 @@ class MaterializeLocalSourcePathTests(unittest.TestCase):
 class EnsureTargetSchemasTests(unittest.TestCase):
     """`_ensure_target_schemas` must read variables.yml, then create the
     sdp_meta / bronze / silver schemas on the workspace if they don't exist
-    (so onboarding + LDP don't fail with SCHEMA_NOT_FOUND)."""
+    (so onboarding + SDP don't fail with SCHEMA_NOT_FOUND)."""
 
     @classmethod
     def setUpClass(cls):

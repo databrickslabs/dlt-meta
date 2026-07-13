@@ -15,7 +15,11 @@ in variables.yml).
     source_database: example_db
     source_table: example_table
     source_path_dev: "/Volumes/{{.uc_catalog_name}}/landing/files/example_table/"
-    source_schema_path: "${workspace.file_path}/conf/schemas/example_table.ddl"
+    # No source_schema_path: cloudFiles infers the schema (see
+    # cloudFiles.inferColumnTypes below). To pin a schema instead, add a DDL file
+    # under conf/schemas/ and set:
+    #   source_schema_path: "${workspace.file_path}/conf/schemas/example_table.ddl"
+    # The stage_conf task rebases ${workspace.file_path}/conf onto the UC Volume.
   {{- else if eq .source_format "delta"}}
     source_database: {{.uc_catalog_name}}.landing
     source_table: example_table
@@ -74,8 +78,7 @@ in variables.yml).
     {{- if eq .source_format "cloudFiles"}}
       "source_database": "example_db",
       "source_table": "example_table",
-      "source_path_dev": "/Volumes/{{.uc_catalog_name}}/landing/files/example_table/",
-      "source_schema_path": "${workspace.file_path}/conf/schemas/example_table.ddl"
+      "source_path_dev": "/Volumes/{{.uc_catalog_name}}/landing/files/example_table/"
     {{- else if eq .source_format "delta"}}
       "source_database": "{{.uc_catalog_name}}.landing",
       "source_table": "example_table",

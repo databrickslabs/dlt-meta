@@ -1,6 +1,6 @@
 # Lakeflow Spark Declarative Pipelines driven by sdp-meta. The runner notebook reads
 # `layer` and `*.dataflowspecTable` from the pipeline configuration and asks
-# sdp-meta to build the LDP graph.
+# sdp-meta to build the SDP graph.
 #
 # Render-time topology (layer={{.layer}}{{if eq .layer "bronze_silver"}}, pipeline_mode={{.pipeline_mode}}{{end}}):
 {{- if eq .layer "bronze"}}
@@ -18,6 +18,11 @@ resources:
 {{- if eq .layer "bronze"}}
     bronze:
       name: "${bundle.name} - bronze"
+      # Tag stamped so the SDP-META App / UI tag search find this pipeline
+      # even though it was created by `databricks bundle` rather than
+      # `sdp-meta deploy`. See `sdp_meta_version` in resources/variables.yml.
+      tags:
+        sdp_meta: ${var.sdp_meta_version}
       catalog: ${var.uc_catalog_name}
       schema: ${var.bronze_target_schema}
       development: ${var.development_enabled}
@@ -34,6 +39,11 @@ resources:
 {{- else if eq .layer "silver"}}
     silver:
       name: "${bundle.name} - silver"
+      # Tag stamped so the SDP-META App / UI tag search find this pipeline
+      # even though it was created by `databricks bundle` rather than
+      # `sdp-meta deploy`. See `sdp_meta_version` in resources/variables.yml.
+      tags:
+        sdp_meta: ${var.sdp_meta_version}
       catalog: ${var.uc_catalog_name}
       schema: ${var.silver_target_schema}
       development: ${var.development_enabled}
@@ -48,14 +58,19 @@ resources:
         silver.group: ${var.dataflow_group}
         sdp_meta_dependency: ${var.sdp_meta_dependency}
 {{- else if and (eq .layer "bronze_silver") (eq .pipeline_mode "combined")}}
-    # Combined mode: one LDP pipeline materializes both bronze and silver tables
+    # Combined mode: one SDP Pipeline materializes both bronze and silver tables
     # in a single DAG. sdp-meta dispatches on `layer=bronze_silver` and reads
     # both `bronze.dataflowspecTable` and `silver.dataflowspecTable` below.
-    # `schema` is the LDP-level default; sdp-meta still writes each table to
+    # `schema` is the SDP-level default; sdp-meta still writes each table to
     # its own (catalog, schema) from the dataflowspec rows, so bronze tables
     # land in `bronze_target_schema` and silver tables in `silver_target_schema`.
     bronze_silver:
       name: "${bundle.name} - bronze+silver"
+      # Tag stamped so the SDP-META App / UI tag search find this pipeline
+      # even though it was created by `databricks bundle` rather than
+      # `sdp-meta deploy`. See `sdp_meta_version` in resources/variables.yml.
+      tags:
+        sdp_meta: ${var.sdp_meta_version}
       catalog: ${var.uc_catalog_name}
       schema: ${var.bronze_target_schema}
       development: ${var.development_enabled}
@@ -74,6 +89,11 @@ resources:
 {{- else}}
     bronze:
       name: "${bundle.name} - bronze"
+      # Tag stamped so the SDP-META App / UI tag search find this pipeline
+      # even though it was created by `databricks bundle` rather than
+      # `sdp-meta deploy`. See `sdp_meta_version` in resources/variables.yml.
+      tags:
+        sdp_meta: ${var.sdp_meta_version}
       catalog: ${var.uc_catalog_name}
       schema: ${var.bronze_target_schema}
       development: ${var.development_enabled}
@@ -89,6 +109,11 @@ resources:
         sdp_meta_dependency: ${var.sdp_meta_dependency}
     silver:
       name: "${bundle.name} - silver"
+      # Tag stamped so the SDP-META App / UI tag search find this pipeline
+      # even though it was created by `databricks bundle` rather than
+      # `sdp-meta deploy`. See `sdp_meta_version` in resources/variables.yml.
+      tags:
+        sdp_meta: ${var.sdp_meta_version}
       catalog: ${var.uc_catalog_name}
       schema: ${var.silver_target_schema}
       development: ${var.development_enabled}
@@ -107,7 +132,7 @@ resources:
   jobs:
     pipelines:
       name: "${bundle.name} - run pipelines"
-      description: "Runs the sdp-meta LDP pipeline(s) end-to-end."
+      description: "Runs the sdp-meta SDP Pipeline(s) end-to-end."
       tasks:
 {{- if eq .layer "bronze"}}
         - task_key: bronze

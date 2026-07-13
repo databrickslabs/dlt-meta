@@ -7,6 +7,7 @@ import yaml
 import logging
 import ast
 import os
+import re
 import tempfile
 
 import pyspark.sql.types as T
@@ -18,6 +19,7 @@ from databricks.labs.sdp_meta.identifiers import (
     SUPPORTED_SOURCE_FORMATS,
     validate_scd_type,
     validate_source_format,
+    validate_sql_where_clause,
     validate_uc_column_list,
     validate_uc_full_name,
     validate_uc_identifier,
@@ -56,6 +58,14 @@ _SNAPSHOT_COL_FIELDS = (
     "track_history_except_column_list",
 )
 
+# All pre-flight validation error messages start with the same anchor
+# prefix ``flow <id> <field>: ...`` (or ``segment N of flow <id>
+# <field> ...`` when validate_uc_full_name expands the kind), so we can
+# extract the flow id at aggregation time to group errors by row. Kept
+# at module scope so ``__pre_validate_onboarding_uc_names`` doesn't
+# re-compile the regex per raise.
+_FLOW_PREFIX_RE = re.compile(r"^(?:segment \d+ of )?flow (\S+)\b")
+
 # Lower-cased mirror of :data:`SUPPORTED_SOURCE_FORMATS` for the
 # case-insensitive runtime check inside
 # ``__get_bronze_dataflow_spec_dataframe``. The canonical set
@@ -85,19 +95,6 @@ class OnboardDataflowspec:
         self.deltaPipelinesMetaStoreOps = DeltaPipelinesMetaStoreOps(self.spark)
         self.deltaPipelinesInternalTableOps = DeltaPipelinesInternalTableOps(self.spark)
         self.onboard_file_type = None
-        # Tracks which onboarding files have already been validated +
-        # printed by ``__get_onboarding_file_dataframe``. We deliberately
-        # do NOT cache the DataFrame itself -- reusing one lazy
-        # ``spark.read.json(...)`` plan across the pre-flight,
-        # ``onboard_bronze_dataflow_spec``, and ``onboard_silver_dataflow_spec``
-        # call paths interacts badly with the saveAsTable + read-back
-        # cycle in between (cached plan IDs end up referencing parquet
-        # files that have been overwritten, surfacing as
-        # ``SparkFileNotFoundException`` on the next ``.count()``; see
-        # ``test_onboardDataFlowSpecs_with_merge_uc``). Just gating the
-        # eager ``show()`` and ``groupBy().count()`` side-effects on a
-        # set of paths is enough to drop the perceived stdout / Spark-job
-        # noise from 3x to 1x without changing query semantics.
         self._onboarding_files_processed: set = set()
 
     def __initialize_paths(self, uc_enabled):
@@ -267,35 +264,111 @@ class OnboardDataflowspec:
         self.onboard_bronze_dataflow_spec()
         self.onboard_silver_dataflow_spec()
 
-    def __pre_validate_onboarding_uc_names(self):
+    def __pre_validate_onboarding_uc_names(self, layers=("bronze", "silver")):
         """Pre-flight validate every UC identifier in the onboarding file.
 
         Loads the onboarding file once, walks every row, and validates:
 
-        * Per layer (``bronze`` / ``silver``):
-            - ``<layer>_database_<env>`` (1- or 2-part full name)
-            - ``<layer>_table`` (single identifier)
-            - ``<layer>_catalog_<env>`` (single identifier)
-            - ``<layer>_database_quarantine_<env>`` (full name)
-            - ``<layer>_quarantine_table`` (single identifier)
-            - ``<layer>_catalog_quarantine_<env>`` (single identifier)
-            - ``<layer>_partition_columns`` (column-name list)
-            - ``<layer>_quarantine_table_partitions`` (column-name list)
-            - ``<layer>_cluster_by`` (column-name list)
-            - ``<layer>_quarantine_table_cluster_by`` (column-name list)
+        * Per layer in ``layers`` (default ``("bronze", "silver")``):
+            - ``<layer>_database_<env>`` (**required**, 1- or 2-part full name)
+            - ``<layer>_table`` (**required**, single identifier)
+            - ``<layer>_catalog_<env>`` (optional, single identifier)
+            - ``<layer>_database_quarantine_<env>`` (optional, full name)
+            - ``<layer>_quarantine_table`` (optional, single identifier)
+            - ``<layer>_catalog_quarantine_<env>`` (optional, single identifier)
+            - ``<layer>_partition_columns`` (optional, column-name list)
+            - ``<layer>_quarantine_table_partitions`` (optional, column-name list)
+            - ``<layer>_cluster_by`` (optional, column-name list)
+            - ``<layer>_quarantine_table_cluster_by`` (optional, column-name list)
 
         Aggregates all failures into a single ``ValueError`` so the user
         sees every bad name in one shot instead of fixing them one at a
         time. Runs *before* any Spark side-effect (CREATE DATABASE,
         saveAsTable) so a bad row never half-onboards (issue #261).
 
-        The per-row validators (:py:meth:`__validate_row_uc_names`) inside
+        ``layers`` scopes the walk to the layer(s) being onboarded. The
+        wrapper :py:meth:`onboard_dataflow_specs` passes the default
+        ``("bronze", "silver")``; the single-layer entry points
         :py:meth:`onboard_bronze_dataflow_spec` and
-        :py:meth:`onboard_silver_dataflow_spec` are kept as
-        defence-in-depth for callers that bypass
-        :py:meth:`onboard_dataflow_specs`.
+        :py:meth:`onboard_silver_dataflow_spec` pass just their own
+        layer so a legitimately-bronze-only (or silver-only) onboarding
+        file doesn't get false-positived on the empty *other-layer*
+        fields (issue #343 finding #1).
+
+        **Required vs optional fields** (issue #343 finding #2): the two
+        layer-anchor fields ``<layer>_database_<env>`` and
+        ``<layer>_table`` are treated as *required* — an empty string
+        is a validation error, matching the defence-in-depth
+        :py:meth:`__validate_row_uc_names` invocation that runs later
+        inside the Spark job. Every other check remains optional
+        (skipped when the field is absent or falsy) because those
+        represent legitimately-absent configuration (no quarantine, no
+        cluster_by, no partition columns, …).
+
+        **Idempotency:** the method tracks which layers it has already
+        validated for this instance in ``self._prevalidated_layers``.
+        Calling it a second time with the same (or a subset) of layers
+        is a no-op, so ``onboard_dataflow_specs`` (which pre-validates
+        both layers up front) can safely coexist with each single-layer
+        method also calling pre-validate at the top of its own body —
+        no double work, no double error report.
+
+        The per-row validators (:py:meth:`__validate_row_uc_names`)
+        inside :py:meth:`onboard_bronze_dataflow_spec` and
+        :py:meth:`onboard_silver_dataflow_spec` are still kept as
+        defence-in-depth in case a caller reaches for the Spark work
+        via some other internal path.
         """
+        # ── Idempotency guard ────────────────────────────────────────
+        # Skip if we've already validated the requested layers on this
+        # instance. Handles the common composition where the wrapper
+        # pre-validates both layers up front and then the single-layer
+        # methods also call this at the top of their own bodies.
+        already = getattr(self, "_prevalidated_layers", frozenset())
+        requested = frozenset(layers)
+        to_check = requested - already
+        if not to_check:
+            return
+
+        # ── Required-field policy ────────────────────────────────────
+        # ``<layer>_database_<env>`` and ``<layer>_table`` are the two
+        # fields the Spark job splices unquoted into CREATE DATABASE /
+        # saveAsTable / register-in-metastore. An empty string there
+        # produces a confusing runtime failure ("null.null" or the
+        # dataflowspec table half-written). Fail pre-flight instead.
         env = self.dict_obj["env"]
+        required_fields = {
+            f"{layer}_{suffix}"
+            for layer in to_check
+            for suffix in (f"database_{env}", "table")
+        }
+        # Field-purpose + fix-example hints keyed by field. When a
+        # required field is absent-or-empty, we render the message with
+        # the field's own hint so the user knows what the field is FOR
+        # and what a valid value looks like, not just that "something
+        # is missing". Kept as a plain dict (not a class-level constant)
+        # because the ``_database_<env>`` names are env-dependent.
+        field_hints = {
+            f"bronze_database_{env}": (
+                "the target schema (1- or 2-part ``catalog.schema``) "
+                "where the bronze streaming table will be created",
+                f"bronze_database_{env}: main.my_bronze_schema",
+            ),
+            "bronze_table": (
+                "the bronze streaming table name",
+                "bronze_table: my_bronze_table",
+            ),
+            f"silver_database_{env}": (
+                "the target schema (1- or 2-part ``catalog.schema``) "
+                "where the silver streaming table will be created",
+                f"silver_database_{env}: main.my_silver_schema",
+            ),
+            "silver_table": (
+                "the silver streaming table name",
+                "silver_table: my_silver_table",
+            ),
+        }
+
         onboarding_df = self.__get_onboarding_file_dataframe(
             self.dict_obj["onboarding_file_path"]
         )
@@ -330,7 +403,31 @@ class OnboardDataflowspec:
                     kind=f"flow {flow_id} source_format",
                 )
 
-            for layer in ("bronze", "silver"):
+            for layer in to_check:
+                # ── Layer participation check ────────────────────────
+                # An onboarding row can be bronze-only, silver-only, or
+                # both. The runtime onboarding methods pick which rows
+                # to process by these exact predicates:
+                #   * bronze row: has non-empty ``source_details``
+                #     (see onboard_bronze_dataflow_spec:1243).
+                #   * silver row: has non-empty
+                #     ``silver_database_{env}`` (see
+                #     onboard_silver_dataflow_spec:2157).
+                # We mirror those predicates here so pre-flight only
+                # enforces layer-required fields on rows that will
+                # ACTUALLY be onboarded into that layer. Otherwise a
+                # legitimate bronze-only row would fail the silver
+                # required-field check just for not having silver
+                # fields (issue #343 finding #2 corner case).
+                if layer == "bronze":
+                    participates = bool(row_dict.get("source_details"))
+                elif layer == "silver":
+                    participates = bool(row_dict.get(f"silver_database_{env}"))
+                else:
+                    participates = False
+                if not participates:
+                    continue
+
                 # (field, validator, validator_kwargs) tuples for every UC
                 # identifier on this layer. Listed in roughly the order they
                 # show up in the onboarding row so error messages read
@@ -366,15 +463,69 @@ class OnboardDataflowspec:
                         validate_uc_column_list,
                         {},
                     ),
+                    # UC row-level-security clauses (issue #303/#306).
+                    # These are the ``ROW FILTER cat.schema.func ON
+                    # (cols)`` strings read verbatim in
+                    # onboard_{bronze,silver}_dataflow_spec, stored on
+                    # the spec, and later spliced into the generated
+                    # streaming-table DDL via ``dp.table(row_filter=...)``
+                    # / ``dp.create_streaming_table(row_filter=...)``.
+                    # Because they land in a SQL/DDL position that the
+                    # pipelines API cannot parameterise, run them through
+                    # the same denylist guard the App's Metadata Browse
+                    # WHERE clause uses \u2014 blocks statement separators,
+                    # comments, and DDL/DML keywords while accepting a
+                    # legitimate ``ROW FILTER ... ON (...)`` clause.
+                    (f"{layer}_row_filter", validate_sql_where_clause, {}),
+                    (
+                        f"{layer}_quarantine_row_filter",
+                        validate_sql_where_clause,
+                        {},
+                    ),
                 ]
                 for field, validator, kwargs in checks:
-                    if row_dict.get(field):
-                        _check(
-                            validator,
-                            row_dict[field],
-                            kind=f"flow {flow_id} {field}",
-                            **kwargs,
+                    value = row_dict.get(field)
+                    is_required = field in required_fields
+                    if is_required and not value:
+                        # Distinguish absent (key not present in the
+                        # onboarding row at all) from present-but-empty
+                        # (``""``) so the user knows whether to ADD the
+                        # key or FILL IN a value \u2014 different fixes
+                        # entirely. ``row_dict.get(field)`` alone can't
+                        # tell those apart (both return falsy), so peek
+                        # at ``in row_dict`` explicitly.
+                        purpose, example = field_hints.get(
+                            field,
+                            (
+                                f"the {field} required for {layer} "
+                                f"onboarding",
+                                f"{field}: <value>",
+                            ),
                         )
+                        if field not in row_dict or value is None:
+                            state = (
+                                "required key is missing from this "
+                                "onboarding row"
+                            )
+                        else:
+                            state = (
+                                "required key is present but empty "
+                                f"(value={value!r})"
+                            )
+                        errors.append(
+                            f"flow {flow_id} {field}: {state}. "
+                            f"This field is {purpose}. Add e.g. "
+                            f"`{example}` to the row and re-run."
+                        )
+                        continue
+                    if not value:
+                        continue
+                    _check(
+                        validator,
+                        value,
+                        kind=f"flow {flow_id} {field}",
+                        **kwargs,
+                    )
 
                 # scd_type lives inside the cdc_apply_changes /
                 # apply_changes_from_snapshot blocks; bad values silently
@@ -520,13 +671,50 @@ class OnboardDataflowspec:
                                 )
 
         if errors:
+            # Group errors by data_flow_id so all violations for the
+            # same row cluster together in the report \u2014 users fixing
+            # a spec file work row-by-row, and interleaved errors are
+            # much harder to reason about than a "flow 100 has 3
+            # errors, flow 102 has 2" report. Sort key extracts the
+            # ``flow <id>`` prefix present on every message; entries
+            # that don't match (defensive fallback) sort to the end.
+            def _flow_key(msg):
+                # ``flow <id> <field>: ...`` \u2014 the prefix is stable across
+                # every validator error emitted from this method.
+                m = _FLOW_PREFIX_RE.match(msg)
+                if m:
+                    return (0, m.group(1), msg)
+                return (1, "", msg)
+            errors.sort(key=_flow_key)
+
+            affected_flows = []
+            seen_flows = set()
+            for msg in errors:
+                m = _FLOW_PREFIX_RE.match(msg)
+                if m and m.group(1) not in seen_flows:
+                    seen_flows.add(m.group(1))
+                    affected_flows.append(m.group(1))
+
+            layers_label = "/".join(sorted(to_check))
+            flows_label = (
+                ", ".join(affected_flows) if affected_flows else "<unknown>"
+            )
             bullets = "\n  - ".join(errors)
             raise ValueError(
                 f"Onboarding file "
                 f"{self.dict_obj['onboarding_file_path']!r} has "
-                f"{len(errors)} validation error(s); fix these and "
-                f"re-run:\n  - {bullets}"
+                f"{len(errors)} pre-flight validation error(s) across "
+                f"{len(affected_flows) or 1} flow(s) [{flows_label}] "
+                f"for layer(s) [{layers_label}]. Each bullet below "
+                f"names the flow, the field, why it failed, and "
+                f"(where applicable) how to fix it. Fix all "
+                f"{len(errors)} and re-run:\n  - {bullets}"
             )
+
+        # Only mark layers as validated AFTER the walk completes without
+        # raising \u2014 otherwise a retry after fixing errors would be
+        # silently skipped by the idempotency guard.
+        self._prevalidated_layers = already | to_check
 
     def register_bronze_dataflow_spec_tables(self):
         """Register bronze/silver dataflow specs tables."""
@@ -594,6 +782,13 @@ class OnboardDataflowspec:
         else:
             attributes.append("silver_dataflowspec_path")
             self.__validate_dict_attributes(attributes, dict_obj)
+
+        # Pre-flight UC-identifier validation \u2014 walk the onboarding file
+        # once for the silver layer and aggregate every violation into a
+        # single ValueError before any Spark side-effect. Idempotent:
+        # a no-op if ``onboard_dataflow_specs`` already validated silver
+        # up front (issue #343 finding #1).
+        self.__pre_validate_onboarding_uc_names(layers=("silver",))
 
         onboarding_df = self.__get_onboarding_file_dataframe(
             dict_obj["onboarding_file_path"]
@@ -763,6 +958,13 @@ class OnboardDataflowspec:
         else:
             attributes.append("bronze_dataflowspec_path")
             self.__validate_dict_attributes(attributes, dict_obj)
+
+        # Pre-flight UC-identifier validation \u2014 walk the onboarding file
+        # once for the bronze layer and aggregate every violation into a
+        # single ValueError before any Spark side-effect. Idempotent:
+        # a no-op if ``onboard_dataflow_specs`` already validated bronze
+        # up front (issue #343 finding #1).
+        self.__pre_validate_onboarding_uc_names(layers=("bronze",))
 
         onboarding_df = self.__get_onboarding_file_dataframe(
             dict_obj["onboarding_file_path"]
@@ -1459,7 +1661,7 @@ class OnboardDataflowspec:
             )
             if quarantine_catalog:
                 quarantine_target_details["catalog"] = quarantine_catalog
-            if "{layer}_quarantine_table_comment" in onboarding_row:
+            if f"{layer}_quarantine_table_comment" in onboarding_row:
                 quarantine_target_details["comment"] = onboarding_row[f"{layer}_quarantine_table_comment"]
         if not self.uc_enabled and f"{layer}_quarantine_table_path_{env}" in onboarding_row:
             quarantine_target_details["path"] = onboarding_row[f"{layer}_quarantine_table_path_{env}"]
@@ -1890,17 +2092,21 @@ class OnboardDataflowspec:
                 source_details["snapshot_format"] = snapshot_format
                 if f"source_path_{env}" in source_details_file:
                     source_details["path"] = source_details_file[f"source_path_{env}"]
+                elif not self.uc_enabled:
+                    # A non-UC snapshot source reads from a Delta path, so the
+                    # path is mandatory here. (Under Unity Catalog the snapshot
+                    # is read from source_database.source_table, so a path is
+                    # optional.) This enforcement previously lived in an
+                    # unreachable second ``elif ... == "snapshot"`` branch, so a
+                    # missing path was silently ignored; enforce it on the
+                    # reachable branch instead.
+                    raise Exception(
+                        f"source_path_{env} is missing in the source_details "
+                        f"for snapshot source (required when Unity Catalog is "
+                        f"not enabled)"
+                    )
             elif source_format.lower() == "eventhub" or source_format.lower() == "kafka":
                 source_details = source_details_file
-            elif source_format.lower() == "snapshot":
-                snapshot_format = source_details_file.get("snapshot_format", None)
-                if snapshot_format is None:
-                    raise Exception("snapshot_format is missing in the source_details")
-                source_details["snapshot_format"] = snapshot_format
-                if f"source_path_{env}" in source_details_file:
-                    source_details["path"] = source_details_file[f"source_path_{env}"]
-                else:
-                    raise Exception(f"source_path_{env} is missing in the source_details")
             if "source_schema_path" in source_details_file:
                 source_schema_path = source_details_file["source_schema_path"]
                 if source_schema_path:
@@ -2161,12 +2367,31 @@ class OnboardDataflowspec:
             if silver_cl:
                 silver_target_details["catalog"] = silver_cl
             if not self.uc_enabled:
-                bronze_target_details["path"] = onboarding_row[
-                    f"bronze_table_path_{env}"
-                ]
-                silver_target_details["path"] = onboarding_row[
-                    f"silver_table_path_{env}"
-                ]
+                # HMS (non-UC) targets are external Delta tables addressed by an
+                # explicit location, so persist the table path into
+                # ``targetDetails`` — the downstream HMS runtime reads
+                # ``targetDetails["path"]`` directly (dataflow_pipeline.py), so
+                # the key must exist. A missing/empty path is tolerated and
+                # stored as ``None`` ("no explicit location"): snapshot-based
+                # silver rows and silver-fanout consumer rows that only
+                # reference the shared bronze source legitimately omit it. This
+                # matches the pre-refactor behaviour, which assigned the raw
+                # column value (``None`` when absent) rather than hard-failing.
+                #
+                # For a multi-source silver CDC row (``has_cdc_flows``),
+                # ``bronze_target_details`` is an empty placeholder the runtime
+                # never consults, so skip the bronze path there entirely.
+                if not has_cdc_flows:
+                    bronze_target_details["path"] = (
+                        onboarding_row[f"bronze_table_path_{env}"]
+                        if f"bronze_table_path_{env}" in onboarding_row
+                        else None
+                    )
+                silver_target_details["path"] = (
+                    onboarding_row[f"silver_table_path_{env}"]
+                    if f"silver_table_path_{env}" in onboarding_row
+                    else None
+                )
             silver_reader_options_json = (
                 onboarding_row["silver_reader_options"]
                 if "silver_reader_options" in onboarding_row

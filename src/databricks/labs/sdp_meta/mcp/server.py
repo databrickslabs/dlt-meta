@@ -12,6 +12,18 @@ Architecture:
 - :func:`run_stdio` is the entrypoint called by the ``mcp`` CLI command.
 - Tool dispatch is split into pure handlers (``_handle_*``) so unit tests can
   call them directly without spinning up the asyncio stdio plumbing.
+
+Filesystem sandbox:
+- stdio MCP has no separate authn/authz layer (the transport's trust boundary
+  is "who can spawn the process", running with the invoking user's own
+  credentials). To contain the confused-deputy / prompt-injection case, every
+  caller-supplied path (``output_dir`` / ``bundle_dir`` / ``config_file`` /
+  ``onboarding_file``) is resolved and confined to a single root via
+  :func:`_resolve_within_root`.
+- The root defaults to the process working directory (for stdio, the directory
+  the client launched the server in) and can be overridden with the
+  ``SDP_META_MCP_ROOT`` environment variable. Paths that escape the root are
+  rejected before any mkdir/write reaches ``bundle.py``.
 """
 
 from __future__ import annotations
@@ -21,10 +33,13 @@ import io
 import json
 import logging
 import os
+import re
 from contextlib import redirect_stdout
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+from databricks.labs.sdp_meta.identifiers import validate_uc_identifier
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
@@ -85,6 +100,156 @@ def _locate_examples_dir() -> Optional[Path]:
     return None
 
 
+# ---------------------------------------------------------------------------
+# Filesystem sandbox for caller-supplied paths.
+#
+# The stdio MCP server has no separate authn/authz layer — that is inherent
+# to the transport (the trust boundary is "who can spawn the process", which
+# runs with the invoking user's own credentials). What we CAN contain is the
+# confused-deputy / prompt-injection case: an LLM driving the bundle_init /
+# bundle_validate / bundle_add_flow tools (fed untrusted onboarding content
+# or a hostile tool description) being steered into scaffolding files at
+# arbitrary filesystem locations the user happens to be able to write.
+#
+# Every caller-supplied path (output_dir, bundle_dir, config_file,
+# onboarding_file) is therefore resolved and checked to live inside a single
+# allowed root before it reaches ``bundle.py`` (which ``.resolve()``s and
+# ``mkdir(parents=True)`` + writes with no containment of its own).
+#
+# Root resolution:
+#   * ``SDP_META_MCP_ROOT`` env var when set to an existing directory
+#     (explicit override for containerised / multi-project deployments).
+#   * otherwise the process working directory — for stdio MCP this is the
+#     directory the client launched the server in, i.e. the user's project.
+# ---------------------------------------------------------------------------
+
+_MCP_ROOT_ENV_VAR = "SDP_META_MCP_ROOT"
+
+
+def _mcp_root() -> Path:
+    """Return the absolute directory caller-supplied paths must stay within."""
+    env_override = os.environ.get(_MCP_ROOT_ENV_VAR)
+    if env_override:
+        candidate = Path(env_override).expanduser().resolve()
+        if candidate.is_dir():
+            return candidate
+        logger.warning(
+            "%s=%r is set but is not an existing directory; falling back to "
+            "the process working directory as the MCP filesystem root.",
+            _MCP_ROOT_ENV_VAR,
+            env_override,
+        )
+    return Path.cwd().resolve()
+
+
+def _resolve_within_root(raw_path: str, *, kind: str) -> Path:
+    """Resolve ``raw_path`` and confirm it stays inside :func:`_mcp_root`.
+
+    Returns the resolved absolute :class:`Path` on success. Raises
+    ``ValueError`` with an actionable message when the path escapes the
+    sandbox root — including the ``..``-traversal and absolute-path cases,
+    since both collapse to an out-of-root resolved path.
+
+    The boundary check compares against ``root`` plus a trailing separator
+    so a sibling directory whose name merely *starts with* the root (e.g.
+    root ``/work`` vs ``/work_evil``) cannot bypass the guard.
+    """
+    root = _mcp_root()
+    lexical = Path(raw_path).expanduser()
+    if not lexical.is_absolute():
+        lexical = root / lexical
+
+    # Belt-and-suspenders symlink guard: walk the (un-resolved) path's existing
+    # components and reject if any is a symlink whose real target escapes the
+    # root. ``resolve()`` below also collapses existing symlinks, so this is
+    # defense-in-depth — it narrows (does not fully close) the TOCTOU window
+    # between this check and bundle.py's later mkdir/write. Fully closing it
+    # would require fd-based (O_NOFOLLOW) writes down in bundle.py.
+    _assert_no_symlink_escape(lexical, root, kind=kind, raw_path=raw_path)
+
+    resolved = lexical.resolve()
+
+    root_str = str(root)
+    resolved_str = str(resolved)
+    inside = resolved == root or resolved_str.startswith(
+        root_str.rstrip(os.sep) + os.sep
+    )
+    if not inside:
+        raise ValueError(
+            f"{kind} {raw_path!r} resolves to {resolved_str!r}, which is "
+            f"outside the MCP filesystem root {root_str!r}. The sdp-meta MCP "
+            f"server only scaffolds/reads files inside that root. Pass a path "
+            f"within it, or set {_MCP_ROOT_ENV_VAR} to the project directory "
+            f"you intend to work in."
+        )
+    return resolved
+
+
+def _assert_no_symlink_escape(
+    lexical: Path, root: Path, *, kind: str, raw_path: str
+) -> None:
+    """Reject a path that traverses a symlink pointing outside ``root``.
+
+    Walks every existing component from ``lexical`` up to the filesystem root
+    and, for any that is a symlink, checks that its real target stays inside
+    ``root``. Non-existent components (``is_symlink()`` is False) and plain
+    directories are skipped. Raises ``ValueError`` on an escaping symlink.
+    """
+    root_real = os.path.realpath(root)
+    root_prefix = root_real.rstrip(os.sep) + os.sep
+    node = lexical
+    while True:
+        if node.is_symlink():
+            target_real = os.path.realpath(node)
+            if not (
+                target_real == root_real or target_real.startswith(root_prefix)
+            ):
+                raise ValueError(
+                    f"{kind} {raw_path!r} traverses symlink {str(node)!r} whose "
+                    f"target {target_real!r} escapes the MCP filesystem root "
+                    f"{root_real!r}."
+                )
+        parent = node.parent
+        if parent == node:  # reached filesystem root
+            break
+        node = parent
+
+
+# Databricks CLI profile names are `.databrickscfg` INI section headers; in
+# practice they are short identifiers. We forward the value into a
+# ``databricks --profile <x>`` argv (list form, no shell — so this is not a
+# shell-injection fix), but an allow-list keeps a hostile value from smuggling
+# extra CLI flags (e.g. a leading ``-``) or path/quote characters into the
+# subprocess. Empty/None means "default profile" and is allowed by the callers.
+# First character must be alphanumeric or underscore so a value like
+# ``--target`` can never be mistaken for a CLI flag by the ``databricks`` argv
+# parser; dashes and dots are allowed only in interior positions.
+_PROFILE_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
+_MAX_PROFILE_LEN = 128
+
+
+def _validate_profile(profile: Optional[str]) -> Optional[str]:
+    """Validate a Databricks CLI profile name; return it unchanged (or None)."""
+    if profile is None or profile == "":
+        return None
+    if not isinstance(profile, str):
+        raise ValueError(
+            f"profile must be a string, got {type(profile).__name__}: {profile!r}"
+        )
+    if len(profile) > _MAX_PROFILE_LEN:
+        raise ValueError(
+            f"profile {profile!r} is {len(profile)} characters; maximum is "
+            f"{_MAX_PROFILE_LEN}."
+        )
+    if not _PROFILE_RE.match(profile):
+        raise ValueError(
+            f"profile {profile!r} is not a valid Databricks CLI profile name. "
+            f"Allowed characters: letters, digits, underscore, dash and dot "
+            f"({_PROFILE_RE.pattern})."
+        )
+    return profile
+
+
 def _list_template_files() -> List[Tuple[str, Path]]:
     """Return ``[(logical_name, absolute_path)]`` for every shipped template.
 
@@ -141,6 +306,24 @@ _BUNDLE_INIT_SCHEMA: Dict[str, Any] = {
                 "Optional path to a JSON config file with pre-answered "
                 "template prompts. Ignored when quickstart=true."
             ),
+        },
+        "overrides": {
+            "type": "object",
+            "description": (
+                "Only used when quickstart=true. Override individual "
+                "quickstart answers while keeping every other default, e.g. "
+                '{"uc_catalog_name": "acme_prod", "sdp_meta_dependency": '
+                '"databricks-labs-sdp-meta==0.1.0"}. Overridable keys: '
+                "bundle_name, uc_catalog_name, sdp_meta_schema, "
+                "bronze_target_schema, silver_target_schema, layer "
+                "(bronze|silver|bronze_silver), pipeline_mode (split|combined), "
+                "source_format (cloudFiles|delta|kafka|eventhub|snapshot), "
+                "onboarding_file_format (yaml|json), dataflow_group, author, "
+                "sdp_meta_dependency. Unknown keys and invalid values are "
+                "rejected. Catalog/schema names must be regular SQL "
+                "identifiers (letters, digits, underscores)."
+            ),
+            "additionalProperties": True,
         },
         "profile": {
             "type": "string",
@@ -270,15 +453,24 @@ def _handle_bundle_init(args: Dict[str, Any]) -> List[TextContent]:
 
     output_dir = args.get("output_dir", ".")
     quickstart = bool(args.get("quickstart", True))
-    profile = args.get("profile")
+    profile = _validate_profile(args.get("profile"))
     config_file = args.get("config_file")
+    overrides = args.get("overrides")
+
+    # Sandbox every caller-supplied path to the MCP filesystem root before
+    # any mkdir / write reaches bundle.py.
+    output_dir_resolved = _resolve_within_root(output_dir, kind="output_dir")
 
     if quickstart:
-        cfg_dir = Path(output_dir).resolve()
-        cfg_dir.mkdir(parents=True, exist_ok=True)
-        cfg_path = write_quickstart_config_file(cfg_dir)
+        output_dir_resolved.mkdir(parents=True, exist_ok=True)
+        # `overrides` (validated inside write_quickstart_config_file) lets the
+        # caller change e.g. uc_catalog_name without leaving the quickstart
+        # happy-path or hand-authoring a full config_file.
+        cfg_path = write_quickstart_config_file(output_dir_resolved, overrides=overrides)
         cmd = BundleInitCommand(
-            output_dir=output_dir, config_file=str(cfg_path), profile=profile
+            output_dir=str(output_dir_resolved),
+            config_file=str(cfg_path),
+            profile=profile,
         )
     else:
         if not config_file:
@@ -286,23 +478,31 @@ def _handle_bundle_init(args: Dict[str, Any]) -> List[TextContent]:
                 "config_file is required when quickstart=false (the MCP server "
                 "cannot run interactive prompts)."
             )
+        config_file_resolved = _resolve_within_root(
+            config_file, kind="config_file"
+        )
         cmd = BundleInitCommand(
-            output_dir=output_dir, config_file=config_file, profile=profile
+            output_dir=str(output_dir_resolved),
+            config_file=str(config_file_resolved),
+            profile=profile,
         )
 
     buf = io.StringIO()
     with redirect_stdout(buf):
         rc = bundle_init(cmd)
-    return _ok({"returncode": rc, "output": buf.getvalue(), "output_dir": str(Path(output_dir).resolve())})
+    return _ok({"returncode": rc, "output": buf.getvalue(), "output_dir": str(output_dir_resolved)})
 
 
 def _handle_bundle_validate(args: Dict[str, Any]) -> List[TextContent]:
     from databricks.labs.sdp_meta.bundle import BundleValidateCommand, bundle_validate
 
+    bundle_dir = _resolve_within_root(
+        args.get("bundle_dir", "."), kind="bundle_dir"
+    )
     cmd = BundleValidateCommand(
-        bundle_dir=args.get("bundle_dir", "."),
+        bundle_dir=str(bundle_dir),
         target=args.get("target"),
-        profile=args.get("profile"),
+        profile=_validate_profile(args.get("profile")),
     )
     buf = io.StringIO()
     with redirect_stdout(buf):
@@ -321,9 +521,32 @@ def _handle_bundle_add_flow(args: Dict[str, Any]) -> List[TextContent]:
     if not raw_flows:
         raise ValueError("`flows` must contain at least one entry.")
     flows = [FlowSpec(**f) for f in raw_flows]
+
+    # Defense-in-depth: validate the identifier-bearing flow fields at the MCP
+    # boundary. bundle.py already rejects bad `source_format` / `bronze_table`
+    # / `silver_table`, but not `source_database` / `source_table` (spliced
+    # into `spark.read.table(...)` for delta/snapshot sources) or
+    # `data_flow_group` (spliced unquoted into the onboarding row). Reject
+    # non-regular-identifier values here so a hostile/confused MCP client
+    # can't smuggle them downstream (issue #261). Optional fields are only
+    # checked when set; `data_flow_id="auto"` is a sentinel, not an identifier.
+    for i, flow in enumerate(flows):
+        for field_name in ("source_database", "source_table", "data_flow_group"):
+            value = getattr(flow, field_name, None)
+            if value:
+                validate_uc_identifier(value, kind=f"flows[{i}].{field_name}")
+    bundle_dir = _resolve_within_root(
+        args.get("bundle_dir", "."), kind="bundle_dir"
+    )
+    onboarding_file = args.get("onboarding_file")
+    onboarding_file_resolved = (
+        str(_resolve_within_root(onboarding_file, kind="onboarding_file"))
+        if onboarding_file
+        else None
+    )
     cmd = BundleAddFlowCommand(
-        bundle_dir=args.get("bundle_dir", "."),
-        onboarding_file=args.get("onboarding_file"),
+        bundle_dir=str(bundle_dir),
+        onboarding_file=onboarding_file_resolved,
         flows=flows,
         dry_run=bool(args.get("dry_run", False)),
     )

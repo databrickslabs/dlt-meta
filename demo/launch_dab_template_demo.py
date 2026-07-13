@@ -420,7 +420,7 @@ def _materialize_csv(scenario: Scenario, uc_catalog_name: str, dest_dir: Path,
         if demo_data_volume_path:
             rendered = rendered.replace("{demo_data_volume_path}", demo_data_volume_path)
         else:
-            # Offline placeholder. Keeps the CSV parseable; the LDP pipeline
+            # Offline placeholder. Keeps the CSV parseable; the SDP Pipeline
             # would obviously fail to read these paths if you tried to deploy
             # without --apply-prepare-wheel, but bundle-validate is happy.
             rendered = rendered.replace(
@@ -1019,7 +1019,7 @@ def stage_prepare_wheel(scenario: Scenario, bundle_dir: Path, *,
     # For the cloudfiles scenarios (split + combined), additionally seed the
     # four demo datasets into the same UC volume so the CSV flows point at
     # real data. Both scenarios share the same demo data and recipe; only
-    # the rendered LDP topology differs.
+    # the rendered SDP topology differs.
     if scenario.name in _CLOUDFILES_SCENARIO_NAMES:
         return _upload_cloudfiles_demo_data(uc_catalog_name, uc_schema, uc_volume, profile)
     # For the delta scenario, return the wheel-volume base so STAGE 4 can
@@ -1416,8 +1416,8 @@ def _ensure_target_schemas(bundle_dir: Path, uc_catalog: str,
     """Create the bronze/silver/dataflowspec schemas if they don't exist.
 
     The dataflowspec table that the onboarding job writes to, and the
-    bronze/silver target schemas that LDP writes its tables to, must
-    already exist in Unity Catalog before either job runs (LDP refuses to
+    bronze/silver target schemas that SDP writes its tables to, must
+    already exist in Unity Catalog before either job runs (SDP refuses to
     auto-create schemas, and the onboarding job fails with SCHEMA_NOT_FOUND
     when it tries to MERGE INTO a missing schema).
 
@@ -1509,7 +1509,7 @@ def stage_deploy_and_run(bundle_dir: Path, profile: Optional[str], *,
     if profile:
         base.extend(["--profile", profile])
 
-    # 0) ensure target schemas exist (LDP + onboarding fail if they don't).
+    # 0) ensure target schemas exist (SDP + onboarding fail if they don't).
     if uc_catalog:
         _ensure_target_schemas(bundle_dir, uc_catalog, profile)
 
@@ -1690,7 +1690,7 @@ def main() -> int:
                         help="Which source scenario to run (default: all). "
                              "`cloudfiles` renders pipeline_mode=split; "
                              "`cloudfiles_combined` renders pipeline_mode=combined "
-                             "(bronze+silver in ONE LDP pipeline, same demo data).")
+                             "(bronze+silver in ONE SDP Pipeline, same demo data).")
     parser.add_argument("--uc-catalog-name", required=True,
                         help="Unity Catalog catalog the demo writes into. "
                              "Substituted into the answers files and CSVs.")

@@ -118,6 +118,27 @@ def handle_onboard_form():
     if missing:
         return jsonify({'error': 'Required fields missing: ' + ', '.join(missing)}), 400
 
+    # ── UC-identifier validation (all names, not just the catalog) ──
+    # The schema and dataflowspec-table names get spliced into
+    # ``CREATE SCHEMA`` / ``saveAsTable`` / ``catalog.schema.table``
+    # downstream without backtick-quoting, so a malformed one must fail
+    # here with an actionable 400 rather than a cryptic Spark error
+    # mid-run (issue #261). Schemas are required (checked above); table
+    # names default and are validated whenever present.
+    for value, kind in (
+        (request.form.get('sdp_meta_schema', '').strip(), 'sdp_meta_schema'),
+        (request.form.get('bronze_schema', '').strip(), 'bronze_schema'),
+        (request.form.get('silver_schema', '').strip(), 'silver_schema'),
+        (request.form.get('bronze_table', '').strip(), 'bronze_table'),
+        (request.form.get('silver_table', '').strip(), 'silver_table'),
+    ):
+        if not value:
+            continue
+        try:
+            validate_uc_identifier(value, kind=kind)
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
+
     # ── Resolve onboarding_file_path + pre-flight parse ────────────
     # Resolve the user-supplied path (local / UC Volume / DBFS) onto
     # local disk, then parse it once to catch malformed YAML / JSON
@@ -268,6 +289,20 @@ def handle_onboarding_preview():
         missing.append("Silver Schema")
     if missing:
         return jsonify({'error': 'Required fields missing: ' + ', '.join(missing)}), 400
+
+    # Validate the schema identifiers too (not just the catalog): they
+    # are spliced into the ``{uc_volume_path}`` and the bronze/silver
+    # schema substitutions below, and into SQL downstream on the real
+    # /onboarding run, so a malformed one must fail here (issue #261).
+    for value, kind in (
+        (sdp_meta_schema, 'sdp_meta_schema'),
+        (bronze_schema, 'bronze_schema'),
+        (silver_schema, 'silver_schema'),
+    ):
+        try:
+            validate_uc_identifier(value, kind=kind)
+        except ValueError as exc:
+            return jsonify({'error': str(exc)}), 400
 
     # Resolve + read + pre-flight parse the template. Same code path
     # as /onboarding so the preview and the real run can't disagree

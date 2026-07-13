@@ -36,13 +36,16 @@ from databricks.labs.sdp_meta.bundle import (
     BundlePrepareWheelCommand,
     BundleValidateCommand,
     FlowSpec,
+    _discover_bundle_dir,
     _sdp_meta_sanity_checks,
+    _stamp_sdp_meta_version,
     bundle_add_flow,
     bundle_init,
     bundle_prepare_wheel,
     bundle_validate,
     write_quickstart_config_file,
 )
+from databricks.labs.sdp_meta.__about__ import __version__
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -574,6 +577,129 @@ class BundleInitUnitTests(unittest.TestCase):
             rc = bundle_init(BundleInitCommand(output_dir=str(tmp)))
             self.assertEqual(rc, 7)
 
+    @patch("databricks.labs.sdp_meta.bundle._run")
+    @patch("databricks.labs.sdp_meta.bundle._resolve_databricks_cli", return_value="/fake/databricks")
+    def test_success_message_points_at_nested_bundle_dir(self, _cli, run):
+        """`--output-dir` is the *parent*; the bundle lands in
+        <output-dir>/<bundle_name>. The wrapper's own message must print that
+        real nested path (the template's own `cd <bundle_name>` hint ignores
+        --output-dir and is misleading)."""
+        import io
+        from contextlib import redirect_stdout
+
+        run.return_value = subprocess.CompletedProcess(args=[], returncode=0)
+        with _tempdir() as tmp:
+            # Simulate what `databricks bundle init` creates: a project folder
+            # holding a databricks.yml under the output (parent) dir.
+            bundle = Path(tmp) / "my_sdp_meta_pipeline"
+            bundle.mkdir()
+            (bundle / "databricks.yml").write_text("bundle:\n  name: x\n")
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = bundle_init(BundleInitCommand(output_dir=str(tmp)))
+            self.assertEqual(rc, 0)
+            out = buf.getvalue()
+            self.assertIn(str(bundle.resolve()), out)
+            self.assertIn("cd ", out)
+
+    @patch("databricks.labs.sdp_meta.bundle._run")
+    @patch("databricks.labs.sdp_meta.bundle._resolve_databricks_cli", return_value="/fake/databricks")
+    def test_bundle_init_stamps_installed_version_into_variables(self, _cli, run):
+        """After a successful init, the scaffolded resources/variables.yml has
+        its sdp_meta_version `true` sentinel replaced with the installed
+        version so bundle-deployed pipelines tag sdp_meta=<version>."""
+        run.return_value = subprocess.CompletedProcess(args=[], returncode=0)
+        with _tempdir() as tmp:
+            bundle = Path(tmp) / "my_sdp_meta_pipeline"
+            (bundle / "resources").mkdir(parents=True)
+            (bundle / "databricks.yml").write_text("bundle:\n  name: x\n")
+            (bundle / "resources" / "variables.yml").write_text(
+                "variables:\n"
+                "  sdp_meta_version:\n"
+                "    description: |\n"
+                "      multi-line description\n"
+                "      second line\n"
+                '    default: "true"\n'
+                "  serverless:\n"
+                "    default: true\n"
+            )
+            rc = bundle_init(BundleInitCommand(output_dir=str(tmp)))
+            self.assertEqual(rc, 0)
+            doc = yaml.safe_load((bundle / "resources" / "variables.yml").read_text())
+            self.assertEqual(doc["variables"]["sdp_meta_version"]["default"], __version__)
+            # Unrelated variables are untouched.
+            self.assertEqual(doc["variables"]["serverless"]["default"], True)
+
+
+class StampSdpMetaVersionTests(unittest.TestCase):
+    """Unit tests for the best-effort version stamp helper."""
+
+    def _write_vars(self, root: Path, default_value: str) -> Path:
+        (root / "resources").mkdir(parents=True)
+        vy = root / "resources" / "variables.yml"
+        vy.write_text(
+            "variables:\n"
+            "  uc_catalog_name:\n"
+            "    default: main\n"
+            "  sdp_meta_version:\n"
+            "    description: tag value\n"
+            f'    default: "{default_value}"\n'
+        )
+        return vy
+
+    def test_replaces_true_sentinel_with_version(self):
+        with _tempdir() as tmp:
+            vy = self._write_vars(Path(tmp), "true")
+            _stamp_sdp_meta_version(Path(tmp))
+            doc = yaml.safe_load(vy.read_text())
+            self.assertEqual(doc["variables"]["sdp_meta_version"]["default"], __version__)
+            self.assertEqual(doc["variables"]["uc_catalog_name"]["default"], "main")
+
+    def test_noop_when_default_not_sentinel(self):
+        """A user-customised default is left alone (only the shipped `true`
+        sentinel is stamped)."""
+        with _tempdir() as tmp:
+            vy = self._write_vars(Path(tmp), "0.9.9")
+            _stamp_sdp_meta_version(Path(tmp))
+            doc = yaml.safe_load(vy.read_text())
+            self.assertEqual(doc["variables"]["sdp_meta_version"]["default"], "0.9.9")
+
+    def test_noop_when_variables_file_missing(self):
+        with _tempdir() as tmp:
+            # No resources/variables.yml — must not raise.
+            _stamp_sdp_meta_version(Path(tmp))
+
+
+class DiscoverBundleDirTests(unittest.TestCase):
+    """`_discover_bundle_dir` recovers the real bundle folder under the
+    output (parent) dir so callers can print an accurate `cd`."""
+
+    def test_prefers_bundle_name_from_config_file(self):
+        with _tempdir() as tmp:
+            out = Path(tmp)
+            bundle = out / "chosen_name"
+            bundle.mkdir()
+            (bundle / "databricks.yml").write_text("bundle:\n  name: x\n")
+            cfg = out / "cfg.json"
+            cfg.write_text(json.dumps({"bundle_name": "chosen_name"}))
+            found = _discover_bundle_dir(out, str(cfg))
+            self.assertEqual(found, bundle)
+
+    def test_falls_back_to_newest_subdir_with_databricks_yml(self):
+        with _tempdir() as tmp:
+            out = Path(tmp)
+            bundle = out / "some_bundle"
+            bundle.mkdir()
+            (bundle / "databricks.yml").write_text("bundle:\n  name: x\n")
+            # A sibling dir without databricks.yml must be ignored.
+            (out / "not_a_bundle").mkdir()
+            found = _discover_bundle_dir(out, None)
+            self.assertEqual(found, bundle)
+
+    def test_returns_none_when_no_bundle_dir(self):
+        with _tempdir() as tmp:
+            self.assertIsNone(_discover_bundle_dir(Path(tmp), None))
+
 
 class QuickstartConfigFileTests(unittest.TestCase):
     """Pure-Python coverage for the `bundle-init --quickstart` config builder.
@@ -606,6 +732,71 @@ class QuickstartConfigFileTests(unittest.TestCase):
             nested = Path(tmp) / "does" / "not" / "exist"
             path = write_quickstart_config_file(nested)
             self.assertTrue(path.is_file())
+
+    def test_overrides_change_uc_catalog_name_only(self):
+        with _tempdir() as tmp:
+            path = write_quickstart_config_file(
+                tmp, overrides={"uc_catalog_name": "acme_prod"}
+            )
+            written = json.loads(path.read_text())
+            # The override took effect...
+            self.assertEqual(written["uc_catalog_name"], "acme_prod")
+            # ...and every other default is untouched.
+            for key, expected in QUICKSTART_BUNDLE_INIT_DEFAULTS.items():
+                if key == "uc_catalog_name":
+                    continue
+                self.assertEqual(written[key], expected, f"key {key!r}")
+
+    def test_overrides_accept_multiple_fields(self):
+        with _tempdir() as tmp:
+            path = write_quickstart_config_file(
+                tmp,
+                overrides={
+                    "uc_catalog_name": "acme_prod",
+                    "sdp_meta_schema": "meta",
+                    "sdp_meta_dependency": "databricks-labs-sdp-meta==0.1.0",
+                    "source_format": "delta",
+                    "layer": "bronze",
+                },
+            )
+            written = json.loads(path.read_text())
+            self.assertEqual(written["uc_catalog_name"], "acme_prod")
+            self.assertEqual(written["sdp_meta_schema"], "meta")
+            self.assertEqual(
+                written["sdp_meta_dependency"], "databricks-labs-sdp-meta==0.1.0"
+            )
+            self.assertEqual(written["source_format"], "delta")
+            self.assertEqual(written["layer"], "bronze")
+
+    def test_overrides_reject_unknown_key(self):
+        with _tempdir() as tmp:
+            with self.assertRaisesRegex(ValueError, "unknown quickstart override"):
+                write_quickstart_config_file(tmp, overrides={"uc_catalog": "x"})
+
+    def test_overrides_reject_hyphenated_catalog(self):
+        with _tempdir() as tmp:
+            with self.assertRaisesRegex(ValueError, "uc_catalog_name"):
+                write_quickstart_config_file(
+                    tmp, overrides={"uc_catalog_name": "bad-catalog"}
+                )
+
+    def test_overrides_reject_invalid_enum(self):
+        with _tempdir() as tmp:
+            with self.assertRaisesRegex(ValueError, "layer"):
+                write_quickstart_config_file(tmp, overrides={"layer": "platinum"})
+
+    def test_overrides_reject_invalid_source_format(self):
+        with _tempdir() as tmp:
+            with self.assertRaises(ValueError):
+                write_quickstart_config_file(
+                    tmp, overrides={"source_format": "parquet"}
+                )
+
+    def test_none_overrides_is_pure_defaults(self):
+        with _tempdir() as tmp:
+            path = write_quickstart_config_file(tmp, overrides=None)
+            written = json.loads(path.read_text())
+            self.assertEqual(written, dict(QUICKSTART_BUNDLE_INIT_DEFAULTS))
 
 
 class BundlePrepareWheelUnitTests(unittest.TestCase):
@@ -1137,6 +1328,17 @@ class EndToEndRenderTests(unittest.TestCase):
         else:
             self.assertEqual(set(pipes), {"bronze", "silver"})
 
+        # Every pipeline carries the sdp_meta tag (wired to the
+        # sdp_meta_version bundle variable) so the SDP-META App and the
+        # workspace UI tag search find bundle-deployed pipelines the same
+        # way they find ones created by `sdp-meta deploy`.
+        for pname, pdef in pipes.items():
+            self.assertEqual(
+                (pdef.get("tags") or {}).get("sdp_meta"),
+                "${var.sdp_meta_version}",
+                f"pipeline {pname!r} is missing the sdp_meta tag",
+            )
+
         # Sanity checks must pass on the rendered bundle.
         self.assertEqual(_sdp_meta_sanity_checks(rendered), [])
 
@@ -1250,14 +1452,14 @@ class EndToEndRenderTests(unittest.TestCase):
             self._assert_rendered_bundle_is_valid(rendered, expect_ext="yml", expect_layer="silver")
 
     def test_runner_notebook_cell_1_layout_matches_working_demo_runners(self):
-        """Regression for two LDP-startup failures we hit on serverless:
+        """Regression for two SDP-startup failures we hit on serverless:
 
           1) ``SyntaxError: incomplete input`` / ``NOTEBOOK_PIP_INSTALL_ERROR``
              when cell 1 has multi-line Python BEFORE ``%pip install``.
           2) ``Whl libraries are not supported`` when we tried to move the
              install into the pipeline's ``libraries:`` field.
 
-        The only layout that works on serverless LDP is the same one the
+        The only layout that works on serverless SDP is the same one the
         existing ``demo/notebooks/*_runners/init_sdp_meta_pipeline.py`` uses:
         cell 1 is exactly ``<varname> = spark.conf.get(...)`` followed
         immediately by ``%pip install $varname``, and a ``# COMMAND ----------``
@@ -1295,7 +1497,7 @@ class EndToEndRenderTests(unittest.TestCase):
             del code_lines  # silence unused
 
     def test_pipelines_yml_does_not_use_whl_or_pypi_libraries(self):
-        """Serverless LDP rejects both `whl:` and `pypi:` library entries
+        """Serverless SDP rejects both `whl:` and `pypi:` library entries
         ("Whl libraries are not supported"). The pipeline must only declare
         the runner notebook; install happens inside the notebook."""
         for src in ("pypi", "volume_path"):
@@ -1320,10 +1522,10 @@ class EndToEndRenderTests(unittest.TestCase):
                     for lib in libs:
                         self.assertNotIn("whl", lib,
                                          f"pipeline {name!r} (wheel_source={src}): `whl:` "
-                                         f"library entries break serverless LDP")
+                                         f"library entries break serverless SDP")
                         self.assertNotIn("pypi", lib,
                                          f"pipeline {name!r} (wheel_source={src}): `pypi:` "
-                                         f"library entries break serverless LDP")
+                                         f"library entries break serverless SDP")
                     # The notebook entry MUST be present -- it's our only install path.
                     self.assertTrue(
                         any(isinstance(lib.get("notebook"), dict) for lib in libs),
@@ -1691,6 +1893,28 @@ class BundleAddFlowTests(unittest.TestCase):
             self.assertEqual([d["data_flow_id"] for d in doc], ["100", "101", "500"])
             self.assertEqual([d["bronze_table"] for d in doc], ["orders", "customers", "line_items"])
 
+    def test_csv_skips_comment_and_blank_lines(self):
+        """Leading `#` comment lines and blanks are ignored; the first surviving
+        line is the header. This is what makes the shipped self-documenting
+        `conf/samples/flows.csv` parse correctly."""
+        with _tempdir() as tmp:
+            self._make_bundle(tmp, seed_flows=[])
+            csv_path = tmp / "flows.csv"
+            csv_path.write_text(
+                "# Sample CSV for --from-csv.\n"
+                "#   edit me\n"
+                "\n"
+                "source_format,bronze_table,silver_table,source_path,data_flow_id\n"
+                "cloudFiles,orders,orders,/V/raw/orders/,auto\n"
+                "  # an indented comment between rows is also skipped\n"
+                "delta,line_items,line_items,,500\n"
+            )
+            cmd = BundleAddFlowCommand(bundle_dir=str(tmp), from_csv=str(csv_path))
+            self.assertEqual(bundle_add_flow(cmd), 0)
+            doc = yaml.safe_load((tmp / "conf" / "onboarding.yml").read_text())
+            self.assertEqual([d["bronze_table"] for d in doc], ["orders", "line_items"])
+            self.assertEqual([d["data_flow_id"] for d in doc], ["100", "500"])
+
     def test_rejects_non_bundle_dir(self):
         with _tempdir() as tmp:
             cmd = BundleAddFlowCommand(
@@ -1764,7 +1988,7 @@ class BundleAddFlowTests(unittest.TestCase):
 
 
 class SilverTransformationsAutoSeedTests(BundleAddFlowTests):
-    """Regression for `[NO_TABLES_IN_PIPELINE]` on the silver LDP pipeline.
+    """Regression for `[NO_TABLES_IN_PIPELINE]` on the silver SDP Pipeline.
 
     The onboarding job builds the silver dataflowspec via an INNER JOIN on
     `silver_transformation_json_df.target_table == silverDataflowSpec

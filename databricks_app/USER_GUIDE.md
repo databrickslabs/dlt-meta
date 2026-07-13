@@ -156,7 +156,7 @@ configured (top-bar chip).
 
 ## 6. Step 3 — Deployment
 
-**Output:** a Lakeflow Declarative Pipeline tagged `sdp_meta=<version>`.
+**Output:** a Lakeflow Spark Declarative Pipeline tagged `sdp_meta=<version>`.
 
 ![Deployment panel](../docs/static/img/sdp-meta-app/step3-deployment.png)
 

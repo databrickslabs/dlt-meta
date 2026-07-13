@@ -1,15 +1,15 @@
 # Databricks notebook source
-# Runner notebook for the sdp-meta LDP pipelines in bundle `{{.bundle_name}}`.
+# Runner notebook for the sdp-meta SDP Pipelines in bundle `{{.bundle_name}}`.
 #
 # IMPORTANT: keep cell 1 below SHORT (variable read + `%pip install` only).
 # The Databricks notebook source format for `.py` files is fragile around
 # line magics: any multi-line Python BEFORE `%pip install` in the same cell
-# causes the parser to fail with `SyntaxError: incomplete input` at LDP
+# causes the parser to fail with `SyntaxError: incomplete input` at SDP
 # startup. This layout (mirrors the existing demo runner notebooks under
 # `demo/notebooks/*_runners/init_sdp_meta_pipeline.py`) is the one shape the
 # parser accepts.
 #
-# Serverless LDP also forbids `libraries: - whl:` and `libraries: - pypi:`
+# Serverless SDP also forbids `libraries: - whl:` and `libraries: - pypi:`
 # entries on the pipeline definition, so we cannot install the wheel from
 # `resources/sdp_meta_pipelines.yml` either -- it has to happen here.
 sdp_meta_dependency = spark.conf.get("sdp_meta_dependency")

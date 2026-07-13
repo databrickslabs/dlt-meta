@@ -93,6 +93,74 @@ class BundleInitCommand:
     profile: Optional[str] = None
 
 
+def _discover_bundle_dir(output_dir: Path, config_file: Optional[str]) -> Optional[Path]:
+    """Locate the folder ``databricks bundle init`` actually created.
+
+    ``--output-dir`` is the *parent*; the template creates its project folder
+    (named after the ``bundle_name`` answer) inside it, so the real bundle
+    lives at ``output_dir / <bundle_name>``. The template's own success
+    message prints ``cd <bundle_name>`` with no knowledge of ``--output-dir``,
+    which is misleading whenever the two differ. Recover the true path so the
+    wrapper can print an accurate ``cd``.
+
+    Prefers the ``bundle_name`` recorded in the non-interactive config file
+    (quickstart always writes one); falls back to the newest immediate
+    subdirectory that contains a ``databricks.yml``.
+    """
+    if config_file:
+        try:
+            data = json.loads(Path(config_file).read_text())
+            name = (data or {}).get("bundle_name")
+            if name:
+                candidate = output_dir / name
+                if (candidate / "databricks.yml").is_file():
+                    return candidate
+        except (OSError, ValueError):
+            pass
+    try:
+        candidates = [
+            p for p in output_dir.iterdir()
+            if p.is_dir() and (p / "databricks.yml").is_file()
+        ]
+    except OSError:
+        return None
+    if candidates:
+        return max(candidates, key=lambda p: p.stat().st_mtime)
+    return None
+
+
+def _stamp_sdp_meta_version(bundle_dir: Path) -> None:
+    """Replace the ``sdp_meta_version`` default in a scaffolded bundle.
+
+    The template ships ``sdp_meta_version`` defaulting to the ``"true"``
+    sentinel so a raw ``databricks bundle init`` still produces a discoverable
+    (non-empty) ``sdp_meta`` pipeline tag. When the scaffold goes through the
+    sdp-meta CLI we know the installed version, so stamp it in — that makes the
+    bundle-deployed pipelines carry ``sdp_meta=<version>``, matching what
+    ``sdp-meta deploy`` writes and letting the SDP-META App show the version.
+
+    Best-effort: if the file or the sentinel default is missing (e.g. the
+    template was customised), leave the scaffold untouched.
+    """
+    from databricks.labs.sdp_meta.__about__ import __version__
+
+    variables_yml = bundle_dir / "resources" / "variables.yml"
+    if not variables_yml.is_file():
+        return
+    text = variables_yml.read_text()
+    # Anchor on the ``sdp_meta_version:`` key and rewrite the first ``default:``
+    # that follows it (its own), stopping before the next 2-space top-level key.
+    patched, count = re.subn(
+        r'(^  sdp_meta_version:\n(?:.*\n)*?    default: )"true"',
+        rf'\g<1>"{__version__}"',
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if count:
+        variables_yml.write_text(patched)
+
+
 def bundle_init(cmd: BundleInitCommand) -> int:
     """Scaffold a new sdp-meta DAB from the packaged template.
 
@@ -117,11 +185,28 @@ def bundle_init(cmd: BundleInitCommand) -> int:
         logger.error("databricks bundle init failed with exit code %s", result.returncode)
         return result.returncode
 
-    print(
-        "\nBundle scaffolded under "
-        f"{output_dir}. Next: edit conf/onboarding.* with your real sources, "
-        "then `databricks bundle deploy --target dev`."
-    )
+    bundle_dir = _discover_bundle_dir(output_dir, cmd.config_file)
+    if bundle_dir is not None:
+        # Stamp the installed sdp-meta version into resources/variables.yml so
+        # bundle-deployed pipelines carry sdp_meta=<version> (App discovery +
+        # version display), matching `sdp-meta deploy`.
+        _stamp_sdp_meta_version(bundle_dir)
+        # Authoritative, output-dir-aware message. Note the template also
+        # prints its own `cd <bundle_name>` hint above; that hint ignores
+        # --output-dir, so this line is the one to trust.
+        print(
+            f"\nBundle scaffolded at {bundle_dir}.\n"
+            "Next:\n"
+            f"  cd {bundle_dir}\n"
+            "  # edit conf/onboarding.* with your real sources, then:\n"
+            "  databricks bundle deploy --target dev"
+        )
+    else:
+        print(
+            "\nBundle scaffolded under "
+            f"{output_dir}. Next: edit conf/onboarding.* with your real sources, "
+            "then `databricks bundle deploy --target dev`."
+        )
     return 0
 
 
@@ -902,21 +987,40 @@ def _flows_from_csv(csv_path: Path) -> List[FlowSpec]:
 
     Recognized columns are listed in `_CSV_FIELD_ALIASES`. Unknown columns
     are silently ignored so users can carry through arbitrary metadata.
+
+    Blank lines and comment lines (whose first non-space character is ``#``)
+    are skipped before parsing, so the shipped ``conf/samples/flows.csv`` can
+    stay self-documenting. The first surviving line is the header row. Original
+    file line numbers are preserved in error messages.
     """
+    raw_lines = csv_path.read_text().splitlines(keepends=True)
+    # (original 1-based line number, text) for every non-blank, non-comment line.
+    kept = [
+        (lineno, line)
+        for lineno, line in enumerate(raw_lines, start=1)
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    if not kept:
+        raise ValueError(f"{csv_path.name} contains no rows")
+
+    # csv.DictReader accepts any iterable of strings; feed it only the surviving
+    # lines. kept[0] is the header; kept[1:] map row-by-row to data lines.
+    reader = csv.DictReader([line for _, line in kept])
+    data_line_numbers = [lineno for lineno, _ in kept[1:]]
+
     flows: List[FlowSpec] = []
-    with csv_path.open("r", newline="") as fh:
-        reader = csv.DictReader(fh)
-        for lineno, row in enumerate(reader, start=2):
-            kwargs: Dict[str, Any] = {}
-            for field_name, aliases in _CSV_FIELD_ALIASES.items():
-                for alias in aliases:
-                    if alias in row and row[alias] != "":
-                        kwargs[field_name] = row[alias]
-                        break
-            try:
-                flows.append(FlowSpec(**kwargs))
-            except TypeError as exc:  # pragma: no cover — defensive
-                raise ValueError(f"{csv_path.name}:{lineno}: {exc}") from exc
+    for idx, row in enumerate(reader):
+        lineno = data_line_numbers[idx] if idx < len(data_line_numbers) else kept[0][0]
+        kwargs: Dict[str, Any] = {}
+        for field_name, aliases in _CSV_FIELD_ALIASES.items():
+            for alias in aliases:
+                if alias in row and row[alias] != "":
+                    kwargs[field_name] = row[alias]
+                    break
+        try:
+            flows.append(FlowSpec(**kwargs))
+        except TypeError as exc:  # pragma: no cover — defensive
+            raise ValueError(f"{csv_path.name}:{lineno}: {exc}") from exc
     if not flows:
         raise ValueError(f"{csv_path.name} contains no rows")
     return flows
@@ -996,7 +1100,7 @@ def bundle_add_flow(cmd: BundleAddFlowCommand) -> int:
     # row for each silver_table in onboarding.yml, the onboarding job's INNER
     # join (`silver_transformation_json_df.target_table == silverDataflowSpec
     # .targetDetails.table`) drops the row, the silver dataflowspec table is
-    # written with zero rows, and the silver LDP pipeline blows up at startup
+    # written with zero rows, and the silver SDP Pipeline blows up at startup
     # with `[NO_TABLES_IN_PIPELINE] Pipelines are expected to have at least
     # one table defined`. Auto-seeding a `select_exp: ["*"]` row per new
     # silver_table makes the demo (and any auto-generated bundle) runnable
@@ -1121,7 +1225,97 @@ QUICKSTART_BUNDLE_INIT_DEFAULTS: Dict[str, str] = {
 }
 
 
-def write_quickstart_config_file(dest_dir: Path) -> Path:
+# Per-key validation for caller-supplied quickstart overrides. Each entry
+# validates the override value and returns it unchanged on success (or raises
+# ValueError). Keys not listed here (e.g. ``dataflow_group``, ``author``,
+# ``sdp_meta_dependency``) accept any non-empty string. Only keys present in
+# QUICKSTART_BUNDLE_INIT_DEFAULTS may be overridden at all.
+_BUNDLE_NAME_RE = re.compile(r"^[A-Za-z0-9_\-]+$")
+
+
+def _enum_override_validator(field: str, allowed):
+    allowed = tuple(allowed)
+
+    def _validate(value):
+        if value not in allowed:
+            raise ValueError(
+                f"quickstart override {field}={value!r} is invalid; "
+                f"allowed values: {list(allowed)}"
+            )
+        return value
+
+    return _validate
+
+
+def _nonempty_str_override(field: str):
+    def _validate(value):
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(
+                f"quickstart override {field} must be a non-empty string, "
+                f"got {value!r}"
+            )
+        return value
+
+    return _validate
+
+
+def _bundle_name_override(value):
+    if not isinstance(value, str) or not _BUNDLE_NAME_RE.match(value):
+        raise ValueError(
+            f"quickstart override bundle_name={value!r} is invalid; only "
+            f"letters, digits, underscores and hyphens are allowed."
+        )
+    return value
+
+
+_QUICKSTART_OVERRIDE_VALIDATORS: Dict[str, Any] = {
+    "bundle_name": _bundle_name_override,
+    "uc_catalog_name": lambda v: validate_uc_identifier(v, kind="uc_catalog_name"),
+    "sdp_meta_schema": lambda v: validate_uc_identifier(v, kind="sdp_meta_schema"),
+    "bronze_target_schema": lambda v: validate_uc_identifier(v, kind="bronze_target_schema"),
+    "silver_target_schema": lambda v: validate_uc_identifier(v, kind="silver_target_schema"),
+    "layer": _enum_override_validator("layer", ("bronze", "silver", "bronze_silver")),
+    "pipeline_mode": _enum_override_validator("pipeline_mode", ("split", "combined")),
+    "source_format": lambda v: validate_source_format(v, kind="source_format"),
+    "onboarding_file_format": _enum_override_validator("onboarding_file_format", ("yaml", "json")),
+    "dataflow_group": _nonempty_str_override("dataflow_group"),
+    "author": _nonempty_str_override("author"),
+    "sdp_meta_dependency": _nonempty_str_override("sdp_meta_dependency"),
+}
+
+
+def _validated_quickstart_overrides(overrides: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Validate caller-supplied quickstart overrides against the schema.
+
+    Rejects unknown keys (so a typo like ``uc_catalog`` fails loudly instead
+    of silently doing nothing) and validates each value with the same rules
+    the template's ``databricks_template_schema.json`` enforces, so a bad
+    catalog name is caught here rather than at deploy time. Returns the
+    validated dict (empty when ``overrides`` is falsy).
+    """
+    if not overrides:
+        return {}
+    if not isinstance(overrides, dict):
+        raise ValueError(
+            f"quickstart overrides must be a mapping of "
+            f"{{field: value}}, got {type(overrides).__name__}"
+        )
+    unknown = set(overrides) - set(QUICKSTART_BUNDLE_INIT_DEFAULTS)
+    if unknown:
+        raise ValueError(
+            f"unknown quickstart override key(s): {sorted(unknown)}. "
+            f"Overridable keys: {sorted(QUICKSTART_BUNDLE_INIT_DEFAULTS)}"
+        )
+    validated: Dict[str, Any] = {}
+    for key, raw in overrides.items():
+        validator = _QUICKSTART_OVERRIDE_VALIDATORS.get(key)
+        validated[key] = validator(raw) if validator else raw
+    return validated
+
+
+def write_quickstart_config_file(
+    dest_dir: Path, overrides: Optional[Dict[str, Any]] = None
+) -> Path:
     """Write a `databricks bundle init --config-file` JSON to ``dest_dir``.
 
     The JSON pre-answers every prompt declared in
@@ -1132,13 +1326,21 @@ def write_quickstart_config_file(dest_dir: Path) -> Path:
     PyPI coordinate or wheel before deploy (the schema's default is the
     sentinel ``__SET_ME__`` and ``bundle-validate`` rejects it).
 
+    ``overrides`` lets a caller change individual answers (e.g.
+    ``{"uc_catalog_name": "acme_prod"}``) while keeping every other default,
+    so quickstart stays one-shot even when the target catalog/schema isn't
+    ``main``. Each override is validated against the schema's rules; unknown
+    keys are rejected.
+
     Returns the path to the written file. Caller is responsible for cleanup
     if the file lives in a tmp dir.
     """
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
+    merged = dict(QUICKSTART_BUNDLE_INIT_DEFAULTS)
+    merged.update(_validated_quickstart_overrides(overrides))
     cfg_path = dest_dir / "sdp_meta_quickstart.json"
-    cfg_path.write_text(json.dumps(QUICKSTART_BUNDLE_INIT_DEFAULTS, indent=2))
+    cfg_path.write_text(json.dumps(merged, indent=2))
     return cfg_path
 
 
@@ -1199,7 +1401,10 @@ def _load_bundle_add_flow_config(wsi) -> BundleAddFlowCommand:
     dry_run = dry_run_choice == "True"
 
     if mode == "csv":
-        csv_path = wsi._question("Path to CSV file", default="flows.csv")
+        # Default to the shipped sample's real location so hitting Enter from
+        # the bundle root just works (the file lives under conf/samples/, not
+        # the bundle root).
+        csv_path = wsi._question("Path to CSV file", default="conf/samples/flows.csv")
         return BundleAddFlowCommand(
             bundle_dir=bundle_dir,
             from_csv=csv_path,
