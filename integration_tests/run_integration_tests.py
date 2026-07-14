@@ -34,6 +34,60 @@ cloud_node_type_id_dict = {
 }
 
 
+def create_pipeline(ws, **kwargs):
+    """Create a pipeline via ``ws.pipelines.create(...)``, tolerating both
+    the modern ``schema=`` parameter and the legacy ``target=`` parameter.
+
+    The SDK requires exactly one of ``schema`` or ``target``. ``schema`` is
+    the direct-publishing-mode (DPM) API and is what Unity-Catalog
+    workspaces with DPM enabled expect; ``target`` is the legacy fallback
+    still needed on workspaces / pipelines where DPM is not enabled.
+
+    Shared by the integration test runners and every demo launcher under
+    ``demo/`` (all of which already import from this module). The
+    shipping ``databricks.labs.sdp_meta`` package does NOT depend on this
+    helper -- production CLI code (``cli.py``) has its own private copy
+    so the customer-facing wheel doesn't carry a demo/test compatibility
+    API on its surface.
+
+    Behavior:
+      * If the caller passes ``schema=``, try it first and retry with
+        ``target=`` (same value) on any exception.
+      * If the caller passes ``target=`` (or neither), pass through
+        untouched -- no fallback needed.
+      * If both attempts fail, raise ``RuntimeError`` chaining both
+        underlying errors so operators can diagnose the real cause.
+
+    Deprecation note: ``target=`` is documented as deprecated for pipeline
+    creation in favor of ``schema=``. When it is fully removed from the
+    SDK, the fallback branch becomes dead code (``schema=`` succeeds on
+    every DPM-enabled workspace, so we return before reaching the
+    fallback) and this helper can be replaced with a plain
+    ``ws.pipelines.create(**kwargs)`` call.
+    """
+    if "schema" not in kwargs:
+        return ws.pipelines.create(**kwargs)
+    schema_val = kwargs.pop("schema")
+    try:
+        return ws.pipelines.create(schema=schema_val, **kwargs)
+    except Exception as e_schema:
+        print(
+            f"  [warn] pipelines.create(schema={schema_val!r}) failed: "
+            f"{type(e_schema).__name__}: {e_schema}"
+        )
+        print(f"  [info] retrying with legacy target={schema_val!r} ...")
+        try:
+            return ws.pipelines.create(target=schema_val, **kwargs)
+        except Exception as e_target:
+            raise RuntimeError(
+                "pipelines.create() failed with both parameter forms.\n"
+                f"  schema={schema_val!r}: "
+                f"{type(e_schema).__name__}: {e_schema}\n"
+                f"  target={schema_val!r}: "
+                f"{type(e_target).__name__}: {e_target}"
+            ) from e_target
+
+
 @dataclass
 class SDPMetaRunnerConf:
     """
@@ -385,7 +439,8 @@ class SDPMETARunner:
                 f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}.{layer}_dataflowspec_cdc"
             )
 
-        created = self.ws.pipelines.create(
+        created = create_pipeline(
+            self.ws,
             catalog=runner_conf.uc_catalog_name,
             name=pipeline_name,
             serverless=True,

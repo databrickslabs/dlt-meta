@@ -25,6 +25,7 @@ docs/.hugo_build.lock
 # bundle-init` and `demo/launch_dab_template_demo.py` -- per-developer
 # output, never checked in).
 test-dab/
+my_pipeline/
 demo_runs/
 demo_runs_*/
 

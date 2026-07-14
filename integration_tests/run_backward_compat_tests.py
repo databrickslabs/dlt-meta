@@ -121,6 +121,13 @@ from databricks.sdk.service.pipelines import NotebookLibrary, PipelineLibrary  #
 from databricks.sdk.service.workspace import ImportFormat, Language  # noqa: E402
 
 from databricks.labs.sdp_meta.identifiers import validate_uc_identifier  # noqa: E402
+# Aliased to disambiguate from the class-level ``BCRunner.create_pipeline``
+# wrapper below; both symbols resolve correctly via Python scoping, but
+# calling ``create_pipeline`` inside a method called ``create_pipeline``
+# reads like recursion.
+from integration_tests.run_integration_tests import (  # noqa: E402
+    create_pipeline as sdk_create_pipeline,
+)
 
 from integration_tests.version_profiles import (  # noqa: E402
     DEFAULT_SOURCE_REF,
@@ -684,7 +691,8 @@ class BackwardCompatRunner:
         runner_path = (
             f"{conf.runners_nb_path}/runners/{self._runner_notebook_filename(conf)}"
         )
-        created = self.ws.pipelines.create(
+        created = sdk_create_pipeline(
+            self.ws,
             catalog=conf.uc_catalog_name,
             name=name,
             serverless=True,

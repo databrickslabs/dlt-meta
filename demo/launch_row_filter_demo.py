@@ -63,6 +63,7 @@ from databricks.labs.sdp_meta.install import WorkspaceInstaller  # noqa: E402
 from integration_tests.run_integration_tests import (  # noqa: E402
     SDPMETARunner,
     SDPMetaRunnerConf,
+    create_pipeline,
     get_workspace_api_client,
     process_arguments,
 )
@@ -169,7 +170,10 @@ class SDPMETARowFilterDemo(SDPMETARunner):
         # `schema` is the SDP-level default; sdp-meta still writes each
         # table to its own (catalog, schema) from the dataflowspec rows
         # (bronze rows -> bronze_schema, silver rows -> silver_schema).
-        created = self.ws.pipelines.create(
+        # create_pipeline transparently falls back to target= on non-DPM
+        # workspaces where schema= is rejected.
+        created = create_pipeline(
+            self.ws,
             catalog=catalog,
             name=pipeline_name,
             serverless=True,
