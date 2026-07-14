@@ -47,6 +47,7 @@ from databricks.sdk.service.pipelines import (  # noqa: E402
 from integration_tests.run_integration_tests import (  # noqa: E402
     SDPMETARunner,
     SDPMetaRunnerConf,
+    create_pipeline,
     get_workspace_api_client,
     process_arguments,
 )
@@ -159,7 +160,10 @@ class SDPMETAMultiSourceCDCDemo(SDPMETARunner):
             "sdp_meta_whl": runner_conf.remote_whl_path,
             "pipelines.externalSink.enabled": "true",
         }
-        created = self.ws.pipelines.create(
+        # create_pipeline transparently falls back to target= on non-DPM
+        # workspaces where schema= is rejected.
+        created = create_pipeline(
+            self.ws,
             catalog=runner_conf.uc_catalog_name,
             # Pipeline resource name mirrors the workflow task_key
             # (``sdp-meta-pipeline``) so the Pipelines UI and the Jobs
