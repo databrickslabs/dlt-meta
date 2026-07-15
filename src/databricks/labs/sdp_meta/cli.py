@@ -172,6 +172,58 @@ def _recover_swallowed_flag(flags: dict, bool_flag_name: str) -> None:
     flags[bool_flag_name] = "true"
 
 
+def _create_pipeline(ws, **kwargs):
+    """Create a pipeline via ``ws.pipelines.create(...)``, tolerating both
+    the modern ``schema=`` parameter and the legacy ``target=`` parameter.
+
+    The SDK requires exactly one of ``schema`` or ``target``. ``schema`` is
+    the direct-publishing-mode (DPM) API and is what Unity-Catalog
+    workspaces with DPM enabled expect; ``target`` is the legacy fallback
+    still needed on workspaces / pipelines where DPM is not enabled.
+
+    Kept private to ``cli.py`` on purpose: this is production code that
+    creates real customer pipelines. The demo/test infrastructure has its
+    own copy in ``integration_tests/run_integration_tests.py`` so
+    production doesn't depend on test infra.
+
+    Behavior:
+      * If the caller passes ``schema=``, try it first and retry with
+        ``target=`` (same value) on any exception.
+      * If the caller passes ``target=`` (or neither), pass through
+        untouched -- no fallback needed.
+      * If both attempts fail, raise ``RuntimeError`` chaining both
+        underlying errors so operators can diagnose the real cause.
+
+    Deprecation note: ``target=`` is documented as deprecated for pipeline
+    creation in favor of ``schema=``. When it is fully removed from the
+    SDK, the fallback branch becomes dead code (``schema=`` succeeds on
+    every DPM-enabled workspace, so we return before reaching the
+    fallback) and this helper can be replaced with a plain
+    ``ws.pipelines.create(**kwargs)`` call.
+    """
+    if "schema" not in kwargs:
+        return ws.pipelines.create(**kwargs)
+    schema_val = kwargs.pop("schema")
+    try:
+        return ws.pipelines.create(schema=schema_val, **kwargs)
+    except Exception as e_schema:
+        logger.warning(
+            "pipelines.create(schema=%r) failed with %s: %s. "
+            "Retrying with legacy target=%r.",
+            schema_val, type(e_schema).__name__, e_schema, schema_val,
+        )
+        try:
+            return ws.pipelines.create(target=schema_val, **kwargs)
+        except Exception as e_target:
+            raise RuntimeError(
+                "pipelines.create() failed with both parameter forms.\n"
+                f"  schema={schema_val!r}: "
+                f"{type(e_schema).__name__}: {e_schema}\n"
+                f"  target={schema_val!r}: "
+                f"{type(e_target).__name__}: {e_target}"
+            ) from e_target
+
+
 def _path_to_file_uri(local_path: str) -> str:
     """Convert a local filesystem path to a file URI.
 
@@ -809,27 +861,35 @@ class SDPMeta:
         # pipelines tagged sdp_meta=true keep working.
         _sdp_meta_tags = {"sdp_meta": self.version}
         if cmd.uc_catalog_name:
-            created = self._ws.pipelines.create(catalog=cmd.uc_catalog_name,
-                                                name=cmd.pipeline_name,
-                                                configuration=configuration,
-                                                libraries=[
-                                                    PipelineLibrary(
-                                                        notebook=NotebookLibrary(
-                                                            path=runner_notebook_path
-                                                        )
-                                                    )
-                                                ],
-                                                schema=cmd.dlt_target_schema,  # for DPM
-                                                # target=cmd.dlt_target_schema,
-                                                clusters=[pipelines.PipelineCluster(label="default",
-                                                                                    num_workers=cmd.num_workers)]
-                                                if not cmd.serverless else None,
-                                                serverless=cmd.serverless if cmd.uc_enabled else None,
-                                                channel="PREVIEW" if cmd.serverless else None,
-                                                tags=_sdp_meta_tags,
-                                                )
+            # DPM-enabled UC workspaces expect schema=. _create_pipeline
+            # transparently falls back to target= on non-DPM workspaces.
+            created = _create_pipeline(
+                self._ws,
+                catalog=cmd.uc_catalog_name,
+                name=cmd.pipeline_name,
+                configuration=configuration,
+                libraries=[
+                    PipelineLibrary(
+                        notebook=NotebookLibrary(
+                            path=runner_notebook_path
+                        )
+                    )
+                ],
+                schema=cmd.dlt_target_schema,
+                clusters=[
+                    pipelines.PipelineCluster(
+                        label="default", num_workers=cmd.num_workers
+                    )
+                ] if not cmd.serverless else None,
+                serverless=cmd.serverless if cmd.uc_enabled else None,
+                channel="PREVIEW" if cmd.serverless else None,
+                tags=_sdp_meta_tags,
+            )
         else:
-            created = self._ws.pipelines.create(
+            # Non-UC (Hive metastore) pipelines only support the legacy
+            # target= parameter, so the helper passes through unchanged.
+            created = _create_pipeline(
+                self._ws,
                 name=cmd.pipeline_name,
                 configuration=configuration,
                 libraries=[

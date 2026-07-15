@@ -15,8 +15,7 @@ Quick reference for every panel in the app. For deploy / local-dev / auth see
 8. [Metadata](#8-metadata)
 9. [Demos](#9-demos)
 10. [App SP permissions](#10-app-sp-permissions)
-11. [HTTP API](#11-http-api)
-12. [Troubleshooting](#12-troubleshooting)
+11. [Troubleshooting](#11-troubleshooting)
 
 ---
 
@@ -94,27 +93,30 @@ source tables) or multi-step orchestration.
 
 | Demo | What it shows | Notes |
 |---|---|---|
-| **Cars (Simple bronze + silver)** *(default)* | Single Auto Loader CSV → bronze `cars` + silver `cars_usa` | Simplest demo; recommended first run |
-| **Multi-Source CDC** | Three regional Auto Loader sources (US / EU / APAC) → three bronze CDC tables | Best for showing the metadata-driven pattern |
-| **Silver Fanout (one bronze → many silver)** | One Auto Loader CSV → bronze `cars` → four region-specific silver tables (`cars_usa` / `cars_germany` / `cars_uk` / `cars_japan`) sharing the same bronze | Single onboarding pass; fanout consumer rows omit `source_details` and the bronze pass skips them so the silver pass picks them up |
-| **Cloud Files (Auto Loader)** | Streaming JSON → bronze + silver with row-filter UDF and DQE | Picker transparently merges the A2 companion's `customers_delta` producer into the same onboarding pass |
-| **DAIS Demo (end-to-end)** | DAIS walkthrough: customers + transactions, CDC + DQE + silver transformations | Auto-sets the **Environment** field to `prod` when selected (the template uses `_prod` suffixes) |
+| **Cars** *(default)* | CSV → bronze `cars` + silver `cars_usa` | Simplest; start here |
+| **Multi-Source CDC** | 3 regional Auto Loader sources (US / EU / APAC) → 3 bronze CDC tables | Best metadata-driven showcase |
+| **Silver Fanout** | 1 CSV → bronze `cars` → 4 silver tables (`cars_usa`, `_germany`, `_uk`, `_japan`) | Single onboarding pass ¹ |
+| **Cloud Files** | Streaming JSON → bronze + silver with row-filter UDF and DQE | Auto-merges the A2 `customers_delta` producer |
+| **DAIS Demo** | Customers + transactions, CDC + DQE + silver transformations | Auto-sets **Environment = `prod`** ² |
 
-### Required fields
+¹ Fanout consumer rows omit `source_details` — the bronze pass skips them so the silver pass picks them up.
+² The template uses `_prod` field suffixes.
 
-| Field | Notes |
-|---|---|
-| Unity Catalog enabled | Toggle UC vs HMS |
-| Unity Catalog name | Identifier-validated |
-| Onboarding file path | Populated by mode picker |
-| SDP-META schema | Holds DataflowSpec tables (created if missing) |
-| Bronze / Silver schema | Created if missing |
-| Bronze / Silver table | Default `bronze_dataflowspec` / `silver_dataflowspec` |
-| Layer | `1` = bronze only, `2` = bronze + silver |
-| Environment | **Must match** the `<field>_<env>` suffix in the template, or every row is silently skipped |
-| Local directory | Where supporting JSON / DDL live, default `<repo>/demo/` |
-| Overwrite | Replaces existing DataflowSpec rows |
-| Serverless | Submit job to serverless cluster |
+### Form fields
+
+| Field | Req? | Notes |
+|---|---|---|
+| Unity Catalog enabled | ✓ | Always on (the App is UC-only); toggle is legacy |
+| Unity Catalog name | ✓ | Identifier-validated |
+| Onboarding file path | ✓ | Auto-populated by the mode picker |
+| SDP-META schema | ✓ | Holds DataflowSpec tables (created if missing) |
+| Bronze / Silver schema | ✓ | Created if missing |
+| Layer | ✓ | `1` = bronze only · `2` = bronze + silver |
+| Environment | ✓ | **Must match** the `<field>_<env>` suffix in the template, or every row is silently skipped |
+| Bronze / Silver table | | Defaults to `bronze_dataflowspec` / `silver_dataflowspec` |
+| Local directory | | Where supporting JSON / DDL live (default `<repo>/demo/`) |
+| Overwrite | | Replaces existing DataflowSpec rows |
+| Serverless | | Submit job to serverless cluster |
 
 ### Preview button (recommended)
 
@@ -265,56 +267,17 @@ and DABs (Terraform not in the container). Both still work from a local CLI.
 
 ## 10. App SP permissions
 
-The SP is named `app-XXXXXX_<app-name>`. Required Unity Catalog grants:
+Full grant list, SP naming convention, and ready-to-paste SQL template
+live in [README → App service principal
+permissions](./README.md#app-service-principal-permissions).
 
-| Privilege | On |
-|---|---|
-| `USE CATALOG` | target catalog |
-| `CREATE SCHEMA` | target catalog |
-| `USE SCHEMA` | each target schema |
-| `CREATE TABLE` | bronze + silver schemas |
-
-`GET /check-uc-grants?uc_name=<cat>` (Demos → **Test App access**) probes
-these and returns the exact GRANT SQL when anything is missing — the SP
-can't grant privileges to itself.
+**In-app check:** Demos → **Test App access** calls
+`GET /check-uc-grants?uc_name=<cat>` and returns the exact GRANT SQL
+when a grant is missing (the SP can't grant privileges to itself).
 
 ---
 
-## 11. HTTP API
-
-| Method + Path | Purpose |
-|---|---|
-| `POST /onboarding` | Submit onboarding run → job token |
-| `POST /onboarding/preview` | Dry-run (no UC side effects) |
-| `GET  /onboarding/bundled-specs` | List bundled demo specs |
-| `POST /deploy` | Submit pipeline deploy → job token |
-| `GET  /api/dataflowspecs` | Query bronze + silver spec tables |
-| `GET  /api/pipelines` | List SDP-META pipelines (incl. `sdp_meta_version`, `pipeline_url`) |
-| `GET  /api/pipelines/<id>/events` | Last 50 events |
-| `POST /api/pipelines/<id>/start` | Trigger update |
-| `POST /api/pipelines/<id>/stop` | Stop |
-| `GET  /api/metadata/catalogs` | List UC catalogs |
-| `GET  /api/metadata/schemas` | List schemas |
-| `GET  /api/metadata/tables` | List tables + columns |
-| `POST /api/metadata/table-data` | `SELECT * ... LIMIT N` |
-| `GET  /api/metadata/workspace-ls` | List workspace path |
-| `GET  /api/metadata/workspace-file` | Download workspace file |
-| `POST /api/metadata/workspace-file` | Save workspace file (parse-validated) |
-| `POST /api/metadata/parse-spec` | 3-layer validation |
-| `GET  /api/warehouse/status` | Active warehouse + state |
-| `GET  /api/warehouse/list` | All visible warehouses |
-| `POST /api/warehouse/configure` | Set runtime warehouse |
-| `GET  /check-uc-grants` | Probe App SP UC grants |
-| `POST /rundemo` | Launch a named demo |
-| `GET  /api/job/<token>/logs` | Poll buffered stdout/stderr |
-
-Error shapes: **400** for client-correctable input (`{error}`, sometimes
-`{grant_required:true, grant_sql:"..."}`); **500** for SDK / server
-exceptions (`{error, stdout, stderr, returncode, modal_content}`).
-
----
-
-## 12. Troubleshooting
+## 11. Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|

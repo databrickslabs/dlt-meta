@@ -389,6 +389,50 @@ def run_pipeline_and_wait(w, pipeline_id, label=""):
     print("Pipeline completed successfully.")
 
 
+def create_pipeline(ws, **kwargs):
+    """Create a Databricks pipeline, tolerating both the modern ``schema=``
+    parameter and the legacy ``target=`` parameter.
+
+    Thin wrapper around ``ws.pipelines.create(...)``. The SDK requires
+    exactly one of ``schema`` or ``target``. ``schema`` is the
+    direct-publishing-mode (DPM) API and is what Unity-Catalog workspaces
+    with DPM enabled expect; ``target`` is the legacy fallback still
+    needed on workspaces / pipelines where DPM is not enabled. This
+    helper tries ``schema=`` first and retries with ``target=`` if the
+    first attempt is rejected. If both fail, it raises a single
+    ``RuntimeError`` that shows both underlying errors so the caller can
+    see exactly why each attempt failed.
+
+    Deprecation note: ``target=`` is documented as deprecated for
+    pipeline creation in favor of ``schema=``. When it is fully removed
+    from the SDK, the fallback branch below simply becomes dead code
+    (``schema=`` succeeds on every DPM-enabled workspace, so we return
+    before reaching the fallback) and this helper can be replaced with
+    a plain ``ws.pipelines.create(**kwargs)`` call.
+    """
+    if "schema" not in kwargs:
+        return ws.pipelines.create(**kwargs)
+    schema_val = kwargs.pop("schema")
+    try:
+        return ws.pipelines.create(schema=schema_val, **kwargs)
+    except Exception as e_schema:
+        print(
+            f"  [warn] pipelines.create(schema={schema_val!r}) failed: "
+            f"{type(e_schema).__name__}: {e_schema}"
+        )
+        print(f"  [info] retrying with legacy target={schema_val!r} ...")
+        try:
+            return ws.pipelines.create(target=schema_val, **kwargs)
+        except Exception as e_target:
+            raise RuntimeError(
+                f"pipelines.create() failed with both parameter forms.\n"
+                f"  schema={schema_val!r}: "
+                f"{type(e_schema).__name__}: {e_schema}\n"
+                f"  target={schema_val!r}: "
+                f"{type(e_target).__name__}: {e_target}"
+            ) from e_target
+
+
 def _write_onboarding(data, path):
     with open(path, "w") as fh:
         if path.endswith(".yml") or path.endswith(".yaml"):
@@ -1659,16 +1703,19 @@ if existing:
     pipeline_id = existing[0].pipeline_id
     print(f"Reusing existing pipeline: {pipeline_id}")
 else:
-    created = w.pipelines.create(
+    # Spark Declarative Pipelines direct publishing mode requires
+    # a pipeline-level target schema. DataflowPipeline sets
+    # catalog+schema on every @dp.table() call from DataflowSpec
+    # (bronze_database_prod / silver_database_prod),
+    # so this target is never used for actual routing.
+    # A dedicated placeholder schema is used to keep it separate from
+    # the DataflowSpec metadata schema and the Bronze/Silver data schemas.
+    # Uses schema= on DPM-enabled workspaces and falls back to target=
+    # on non-DPM workspaces (see create_pipeline helper).
+    created = create_pipeline(
+        w,
         name=pipeline_name,
         catalog=uc_catalog_name,
-        # Spark Declarative Pipelines direct publishing mode requires
-        # a pipeline-level target schema. DataflowPipeline sets
-        # catalog+schema on every @dp.table() call from DataflowSpec
-        # (bronze_database_prod / silver_database_prod),
-        # so this target is never used for actual routing.
-        # A dedicated placeholder schema is used to keep it separate from
-        # the DataflowSpec metadata schema and the Bronze/Silver data schemas.
         schema=bronze_schema,
         libraries=[
             PipelineLibrary(
@@ -2825,7 +2872,8 @@ if existing_snap:
         f"{snapshot_pipeline_id}"
     )
 else:
-    created_snap = w.pipelines.create(
+    created_snap = create_pipeline(
+        w,
         name=snapshot_pipeline_name,
         catalog=uc_catalog_name,
         schema=bronze_schema,
@@ -3134,7 +3182,8 @@ if existing_sink:
         f"{sink_pipeline_id}"
     )
 else:
-    created_sink = w.pipelines.create(
+    created_sink = create_pipeline(
+        w,
         name=sink_pipeline_name,
         catalog=uc_catalog_name,
         schema=bronze_schema,
@@ -3641,7 +3690,8 @@ if existing_msc:
         f"Reusing existing MSC pipeline: {msc_pipeline_id}"
     )
 else:
-    created_msc = w.pipelines.create(
+    created_msc = create_pipeline(
+        w,
         name=msc_pipeline_name,
         catalog=uc_catalog_name,
         schema=bronze_schema,
