@@ -357,7 +357,7 @@ function PathsSection() {
     {
       emoji: '🤖',
       title: 'MCP Server',
-      desc: 'AI-assisted. Let Claude scaffold your pipelines.',
+      desc: 'AI-assisted. Let your AI agent scaffold your pipelines.',
       to: '/docs/getting-started/mcp',
       recommended: false,
     },

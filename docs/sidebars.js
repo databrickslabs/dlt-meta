@@ -13,6 +13,7 @@ const sidebars = {
         'getting-started/manual',
         'getting-started/app',
         'getting-started/mcp',
+        'getting-started/agent-skill',
       ],
     },
     {
