@@ -66,7 +66,7 @@
 | [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) | Git-tracked pipelines, `dev`/`prod` targets, CI/CD-ready. Commands: `bundle-init`, `bundle-prepare-wheel`, `bundle-add-flow`, `bundle-validate`. See [`DAB_README.md`](DAB_README.md). |
 | [SDP-META CLI](https://databrickslabs.github.io/dlt-meta/docs/getting-started/cli) | `databricks labs sdp-meta onboard` · `deploy` · `bundle-*` |
 | [SDP-META App](https://databrickslabs.github.io/dlt-meta/docs/getting-started/app) | Browser-based UI for onboarding, deployment, and pipeline monitoring |
-| [MCP Server](https://databrickslabs.github.io/dlt-meta/getting-started/mcp) | AI-assisted pipeline scaffolding via Claude, Cursor, and compatible tools |
+| [MCP Server](https://databrickslabs.github.io/dlt-meta/getting-started/mcp) | AI-assisted pipeline scaffolding via MCP-capable AI tools (Claude Code, Cursor, Claude Desktop, and others) |
 
 ## Getting Started
 

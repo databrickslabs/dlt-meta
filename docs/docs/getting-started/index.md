@@ -47,3 +47,9 @@ See [Databricks App](./app.md).
 AI-assisted scaffolding via Claude Code, Claude Desktop, or Cursor. Drive SDP-META configuration through natural language.
 
 See [MCP Server](./mcp.md).
+
+### Agent Skill
+
+A portable agent skill that teaches any skill-aware AI agent the SDP-META workflow, so it can guide you from raw input data to a running pipeline. Complements the MCP Server.
+
+See [Agent Skill](./agent-skill.md).

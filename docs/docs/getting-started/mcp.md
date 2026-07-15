@@ -8,6 +8,10 @@ sidebar_position: 6
 
 The SDP-META MCP (Model Context Protocol) server exposes SDP-META operations as MCP tools so an MCP-capable client — Claude Code, Cursor, Claude Desktop, or any other MCP host — can drive SDP-META scaffolding and inspection. The server runs locally over stdio via `databricks labs sdp-meta mcp` and is shipped as the optional `[mcp]` extra of `databricks-labs-sdp-meta`.
 
+:::tip
+The [Agent Skill](./agent-skill.md) pairs with this MCP server for any skill-aware AI agent: the skill teaches the agent *how* and *when* to use these tools (workflow, ordering, guardrails), while the tools below do the actual work.
+:::
+
 ## Prerequisites
 
 - Python 3.10+
