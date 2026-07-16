@@ -22,7 +22,7 @@ Three ways to install sdp-meta in the demo job
 -----------------------------------------------
 
 1. ``--install-source git_branch`` (default) -- the demo runs
-   ``pip install git+https://github.com/databrickslabs/dlt-meta.git@<branch>``
+   ``pip install git+https://github.com/databrickslabs/sdp-meta.git@<branch>``
    inside the job. Fastest path; matches the interactive demo experience.
 2. ``--install-source whl_file --whl-file-path <UC volume path>`` -- you
    already uploaded a wheel; the demo just installs from it. Use this

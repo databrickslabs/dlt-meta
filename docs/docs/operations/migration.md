@@ -146,4 +146,4 @@ DataflowPipeline.invoke_dlt_pipeline(
 | v0.2.0 | Planned | `src.*` shim removed — `from src.X import ...` raises `ModuleNotFoundError`. |
 | Future | Planned | `dlt-meta` compatibility package removed. |
 
-For help, see [Troubleshooting](./troubleshooting) or [GitHub Issues](https://github.com/databrickslabs/dlt-meta/issues).
+For help, see [Troubleshooting](./troubleshooting) or [GitHub Issues](https://github.com/databrickslabs/sdp-meta/issues).

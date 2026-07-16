@@ -18,7 +18,7 @@ For the standard CLI-based deploy flow (`scripts/deploy_app.sh` /
   Flask directly. This is what `scripts/deploy_app.sh` produces.
 - **Mode B** — the App's source-code path is `databricks_app/` only, with
   no `src/` / `demo/` next to it. `start.sh` detects this and clones the
-  full `databricks/dlt-meta` repo into `/tmp/dlt-meta` at container
+  full `databricks/sdp-meta` repo into `/tmp/sdp-meta` at container
   start. Wheel build, demo discovery, and Flask all run from that fresh
   clone.
 
@@ -35,13 +35,13 @@ finds them at the source-code-path root with zero injection.
 In the workspace UI:
 
 1. **Workspace → Users → `<your-email>` → Add → Git folder**
-2. **Git repository URL:** `https://github.com/databrickslabs/dlt-meta.git`
+2. **Git repository URL:** `https://github.com/databrickslabs/sdp-meta.git`
 3. **Git provider:** GitHub
-4. **Git folder name:** keep the default (`dlt-meta`)
+4. **Git folder name:** keep the default (`sdp-meta`)
 5. **Git branch:** `main` (or whichever branch you want to deploy)
 6. Click **Create Git folder**.
 
-You should now see `/Workspace/Users/<your-email>/dlt-meta/` containing
+You should now see `/Workspace/Users/<your-email>/sdp-meta/` containing
 the full repo.
 
 ### 2. Create the App
@@ -59,11 +59,11 @@ In the App detail page → **Deploy** (or **Source code** / **Settings**
 depending on the workspace UI version):
 
 - **Source code path:**
-  `/Workspace/Users/<your-email>/dlt-meta/databricks_app`
+  `/Workspace/Users/<your-email>/sdp-meta/databricks_app`
 
   **Critical:** point at `databricks_app/` (the subfolder), **not** the
   repo root. This is what activates `start.sh`'s Mode B — the
-  in-container clone of `dlt-meta` that exposes `setup.py`, `src/`,
+  in-container clone of `sdp-meta` that exposes `setup.py`, `src/`,
   `demo/`, and `integration_tests/`.
 
 Click **Deploy**. First boot takes 60–120 seconds (clones the repo,
@@ -101,7 +101,7 @@ Click the URL at the top of the App detail page — looks like
 - **New commits on the branch?** Open the Git folder in the workspace →
   click **Pull** (or use the Git folder's auto-sync if enabled) → open
   the App → click **Deploy** again.
-- The container caches `/tmp/dlt-meta` across restarts and runs
+- The container caches `/tmp/sdp-meta` across restarts and runs
   `git pull --ff-only` on subsequent boots, so warm starts are fast.
 
 ---
@@ -110,6 +110,6 @@ Click the URL at the top of the App detail page — looks like
 
 | Constraint | Why it breaks |
 |---|---|
-| App compute can't reach `github.com` (air-gapped / strict egress firewall) | Mode B's `git clone https://github.com/databrickslabs/dlt-meta.git` fails at container boot. Use the CLI deploy script instead — it ships the full repo into the workspace ahead of time. |
+| App compute can't reach `github.com` (air-gapped / strict egress firewall) | Mode B's `git clone https://github.com/databrickslabs/sdp-meta.git` fails at container boot. Use the CLI deploy script instead — it ships the full repo into the workspace ahead of time. |
 | You want to deploy unmerged local changes | Git folders only see what's been pushed to the configured branch. Use the CLI deploy script (or push a feature branch and point the Git folder at it). |
-| You need to pin to a fork or a private mirror | Mode B's `REPO_URL` is hard-coded to `databricks/dlt-meta`. Either edit `start.sh` on your branch, or use the CLI deploy script (which syncs your working tree regardless of remote). |
+| You need to pin to a fork or a private mirror | Mode B's `REPO_URL` is hard-coded to `databricks/sdp-meta`. Either edit `start.sh` on your branch, or use the CLI deploy script (which syncs your working tree regardless of remote). |

@@ -13,7 +13,7 @@
 #
 # Mode A requires `app.yaml` and `requirements.txt` at the source-code-path
 # root. We deliberately keep those OUT of the local repo so the working tree
-# matches upstream `databrickslabs/dlt-meta`. This script bridges the gap by
+# matches upstream `databrickslabs/sdp-meta`. This script bridges the gap by
 # staging the **app's runtime subset** of the repo into a temp dir, dropping
 # the two extra files there, and syncing the staging dir (not the working
 # tree) to the workspace.

@@ -38,7 +38,7 @@ class TestGitWheelSourceBuilder(unittest.TestCase):
         result = _git_wheel_source({"git_branch": "feature/sdp-meta"})
         self.assertEqual(
             result,
-            "git+https://github.com/databrickslabs/dlt-meta.git@feature/sdp-meta",
+            "git+https://github.com/databrickslabs/sdp-meta.git@feature/sdp-meta",
         )
 
     def test_prefixes_git_plus_when_user_url_omits_it(self):

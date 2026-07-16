@@ -74,6 +74,7 @@ class bdist_wheel_with_pth_file(_bdist_wheel):
         self.copy_file(src, dst, preserve_mode=0)
         super().write_wheelfile(*args, **kwargs)
 
+
 setup(
     name="dlt-meta",
     version="0.1.0",

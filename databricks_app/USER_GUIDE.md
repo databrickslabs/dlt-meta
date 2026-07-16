@@ -298,4 +298,4 @@ when a grant is missing (the SP can't grant privileges to itself).
 
 - [README.md](./README.md) — deploy, local dev, auth
 - [Repo README](../README.md) — project overview, CLI, bundles
-- [SDP-META docs](https://databrickslabs.github.io/dlt-meta/index.html)
+- [SDP-META docs](https://databrickslabs.github.io/sdp-meta/index.html)

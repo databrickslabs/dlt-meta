@@ -10,12 +10,12 @@ sidebar_position: 5
 The **SDP-META Databricks App** is a browser-based GUI for onboarding,
 deploying, and operating Lakeflow Spark Declarative Pipelines without using the
 CLI or hand-editing YAML. This page is the per-panel reference. For deploy /
-local-dev / auth, see the [databricks_app/README on GitHub](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/README.md).
+local-dev / auth, see the [databricks_app/README on GitHub](https://github.com/databrickslabs/sdp-meta/blob/main/databricks_app/README.md).
 
 :::tip Three supported deploy paths
-- **macOS / Linux / WSL:** `bash scripts/deploy_app.sh --profile <cli-profile> --app <app-name> --path /Workspace/Users/<you>/<app-folder>` stages the full repo and deploys in one command. See [databricks_app/README](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/README.md).
-- **Windows (native PowerShell):** `.\scripts\deploy_app.ps1 -DatabricksProfile <cli-profile> -App <app-name> -Path /Workspace/Users/<you>/<app-folder>` — same flow using `robocopy`, no Git Bash / WSL required. Details in [WINDOWS_DEPLOY.md](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/WINDOWS_DEPLOY.md).
-- **No CLI at all (Apps UI + Git folder):** create a Databricks Git folder pointing at this repo and aim the App at `<git-folder>/databricks_app/`. Walkthrough in [UI_GIT_DEPLOY.md](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/UI_GIT_DEPLOY.md).
+- **macOS / Linux / WSL:** `bash scripts/deploy_app.sh --profile <cli-profile> --app <app-name> --path /Workspace/Users/<you>/<app-folder>` stages the full repo and deploys in one command. See [databricks_app/README](https://github.com/databrickslabs/sdp-meta/blob/main/databricks_app/README.md).
+- **Windows (native PowerShell):** `.\scripts\deploy_app.ps1 -DatabricksProfile <cli-profile> -App <app-name> -Path /Workspace/Users/<you>/<app-folder>` — same flow using `robocopy`, no Git Bash / WSL required. Details in [WINDOWS_DEPLOY.md](https://github.com/databrickslabs/sdp-meta/blob/main/databricks_app/WINDOWS_DEPLOY.md).
+- **No CLI at all (Apps UI + Git folder):** create a Databricks Git folder pointing at this repo and aim the App at `<git-folder>/databricks_app/`. Walkthrough in [UI_GIT_DEPLOY.md](https://github.com/databrickslabs/sdp-meta/blob/main/databricks_app/UI_GIT_DEPLOY.md).
 :::
 
 ## Contents
@@ -285,7 +285,7 @@ and DABs (Terraform not in the container). Both still work from a local CLI.
 ## App SP permissions
 
 Full grant list, SP naming convention, and ready-to-paste SQL template
-live in [databricks_app/README → App service principal permissions](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/README.md#app-service-principal-permissions).
+live in [databricks_app/README → App service principal permissions](https://github.com/databrickslabs/sdp-meta/blob/main/databricks_app/README.md#app-service-principal-permissions).
 
 **In-app check:** Demos → **Test App access** calls
 `GET /check-uc-grants?uc_name=<cat>` and returns the exact GRANT SQL
@@ -303,7 +303,7 @@ when a grant is missing (the SP can't grant privileges to itself).
 | Monitor shows zero pipelines after deploy | Pipeline created outside the App lacks the `sdp_meta` tag | Use `sdp-meta deploy_ui` — it tags automatically |
 | Monitor name click opens events drawer instead of new tab | Backend couldn't resolve `ws.config.host` | Local only — set `DATABRICKS_HOST` or `~/.databrickscfg.host` |
 | "Demo notebook source not found" (Interactive Demo) | App deployed with raw `databricks sync` instead of `scripts/deploy_app.sh` / `deploy_app.ps1` | Redeploy with the script |
-| App crashes on first Windows deploy: `bad interpreter: /bin/bash\r` or `\r: command not found` | Windows git's default `core.autocrlf=true` checked out `start.sh` with CRLF and the Linux App container can't execute it | Use `scripts/deploy_app.ps1` (auto-strips CRLF) or run `git add --renormalize . && git commit` after pulling the repo's `.gitattributes`. Details: [WINDOWS_DEPLOY.md → Troubleshooting](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/WINDOWS_DEPLOY.md#troubleshooting) |
+| App crashes on first Windows deploy: `bad interpreter: /bin/bash\r` or `\r: command not found` | Windows git's default `core.autocrlf=true` checked out `start.sh` with CRLF and the Linux App container can't execute it | Use `scripts/deploy_app.ps1` (auto-strips CRLF) or run `git add --renormalize . && git commit` after pulling the repo's `.gitattributes`. Details: [WINDOWS_DEPLOY.md → Troubleshooting](https://github.com/databrickslabs/sdp-meta/blob/main/databricks_app/WINDOWS_DEPLOY.md#troubleshooting) |
 | Demo modal shows "Grant required" panel | App SP missing UC grants | Copy/paste GRANT SQL, run as catalog owner, retry |
 | "Required fields missing" 400 | Form bypassed client-side check | Fill the named fields |
 | "Could not render template after substitution" on Preview | Substitution value broke YAML indentation / had unescaped quotes | Sanitize the catalog / schema / volume name |
@@ -313,8 +313,8 @@ when a grant is missing (the SP can't grant privileges to itself).
 
 ## See also
 
-- [databricks_app/README on GitHub](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/README.md) — deploy, local dev, auth
-- [databricks_app/WINDOWS_DEPLOY.md](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/WINDOWS_DEPLOY.md) — native PowerShell deploy script + Windows-specific troubleshooting
-- [databricks_app/UI_GIT_DEPLOY.md](https://github.com/databrickslabs/dlt-meta/blob/main/databricks_app/UI_GIT_DEPLOY.md) — click-only Apps UI + Git folder deploy (no CLI)
+- [databricks_app/README on GitHub](https://github.com/databrickslabs/sdp-meta/blob/main/databricks_app/README.md) — deploy, local dev, auth
+- [databricks_app/WINDOWS_DEPLOY.md](https://github.com/databrickslabs/sdp-meta/blob/main/databricks_app/WINDOWS_DEPLOY.md) — native PowerShell deploy script + Windows-specific troubleshooting
+- [databricks_app/UI_GIT_DEPLOY.md](https://github.com/databrickslabs/sdp-meta/blob/main/databricks_app/UI_GIT_DEPLOY.md) — click-only Apps UI + Git folder deploy (no CLI)
 - [Getting Started](./quickstart.md) — overall onboarding workflow
 - [CLI reference](../reference/cli-commands.md) — same flows from the terminal

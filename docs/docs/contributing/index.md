@@ -115,7 +115,7 @@ A maintainer will review your PR and may request changes before merging.
 
 ## Reporting Issues
 
-Use [GitHub Issues](https://github.com/databrickslabs/dlt-meta/issues) to report bugs or request features.
+Use [GitHub Issues](https://github.com/databrickslabs/sdp-meta/issues) to report bugs or request features.
 
 When reporting a bug, please include:
 

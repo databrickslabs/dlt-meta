@@ -2546,7 +2546,7 @@ class OnboardBuildWheelFlagTests(unittest.TestCase):
         self.assertEqual(fake_run.call_args.kwargs["uc_volume"], "sdp_meta_wheels")
         self.assertEqual(
             fake_run.call_args.kwargs["source"],
-            "git+https://github.com/databrickslabs/dlt-meta.git@feature/sdp-meta",
+            "git+https://github.com/databrickslabs/sdp-meta.git@feature/sdp-meta",
         )
         self.assertEqual(cmd.sdp_meta_dependency, wheel_path)
         sdp_meta.onboard.assert_called_once_with(cmd)
