@@ -28,14 +28,14 @@
 # MAGIC ### GitHub Resources
 # MAGIC | Resource | Link |
 # MAGIC |----------|------|
-# MAGIC | **Source Code** | [sdp_meta](https://github.com/databrickslabs/dlt-meta/tree/main/src/databricks/labs/sdp_meta) |
-# MAGIC | **Onboarding Template (JSON / YAML)** | [json/onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/onboarding.template) / [yml/onboarding.template.yml](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/onboarding.template.yml) |
-# MAGIC | **Append Flow Template (JSON / YAML)** | [json/cloudfiles-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/cloudfiles-onboarding.template) / [yml/cloudfiles-onboarding.template.yml](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/cloudfiles-onboarding.template.yml) |
-# MAGIC | **Snapshot Template (JSON / YAML)** | [json/snapshot-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/snapshot-onboarding.template) / [yml/snapshot-onboarding.template.yml](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/snapshot-onboarding.template.yml) |
-# MAGIC | **Sink Template (JSON / YAML)** | [json/kafka-sink-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/kafka-sink-onboarding.template) / [yml/kafka-sink-onboarding.template.yml](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/kafka-sink-onboarding.template.yml) |
-# MAGIC | **Silver Transformations (JSON / YAML)** | [json/silver_transformations.json](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/silver_transformations.json) / [yml/silver_transformations.yml](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/silver_transformations.yml) |
-# MAGIC | **Data Quality (DQE)** | [json/dqe/](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/json/dqe) / [yml/dqe/](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/yml/dqe) |
-# MAGIC | **Documentation** | [databrickslabs.github.io/dlt-meta](https://databrickslabs.github.io/dlt-meta/) |
+# MAGIC | **Source Code** | [sdp_meta](https://github.com/databrickslabs/sdp-meta/tree/main/src/databricks/labs/sdp_meta) |
+# MAGIC | **Onboarding Template (JSON / YAML)** | [json/onboarding.template](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/onboarding.template) / [yml/onboarding.template.yml](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/onboarding.template.yml) |
+# MAGIC | **Append Flow Template (JSON / YAML)** | [json/cloudfiles-onboarding.template](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/cloudfiles-onboarding.template) / [yml/cloudfiles-onboarding.template.yml](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/cloudfiles-onboarding.template.yml) |
+# MAGIC | **Snapshot Template (JSON / YAML)** | [json/snapshot-onboarding.template](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/snapshot-onboarding.template) / [yml/snapshot-onboarding.template.yml](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/snapshot-onboarding.template.yml) |
+# MAGIC | **Sink Template (JSON / YAML)** | [json/kafka-sink-onboarding.template](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/kafka-sink-onboarding.template) / [yml/kafka-sink-onboarding.template.yml](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/kafka-sink-onboarding.template.yml) |
+# MAGIC | **Silver Transformations (JSON / YAML)** | [json/silver_transformations.json](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/silver_transformations.json) / [yml/silver_transformations.yml](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/silver_transformations.yml) |
+# MAGIC | **Data Quality (DQE)** | [json/dqe/](https://github.com/databrickslabs/sdp-meta/tree/main/demo/conf/json/dqe) / [yml/dqe/](https://github.com/databrickslabs/sdp-meta/tree/main/demo/conf/yml/dqe) |
+# MAGIC | **Documentation** | [databrickslabs.github.io/sdp-meta](https://databrickslabs.github.io/sdp-meta/) |
 
 # COMMAND ----------
 
@@ -48,7 +48,7 @@
 # MAGIC
 # MAGIC | Parameter | Description |
 # MAGIC |-----------|-------------|
-# MAGIC | **Git Branch** | Branch on `databrickslabs/dlt-meta` used to (a) install SDP-META when `Install Source = git_branch` and (b) fetch demo datasets / onboarding templates from `raw.githubusercontent.com` |
+# MAGIC | **Git Branch** | Branch on `databrickslabs/sdp-meta` used to (a) install SDP-META when `Install Source = git_branch` and (b) fetch demo datasets / onboarding templates from `raw.githubusercontent.com` |
 # MAGIC | **UC Catalog Name** | Unity Catalog catalog for the demo |
 # MAGIC | **UC Schema Name** | Schema within the catalog |
 # MAGIC | **Data Source** | `dbdatagen` (generate synthetic data) or `github` (download from repo) |
@@ -237,7 +237,7 @@ print(f"Install Target     : {sdp_meta_install_target}")
 # MAGIC ### Install SDP-META
 # MAGIC
 # MAGIC Installs from the chosen `Install Source`:
-# MAGIC - `git_branch` — `pip install git+https://github.com/databrickslabs/dlt-meta.git@<branch>`
+# MAGIC - `git_branch` — `pip install git+https://github.com/databrickslabs/sdp-meta.git@<branch>`
 # MAGIC - `pypi` — `pip install databricks-labs-sdp-meta[==<version>]` (the published release on PyPI)
 # MAGIC - `whl_file` — `pip install <whl_file_path>` (wheel on a Volume / Workspace path)
 
@@ -286,7 +286,7 @@ dbutils.library.restartPython()
 # MAGIC - **File Metadata** — `_metadata.file_name`, `_metadata.file_path`
 # MAGIC - **Apply Changes From Snapshot** — snapshot-based SCD Type 1 & 2
 # MAGIC - **Pipeline Sink** — `dp.create_sink` to write to external delta
-# MAGIC - **Multi-Source AUTO CDC** — N `dp.create_auto_cdc_flow` calls fan in to one silver target ([#294](https://github.com/databrickslabs/dlt-meta/issues/294))
+# MAGIC - **Multi-Source AUTO CDC** — N `dp.create_auto_cdc_flow` calls fan in to one silver target ([#294](https://github.com/databrickslabs/sdp-meta/issues/294))
 
 # COMMAND ----------
 
@@ -562,13 +562,13 @@ print(f"Onboarding file   : {onboarding_file_path}")
 # MAGIC configs are created inline so the notebook is fully self-contained.
 # MAGIC
 # MAGIC > **DDL Schemas**: define column types for each source.
-# MAGIC > See: [demo/resources/ddl/](https://github.com/databrickslabs/dlt-meta/tree/main/demo/resources/ddl)
+# MAGIC > See: [demo/resources/ddl/](https://github.com/databrickslabs/sdp-meta/tree/main/demo/resources/ddl)
 # MAGIC
 # MAGIC > **Data Quality**: `expect_or_drop` and `expect_or_quarantine`.
-# MAGIC > See: [json/dqe/](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/json/dqe) or [yml/dqe/](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/yml/dqe)
+# MAGIC > See: [json/dqe/](https://github.com/databrickslabs/sdp-meta/tree/main/demo/conf/json/dqe) or [yml/dqe/](https://github.com/databrickslabs/sdp-meta/tree/main/demo/conf/yml/dqe)
 # MAGIC
 # MAGIC > **Silver Transformations**: column selection and expressions.
-# MAGIC > See: [json/silver_transformations.json](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/silver_transformations.json) or [yml/silver_transformations.yml](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/silver_transformations.yml)
+# MAGIC > See: [json/silver_transformations.json](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/silver_transformations.json) or [yml/silver_transformations.yml](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/silver_transformations.yml)
 
 # COMMAND ----------
 
@@ -805,7 +805,7 @@ print(f"  Created: {snap_st_path}")
 # MAGIC - **dbdatagen**: generates synthetic data using
 # MAGIC   [dbldatagen](https://github.com/databrickslabs/dbldatagen)
 # MAGIC - **github**: downloads sample data from the
-# MAGIC   [dlt-meta repo](https://github.com/databrickslabs/dlt-meta/tree/main/demo/resources)
+# MAGIC   [dlt-meta repo](https://github.com/databrickslabs/sdp-meta/tree/main/demo/resources)
 
 # COMMAND ----------
 
@@ -1164,7 +1164,7 @@ print("Quarantine tables will capture these records.")
 # MAGIC Append Flow reads from **multiple source paths** and writes to the
 # MAGIC **same target table** using `dp.append_flow`.
 # MAGIC We create two separate source directories for orders.
-# MAGIC See: [cloudfiles-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/cloudfiles-onboarding.template)
+# MAGIC See: [cloudfiles-onboarding.template](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/cloudfiles-onboarding.template)
 
 # COMMAND ----------
 
@@ -1226,7 +1226,7 @@ print(f"  Created: {af_path} ({len(orders_af_data)} records)")
 # MAGIC
 # MAGIC Snapshot-based ingestion uses `apply_changes_from_snapshot` instead
 # MAGIC of streaming. Each snapshot represents a full point-in-time view.
-# MAGIC See: [snapshot-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/snapshot-onboarding.template)
+# MAGIC See: [snapshot-onboarding.template](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/snapshot-onboarding.template)
 
 # COMMAND ----------
 
@@ -1390,9 +1390,9 @@ print(f"\n=== Config ===\n  {os.listdir(conf_path)}")
 # MAGIC tables that drive the pipeline.
 # MAGIC
 # MAGIC ### Key Concepts
-# MAGIC - **[Onboarding File](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/onboarding.template)**:
+# MAGIC - **[Onboarding File](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/onboarding.template)**:
 # MAGIC   JSON defining source/target for each data feed
-# MAGIC - **[OnboardDataflowspec API](https://github.com/databrickslabs/dlt-meta/blob/main/src/databricks/labs/sdp_meta/onboard_dataflowspec.py)**:
+# MAGIC - **[OnboardDataflowspec API](https://github.com/databrickslabs/sdp-meta/blob/main/src/databricks/labs/sdp_meta/onboard_dataflowspec.py)**:
 # MAGIC   Reads the file and writes Bronze/Silver DataflowSpec tables
 # MAGIC - **DataflowSpec Tables**: Delta tables storing pipeline metadata
 
@@ -1404,8 +1404,8 @@ print(f"\n=== Config ===\n  {os.listdir(conf_path)}")
 # MAGIC The spec for **Customers** and **Transactions** lives in the repo as a
 # MAGIC committed sample, in **whichever format you picked in the widget**:
 # MAGIC
-# MAGIC - `json` → [`demo/conf/json/sample_onboarding.json`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/sample_onboarding.json)
-# MAGIC - `yml`  → [`demo/conf/yml/sample_onboarding.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/sample_onboarding.yml)
+# MAGIC - `json` → [`demo/conf/json/sample_onboarding.json`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/sample_onboarding.json)
+# MAGIC - `yml`  → [`demo/conf/yml/sample_onboarding.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/sample_onboarding.yml)
 # MAGIC
 # MAGIC The cell below loads that file, substitutes runtime tokens
 # MAGIC (`$data_path`, `$dqe_path`, `$uc_catalog_name`, …), prints the
@@ -1425,7 +1425,7 @@ print(f"\n=== Config ===\n  {os.listdir(conf_path)}")
 # MAGIC >
 # MAGIC > **CDC (SCD Type 2)**: Silver uses `apply_changes` for
 # MAGIC > history tracking.
-# MAGIC > See: [dataflow_pipeline.py](https://github.com/databrickslabs/dlt-meta/blob/main/src/databricks/labs/sdp_meta/dataflow_pipeline.py)
+# MAGIC > See: [dataflow_pipeline.py](https://github.com/databrickslabs/sdp-meta/blob/main/src/databricks/labs/sdp_meta/dataflow_pipeline.py)
 
 # COMMAND ----------
 
@@ -1446,7 +1446,7 @@ def _load_sample_onboarding_text(onboarding_format, conf_ext, git_branch):
     2. **GitHub raw fallback** — when the notebook was uploaded standalone
        (no ``/demo/`` in its workspace path, no co-located repo files), we
        fetch the same sample file from
-       ``raw.githubusercontent.com/databrickslabs/dlt-meta/<git_branch>/...``.
+       ``raw.githubusercontent.com/databrickslabs/sdp-meta/<git_branch>/...``.
        This mirrors the GitHub-download path already used in stage 1 for
        datasets, so the ``git_branch`` widget controls both.
 
@@ -1476,7 +1476,7 @@ def _load_sample_onboarding_text(onboarding_format, conf_ext, git_branch):
             pass
 
     raw_url = (
-        f"https://raw.githubusercontent.com/databrickslabs/dlt-meta/"
+        f"https://raw.githubusercontent.com/databrickslabs/sdp-meta/"
         f"{git_branch}/{rel_path}"
     )
     resp = requests.get(raw_url, timeout=30)
@@ -1545,7 +1545,7 @@ with open(onboarding_file_path, "r") as fh:
 # MAGIC ### 2.3 Run Onboarding
 # MAGIC
 # MAGIC The
-# MAGIC [OnboardDataflowspec](https://github.com/databrickslabs/dlt-meta/blob/main/src/databricks/labs/sdp_meta/onboard_dataflowspec.py)
+# MAGIC [OnboardDataflowspec](https://github.com/databrickslabs/sdp-meta/blob/main/src/databricks/labs/sdp_meta/onboard_dataflowspec.py)
 # MAGIC API reads the onboarding file (JSON or YAML) and creates two Delta tables:
 # MAGIC - `bronze_dataflowspec` — metadata for Bronze layer
 # MAGIC - `silver_dataflowspec` — metadata for Silver layer
@@ -1609,7 +1609,7 @@ display(
 # MAGIC `DataflowPipeline.invoke_dlt_pipeline(spark, layer)`.
 # MAGIC
 # MAGIC **Source**:
-# MAGIC [DataflowPipeline](https://github.com/databrickslabs/dlt-meta/blob/main/src/databricks/labs/sdp_meta/dataflow_pipeline.py)
+# MAGIC [DataflowPipeline](https://github.com/databrickslabs/sdp-meta/blob/main/src/databricks/labs/sdp_meta/dataflow_pipeline.py)
 
 # COMMAND ----------
 
@@ -1844,7 +1844,7 @@ display(
 # MAGIC
 # MAGIC Records with NULL primary keys or malformed data are routed
 # MAGIC here by `expect_or_quarantine` rules.
-# MAGIC See: [DQE config](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/dqe/customers.json)
+# MAGIC See: [DQE config](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/dqe/customers.json)
 
 # COMMAND ----------
 
@@ -1911,8 +1911,8 @@ display(
 # MAGIC Add **Products** (data_flow_id: 103) and **Stores** (104).
 # MAGIC
 # MAGIC > **DDL**:
-# MAGIC > [products.ddl](https://github.com/databrickslabs/dlt-meta/blob/main/demo/resources/ddl/products.ddl),
-# MAGIC > [stores.ddl](https://github.com/databrickslabs/dlt-meta/blob/main/demo/resources/ddl/stores.ddl)
+# MAGIC > [products.ddl](https://github.com/databrickslabs/sdp-meta/blob/main/demo/resources/ddl/products.ddl),
+# MAGIC > [stores.ddl](https://github.com/databrickslabs/sdp-meta/blob/main/demo/resources/ddl/stores.ddl)
 
 # COMMAND ----------
 
@@ -2416,7 +2416,7 @@ display(spark.sql(f"""
 # MAGIC   │                   silver_orders
 # MAGIC ```
 # MAGIC
-# MAGIC See: [cloudfiles-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/cloudfiles-onboarding.template)
+# MAGIC See: [cloudfiles-onboarding.template](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/cloudfiles-onboarding.template)
 
 # COMMAND ----------
 
@@ -2609,7 +2609,7 @@ display(
 # MAGIC   └── Silver (apply_changes_from_snapshot)
 # MAGIC ```
 # MAGIC
-# MAGIC See: [snapshot-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/snapshot-onboarding.template)
+# MAGIC See: [snapshot-onboarding.template](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/snapshot-onboarding.template)
 
 # COMMAND ----------
 
@@ -3057,7 +3057,7 @@ display(spark.sql(f"""
 # MAGIC   └─── Quarantine Table (iot_events_quarantine)
 # MAGIC ```
 # MAGIC
-# MAGIC See: [kafka-sink-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/kafka-sink-onboarding.template)
+# MAGIC See: [kafka-sink-onboarding.template](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/kafka-sink-onboarding.template)
 
 # COMMAND ----------
 
@@ -3273,8 +3273,8 @@ display(
 # MAGIC silver table.
 # MAGIC
 # MAGIC See:
-# MAGIC [DESIGN_MULTI_SOURCE_AUTO_CDC.md](https://github.com/databrickslabs/dlt-meta/blob/main/DESIGN_MULTI_SOURCE_AUTO_CDC.md) ·
-# MAGIC [multi-source-cdc-onboarding.template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/multi-source-cdc-onboarding.template)
+# MAGIC [DESIGN_MULTI_SOURCE_AUTO_CDC.md](https://github.com/databrickslabs/sdp-meta/blob/main/DESIGN_MULTI_SOURCE_AUTO_CDC.md) ·
+# MAGIC [multi-source-cdc-onboarding.template](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/multi-source-cdc-onboarding.template)
 
 # COMMAND ----------
 
@@ -3977,19 +3977,19 @@ else:
 # MAGIC | **File metadata** | `_metadata.file_name`, `_metadata.file_path` |
 # MAGIC | **Apply Changes From Snapshot** | Snapshot-based SCD Type 1 & 2 |
 # MAGIC | **Pipeline Sink** | Write to external delta table via `dp.create_sink` |
-# MAGIC | **Multi-Source AUTO CDC** | N `dp.create_auto_cdc_flow` calls → one unified silver streaming table ([#294](https://github.com/databrickslabs/dlt-meta/issues/294)) |
-# MAGIC | **Row-level filtering** | `bronze_row_filter` / `silver_row_filter` → UC `ROW FILTER` ([#303](https://github.com/databrickslabs/dlt-meta/issues/303)) |
+# MAGIC | **Multi-Source AUTO CDC** | N `dp.create_auto_cdc_flow` calls → one unified silver streaming table ([#294](https://github.com/databrickslabs/sdp-meta/issues/294)) |
+# MAGIC | **Row-level filtering** | `bronze_row_filter` / `silver_row_filter` → UC `ROW FILTER` ([#303](https://github.com/databrickslabs/sdp-meta/issues/303)) |
 # MAGIC
 # MAGIC ### Learn More
-# MAGIC - [Full Documentation](https://databrickslabs.github.io/dlt-meta/)
-# MAGIC - [Getting Started](https://databrickslabs.github.io/dlt-meta/getting_started/)
-# MAGIC - [Onboarding Template](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/onboarding.template)
-# MAGIC - [Source Code](https://github.com/databrickslabs/dlt-meta/tree/main/src/databricks/labs/sdp_meta)
-# MAGIC - [Append Flows](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/cloudfiles-onboarding.template)
-# MAGIC - [Apply Changes from Snapshot](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/snapshot-onboarding.template)
-# MAGIC - [DLT Sink](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/kafka-sink-onboarding.template)
-# MAGIC - [Multi-Source AUTO CDC](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/multi-source-cdc-onboarding.template) · [Design Doc](https://github.com/databrickslabs/dlt-meta/blob/main/DESIGN_MULTI_SOURCE_AUTO_CDC.md)
-# MAGIC - [DABs](https://github.com/databrickslabs/dlt-meta/tree/main/demo/dabs)
+# MAGIC - [Full Documentation](https://databrickslabs.github.io/sdp-meta/)
+# MAGIC - [Getting Started](https://databrickslabs.github.io/sdp-meta/getting_started/)
+# MAGIC - [Onboarding Template](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/onboarding.template)
+# MAGIC - [Source Code](https://github.com/databrickslabs/sdp-meta/tree/main/src/databricks/labs/sdp_meta)
+# MAGIC - [Append Flows](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/cloudfiles-onboarding.template)
+# MAGIC - [Apply Changes from Snapshot](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/snapshot-onboarding.template)
+# MAGIC - [DLT Sink](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/kafka-sink-onboarding.template)
+# MAGIC - [Multi-Source AUTO CDC](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/multi-source-cdc-onboarding.template) · [Design Doc](https://github.com/databrickslabs/sdp-meta/blob/main/DESIGN_MULTI_SOURCE_AUTO_CDC.md)
+# MAGIC - [DABs](https://github.com/databrickslabs/sdp-meta/tree/main/demo/dabs)
 
 # COMMAND ----------
 

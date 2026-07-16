@@ -26,8 +26,12 @@ import _jobs as _jobs_module  # noqa: E402 \u2014 absolute import; databricks_ap
 logger = logging.getLogger(__name__)
 
 
-def _run_cli_json_payload(token: str, json_string: str, cwd: str,
-                           cleanup_path: str | None = None) -> None:
+def _run_cli_json_payload(
+    token: str,
+    json_string: str,
+    cwd: str,
+    cleanup_path: str | None = None,
+) -> None:
     """Launch ``python -m databricks.labs.sdp_meta.cli <json>`` in a
     background thread and stream its output into ``_jobs[token]``.
 

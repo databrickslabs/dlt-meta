@@ -1610,7 +1610,7 @@ def _git_wheel_source(flags: dict) -> str:
     if not git_url and not git_branch:
         return None
     if not git_url:
-        git_url = "https://github.com/databrickslabs/dlt-meta.git"
+        git_url = "https://github.com/databrickslabs/sdp-meta.git"
     source = git_url if git_url.startswith("git+") else f"git+{git_url}"
     if git_branch:
         source = f"{source}@{git_branch}"

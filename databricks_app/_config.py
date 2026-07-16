@@ -8,7 +8,7 @@ The App container's layout depends on how it's deployed:
         setup.py, src/, demo/, integration_tests/, databricks_app/
 
   Mode B \u2014 only databricks_app/ deployed (legacy):
-    start.sh clones the full repo to /tmp/dlt-meta and uses that.
+    start.sh clones the full repo to /tmp/sdp-meta and uses that.
 
 ``start.sh`` exports ``SDP_META_HOME`` so ``_repo_root()`` picks it up
 regardless of which mode the App is in.

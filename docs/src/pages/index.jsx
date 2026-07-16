@@ -86,7 +86,7 @@ function HeroBanner() {
           </Link>
           <Link
             className="button button--lg button--outline"
-            href="https://github.com/databrickslabs/dlt-meta"
+            href="https://github.com/databrickslabs/sdp-meta"
             style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.5)' }}
           >
             GitHub ↗
@@ -105,38 +105,52 @@ function HeroBanner() {
           {[
             { label: 'docs', color: '#00A972', value: 'passing' },
             { label: 'pypi', color: '#0075c2', value: 'v0.1.0' },
-            { label: 'license', color: '#555', value: 'Databricks Labs' },
-          ].map((b) => (
-            <span
-              key={b.label}
-              style={{
-                display: 'inline-flex',
-                fontSize: '0.75rem',
-                borderRadius: '4px',
-                overflow: 'hidden',
-              }}
-            >
+            {
+              label: 'downloads',
+              color: '#0075c2',
+              value: '225k/mo',
+              href: 'https://pepy.tech/projects/dlt-meta',
+            },
+            { label: 'license', color: '#FF3621', value: 'Databricks Labs' },
+          ].map((b) => {
+            const badge = (
               <span
                 style={{
-                  background: '#555',
-                  color: '#fff',
-                  padding: '0.2rem 0.5rem',
+                  display: 'inline-flex',
+                  fontSize: '0.75rem',
+                  borderRadius: '4px',
+                  overflow: 'hidden',
                 }}
               >
-                {b.label}
+                <span
+                  style={{
+                    background: '#555',
+                    color: '#fff',
+                    padding: '0.2rem 0.5rem',
+                  }}
+                >
+                  {b.label}
+                </span>
+                <span
+                  style={{
+                    background: b.color,
+                    color: '#fff',
+                    padding: '0.2rem 0.5rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {b.value}
+                </span>
               </span>
-              <span
-                style={{
-                  background: b.color,
-                  color: '#fff',
-                  padding: '0.2rem 0.5rem',
-                  fontWeight: 600,
-                }}
-              >
-                {b.value}
-              </span>
-            </span>
-          ))}
+            );
+            return b.href ? (
+              <a key={b.label} href={b.href} style={{ textDecoration: 'none' }}>
+                {badge}
+              </a>
+            ) : (
+              <span key={b.label}>{badge}</span>
+            );
+          })}
         </div>
       </div>
     </header>
@@ -290,6 +304,50 @@ function HowItWorksSection() {
   );
 }
 
+function MigrationNoticeSection() {
+  return (
+    <section style={{ padding: '0.9rem 0', background: 'var(--ifm-background-surface-color)' }}>
+      <div className="container">
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem',
+            flexWrap: 'wrap',
+            border: '1px solid var(--ifm-color-emphasis-200)',
+            borderRadius: '999px',
+            padding: '0.55rem 1rem',
+            background: 'var(--ifm-card-background-color)',
+            fontSize: '0.9rem',
+          }}
+        >
+          <span
+            style={{
+              background: '#FF3621',
+              color: '#fff',
+              borderRadius: '999px',
+              padding: '0.15rem 0.55rem',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+            }}
+          >
+            v0.1.0
+          </span>
+          <span style={{ color: 'var(--ifm-color-emphasis-800)' }}>
+            DLT-META is now SDP-META; existing onboarding files still work.
+          </span>
+          <Link to="/docs/operations/migration" style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+            Migration guide →
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function QuickstartSection() {
   return (
     <section style={{ padding: '3rem 0', background: 'var(--ifm-background-surface-color)' }}>
@@ -432,6 +490,7 @@ export default function Home() {
       <HeroBanner />
       <main>
         <HowItWorksSection />
+        <MigrationNoticeSection />
         <QuickstartSection />
         <PathsSection />
       </main>

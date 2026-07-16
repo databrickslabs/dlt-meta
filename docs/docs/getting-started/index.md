@@ -8,6 +8,10 @@ sidebar_position: 1
 
 SDP-META supports several deployment paths. All lead to the same outcome: a running Bronze/Silver pipeline driven by onboarding metadata.
 
+:::tip Migrating from DLT-META?
+If you are upgrading an existing `dlt-meta` installation after the v0.1.0 rename, follow the [migration guide](../operations/migration.md) first. Your onboarding files do not need to change, but package names, CLI commands, Python imports, and some compatibility shims have a deprecation timeline.
+:::
+
 ## Prerequisites (all paths)
 
 - **Python 3.10–3.12** — Python 3.10, 3.11, or 3.12 recommended. Python 3.13+ has known PySpark compatibility issues.

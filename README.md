@@ -5,15 +5,16 @@
 <!-- Top bar will be removed from PyPi packaged versions -->
 <!-- Dont remove: exclude package -->
 
-[Documentation](https://databrickslabs.github.io/dlt-meta/) |
+[Documentation](https://databrickslabs.github.io/sdp-meta/) |
 [Release Notes](CHANGELOG.md) |
-[Examples](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf)
+[Migration Guide](https://databrickslabs.github.io/sdp-meta/docs/operations/migration) |
+[Examples](https://github.com/databrickslabs/sdp-meta/tree/main/demo/conf)
 
 <!-- Dont remove: end exclude package -->
 
 ---
 
-[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://databrickslabs.github.io/dlt-meta/) [![PyPI](https://img.shields.io/pypi/v/databricks-labs-sdp-meta?label=pypi)](https://pypi.org/project/databricks-labs-sdp-meta/) [![Build](https://img.shields.io/github/actions/workflow/status/databrickslabs/dlt-meta/onpush.yml?branch=main)](https://github.com/databrickslabs/dlt-meta/actions/workflows/onpush.yml) [![Coverage](https://img.shields.io/codecov/c/github/databrickslabs/dlt-meta)](https://codecov.io/gh/databrickslabs/dlt-meta) [![Style](https://img.shields.io/badge/code%20style-flake8-blue)](https://github.com/PyCQA/flake8) [![PyPI Downloads](https://static.pepy.tech/badge/dlt-meta/month)](https://pepy.tech/projects/dlt-meta)
+[![Documentation](https://img.shields.io/badge/docs-passing-green)](https://databrickslabs.github.io/sdp-meta/) [![PyPI](https://img.shields.io/pypi/v/databricks-labs-sdp-meta?label=pypi)](https://pypi.org/project/databricks-labs-sdp-meta/) [![Build](https://img.shields.io/github/actions/workflow/status/databrickslabs/sdp-meta/onpush.yml?branch=main)](https://github.com/databrickslabs/sdp-meta/actions/workflows/onpush.yml) [![Coverage](https://img.shields.io/codecov/c/github/databrickslabs/sdp-meta)](https://codecov.io/gh/databrickslabs/sdp-meta) [![Style](https://img.shields.io/badge/code%20style-flake8-blue)](https://github.com/PyCQA/flake8) [![PyPI Downloads](https://static.pepy.tech/badge/sdp-meta/month)](https://pepy.tech/projects/dlt-meta)
 
 ---
 
@@ -25,9 +26,9 @@
 
 #### Metadata Interface
 
-- **Onboarding file** (JSON or YAML) — sources, targets, CDC config, DQE rules. Examples: [`demo/conf/json/onboarding.template`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/onboarding.template) · [`demo/conf/yml/onboarding.template.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/onboarding.template.yml)
-- **Data Quality Expectations** — per-table JSON or YAML rule files. Examples: [`demo/conf/json/dqe/customers/`](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/json/dqe/customers) · [`demo/conf/yml/dqe/customers/`](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/yml/dqe/customers)
-- **Silver transformation file** — SQL `select_exp` and `where_clause` definitions. Examples: [`demo/conf/json/silver_transformations.json`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/silver_transformations.json) · [`demo/conf/yml/silver_transformations.yml`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/yml/silver_transformations.yml)
+- **Onboarding file** (JSON or YAML) — sources, targets, CDC config, DQE rules. Examples: [`demo/conf/json/onboarding.template`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/onboarding.template) · [`demo/conf/yml/onboarding.template.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/onboarding.template.yml)
+- **Data Quality Expectations** — per-table JSON or YAML rule files. Examples: [`demo/conf/json/dqe/customers/`](https://github.com/databrickslabs/sdp-meta/tree/main/demo/conf/json/dqe/customers) · [`demo/conf/yml/dqe/customers/`](https://github.com/databrickslabs/sdp-meta/tree/main/demo/conf/yml/dqe/customers)
+- **Silver transformation file** — SQL `select_exp` and `where_clause` definitions. Examples: [`demo/conf/json/silver_transformations.json`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/silver_transformations.json) · [`demo/conf/yml/silver_transformations.yml`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/yml/silver_transformations.yml)
 
 #### Generic Lakeflow Spark Declarative Pipeline
 
@@ -37,7 +38,7 @@
 
 ## High-Level Process Flow
 
-![SDP-META Architecture](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/sdp-meta-architecture.svg)
+![SDP-META Architecture](https://raw.githubusercontent.com/databrickslabs/sdp-meta/feature/sdp-meta/docs/static/img/sdp-meta-architecture.svg)
 
 ## Feature Matrix
 
@@ -64,9 +65,9 @@
 | Tool | Description |
 |---|---|
 | [Declarative Automation Bundles](https://docs.databricks.com/aws/en/dev-tools/bundles/) | Git-tracked pipelines, `dev`/`prod` targets, CI/CD-ready. Commands: `bundle-init`, `bundle-prepare-wheel`, `bundle-add-flow`, `bundle-validate`. See [`DAB_README.md`](DAB_README.md). |
-| [SDP-META CLI](https://databrickslabs.github.io/dlt-meta/docs/getting-started/cli) | `databricks labs sdp-meta onboard` · `deploy` · `bundle-*` |
-| [SDP-META App](https://databrickslabs.github.io/dlt-meta/docs/getting-started/app) | Browser-based UI for onboarding, deployment, and pipeline monitoring |
-| [MCP Server](https://databrickslabs.github.io/dlt-meta/getting-started/mcp) | AI-assisted pipeline scaffolding via MCP-capable AI tools (Claude Code, Cursor, Claude Desktop, and others) |
+| [SDP-META CLI](https://databrickslabs.github.io/sdp-meta/docs/getting-started/cli) | `databricks labs sdp-meta onboard` · `deploy` · `bundle-*` |
+| [SDP-META App](https://databrickslabs.github.io/sdp-meta/docs/getting-started/app) | Browser-based UI for onboarding, deployment, and pipeline monitoring |
+| [MCP Server](https://databrickslabs.github.io/sdp-meta/docs/getting-started/mcp) | AI-assisted pipeline scaffolding via MCP-capable AI tools (Claude Code, Cursor, Claude Desktop, and others) |
 
 ## Getting Started
 
@@ -76,14 +77,29 @@ SDP-META has three ways to use it — pick the one that matches your role and ho
 2. **[Interactive `onboard` + `deploy` CLI](GETTING_STARTED.md#path-b--interactive-onboard--deploy-cli-exploration-only)** — kick the tires against a single workspace.
 3. **[SDP-META Databricks App](GETTING_STARTED.md#path-c--sdp-meta-databricks-app-browser-ui)** — browser-based UI for non-developers, demos, and click-driven workflows.
 
-See **[GETTING_STARTED.md](GETTING_STARTED.md)** for prereqs, install commands, full per-path walkthroughs, local development setup, and troubleshooting. Long form: [docs site](https://databrickslabs.github.io/dlt-meta/docs/getting-started).
+See **[GETTING_STARTED.md](GETTING_STARTED.md)** for prereqs, install commands, full per-path walkthroughs, local development setup, and troubleshooting. Long form: [docs site](https://databrickslabs.github.io/sdp-meta/docs/getting-started).
+
+## Upgrading from DLT-META
+
+The v0.1.0 release renames **DLT-META** to **SDP-META**. Existing onboarding JSON/YAML files and pipeline behavior are unchanged, but new code should move to the new package, CLI, and import path:
+
+| Area | Old | New |
+|---|---|---|
+| PyPI package | `dlt-meta` | `databricks-labs-sdp-meta` |
+| Labs CLI | `databricks labs dlt-meta` | `databricks labs sdp-meta` |
+| Python imports | `from dlt_meta import ...` | `from databricks.labs.sdp_meta import ...` |
+
+The `dlt-meta` compatibility package remains available during v0.1.x, but it emits deprecation warnings and receives no new features. Legacy `src.*` imports are planned for removal in v0.2.0.
+
+See the **[DLT-META → SDP-META migration guide](https://databrickslabs.github.io/sdp-meta/docs/operations/migration)** for the step-by-step plan, compatibility details, and deprecation timeline.
 
 ## Resources
 
-- [Documentation](https://databrickslabs.github.io/dlt-meta/)
-- [FAQ](https://databrickslabs.github.io/dlt-meta/faq)
+- [Documentation](https://databrickslabs.github.io/sdp-meta/)
+- [FAQ](https://databrickslabs.github.io/sdp-meta/docs/faq)
+- [Migration Guide](https://databrickslabs.github.io/sdp-meta/docs/operations/migration)
 - [Release Notes](CHANGELOG.md)
-- [GitHub Issues](https://github.com/databrickslabs/dlt-meta/issues)
+- [GitHub Issues](https://github.com/databrickslabs/sdp-meta/issues)
 
 ## Project Support
 

@@ -92,5 +92,5 @@ Use the quarantine table to inspect and reprocess failed rows.
 
 ## Example files in the repository
 
-- JSON examples: [`demo/conf/json/dqe/`](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/json/dqe)
-- YAML examples: [`demo/conf/yml/dqe/`](https://github.com/databrickslabs/dlt-meta/tree/main/demo/conf/yml/dqe)
+- JSON examples: [`demo/conf/json/dqe/`](https://github.com/databrickslabs/sdp-meta/tree/main/demo/conf/json/dqe)
+- YAML examples: [`demo/conf/yml/dqe/`](https://github.com/databrickslabs/sdp-meta/tree/main/demo/conf/yml/dqe)
