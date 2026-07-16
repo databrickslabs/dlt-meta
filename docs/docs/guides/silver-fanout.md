@@ -113,4 +113,4 @@ python demo/launch_silver_fanout_demo.py \
 
 - [Silver Transformations Schema](../reference/silver-transformations) — `where_clause` configuration
 - [Row Filters](./row-filters) — alternative approach using pipeline-time row filtering
-- Example onboarding files: [`demo/conf/json/onboarding.template`](https://github.com/databrickslabs/dlt-meta/blob/main/demo/conf/json/onboarding.template)
+- Example onboarding files: [`demo/conf/json/onboarding.template`](https://github.com/databrickslabs/sdp-meta/blob/main/demo/conf/json/onboarding.template)

@@ -8,6 +8,12 @@ sidebar_position: 1
 
 SDP-META is a metadata-driven framework for building automated Bronze and Silver data pipelines on [Databricks Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines). Define your pipelines in a JSON or YAML onboarding file; a single generic Declarative Pipeline builds the full processing graph automatically.
 
+:::important Upgrading from DLT-META?
+The v0.1.0 release renames DLT-META to SDP-META. Existing onboarding JSON/YAML files continue to work, but new installs should use `databricks-labs-sdp-meta`, `databricks labs sdp-meta`, and `databricks.labs.sdp_meta` imports.
+
+Start with the [DLT-META → SDP-META migration guide](./operations/migration.md) for the step-by-step upgrade plan and deprecation timeline.
+:::
+
 ## Architecture
 
 ![SDP-META Architecture](/img/sdp-meta-architecture.svg)

@@ -376,13 +376,13 @@ troubleshooting.
 Click-only alternative — no Databricks CLI, no local Python, no
 `rsync` / `robocopy`. Point a Databricks Git folder at this repo,
 create an App in the UI, and aim it at `databricks_app/`.
-`start.sh`'s **Mode B** clones the full `dlt-meta` repo into
-`/tmp/dlt-meta` at container start, so `setup.py`, `src/`, `demo/`,
+`start.sh`'s **Mode B** clones the full `sdp-meta` repo into
+`/tmp/sdp-meta` at container start, so `setup.py`, `src/`, `demo/`,
 and `integration_tests/` are all available without any local sync.
 
 **When to use:** You have Databricks workspace access but no local CLI
 setup, and you're deploying a **published branch** on
-github.com/databrickslabs/dlt-meta (not local unmerged changes).
+github.com/databrickslabs/sdp-meta (not local unmerged changes).
 
 **When *not* to use:**
 - Air-gapped App compute that can't reach github.com — Mode B's
@@ -390,7 +390,7 @@ github.com/databrickslabs/dlt-meta (not local unmerged changes).
 - You want to deploy local unmerged edits — Git folders only see
   pushed commits.
 - You need a fork or private mirror — Mode B's `REPO_URL` is hard-coded
-  to `databricks/dlt-meta`.
+  to `databricks/sdp-meta`.
 
 See **[UI_GIT_DEPLOY.md](./UI_GIT_DEPLOY.md)** for the full
 step-by-step (Git-folder setup, App creation, source-code-path

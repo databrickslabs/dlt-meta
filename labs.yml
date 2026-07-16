@@ -14,7 +14,7 @@ commands:
       - name: whl-file-path
         description: Existing wheel path to use for the onboarding job, such as /Volumes/<catalog>/<schema>/<volume>/<wheel>.whl. Mutually exclusive with --build-and-upload-whl.
       - name: git-branch
-        description: Git branch to build a wheel from when --build-and-upload-whl is set. Defaults to the databrickslabs/dlt-meta repository when --git-url is omitted.
+        description: Git branch to build a wheel from when --build-and-upload-whl is set. Defaults to the databrickslabs/sdp-meta repository when --git-url is omitted.
       - name: git-url
         description: Git repository URL to build a wheel from when --build-and-upload-whl is set. Accepts regular HTTPS Git URLs or pip git+ URLs.
       - name: uc-schema
@@ -41,7 +41,7 @@ commands:
       - name: whl-file-path
         description: "Existing wheel path to bake into the SDP runner notebook's `%pip install` (e.g. /Volumes/<catalog>/<schema>/<volume>/<wheel>.whl). Mutually exclusive with --build-and-upload-whl."
       - name: git-branch
-        description: Git branch to build a wheel from when --build-and-upload-whl is set. Defaults to the databrickslabs/dlt-meta repository when --git-url is omitted.
+        description: Git branch to build a wheel from when --build-and-upload-whl is set. Defaults to the databrickslabs/sdp-meta repository when --git-url is omitted.
       - name: git-url
         description: Git repository URL to build a wheel from when --build-and-upload-whl is set. Accepts regular HTTPS Git URLs or pip git+ URLs.
       - name: uc-schema

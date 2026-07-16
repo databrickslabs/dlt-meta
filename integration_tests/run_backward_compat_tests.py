@@ -175,7 +175,7 @@ class BCRunnerConf:
     #               Faster local iteration; requires the cluster to
     #               have egress to ``git_repo_url``.
     install_mode: str = "local"
-    git_repo_url: str = "https://github.com/databrickslabs/dlt-meta.git"
+    git_repo_url: str = "https://github.com/databrickslabs/sdp-meta.git"
     # When True, skip the git-worktree checkout for the TARGET main
     # wheel and run ``setup.py bdist_wheel`` against the developer's
     # working tree instead. Use ONLY for iterating on uncommitted

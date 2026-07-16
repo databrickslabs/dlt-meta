@@ -8,14 +8,14 @@ SDP-META has three ways to use it. Pick the one that matches your role and how f
 | **[B — Interactive `onboard` + `deploy` CLI](#path-b--interactive-onboard--deploy-cli-exploration-only)** | First-touch exploration | Single workspace, state lives in workspace, no CI/CD |
 | **[C — SDP-META Databricks App](#path-c--sdp-meta-databricks-app-browser-ui)** | Non-developers, demos, click-driven workflows | Browser UI for onboarding → deploy → monitor |
 
-Long form: [docs site](https://databrickslabs.github.io/dlt-meta/docs/getting-started).
+Long form: [docs site](https://databrickslabs.github.io/sdp-meta/docs/getting-started).
 
 ## Pre-requisites (all paths)
 
 - Python 3.10, 3.11, or 3.12. The pinned `pyspark==3.5.5` test stack does not support Python 3.13+; using 3.13 / 3.14 will surface as cloudpickle / recursion errors at test time. See [Troubleshooting](#troubleshooting) below.
 - Databricks CLI v0.213 or later. See [install instructions](https://docs.databricks.com/en/dev-tools/cli/tutorial.html).
-  - macOS: ![macos_install_databricks](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/macos_1_databrickslabsmac_installdatabricks.gif)
-  - Windows: ![windows_install_databricks.png](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/windows_install_databricks.png)
+  - macOS: ![macos_install_databricks](https://raw.githubusercontent.com/databrickslabs/sdp-meta/feature/sdp-meta/docs/static/img/macos_1_databrickslabsmac_installdatabricks.gif)
+  - Windows: ![windows_install_databricks.png](https://raw.githubusercontent.com/databrickslabs/sdp-meta/feature/sdp-meta/docs/static/img/windows_install_databricks.png)
 - Authenticate your machine to a workspace:
   ```bash
   databricks auth login --host WORKSPACE_HOST
@@ -101,7 +101,7 @@ If you want to run the existing demo files, set up the repo first:
    ```bash
    databricks labs sdp-meta onboard
    ```
-   ![onboardingDLTMeta_2.gif](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/sdp_meta_onboard.gif)
+   ![onboardingDLTMeta_2.gif](https://raw.githubusercontent.com/databrickslabs/sdp-meta/feature/sdp-meta/docs/static/img/sdp_meta_onboard.gif)
 
    Pushes code+data to your workspace, creates an onboarding job, and opens the job URL in your browser.
 
@@ -109,52 +109,23 @@ If you want to run the existing demo files, set up the repo first:
    ```bash
    databricks labs sdp-meta deploy
    ```
-   ![deployingDLTMeta_bronze_silver.gif](https://raw.githubusercontent.com/databrickslabs/dlt-meta/feature/sdp-meta/docs/static/img/sdp_meta_deploy.gif)
+   ![deployingDLTMeta_bronze_silver.gif](https://raw.githubusercontent.com/databrickslabs/sdp-meta/feature/sdp-meta/docs/static/img/sdp_meta_deploy.gif)
 
    Deploys the Lakeflow Spark Declarative Pipeline and opens its URL in your browser.
 
 ## Path C — SDP-META Databricks App (browser UI)
 
-For users who'd rather **click than CLI**, or when you want non-developers
-on your team (analysts, PMs, customers) to onboard pipelines without
-learning `databricks labs sdp-meta`. Ships as a deployable Databricks App
-with bundled demos that work out of the box.
+Use the Databricks App when you want a browser-based, human-in-the-loop
+workflow for onboarding, deploying, and monitoring SDP-META pipelines. It is
+best for demos, exploration, and enabling non-developers to work through the
+pipeline lifecycle without running `databricks labs sdp-meta` locally.
 
-```bash
-# From the sdp-meta repo root
-databricks auth login --host <WORKSPACE_HOST>
-databricks apps create demo-sdp-meta
+The App documentation is maintained separately to avoid duplicating deployment
+steps here:
 
-./scripts/deploy_app.sh \
-  --profile <DATABRICKS_CLI_PROFILE> \
-  --app     demo-sdp-meta \
-  --path    /Workspace/Users/<you@databricks.com>/sdp-meta-app
-```
-
-Open the app from **Compute → Apps** in the workspace and follow the
-in-app **Onboarding → DataflowSpecs → Deployment → Monitor** flow.
-
-What you get with the App path:
-
-- **Browser-based onboarding** — pick from five bundled demos (Cars,
-  Multi-Source CDC, Silver Fanout, Cloud Files, DAIS), or point at your
-  own template. The app renders `{uc_volume_path}` / `{uc_catalog_name}` /
-  `{bronze_schema}` / `{silver_schema}` placeholders for you.
-- **In-app spec editor** with 3-layer validation (syntax → schema →
-  semantics) so onboarding mistakes surface before they hit a pipeline.
-- **One-click deploy** — pipeline name, dataflow_group, and target
-  schema auto-fill from your onboarding session.
-- **Pipeline monitor** filtered to your SDP-META pipelines, with
-  start / stop, in-app event stream, and click-through to the native
-  Databricks pipeline UI.
-- **No CLI on the user's machine** — every user just needs the App URL.
-  The App service principal handles UC / pipeline / job calls.
-
-Full quick-start (who it's for, what's in each panel, 5-minute walkthrough,
-path comparison): [`databricks_app/GETTING_STARTED.md`](databricks_app/GETTING_STARTED.md).
-Deploy / local-dev / App service-principal permissions:
-[`databricks_app/README.md`](databricks_app/README.md). Full panel-by-panel
-reference: [`databricks_app/USER_GUIDE.md`](databricks_app/USER_GUIDE.md).
+- **Deploying / local development / App service-principal permissions:** [`databricks_app/README.md`](databricks_app/README.md)
+- **First-time App walkthrough:** [`databricks_app/GETTING_STARTED.md`](databricks_app/GETTING_STARTED.md)
+- **Panel-by-panel user reference:** [`databricks_app/USER_GUIDE.md`](databricks_app/USER_GUIDE.md)
 
 > The App is for **exploration, demos, and human-in-the-loop onboarding**.
 > For production CI/CD, graduate to Path A (DAB) — the App's onboarding

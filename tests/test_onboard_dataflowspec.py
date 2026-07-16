@@ -853,7 +853,7 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
     # ── Issue #343: single-layer entrypoints must also pre-flight ────
-    # https://github.com/databrickslabs/dlt-meta/issues/343
+    # https://github.com/databrickslabs/sdp-meta/issues/343
     #
     # Finding #1: --onboard_layer bronze / silver routes to
     # onboard_bronze_dataflow_spec() / onboard_silver_dataflow_spec()

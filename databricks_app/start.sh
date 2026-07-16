@@ -5,19 +5,19 @@
 # Works in two deployment modes:
 #
 #  Mode A — Full repo deployed (recommended):
-#    Workspace sync path: .../dlt-meta          (repo root)
-#    App source-code-path: .../dlt-meta
+#    Workspace sync path: .../sdp-meta          (repo root)
+#    App source-code-path: .../sdp-meta
 #    Container layout:
 #      /app/python/source_code/
 #        setup.py, src/, demo/, integration_tests/, databricks_app/
 #
 #  Mode B — Only databricks_app/ deployed (current/legacy):
-#    Workspace sync path: .../dlt-meta/databricks_app
-#    App source-code-path: .../dlt-meta/databricks_app
+#    Workspace sync path: .../sdp-meta/databricks_app
+#    App source-code-path: .../sdp-meta/databricks_app
 #    Container layout:
 #      /app/python/source_code/
 #        app.py, start.sh, templates/, ...   (no demo/, no src/)
-#    → start.sh clones the full repo to /tmp/dlt-meta and uses that.
+#    → start.sh clones the full repo to /tmp/sdp-meta and uses that.
 #
 # In both modes the script exports SDP_META_HOME so app.py knows where
 # demo/ and src/ live, then starts Flask from that directory so relative
@@ -25,7 +25,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-REPO_URL="https://github.com/databrickslabs/dlt-meta.git"
+REPO_URL="https://github.com/databrickslabs/sdp-meta.git"
 
 # Directory that contains this script (= source root in Mode B,
 # or databricks_app/ subdirectory in Mode A)
@@ -48,7 +48,7 @@ elif [ -d "$SCRIPT_DIR/demo" ] && [ -d "$SCRIPT_DIR/src" ]; then
 
 else
     # Mode B — only databricks_app/ deployed; clone the full repo
-    REPO_ROOT="/tmp/dlt-meta"
+    REPO_ROOT="/tmp/sdp-meta"
     if [ -d "$REPO_ROOT/.git" ]; then
         echo "[start.sh] Mode B: using cached clone at $REPO_ROOT"
         cd "$REPO_ROOT" && git pull --quiet --ff-only || true
