@@ -1075,22 +1075,35 @@ class DataflowPipeline:
                     and dataflowSpec.quarantineTargetDetails != {}:
 
                 qrt_cl = dataflowSpec.quarantineTargetDetails.get('catalog', None)
-                qrt_cl_str = f"{qrt_cl}_" if qrt_cl is not None else ''
                 qrt_db = dataflowSpec.quarantineTargetDetails['database'].replace('.', '_')
                 qrt_table = dataflowSpec.quarantineTargetDetails['table']
-                quarantine_input_view_name = (
-                    f"{qrt_cl_str}{qrt_db}_{qrt_table}"
-                    f"_{layer}_quarantine_inputview"
-                )
-                quarantine_input_view_name = quarantine_input_view_name.replace(".", "").lower()
+                _pipeline_target_q = spark.conf.get("pipelines.target", "")
+                if bool(_pipeline_target_q.strip()):
+                    quarantine_input_view_name = f"{qrt_table}_{layer}_quarantine_inputview"
+                else:
+                    qrt_cl_str = f"{qrt_cl}_" if qrt_cl is not None else ''
+                    quarantine_input_view_name = (
+                        f"{qrt_cl_str}{qrt_db}_{qrt_table}"
+                        f"_{layer}_quarantine_inputview"
+                    )
+                    quarantine_input_view_name = quarantine_input_view_name.replace(".", "").lower()
             else:
                 logger.info("quarantine_input_view_name set to None")
             target_cl = dataflowSpec.targetDetails.get('catalog', None)
-            target_cl_str = f"{target_cl}_" if target_cl is not None else ''
             target_db = dataflowSpec.targetDetails['database'].replace('.', '_')
             target_table = dataflowSpec.targetDetails['table']
-            target_view_name = f"{target_cl_str}{target_db}_{target_table}_{layer}_inputview"
-            target_view_name = target_view_name.replace(".", "").lower()
+            # In legacy publishing mode all tables live in the LIVE virtual schema,
+            # so view names must NOT include the catalog/database prefix — they must
+            # match exactly what dp.temporary_view registered. In DPM, keep the full
+            # prefix so names stay unique across catalogs/schemas.
+            _pipeline_target = spark.conf.get("pipelines.target", "")
+            _is_legacy = bool(_pipeline_target.strip())
+            if _is_legacy:
+                target_view_name = f"{target_table}_{layer}_inputview"
+            else:
+                target_cl_str = f"{target_cl}_" if target_cl is not None else ''
+                target_view_name = f"{target_cl_str}{target_db}_{target_table}_{layer}_inputview"
+                target_view_name = target_view_name.replace(".", "").lower()
             dlt_data_flow = DataflowPipeline(
                 spark,
                 dataflowSpec,

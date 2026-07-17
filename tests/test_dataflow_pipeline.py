@@ -3344,3 +3344,69 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         pipeline.cdc_apply_changes()
         _, kwargs = mock_dp.create_auto_cdc_flow.call_args
         self.assertEqual(kwargs["target"], "dev_bronze.gracis.actionplans")
+
+    # ── View name construction in _launch_dlt_flow ────────────────────────────
+    # These tests patch _launch_dlt_flow internals by calling invoke_dlt_pipeline
+    # and capturing the view_name passed to DataflowPipeline.__init__.
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.DataflowSpecUtils.get_bronze_dataflow_spec")
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.DataflowPipeline.run_dlt")
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_view_name_legacy_uses_bare_table_name(self, mock_dp, mock_run_dlt, mock_get_spec):
+        """In legacy mode, view name is {table}_{layer}_inputview (no catalog/db prefix)."""
+        mock_dp.temporary_view = MagicMock(return_value=None)
+        mock_run_dlt.return_value = None
+
+        spec_map = copy.deepcopy(self._BASE_SPEC)
+        spec_map["dataQualityExpectations"] = None
+        spec = BronzeDataflowSpec(**spec_map)
+        mock_get_spec.return_value = [spec]
+
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "False")
+        self.spark.conf.set("pipelines.target", "gracis")
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+        self.addCleanup(self.spark.conf.unset, "pipelines.target")
+
+        captured_view_names = []
+        original_init = DataflowPipeline.__init__
+
+        def capturing_init(self_inner, spark, dataflow_spec, view_name, *args, **kwargs):
+            captured_view_names.append(view_name)
+            original_init(self_inner, spark, dataflow_spec, view_name, *args, **kwargs)
+
+        with patch.object(DataflowPipeline, "__init__", capturing_init):
+            DataflowPipeline.invoke_dlt_pipeline(self.spark, "bronze")
+
+        self.assertEqual(len(captured_view_names), 1)
+        self.assertEqual(captured_view_names[0], "actionplans_bronze_inputview")
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.DataflowSpecUtils.get_bronze_dataflow_spec")
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.DataflowPipeline.run_dlt")
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_view_name_dpm_uses_catalog_db_prefix(self, mock_dp, mock_run_dlt, mock_get_spec):
+        """In DPM mode, view name is {catalog}_{db}_{table}_{layer}_inputview."""
+        mock_dp.temporary_view = MagicMock(return_value=None)
+        mock_run_dlt.return_value = None
+
+        spec_map = copy.deepcopy(self._BASE_SPEC)
+        spec_map["dataQualityExpectations"] = None
+        spec = BronzeDataflowSpec(**spec_map)
+        mock_get_spec.return_value = [spec]
+
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        self.spark.conf.set("pipelines.target", "")
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+        self.addCleanup(self.spark.conf.unset, "pipelines.target")
+
+        captured_view_names = []
+        original_init = DataflowPipeline.__init__
+
+        def capturing_init(self_inner, spark, dataflow_spec, view_name, *args, **kwargs):
+            captured_view_names.append(view_name)
+            original_init(self_inner, spark, dataflow_spec, view_name, *args, **kwargs)
+
+        with patch.object(DataflowPipeline, "__init__", capturing_init):
+            DataflowPipeline.invoke_dlt_pipeline(self.spark, "bronze")
+
+        self.assertEqual(len(captured_view_names), 1)
+        self.assertEqual(captured_view_names[0], "dev_bronze_gracis_actionplans_bronze_inputview")
