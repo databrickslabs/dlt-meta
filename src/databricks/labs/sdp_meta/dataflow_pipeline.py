@@ -99,7 +99,7 @@ class DataflowPipeline:
         # pipelines.target set  -> legacy publishing mode (LIVE virtual schema)
         # pipelines.target unset -> default publishing mode (DPM, catalog.schema.table)
         _pipeline_target = spark.conf.get("pipelines.target", "")
-        self.is_legacy_publishing_mode = bool(_pipeline_target.strip())
+        self.is_legacy_publishing_mode = self._is_legacy_publishing_mode(spark)
         if self.is_legacy_publishing_mode:
             logger.info(
                 "Pipeline is using legacy publishing mode (target=%s). "
@@ -1077,8 +1077,7 @@ class DataflowPipeline:
                 qrt_cl = dataflowSpec.quarantineTargetDetails.get('catalog', None)
                 qrt_db = dataflowSpec.quarantineTargetDetails['database'].replace('.', '_')
                 qrt_table = dataflowSpec.quarantineTargetDetails['table']
-                _pipeline_target_q = spark.conf.get("pipelines.target", "")
-                if bool(_pipeline_target_q.strip()):
+                if DataflowPipeline._is_legacy_publishing_mode(spark):
                     quarantine_input_view_name = f"{qrt_table}_{layer}_quarantine_inputview"
                 else:
                     qrt_cl_str = f"{qrt_cl}_" if qrt_cl is not None else ''
@@ -1096,9 +1095,7 @@ class DataflowPipeline:
             # so view names must NOT include the catalog/database prefix — they must
             # match exactly what dp.temporary_view registered. In DPM, keep the full
             # prefix so names stay unique across catalogs/schemas.
-            _pipeline_target = spark.conf.get("pipelines.target", "")
-            _is_legacy = bool(_pipeline_target.strip())
-            if _is_legacy:
+            if DataflowPipeline._is_legacy_publishing_mode(spark):
                 target_view_name = f"{target_table}_{layer}_inputview"
             else:
                 target_cl_str = f"{target_cl}_" if target_cl is not None else ''
@@ -1115,6 +1112,26 @@ class DataflowPipeline:
             dlt_data_flow.run_dlt()
 
     # Additional optimization methods for common patterns
+    @staticmethod
+    def _is_legacy_publishing_mode(spark):
+        """Return True when the pipeline uses legacy publishing mode.
+
+        Legacy Lakeflow/DLT pipelines expose a pipeline-level ``target``
+        (``pipelines.target``). In that mode, dataset declarations must use
+        unqualified names in the LIVE virtual schema.
+        """
+        return bool(spark.conf.get("pipelines.target", "").strip())
+
+    @staticmethod
+    def _build_fully_qualified_table_name(catalog, database, table):
+        """Build catalog.schema.table (or schema.table without catalog).
+
+        Source table reads are not Lakeflow dataset declarations, so they must
+        stay qualified even when output datasets run in legacy publishing mode.
+        """
+        catalog_prefix = f"{catalog}." if catalog else ''
+        return f"{catalog_prefix}{database}.{table}"
+
     def _build_table_name(self, catalog, database, table):
         """Build a table name appropriate for the pipeline's publishing mode.
 
@@ -1135,7 +1152,7 @@ class DataflowPipeline:
         catalog = source_details.get('catalog', None)
         database = source_details["database"]
         table = source_details["table"]
-        return self._build_table_name(catalog, database, table), source_details
+        return self._build_fully_qualified_table_name(catalog, database, table), source_details
 
     def _get_target_table_name(self):
         """Get the fully qualified target table name."""

@@ -3218,6 +3218,22 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         result = pipeline._build_table_name(None, "gracis", "actionplans")
         self.assertEqual(result, "gracis.actionplans")
 
+    def test_source_table_info_legacy_keeps_qualified_source_name(self):
+        """Legacy output mode must not strip qualifiers from source table reads."""
+        pipeline = self._make_pipeline(
+            pipeline_target="target_schema",
+            extra_spec={
+                "sourceFormat": "delta",
+                "sourceDetails": {
+                    "catalog": "source_catalog",
+                    "database": "source_schema",
+                    "table": "source_table",
+                },
+            },
+        )
+        source_table, _ = pipeline._get_source_table_info()
+        self.assertEqual(source_table, "source_catalog.source_schema.source_table")
+
     # ── dp.create_streaming_table name argument ───────────────────────────────
 
     @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
@@ -3269,17 +3285,17 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         """Quarantine dp.table call uses bare table name in legacy mode."""
         mock_dp.table = MagicMock(return_value=lambda fn: fn)
         mock_dp.expect_all_or_drop = MagicMock(return_value=lambda fn: fn)
-        dqe = json.dumps({"expect_or_drop": {"valid_id": "id IS NOT NULL"}})
+        dqe = json.dumps({"expect_or_quarantine": {"valid_id": "id IS NOT NULL"}})
         pipeline = self._make_pipeline(
             pipeline_target="gracis",
             extra_spec={"dataQualityExpectations": dqe},
         )
-        pipeline._write_standard_table(is_bronze=True)
+        pipeline.write_layer_with_dqe()
         quarantine_calls = [
             kwargs["name"]
             for _, kwargs in mock_dp.table.call_args_list
             if kwargs.get("name", "").endswith("quarantine")
-               or kwargs.get("name", "") == "actionplans_quarantine"
+            or kwargs.get("name", "") == "actionplans_quarantine"
         ]
         self.assertTrue(
             any(n == "actionplans_quarantine" for n in quarantine_calls),
@@ -3291,12 +3307,12 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         """Quarantine dp.table call uses catalog.schema.table in DPM mode."""
         mock_dp.table = MagicMock(return_value=lambda fn: fn)
         mock_dp.expect_all_or_drop = MagicMock(return_value=lambda fn: fn)
-        dqe = json.dumps({"expect_or_drop": {"valid_id": "id IS NOT NULL"}})
+        dqe = json.dumps({"expect_or_quarantine": {"valid_id": "id IS NOT NULL"}})
         pipeline = self._make_pipeline(
             pipeline_target="",
             extra_spec={"dataQualityExpectations": dqe},
         )
-        pipeline._write_standard_table(is_bronze=True)
+        pipeline.write_layer_with_dqe()
         quarantine_calls = [
             kwargs["name"]
             for _, kwargs in mock_dp.table.call_args_list
