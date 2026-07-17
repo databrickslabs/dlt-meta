@@ -95,16 +95,12 @@ class DataflowPipeline:
         spark.conf.set("databrickslab.sdp-meta.version", f"{__version__}")
         uc_enabled_str = uc_enabled_str.lower()
         self.uc_enabled = True if uc_enabled_str == "true" else False
-        # Detect publishing mode at runtime:
-        # pipelines.target set  -> legacy publishing mode (LIVE virtual schema)
-        # pipelines.target unset -> default publishing mode (DPM, catalog.schema.table)
-        _pipeline_target = spark.conf.get("pipelines.target", "")
-        self.is_legacy_publishing_mode = self._is_legacy_publishing_mode(spark)
+        self.dpm_enabled = self._is_dpm_enabled(spark)
+        self.is_legacy_publishing_mode = not self.dpm_enabled
         if self.is_legacy_publishing_mode:
             logger.info(
-                "Pipeline is using legacy publishing mode (target=%s). "
+                "Pipeline is using legacy publishing mode (pipelines.schema is unset). "
                 "Table names will be unqualified to comply with LIVE schema restrictions.",
-                _pipeline_target,
             )
         self.dataflowSpec = dataflow_spec
         self.view_name = view_name
@@ -580,8 +576,15 @@ class DataflowPipeline:
         return bronze_df
 
     def write_to_delta(self):
-        """Write to Delta."""
-        return self.spark.readStream.table(self.view_name)
+        """Write to Delta.
+
+        Uses ``dp.read_stream`` (the LDP equivalent of the legacy
+        ``dlt.read_stream``) to resolve the view from the pipeline's internal
+        dataset graph.  ``spark.readStream.table`` is intentionally NOT used
+        here: in legacy publishing mode it falls back to a catalog lookup and
+        raises TABLE_OR_VIEW_NOT_FOUND instead of finding the LIVE-schema view.
+        """
+        return dp.read_stream(self.view_name)
 
     def apply_changes_from_snapshot(self):
         target_path = None if self.uc_enabled else self.dataflowSpec.targetDetails["path"]
@@ -1077,7 +1080,7 @@ class DataflowPipeline:
                 qrt_cl = dataflowSpec.quarantineTargetDetails.get('catalog', None)
                 qrt_db = dataflowSpec.quarantineTargetDetails['database'].replace('.', '_')
                 qrt_table = dataflowSpec.quarantineTargetDetails['table']
-                if DataflowPipeline._is_legacy_publishing_mode(spark):
+                if not DataflowPipeline._is_dpm_enabled(spark):
                     quarantine_input_view_name = f"{qrt_table}_{layer}_quarantine_inputview"
                 else:
                     qrt_cl_str = f"{qrt_cl}_" if qrt_cl is not None else ''
@@ -1095,7 +1098,7 @@ class DataflowPipeline:
             # so view names must NOT include the catalog/database prefix — they must
             # match exactly what dp.temporary_view registered. In DPM, keep the full
             # prefix so names stay unique across catalogs/schemas.
-            if DataflowPipeline._is_legacy_publishing_mode(spark):
+            if not DataflowPipeline._is_dpm_enabled(spark):
                 target_view_name = f"{target_table}_{layer}_inputview"
             else:
                 target_cl_str = f"{target_cl}_" if target_cl is not None else ''
@@ -1113,14 +1116,9 @@ class DataflowPipeline:
 
     # Additional optimization methods for common patterns
     @staticmethod
-    def _is_legacy_publishing_mode(spark):
-        """Return True when the pipeline uses legacy publishing mode.
-
-        Legacy Lakeflow/DLT pipelines expose a pipeline-level ``target``
-        (``pipelines.target``). In that mode, dataset declarations must use
-        unqualified names in the LIVE virtual schema.
-        """
-        return bool(spark.conf.get("pipelines.target", "").strip())
+    def _is_dpm_enabled(spark):
+        """Return True when default publishing mode exposes ``pipelines.schema``."""
+        return bool(spark.conf.get("pipelines.schema", "").strip())
 
     @staticmethod
     def _build_fully_qualified_table_name(catalog, database, table):

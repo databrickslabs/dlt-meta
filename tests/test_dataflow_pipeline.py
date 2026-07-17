@@ -3113,7 +3113,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
 class LegacyPublishingModeTests(SDPFrameworkTestCase):
     """Tests for runtime legacy-vs-DPM publishing mode detection and table name construction.
 
-    When a pipeline has ``pipelines.target`` set in its settings, LDP rejects
+    When a pipeline has no ``pipelines.schema`` setting, LDP legacy mode rejects
     schema-qualified names (raises DLTAnalysisException).  sdp-meta must detect
     this at init and emit bare table names to dp.create_streaming_table /
     dp.table / dp.create_auto_cdc_flow instead of catalog.schema.table names.
@@ -3163,14 +3163,14 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         "quarantineRowFilter": None,
     }
 
-    def _make_pipeline(self, pipeline_target="", uc_enabled=True, extra_spec=None):
-        """Build a DataflowPipeline with the given pipelines.target conf value."""
+    def _make_pipeline(self, pipeline_schema="", uc_enabled=True, extra_spec=None):
+        """Build a DataflowPipeline with the given pipelines.schema conf value."""
         self.spark.conf.set(
             "spark.databricks.unityCatalog.enabled", "True" if uc_enabled else "False"
         )
-        self.spark.conf.set("pipelines.target", pipeline_target)
+        self.spark.conf.set("pipelines.schema", pipeline_schema)
         self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
-        self.addCleanup(self.spark.conf.unset, "pipelines.target")
+        self.addCleanup(self.spark.conf.unset, "pipelines.schema")
 
         spec_map = copy.deepcopy(self._BASE_SPEC)
         if extra_spec:
@@ -3181,47 +3181,49 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         pipeline.read_bronze = MagicMock()
         return pipeline
 
-    # ── is_legacy_publishing_mode detection ──────────────────────────────────
+    # ── publishing mode detection ────────────────────────────────────────────
 
-    def test_legacy_mode_detected_when_target_set(self):
-        """is_legacy_publishing_mode=True when pipelines.target is non-empty."""
-        pipeline = self._make_pipeline(pipeline_target="gracis")
+    def test_dpm_mode_detected_when_schema_set(self):
+        """pipelines.schema signals default publishing mode."""
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
+        self.assertTrue(pipeline.dpm_enabled)
+        self.assertFalse(pipeline.is_legacy_publishing_mode)
+
+    def test_legacy_mode_detected_when_schema_empty(self):
+        """An unset pipelines.schema signals legacy publishing mode."""
+        pipeline = self._make_pipeline(pipeline_schema="")
+        self.assertFalse(pipeline.dpm_enabled)
         self.assertTrue(pipeline.is_legacy_publishing_mode)
 
-    def test_dpm_mode_detected_when_target_empty(self):
-        """is_legacy_publishing_mode=False when pipelines.target is empty string."""
-        pipeline = self._make_pipeline(pipeline_target="")
-        self.assertFalse(pipeline.is_legacy_publishing_mode)
-
-    def test_dpm_mode_detected_when_target_whitespace(self):
-        """Whitespace-only pipelines.target is treated as unset (DPM mode)."""
-        pipeline = self._make_pipeline(pipeline_target="   ")
-        self.assertFalse(pipeline.is_legacy_publishing_mode)
+    def test_legacy_mode_detected_when_schema_whitespace(self):
+        """Whitespace-only pipelines.schema is treated as legacy mode."""
+        pipeline = self._make_pipeline(pipeline_schema="   ")
+        self.assertTrue(pipeline.is_legacy_publishing_mode)
 
     # ── _build_table_name ────────────────────────────────────────────────────
 
     def test_build_table_name_legacy_returns_bare_name(self):
         """In legacy mode, _build_table_name returns only the table name."""
-        pipeline = self._make_pipeline(pipeline_target="gracis")
+        pipeline = self._make_pipeline(pipeline_schema="")
         result = pipeline._build_table_name("dev_bronze", "gracis", "actionplans")
         self.assertEqual(result, "actionplans")
 
     def test_build_table_name_dpm_returns_qualified_name(self):
         """In DPM mode, _build_table_name returns catalog.schema.table."""
-        pipeline = self._make_pipeline(pipeline_target="")
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
         result = pipeline._build_table_name("dev_bronze", "gracis", "actionplans")
         self.assertEqual(result, "dev_bronze.gracis.actionplans")
 
     def test_build_table_name_dpm_no_catalog_returns_schema_table(self):
         """In DPM mode with no catalog, _build_table_name returns schema.table."""
-        pipeline = self._make_pipeline(pipeline_target="")
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
         result = pipeline._build_table_name(None, "gracis", "actionplans")
         self.assertEqual(result, "gracis.actionplans")
 
     def test_source_table_info_legacy_keeps_qualified_source_name(self):
         """Legacy output mode must not strip qualifiers from source table reads."""
         pipeline = self._make_pipeline(
-            pipeline_target="target_schema",
+            pipeline_schema="",
             extra_spec={
                 "sourceFormat": "delta",
                 "sourceDetails": {
@@ -3240,7 +3242,7 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
     def test_create_streaming_table_legacy_uses_bare_name(self, mock_dp):
         """create_streaming_table passes bare table name in legacy publishing mode."""
         mock_dp.create_streaming_table = MagicMock()
-        pipeline = self._make_pipeline(pipeline_target="gracis")
+        pipeline = self._make_pipeline(pipeline_schema="")
         pipeline.create_streaming_table(None, target_path=None)
         mock_dp.create_streaming_table.assert_called_once()
         _, kwargs = mock_dp.create_streaming_table.call_args
@@ -3250,7 +3252,7 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
     def test_create_streaming_table_dpm_uses_qualified_name(self, mock_dp):
         """create_streaming_table passes catalog.schema.table in DPM mode."""
         mock_dp.create_streaming_table = MagicMock()
-        pipeline = self._make_pipeline(pipeline_target="")
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
         pipeline.create_streaming_table(None, target_path=None)
         mock_dp.create_streaming_table.assert_called_once()
         _, kwargs = mock_dp.create_streaming_table.call_args
@@ -3262,7 +3264,7 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
     def test_write_standard_table_legacy_uses_bare_name(self, mock_dp):
         """dp.table receives bare table name in legacy publishing mode."""
         mock_dp.table = MagicMock(return_value=lambda fn: fn)
-        pipeline = self._make_pipeline(pipeline_target="gracis")
+        pipeline = self._make_pipeline(pipeline_schema="")
         pipeline._write_standard_table(is_bronze=True)
         mock_dp.table.assert_called_once()
         _, kwargs = mock_dp.table.call_args
@@ -3272,7 +3274,7 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
     def test_write_standard_table_dpm_uses_qualified_name(self, mock_dp):
         """dp.table receives catalog.schema.table in DPM mode."""
         mock_dp.table = MagicMock(return_value=lambda fn: fn)
-        pipeline = self._make_pipeline(pipeline_target="")
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
         pipeline._write_standard_table(is_bronze=True)
         mock_dp.table.assert_called_once()
         _, kwargs = mock_dp.table.call_args
@@ -3287,7 +3289,7 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         mock_dp.expect_all_or_drop = MagicMock(return_value=lambda fn: fn)
         dqe = json.dumps({"expect_or_quarantine": {"valid_id": "id IS NOT NULL"}})
         pipeline = self._make_pipeline(
-            pipeline_target="gracis",
+            pipeline_schema="",
             extra_spec={"dataQualityExpectations": dqe},
         )
         pipeline.write_layer_with_dqe()
@@ -3309,7 +3311,7 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         mock_dp.expect_all_or_drop = MagicMock(return_value=lambda fn: fn)
         dqe = json.dumps({"expect_or_quarantine": {"valid_id": "id IS NOT NULL"}})
         pipeline = self._make_pipeline(
-            pipeline_target="",
+            pipeline_schema="target_schema",
             extra_spec={"dataQualityExpectations": dqe},
         )
         pipeline.write_layer_with_dqe()
@@ -3336,7 +3338,7 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
             "column_list": [], "except_column_list": [],
         })
         pipeline = self._make_pipeline(
-            pipeline_target="gracis",
+            pipeline_schema="",
             extra_spec={"cdcApplyChanges": cdc, "dataQualityExpectations": None},
         )
         pipeline.cdc_apply_changes()
@@ -3354,7 +3356,7 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
             "column_list": [], "except_column_list": [],
         })
         pipeline = self._make_pipeline(
-            pipeline_target="",
+            pipeline_schema="target_schema",
             extra_spec={"cdcApplyChanges": cdc, "dataQualityExpectations": None},
         )
         pipeline.cdc_apply_changes()
@@ -3364,6 +3366,30 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
     # ── View name construction in _launch_dlt_flow ────────────────────────────
     # These tests patch _launch_dlt_flow internals by calling invoke_dlt_pipeline
     # and capturing the view_name passed to DataflowPipeline.__init__.
+
+    # ── write_to_delta uses dp.read_stream not spark.readStream.table ──────────
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_write_to_delta_uses_dp_read_stream(self, mock_dp):
+        """write_to_delta must use dp.read_stream so legacy LIVE-schema views resolve.
+
+        spark.readStream.table falls back to a catalog lookup in legacy
+        publishing mode and raises TABLE_OR_VIEW_NOT_FOUND.  dp.read_stream
+        (the LDP equivalent of dlt.read_stream) resolves from the pipeline's
+        internal dataset graph in both legacy and DPM mode.
+        """
+        mock_dp.read_stream = MagicMock(return_value=MagicMock())
+        pipeline = self._make_pipeline(pipeline_schema="")
+        pipeline.write_to_delta()
+        mock_dp.read_stream.assert_called_once_with(pipeline.view_name)
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_write_to_delta_dpm_also_uses_dp_read_stream(self, mock_dp):
+        """dp.read_stream is used in DPM mode too — consistent across modes."""
+        mock_dp.read_stream = MagicMock(return_value=MagicMock())
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
+        pipeline.write_to_delta()
+        mock_dp.read_stream.assert_called_once_with(pipeline.view_name)
 
     @patch("databricks.labs.sdp_meta.dataflow_pipeline.DataflowSpecUtils.get_bronze_dataflow_spec")
     @patch("databricks.labs.sdp_meta.dataflow_pipeline.DataflowPipeline.run_dlt")
@@ -3379,9 +3405,9 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         mock_get_spec.return_value = [spec]
 
         self.spark.conf.set("spark.databricks.unityCatalog.enabled", "False")
-        self.spark.conf.set("pipelines.target", "gracis")
+        self.spark.conf.set("pipelines.schema", "")
         self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
-        self.addCleanup(self.spark.conf.unset, "pipelines.target")
+        self.addCleanup(self.spark.conf.unset, "pipelines.schema")
 
         captured_view_names = []
         original_init = DataflowPipeline.__init__
@@ -3410,9 +3436,9 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         mock_get_spec.return_value = [spec]
 
         self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
-        self.spark.conf.set("pipelines.target", "")
+        self.spark.conf.set("pipelines.schema", "target_schema")
         self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
-        self.addCleanup(self.spark.conf.unset, "pipelines.target")
+        self.addCleanup(self.spark.conf.unset, "pipelines.schema")
 
         captured_view_names = []
         original_init = DataflowPipeline.__init__
