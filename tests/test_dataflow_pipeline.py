@@ -232,12 +232,12 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         "rowFilter": None,
         "quarantineRowFilter": None,
     }
-    # @classmethod
-    # def setUp(self):
-    #     """Set up initial resources for unit tests."""
-    #     super().setUp()
-    #     onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-    #     onboardDataFlowSpecs.onboard_dataflow_specs()
+
+    def setUp(self):
+        """Set up DPM defaults expected by this class's legacy tests."""
+        super().setUp()
+        self.spark.conf.set("pipelines.schema", "test_pipeline_schema")
+        self.addCleanup(self.spark.conf.unset, "pipelines.schema")
 
     @patch.object(DataflowPipeline, "run_dlt", return_value={"called"})
     def test_invoke_dlt_pipeline_bronz_positive(self, run_dlt):
@@ -3108,3 +3108,347 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         self.assertEqual(mock_dp.create_streaming_table.call_count, 1)
         _, kwargs = mock_dp.create_streaming_table.call_args
         self.assertEqual(kwargs["row_filter"], self.ROW_FILTER_DEPT)
+
+
+class LegacyPublishingModeTests(SDPFrameworkTestCase):
+    """Tests for runtime legacy-vs-DPM publishing mode detection and table name construction.
+
+    When a pipeline has no ``pipelines.schema`` setting, LDP legacy mode rejects
+    schema-qualified names (raises DLTAnalysisException).  sdp-meta must detect
+    this at init and emit bare table names to dp.create_streaming_table /
+    dp.table / dp.create_auto_cdc_flow instead of catalog.schema.table names.
+    """
+
+    # Minimal bronze spec with catalog/database/table all set so we can
+    # assert which parts get included in the final dp.* call.
+    _BASE_SPEC = {
+        "dataFlowId": "1",
+        "dataFlowGroup": "A1",
+        "sourceFormat": "cloudFiles",
+        "sourceDetails": {"path": "tests/resources/data/customers"},
+        "readerConfigOptions": {},
+        "targetFormat": "delta",
+        "targetDetails": {
+            "catalog": "dev_bronze",
+            "database": "gracis",
+            "table": "actionplans",
+            "path": "tests/resources/delta/actionplans",
+        },
+        "tableProperties": {},
+        "schema": None,
+        "partitionColumns": [""],
+        "cdcApplyChanges": None,
+        "applyChangesFromSnapshot": None,
+        "dataQualityExpectations": None,
+        "quarantineTargetDetails": {
+            "catalog": "dev_bronze",
+            "database": "gracis",
+            "table": "actionplans_quarantine",
+            "path": "tests/resources/delta/actionplans_quar",
+        },
+        "quarantineTableProperties": {},
+        "appendFlows": [],
+        "appendFlowsSchemas": {},
+        "version": "v1",
+        "createDate": datetime.now,
+        "createdBy": "test",
+        "updateDate": datetime.now,
+        "updatedBy": "test",
+        "clusterBy": [""],
+        "clusterByAuto": False,
+        "sinks": [],
+        "cdcApplyChangesFlows": None,
+        "cdcApplyChangesFlowsSchemas": None,
+        "rowFilter": None,
+        "quarantineRowFilter": None,
+    }
+
+    def _make_pipeline(self, pipeline_schema="", uc_enabled=True, extra_spec=None):
+        """Build a DataflowPipeline with the given pipelines.schema conf value."""
+        self.spark.conf.set(
+            "spark.databricks.unityCatalog.enabled", "True" if uc_enabled else "False"
+        )
+        self.spark.conf.set("pipelines.schema", pipeline_schema)
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+        self.addCleanup(self.spark.conf.unset, "pipelines.schema")
+
+        spec_map = copy.deepcopy(self._BASE_SPEC)
+        if extra_spec:
+            spec_map.update(extra_spec)
+        spec = BronzeDataflowSpec(**spec_map)
+        view_name = f"{spec.targetDetails['table']}_inputview"
+        pipeline = DataflowPipeline(self.spark, spec, view_name, None)
+        pipeline.read_bronze = MagicMock()
+        return pipeline
+
+    # ── publishing mode detection ────────────────────────────────────────────
+
+    def test_dpm_mode_detected_when_schema_set(self):
+        """pipelines.schema signals default publishing mode."""
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
+        self.assertTrue(pipeline.dpm_enabled)
+        self.assertFalse(pipeline.is_legacy_publishing_mode)
+
+    def test_legacy_mode_detected_when_schema_empty(self):
+        """An unset pipelines.schema signals legacy publishing mode."""
+        pipeline = self._make_pipeline(pipeline_schema="")
+        self.assertFalse(pipeline.dpm_enabled)
+        self.assertTrue(pipeline.is_legacy_publishing_mode)
+
+    def test_legacy_mode_detected_when_schema_whitespace(self):
+        """Whitespace-only pipelines.schema is treated as legacy mode."""
+        pipeline = self._make_pipeline(pipeline_schema="   ")
+        self.assertTrue(pipeline.is_legacy_publishing_mode)
+
+    # ── _build_table_name ────────────────────────────────────────────────────
+
+    def test_build_table_name_legacy_returns_bare_name(self):
+        """In legacy mode, _build_table_name returns only the table name."""
+        pipeline = self._make_pipeline(pipeline_schema="")
+        result = pipeline._build_table_name("dev_bronze", "gracis", "actionplans")
+        self.assertEqual(result, "actionplans")
+
+    def test_build_table_name_dpm_returns_qualified_name(self):
+        """In DPM mode, _build_table_name returns catalog.schema.table."""
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
+        result = pipeline._build_table_name("dev_bronze", "gracis", "actionplans")
+        self.assertEqual(result, "dev_bronze.gracis.actionplans")
+
+    def test_build_table_name_dpm_no_catalog_returns_schema_table(self):
+        """In DPM mode with no catalog, _build_table_name returns schema.table."""
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
+        result = pipeline._build_table_name(None, "gracis", "actionplans")
+        self.assertEqual(result, "gracis.actionplans")
+
+    def test_source_table_info_legacy_keeps_qualified_source_name(self):
+        """Legacy output mode must not strip qualifiers from source table reads."""
+        pipeline = self._make_pipeline(
+            pipeline_schema="",
+            extra_spec={
+                "sourceFormat": "delta",
+                "sourceDetails": {
+                    "catalog": "source_catalog",
+                    "database": "source_schema",
+                    "table": "source_table",
+                },
+            },
+        )
+        source_table, _ = pipeline._get_source_table_info()
+        self.assertEqual(source_table, "source_catalog.source_schema.source_table")
+
+    # ── dp.create_streaming_table name argument ───────────────────────────────
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_create_streaming_table_legacy_uses_bare_name(self, mock_dp):
+        """create_streaming_table passes bare table name in legacy publishing mode."""
+        mock_dp.create_streaming_table = MagicMock()
+        pipeline = self._make_pipeline(pipeline_schema="")
+        pipeline.create_streaming_table(None, target_path=None)
+        mock_dp.create_streaming_table.assert_called_once()
+        _, kwargs = mock_dp.create_streaming_table.call_args
+        self.assertEqual(kwargs["name"], "actionplans")
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_create_streaming_table_dpm_uses_qualified_name(self, mock_dp):
+        """create_streaming_table passes catalog.schema.table in DPM mode."""
+        mock_dp.create_streaming_table = MagicMock()
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
+        pipeline.create_streaming_table(None, target_path=None)
+        mock_dp.create_streaming_table.assert_called_once()
+        _, kwargs = mock_dp.create_streaming_table.call_args
+        self.assertEqual(kwargs["name"], "dev_bronze.gracis.actionplans")
+
+    # ── dp.table name argument (standard bronze/silver write) ────────────────
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_write_standard_table_legacy_uses_bare_name(self, mock_dp):
+        """dp.table receives bare table name in legacy publishing mode."""
+        mock_dp.table = MagicMock(return_value=lambda fn: fn)
+        pipeline = self._make_pipeline(pipeline_schema="")
+        pipeline._write_standard_table(is_bronze=True)
+        mock_dp.table.assert_called_once()
+        _, kwargs = mock_dp.table.call_args
+        self.assertEqual(kwargs["name"], "actionplans")
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_write_standard_table_dpm_uses_qualified_name(self, mock_dp):
+        """dp.table receives catalog.schema.table in DPM mode."""
+        mock_dp.table = MagicMock(return_value=lambda fn: fn)
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
+        pipeline._write_standard_table(is_bronze=True)
+        mock_dp.table.assert_called_once()
+        _, kwargs = mock_dp.table.call_args
+        self.assertEqual(kwargs["name"], "dev_bronze.gracis.actionplans")
+
+    # ── Quarantine table name ─────────────────────────────────────────────────
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_quarantine_table_legacy_uses_bare_name(self, mock_dp):
+        """Quarantine dp.table call uses bare table name in legacy mode."""
+        mock_dp.table = MagicMock(return_value=lambda fn: fn)
+        mock_dp.expect_all_or_drop = MagicMock(return_value=lambda fn: fn)
+        dqe = json.dumps({"expect_or_quarantine": {"valid_id": "id IS NOT NULL"}})
+        pipeline = self._make_pipeline(
+            pipeline_schema="",
+            extra_spec={"dataQualityExpectations": dqe},
+        )
+        pipeline.write_layer_with_dqe()
+        quarantine_calls = [
+            kwargs["name"]
+            for _, kwargs in mock_dp.table.call_args_list
+            if kwargs.get("name", "").endswith("quarantine")
+            or kwargs.get("name", "") == "actionplans_quarantine"
+        ]
+        self.assertTrue(
+            any(n == "actionplans_quarantine" for n in quarantine_calls),
+            f"Expected bare quarantine name, got calls: {mock_dp.table.call_args_list}",
+        )
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_quarantine_table_dpm_uses_qualified_name(self, mock_dp):
+        """Quarantine dp.table call uses catalog.schema.table in DPM mode."""
+        mock_dp.table = MagicMock(return_value=lambda fn: fn)
+        mock_dp.expect_all_or_drop = MagicMock(return_value=lambda fn: fn)
+        dqe = json.dumps({"expect_or_quarantine": {"valid_id": "id IS NOT NULL"}})
+        pipeline = self._make_pipeline(
+            pipeline_schema="target_schema",
+            extra_spec={"dataQualityExpectations": dqe},
+        )
+        pipeline.write_layer_with_dqe()
+        quarantine_calls = [
+            kwargs["name"]
+            for _, kwargs in mock_dp.table.call_args_list
+            if "quarantine" in kwargs.get("name", "")
+        ]
+        self.assertTrue(
+            any(n == "dev_bronze.gracis.actionplans_quarantine" for n in quarantine_calls),
+            f"Expected qualified quarantine name, got: {quarantine_calls}",
+        )
+
+    # ── cdc_apply_changes target name ─────────────────────────────────────────
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_cdc_apply_changes_legacy_uses_bare_name(self, mock_dp):
+        """dp.create_auto_cdc_flow target= is bare table name in legacy mode."""
+        mock_dp.create_streaming_table = MagicMock()
+        mock_dp.create_auto_cdc_flow = MagicMock()
+        cdc = json.dumps({
+            "keys": ["id"], "sequence_by": "ts", "scd_type": "1",
+            "apply_as_deletes": None, "apply_as_truncates": None,
+            "column_list": [], "except_column_list": [],
+        })
+        pipeline = self._make_pipeline(
+            pipeline_schema="",
+            extra_spec={"cdcApplyChanges": cdc, "dataQualityExpectations": None},
+        )
+        pipeline.cdc_apply_changes()
+        _, kwargs = mock_dp.create_auto_cdc_flow.call_args
+        self.assertEqual(kwargs["target"], "actionplans")
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_cdc_apply_changes_dpm_uses_qualified_name(self, mock_dp):
+        """dp.create_auto_cdc_flow target= is catalog.schema.table in DPM mode."""
+        mock_dp.create_streaming_table = MagicMock()
+        mock_dp.create_auto_cdc_flow = MagicMock()
+        cdc = json.dumps({
+            "keys": ["id"], "sequence_by": "ts", "scd_type": "1",
+            "apply_as_deletes": None, "apply_as_truncates": None,
+            "column_list": [], "except_column_list": [],
+        })
+        pipeline = self._make_pipeline(
+            pipeline_schema="target_schema",
+            extra_spec={"cdcApplyChanges": cdc, "dataQualityExpectations": None},
+        )
+        pipeline.cdc_apply_changes()
+        _, kwargs = mock_dp.create_auto_cdc_flow.call_args
+        self.assertEqual(kwargs["target"], "dev_bronze.gracis.actionplans")
+
+    # ── View name construction in _launch_dlt_flow ────────────────────────────
+    # These tests patch _launch_dlt_flow internals by calling invoke_dlt_pipeline
+    # and capturing the view_name passed to DataflowPipeline.__init__.
+
+    # ── write_to_delta uses dp.read_stream not spark.readStream.table ──────────
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_write_to_delta_uses_dp_read_stream(self, mock_dp):
+        """write_to_delta must use dp.read_stream so legacy LIVE-schema views resolve.
+
+        spark.readStream.table falls back to a catalog lookup in legacy
+        publishing mode and raises TABLE_OR_VIEW_NOT_FOUND.  dp.read_stream
+        (the LDP equivalent of dlt.read_stream) resolves from the pipeline's
+        internal dataset graph in both legacy and DPM mode.
+        """
+        mock_dp.read_stream = MagicMock(return_value=MagicMock())
+        pipeline = self._make_pipeline(pipeline_schema="")
+        pipeline.write_to_delta()
+        mock_dp.read_stream.assert_called_once_with(pipeline.view_name)
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_write_to_delta_dpm_also_uses_dp_read_stream(self, mock_dp):
+        """dp.read_stream is used in DPM mode too — consistent across modes."""
+        mock_dp.read_stream = MagicMock(return_value=MagicMock())
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
+        pipeline.write_to_delta()
+        mock_dp.read_stream.assert_called_once_with(pipeline.view_name)
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.DataflowSpecUtils.get_bronze_dataflow_spec")
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.DataflowPipeline.run_dlt")
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_view_name_legacy_uses_bare_table_name(self, mock_dp, mock_run_dlt, mock_get_spec):
+        """In legacy mode, view name is {table}_{layer}_inputview (no catalog/db prefix)."""
+        mock_dp.temporary_view = MagicMock(return_value=None)
+        mock_run_dlt.return_value = None
+
+        spec_map = copy.deepcopy(self._BASE_SPEC)
+        spec_map["dataQualityExpectations"] = None
+        spec = BronzeDataflowSpec(**spec_map)
+        mock_get_spec.return_value = [spec]
+
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "False")
+        self.spark.conf.set("pipelines.schema", "")
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+        self.addCleanup(self.spark.conf.unset, "pipelines.schema")
+
+        captured_view_names = []
+        original_init = DataflowPipeline.__init__
+
+        def capturing_init(self_inner, spark, dataflow_spec, view_name, *args, **kwargs):
+            captured_view_names.append(view_name)
+            original_init(self_inner, spark, dataflow_spec, view_name, *args, **kwargs)
+
+        with patch.object(DataflowPipeline, "__init__", capturing_init):
+            DataflowPipeline.invoke_dlt_pipeline(self.spark, "bronze")
+
+        self.assertEqual(len(captured_view_names), 1)
+        self.assertEqual(captured_view_names[0], "actionplans_bronze_inputview")
+
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.DataflowSpecUtils.get_bronze_dataflow_spec")
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.DataflowPipeline.run_dlt")
+    @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
+    def test_view_name_dpm_uses_catalog_db_prefix(self, mock_dp, mock_run_dlt, mock_get_spec):
+        """In DPM mode, view name is {catalog}_{db}_{table}_{layer}_inputview."""
+        mock_dp.temporary_view = MagicMock(return_value=None)
+        mock_run_dlt.return_value = None
+
+        spec_map = copy.deepcopy(self._BASE_SPEC)
+        spec_map["dataQualityExpectations"] = None
+        spec = BronzeDataflowSpec(**spec_map)
+        mock_get_spec.return_value = [spec]
+
+        self.spark.conf.set("spark.databricks.unityCatalog.enabled", "True")
+        self.spark.conf.set("pipelines.schema", "target_schema")
+        self.addCleanup(self.spark.conf.unset, "spark.databricks.unityCatalog.enabled")
+        self.addCleanup(self.spark.conf.unset, "pipelines.schema")
+
+        captured_view_names = []
+        original_init = DataflowPipeline.__init__
+
+        def capturing_init(self_inner, spark, dataflow_spec, view_name, *args, **kwargs):
+            captured_view_names.append(view_name)
+            original_init(self_inner, spark, dataflow_spec, view_name, *args, **kwargs)
+
+        with patch.object(DataflowPipeline, "__init__", capturing_init):
+            DataflowPipeline.invoke_dlt_pipeline(self.spark, "bronze")
+
+        self.assertEqual(len(captured_view_names), 1)
+        self.assertEqual(captured_view_names[0], "dev_bronze_gracis_actionplans_bronze_inputview")

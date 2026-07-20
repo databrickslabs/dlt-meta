@@ -181,7 +181,9 @@ demo/dabs/conf/yml/onboarding_bronze_silver_people.yml
 demo/dabs/conf/yml/onboarding_silver_fanout_people.yml
 integration_tests/conf/json/onboarding*.json
 integration_tests/conf/yml/onboarding*.yml
+integration_tests/conf/json/backward_compat_onboarding_*.json
 integration_test_output*.csv
+backward_compat_phase*.csv
 onboarding_job_details.json
 
 # Local stash folder for screenshots that get copied into
