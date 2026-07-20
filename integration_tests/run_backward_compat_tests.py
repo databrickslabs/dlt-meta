@@ -117,7 +117,11 @@ sys.path.append(project_root)
 from databricks.sdk import WorkspaceClient  # noqa: E402
 from databricks.sdk.service import compute, jobs  # noqa: E402
 from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType  # noqa: E402
-from databricks.sdk.service.pipelines import NotebookLibrary, PipelineLibrary  # noqa: E402
+from databricks.sdk.service.pipelines import (  # noqa: E402
+    NotebookLibrary,
+    PipelineCluster,
+    PipelineLibrary,
+)
 from databricks.sdk.service.workspace import ImportFormat, Language  # noqa: E402
 
 from databricks.labs.sdp_meta.identifiers import validate_uc_identifier  # noqa: E402
@@ -176,6 +180,16 @@ class BCRunnerConf:
     #               have egress to ``git_repo_url``.
     install_mode: str = "local"
     git_repo_url: str = "https://github.com/databrickslabs/sdp-meta.git"
+    # Pipeline execution and publishing mode:
+    #
+    #   ``serverless_dpm`` (default) creates serverless pipelines with
+    #   ``schema=``. This is the existing fast-path coverage.
+    #
+    #   ``standard_legacy`` creates pipeline-managed standard compute with
+    #   ``target=``. It exercises an existing legacy publishing-mode
+    #   pipeline being upgraded in place to the current wheel.
+    pipeline_mode: str = "serverless_dpm"
+    pipeline_num_workers: Optional[int] = None
     # When True, skip the git-worktree checkout for the TARGET main
     # wheel and run ``setup.py bdist_wheel`` against the developer's
     # working tree instead. Use ONLY for iterating on uncommitted
@@ -267,6 +281,10 @@ class BCRunnerConf:
             source=self.source_profile, target=self.target_profile
         )
 
+    @property
+    def is_standard_legacy_mode(self) -> bool:
+        return self.pipeline_mode == "standard_legacy"
+
 
 class BackwardCompatRunner:
     """Two-phase orchestrator: SOURCE -> TARGET wheel swap.
@@ -328,6 +346,24 @@ class BackwardCompatRunner:
                 f"install_mode={install_mode!r}."
             )
 
+        pipeline_mode = (
+            self.args.get("pipeline_mode") or "serverless_dpm"
+        ).lower()
+        if pipeline_mode not in ("serverless_dpm", "standard_legacy"):
+            raise ValueError(
+                "--pipeline_mode must be 'serverless_dpm' or "
+                f"'standard_legacy'; got {pipeline_mode!r}."
+            )
+
+        pipeline_num_workers = self.args.get("pipeline_num_workers")
+        if pipeline_mode == "standard_legacy":
+            if pipeline_num_workers is None or int(pipeline_num_workers) < 1:
+                raise ValueError(
+                    "--pipeline_num_workers must be at least 1 when "
+                    "--pipeline_mode=standard_legacy."
+                )
+            pipeline_num_workers = int(pipeline_num_workers)
+
         conf = BCRunnerConf(
             run_id=run_id,
             uc_catalog_name=self.args["uc_catalog_name"],
@@ -340,6 +376,8 @@ class BackwardCompatRunner:
             install_mode=install_mode,
             git_repo_url=self.args.get("git_repo_url")
             or BCRunnerConf.__dataclass_fields__["git_repo_url"].default,
+            pipeline_mode=pipeline_mode,
+            pipeline_num_workers=pipeline_num_workers,
             build_target_from_worktree=build_target_from_worktree,
         )
         conf.runners_nb_path = (
@@ -671,6 +709,89 @@ class BackwardCompatRunner:
             "pipelines.maxFlowRetryAttempts": "0",
         }
 
+    @staticmethod
+    def _pipeline_execution_kwargs(
+        conf: BCRunnerConf,
+        target_schema: str,
+    ) -> Dict[str, object]:
+        """Return mode-specific pipeline creation/update fields.
+
+        ``standard_legacy`` deliberately uses ``target=`` directly, rather
+        than the schema-first compatibility helper. A workspace that accepts
+        ``schema=`` would otherwise create a DPM pipeline and fail to test
+        the legacy publishing-mode upgrade contract.
+        """
+        if conf.is_standard_legacy_mode:
+            return {
+                "serverless": False,
+                "target": target_schema,
+                "clusters": [
+                    PipelineCluster(
+                        label="default",
+                        num_workers=conf.pipeline_num_workers,
+                    )
+                ],
+            }
+        return {
+            "serverless": True,
+            "schema": target_schema,
+        }
+
+    def _verify_pipeline_mode(
+        self,
+        conf: BCRunnerConf,
+        pipeline_id: str,
+        target_schema: str,
+        expected_configuration: Dict[str, str],
+    ) -> None:
+        """Fail fast if the API did not retain the requested pipeline mode.
+
+        The wheel-config-key assertion runs in every mode -- it confirms
+        the Phase 1 create (and the Phase 2 swap) actually landed the
+        expected wheel path. The compute/publishing checks below are only
+        meaningful for ``standard_legacy``.
+        """
+        spec = self.ws.pipelines.get(pipeline_id).spec
+        actual_configuration = getattr(spec, "configuration", None) or {}
+
+        errors = []
+        wheel_key = conf.source_profile.pipeline_config_whl_key
+        if actual_configuration.get(wheel_key) != expected_configuration.get(wheel_key):
+            errors.append(
+                f"configuration[{wheel_key!r}]="
+                f"{actual_configuration.get(wheel_key)!r}, expected "
+                f"{expected_configuration.get(wheel_key)!r}"
+            )
+
+        if conf.is_standard_legacy_mode:
+            actual_target = getattr(spec, "target", None)
+            actual_schema = getattr(spec, "schema", None)
+            actual_serverless = getattr(spec, "serverless", None)
+            clusters = getattr(spec, "clusters", None) or []
+            default_cluster = next(
+                (cluster for cluster in clusters if cluster.label == "default"),
+                None,
+            )
+            if actual_serverless is not False:
+                errors.append(f"serverless={actual_serverless!r}, expected False")
+            if actual_target != target_schema:
+                errors.append(f"target={actual_target!r}, expected {target_schema!r}")
+            if actual_schema:
+                errors.append(f"schema={actual_schema!r}, expected unset")
+            if default_cluster is None:
+                errors.append("default standard-compute cluster is missing")
+            elif default_cluster.num_workers != conf.pipeline_num_workers:
+                errors.append(
+                    f"default cluster num_workers={default_cluster.num_workers!r}, "
+                    f"expected {conf.pipeline_num_workers!r}"
+                )
+
+        if errors:
+            raise RuntimeError(
+                f"Pipeline {pipeline_id!r} did not retain the expected "
+                f"{conf.pipeline_mode} configuration: {'; '.join(errors)}"
+            )
+
     def create_pipeline(
         self,
         conf: BCRunnerConf,
@@ -691,21 +812,26 @@ class BackwardCompatRunner:
         runner_path = (
             f"{conf.runners_nb_path}/runners/{self._runner_notebook_filename(conf)}"
         )
-        created = sdk_create_pipeline(
-            self.ws,
-            catalog=conf.uc_catalog_name,
-            name=name,
-            serverless=True,
-            configuration=configuration,
-            libraries=[
+        create_kwargs = {
+            "catalog": conf.uc_catalog_name,
+            "name": name,
+            "configuration": configuration,
+            "libraries": [
                 PipelineLibrary(
                     notebook=NotebookLibrary(path=runner_path)
                 )
             ],
-            schema=target_schema,
-        )
+            **self._pipeline_execution_kwargs(conf, target_schema),
+        }
+        if conf.is_standard_legacy_mode:
+            created = self.ws.pipelines.create(**create_kwargs)
+        else:
+            created = sdk_create_pipeline(self.ws, **create_kwargs)
         if created is None or not created.pipeline_id:
             raise RuntimeError(f"Pipeline {name!r} creation failed")
+        self._verify_pipeline_mode(
+            conf, created.pipeline_id, target_schema, configuration
+        )
         print(f"  created pipeline {name!r} -> {created.pipeline_id}")
         return created.pipeline_id
 
@@ -738,8 +864,8 @@ class BackwardCompatRunner:
         Pipeline IDs and DLT checkpoints are preserved; only the value
         behind the SOURCE-defined pipeline-config key changes (from
         SOURCE wheel path to TARGET wheel path). The runner notebook,
-        the libraries list, the schema, and every other pipeline
-        attribute stay byte-identical.
+        the libraries list, the publishing destination, and every other
+        pipeline attribute stay byte-identical.
 
         Note on whl-typed PipelineLibrary entries: serverless DLT
         rejects them with ``InvalidParameterValue: Whl libraries are
@@ -757,18 +883,18 @@ class BackwardCompatRunner:
             (conf.bronze_a2_pipeline_id, "bronze", "A2", conf.bronze_schema),
             (conf.silver_pipeline_id, "silver", "A1", conf.silver_schema),
         )
-        for pid, layer, group, _target_schema in targets:
+        for pid, layer, group, target_schema in targets:
             config = self._build_phase2_pipeline_config(conf, layer, group)
             existing = self.ws.pipelines.get(pid)
             self.ws.pipelines.update(
                 pipeline_id=pid,
                 catalog=existing.spec.catalog,
                 name=existing.spec.name,
-                serverless=True,
                 configuration=config,
                 libraries=existing.spec.libraries,
-                schema=existing.spec.schema,
+                **self._pipeline_execution_kwargs(conf, target_schema),
             )
+            self._verify_pipeline_mode(conf, pid, target_schema, config)
             print(
                 f"  swapped pipeline {pid} -> "
                 f"{conf.target_profile.name} wheel spec"
@@ -1214,6 +1340,26 @@ def parse_cli() -> dict:
         ),
     )
     p.add_argument(
+        "--pipeline_mode",
+        default="serverless_dpm",
+        choices=("serverless_dpm", "standard_legacy"),
+        help=(
+            "Pipeline compute and publishing mode. "
+            "'serverless_dpm' (default) creates serverless pipelines with "
+            "schema=; 'standard_legacy' creates pipeline-managed standard "
+            "compute with target= to test legacy-publishing upgrades."
+        ),
+    )
+    p.add_argument(
+        "--pipeline_num_workers",
+        type=int,
+        default=None,
+        help=(
+            "Worker count for pipeline-managed standard compute. Required "
+            "when --pipeline_mode=standard_legacy."
+        ),
+    )
+    p.add_argument(
         "--phase_timeout_min",
         type=int,
         default=BackwardCompatRunner.DEFAULT_PHASE_TIMEOUT_MIN,
@@ -1221,7 +1367,7 @@ def parse_cli() -> dict:
             "Per-phase wall-clock timeout in minutes for "
             "jobs.run_now().result() (default: %(default)s). Phase 1 "
             "runs six DLT pipelines sequentially plus a validate "
-            "notebook; bump this if your workspace's serverless cold "
+            "notebook; bump this if your workspace's pipeline cold "
             "starts push the run past the default."
         ),
     )

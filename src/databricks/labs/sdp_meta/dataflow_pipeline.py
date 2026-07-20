@@ -95,6 +95,13 @@ class DataflowPipeline:
         spark.conf.set("databrickslab.sdp-meta.version", f"{__version__}")
         uc_enabled_str = uc_enabled_str.lower()
         self.uc_enabled = True if uc_enabled_str == "true" else False
+        self.dpm_enabled = self._is_dpm_enabled(spark)
+        self.is_legacy_publishing_mode = not self.dpm_enabled
+        if self.is_legacy_publishing_mode:
+            logger.info(
+                "Pipeline is using legacy publishing mode (pipelines.schema is unset). "
+                "Table names will be unqualified to comply with LIVE schema restrictions.",
+            )
         self.dataflowSpec = dataflow_spec
         self.view_name = view_name
         if view_name_quarantine:
@@ -359,10 +366,9 @@ class DataflowPipeline:
         target_details = self._get_target_details()
         target_path = None if self.uc_enabled else target_details.get("path")
         target_cl = target_details.get('catalog', None)
-        target_cl_name = f"{target_cl}." if target_cl is not None else ''
         target_db_name = target_details['database']
         target_table_name = target_details['table']
-        target_table = f"{target_cl_name}{target_db_name}.{target_table_name}"
+        target_table = self._build_table_name(target_cl, target_db_name, target_table_name)
         return target_path, target_table, target_table_name
 
     def _get_table_comment(self, target_table, is_bronze=True):
@@ -570,19 +576,23 @@ class DataflowPipeline:
         return bronze_df
 
     def write_to_delta(self):
-        """Write to Delta."""
-        return self.spark.readStream.table(self.view_name)
+        """Write to Delta.
+
+        Uses ``dp.read_stream`` (the LDP equivalent of the legacy
+        ``dlt.read_stream``) to resolve the view from the pipeline's internal
+        dataset graph.  ``spark.readStream.table`` is intentionally NOT used
+        here: in legacy publishing mode it falls back to a catalog lookup and
+        raises TABLE_OR_VIEW_NOT_FOUND instead of finding the LIVE-schema view.
+        """
+        return dp.read_stream(self.view_name)
 
     def apply_changes_from_snapshot(self):
         target_path = None if self.uc_enabled else self.dataflowSpec.targetDetails["path"]
         self.create_streaming_table(None, target_path)
         target_cl = self.dataflowSpec.targetDetails.get('catalog', None)
-        target_cl_name = f"{target_cl}." if target_cl is not None else ''
         target_db_name = self.dataflowSpec.targetDetails['database']
         target_table_name = self.dataflowSpec.targetDetails['table']
-        target_table = (
-            f"{target_cl_name}{target_db_name}.{target_table_name}"
-        )
+        target_table = self._build_table_name(target_cl, target_db_name, target_table_name)
         source = (
             (lambda latest_snapshot_version: self.next_snapshot_and_version(
                 latest_snapshot_version, self.dataflowSpec
@@ -702,7 +712,6 @@ class DataflowPipeline:
 
             quarantine_path = None if self.uc_enabled else quarantine_target_details.get("path")
             quarantine_cl = quarantine_target_details.get('catalog', None)
-            quarantine_cl_name = f"{quarantine_cl}." if quarantine_cl is not None else ''
             quarantine_db = quarantine_target_details.get('database', '')
             quarantine_table_name = quarantine_target_details.get('table', '')
 
@@ -711,9 +720,7 @@ class DataflowPipeline:
                 logger.warning("Quarantine table name is empty or None. Skipping quarantine table creation.")
                 return
 
-            quarantine_table = (
-                f"{quarantine_cl_name}{quarantine_db}.{quarantine_table_name}"
-            )
+            quarantine_table = self._build_table_name(quarantine_cl, quarantine_db, quarantine_table_name)
             layer_name = "bronze" if is_bronze else "silver"
             quarantine_comment = (
                 quarantine_target_details.get('comment')
@@ -802,13 +809,9 @@ class DataflowPipeline:
             apply_as_truncates = expr(cdc_apply_changes.apply_as_truncates)
 
         target_cl = self.dataflowSpec.targetDetails.get('catalog', None)
-        target_cl_name = f"{target_cl}." if target_cl is not None else ''
         target_db_name = self.dataflowSpec.targetDetails['database']
         target_table_name = self.dataflowSpec.targetDetails['table']
-
-        target_table = (
-            f"{target_cl_name}{target_db_name}.{target_table_name}"
-        )
+        target_table = self._build_table_name(target_cl, target_db_name, target_table_name)
 
         # Handle comma-separated sequence columns using struct
         sequence_by = cdc_apply_changes.sequence_by
@@ -965,13 +968,9 @@ class DataflowPipeline:
         expect_all_dict, expect_all_or_drop_dict, expect_all_or_fail_dict = self.get_dq_expectations()
 
         target_cl = self.dataflowSpec.targetDetails.get('catalog', None)
-        target_cl_name = f"{target_cl}." if target_cl is not None else ''
         target_db_name = self.dataflowSpec.targetDetails['database']
         target_table_name = self.dataflowSpec.targetDetails['table']
-
-        target_table = (
-            f"{target_cl_name}{target_db_name}.{target_table_name}"
-        )
+        target_table = self._build_table_name(target_cl, target_db_name, target_table_name)
 
         # Get cluster_by_auto from dataflowSpec, default to False if not present
         cluster_by_auto = (
@@ -1079,22 +1078,32 @@ class DataflowPipeline:
                     and dataflowSpec.quarantineTargetDetails != {}:
 
                 qrt_cl = dataflowSpec.quarantineTargetDetails.get('catalog', None)
-                qrt_cl_str = f"{qrt_cl}_" if qrt_cl is not None else ''
                 qrt_db = dataflowSpec.quarantineTargetDetails['database'].replace('.', '_')
                 qrt_table = dataflowSpec.quarantineTargetDetails['table']
-                quarantine_input_view_name = (
-                    f"{qrt_cl_str}{qrt_db}_{qrt_table}"
-                    f"_{layer}_quarantine_inputview"
-                )
-                quarantine_input_view_name = quarantine_input_view_name.replace(".", "").lower()
+                if not DataflowPipeline._is_dpm_enabled(spark):
+                    quarantine_input_view_name = f"{qrt_table}_{layer}_quarantine_inputview"
+                else:
+                    qrt_cl_str = f"{qrt_cl}_" if qrt_cl is not None else ''
+                    quarantine_input_view_name = (
+                        f"{qrt_cl_str}{qrt_db}_{qrt_table}"
+                        f"_{layer}_quarantine_inputview"
+                    )
+                    quarantine_input_view_name = quarantine_input_view_name.replace(".", "").lower()
             else:
                 logger.info("quarantine_input_view_name set to None")
             target_cl = dataflowSpec.targetDetails.get('catalog', None)
-            target_cl_str = f"{target_cl}_" if target_cl is not None else ''
             target_db = dataflowSpec.targetDetails['database'].replace('.', '_')
             target_table = dataflowSpec.targetDetails['table']
-            target_view_name = f"{target_cl_str}{target_db}_{target_table}_{layer}_inputview"
-            target_view_name = target_view_name.replace(".", "").lower()
+            # In legacy publishing mode all tables live in the LIVE virtual schema,
+            # so view names must NOT include the catalog/database prefix — they must
+            # match exactly what dp.temporary_view registered. In DPM, keep the full
+            # prefix so names stay unique across catalogs/schemas.
+            if not DataflowPipeline._is_dpm_enabled(spark):
+                target_view_name = f"{target_table}_{layer}_inputview"
+            else:
+                target_cl_str = f"{target_cl}_" if target_cl is not None else ''
+                target_view_name = f"{target_cl_str}{target_db}_{target_table}_{layer}_inputview"
+                target_view_name = target_view_name.replace(".", "").lower()
             dlt_data_flow = DataflowPipeline(
                 spark,
                 dataflowSpec,
@@ -1106,8 +1115,32 @@ class DataflowPipeline:
             dlt_data_flow.run_dlt()
 
     # Additional optimization methods for common patterns
+    @staticmethod
+    def _is_dpm_enabled(spark):
+        """Return True when default publishing mode exposes ``pipelines.schema``."""
+        return bool(spark.conf.get("pipelines.schema", "").strip())
+
+    @staticmethod
+    def _build_fully_qualified_table_name(catalog, database, table):
+        """Build catalog.schema.table (or schema.table without catalog).
+
+        Source table reads are not Lakeflow dataset declarations, so they must
+        stay qualified even when output datasets run in legacy publishing mode.
+        """
+        catalog_prefix = f"{catalog}." if catalog else ''
+        return f"{catalog_prefix}{database}.{table}"
+
     def _build_table_name(self, catalog, database, table):
-        """Build a fully qualified table name."""
+        """Build a table name appropriate for the pipeline's publishing mode.
+
+        Legacy publishing mode (pipelines.target is set): returns the bare table
+        name only — LDP rejects schema-qualified names in the LIVE virtual schema
+        and raises DLTAnalysisException.
+
+        Default publishing mode (DPM): returns fully-qualified catalog.schema.table.
+        """
+        if self.is_legacy_publishing_mode:
+            return table
         catalog_prefix = f"{catalog}." if catalog else ''
         return f"{catalog_prefix}{database}.{table}"
 
@@ -1117,7 +1150,7 @@ class DataflowPipeline:
         catalog = source_details.get('catalog', None)
         database = source_details["database"]
         table = source_details["table"]
-        return self._build_table_name(catalog, database, table), source_details
+        return self._build_fully_qualified_table_name(catalog, database, table), source_details
 
     def _get_target_table_name(self):
         """Get the fully qualified target table name."""
