@@ -197,6 +197,15 @@ python integration_tests/run_backward_compat_tests.py \
     --uc_catalog_name=<<uc catalog name>> \
     --profile=<<DEFAULT>>
 
+# Legacy publishing mode on pipeline-managed standard compute. This creates
+# pipelines with `target=` and `serverless=False`, then upgrades their wheel
+# in place while retaining the legacy publishing mode.
+python integration_tests/run_backward_compat_tests.py \
+    --uc_catalog_name=<<uc catalog name>> \
+    --pipeline_mode=standard_legacy \
+    --pipeline_num_workers=2 \
+    --profile=<<DEFAULT>>
+
 # Same scenario, but install wheels via git+https instead of local build:
 python integration_tests/run_backward_compat_tests.py \
     --uc_catalog_name=<<uc catalog name>> \
@@ -226,6 +235,31 @@ python integration_tests/run_backward_compat_tests.py \
 python integration_tests/run_backward_compat_tests.py \
     --uc_catalog_name=<<uc catalog name>> --cleanup --profile=<<DEFAULT>>
 ```
+
+### Pipeline execution modes
+
+`--pipeline_mode` controls both pipeline compute and the publishing-mode
+contract under test:
+
+- `serverless_dpm` (default) creates serverless pipelines with `schema=`.
+  This is the existing default-publishing-mode upgrade test.
+- `standard_legacy` creates pipeline-managed standard compute with
+  `serverless=False`, `target=`, and a default `PipelineCluster`. It requires
+  `--pipeline_num_workers` (at least `1`) and verifies the legacy publishing
+  mode after pipeline creation and after the Phase 2 wheel swap.
+
+`standard_legacy` is intentionally not an existing all-purpose cluster ID:
+Lakeflow Declarative Pipelines creates and manages its standard compute from
+the supplied worker count. Use a UC-enabled workspace whose policy permits
+standard pipeline compute and whose identity can create schemas, volumes, and
+pipelines in `--uc_catalog_name`. Start with two workers; increase the count
+only when the input size or your workspace policy requires it.
+
+The test retains the source runner notebook, source `dlt_meta_whl`
+configuration key, pipeline IDs, and checkpoints. It fails immediately if the
+service returns a serverless or DPM (`schema=`) pipeline for this mode. After
+a successful run, inspect the two emitted `backward_compat_phase*.csv` files:
+every Phase 2 validation line must end in `Passed!`.
 
 ### What changes between phases (and what doesn't)
 

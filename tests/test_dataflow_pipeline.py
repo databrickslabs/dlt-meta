@@ -232,12 +232,12 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         "rowFilter": None,
         "quarantineRowFilter": None,
     }
-    # @classmethod
-    # def setUp(self):
-    #     """Set up initial resources for unit tests."""
-    #     super().setUp()
-    #     onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
-    #     onboardDataFlowSpecs.onboard_dataflow_specs()
+
+    def setUp(self):
+        """Set up DPM defaults expected by this class's legacy tests."""
+        super().setUp()
+        self.spark.conf.set("pipelines.schema", "test_pipeline_schema")
+        self.addCleanup(self.spark.conf.unset, "pipelines.schema")
 
     @patch.object(DataflowPipeline, "run_dlt", return_value={"called"})
     def test_invoke_dlt_pipeline_bronz_positive(self, run_dlt):
