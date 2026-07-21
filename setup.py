@@ -54,7 +54,11 @@ content = re.sub(
 )
 long_description = content
 
-INSTALL_REQUIRES = ["setuptools", "databricks-sdk", "PyYAML>=6.0"]
+INSTALL_REQUIRES = [
+    "setuptools>=65,<83",
+    "databricks-sdk>=0.20,<1",
+    "PyYAML>=6.0,<7",
+]
 
 DEV_REQUIREMENTS = [
     "flake8==6.0",
