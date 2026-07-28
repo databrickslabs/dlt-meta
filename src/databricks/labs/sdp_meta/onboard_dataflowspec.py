@@ -14,10 +14,16 @@ import pyspark.sql.types as T
 from pyspark.sql import functions as f
 from pyspark.sql.types import ArrayType, MapType, StringType, StructField, StructType
 
-from databricks.labs.sdp_meta.dataflow_spec import BronzeDataflowSpec, DataflowSpecUtils, SilverDataflowSpec
+from databricks.labs.sdp_meta.dataflow_spec import (
+    BronzeDataflowSpec,
+    DataflowSpecUtils,
+    SilverDataflowSpec,
+    _coerce_scd_type_to_str,
+)
 from databricks.labs.sdp_meta.identifiers import (
     SUPPORTED_SOURCE_FORMATS,
     validate_scd_type,
+    validate_sequence_by,
     validate_source_format,
     validate_sql_where_clause,
     validate_uc_column_list,
@@ -36,10 +42,12 @@ logger.setLevel(logging.INFO)
 # would fail at DLT runtime, so onboarding pre-flight catches it. The
 # expression-valued fields (``apply_as_deletes`` / ``apply_as_truncates``
 # / ``where``) are deliberately NOT in this list -- they go through
-# ``expr(...)`` rather than identifier slots.
+# ``expr(...)`` rather than identifier slots. ``sequence_by`` is also
+# NOT here: it supports comma-separated multi-column ordering and
+# dotted column references (see ``validate_sequence_by``), so it gets
+# its own dedicated check below.
 _CDC_COL_FIELDS = (
     "keys",
-    "sequence_by",
     "column_list",
     "except_column_list",
     "track_history_column_list",
@@ -451,17 +459,30 @@ class OnboardDataflowspec:
                         validate_uc_identifier,
                         {},
                     ),
-                    (f"{layer}_partition_columns", validate_uc_column_list, {}),
+                    # allow_empty_entries: the v0.0.10 ``[""]`` no-columns
+                    # idiom is tolerated on these four fields only,
+                    # because their runtime parser (``get_partition_cols``)
+                    # drops blank entries. CDC column lists below stay
+                    # strict — they're persisted verbatim into DLT calls.
+                    (
+                        f"{layer}_partition_columns",
+                        validate_uc_column_list,
+                        {"allow_empty_entries": True},
+                    ),
                     (
                         f"{layer}_quarantine_table_partitions",
                         validate_uc_column_list,
-                        {},
+                        {"allow_empty_entries": True},
                     ),
-                    (f"{layer}_cluster_by", validate_uc_column_list, {}),
+                    (
+                        f"{layer}_cluster_by",
+                        validate_uc_column_list,
+                        {"allow_empty_entries": True},
+                    ),
                     (
                         f"{layer}_quarantine_table_cluster_by",
                         validate_uc_column_list,
-                        {},
+                        {"allow_empty_entries": True},
                     ),
                     # UC row-level-security clauses (issue #303/#306).
                     # These are the ``ROW FILTER cat.schema.func ON
@@ -557,6 +578,15 @@ class OnboardDataflowspec:
                             cdc_block["scd_type"],
                             kind=f"flow {flow_id} {cdc_field}.scd_type",
                         )
+                    # sequence_by gets its own lenient check (CSV +
+                    # dotted refs) instead of the strict identifier
+                    # rules -- see validate_sequence_by.
+                    if cdc_block.get("sequence_by"):
+                        _check(
+                            validate_sequence_by,
+                            cdc_block["sequence_by"],
+                            kind=f"flow {flow_id} {cdc_field}.sequence_by",
+                        )
                     for col_field in col_fields:
                         if cdc_block.get(col_field):
                             _check(
@@ -603,6 +633,12 @@ class OnboardDataflowspec:
                             validate_scd_type,
                             cdc_flows_block["scd_type"],
                             kind=f"flow {flow_id} {cdc_flows_field}.scd_type",
+                        )
+                    if cdc_flows_block.get("sequence_by"):
+                        _check(
+                            validate_sequence_by,
+                            cdc_flows_block["sequence_by"],
+                            kind=f"flow {flow_id} {cdc_flows_field}.sequence_by",
                         )
                     for col_field in _CDC_COL_FIELDS:
                         if cdc_flows_block.get(col_field):
@@ -1377,6 +1413,12 @@ class OnboardDataflowspec:
                 raise Exception(
                     f"Source format {source_format} not supported in SDP-META! row={onboarding_row}"
                 )
+            # v0.0.10 accepted any case here (``.lower()`` check), but
+            # the read dispatch in dataflow_pipeline.py compares exactly
+            # (``== "cloudFiles"``). Persist the canonical spelling so a
+            # v0.0.10-era case variant is healed instead of stored and
+            # failing later at pipeline runtime (issue #370 class).
+            source_format = validate_source_format(source_format)
             source_details, bronze_reader_config_options, schema = (
                 self.get_bronze_source_details_reader_options_schema(
                     onboarding_row, env
@@ -1435,9 +1477,13 @@ class OnboardDataflowspec:
                 and onboarding_row["bronze_cdc_apply_changes"]
             ):
                 self.__validate_apply_changes(onboarding_row, "bronze")
+                # v0.0.10 onboarding files carried scd_type as int
+                # (issue #370); persist the canonical string form.
                 cdc_apply_changes = json.dumps(
-                    self.__delete_none(
-                        onboarding_row["bronze_cdc_apply_changes"].asDict()
+                    _coerce_scd_type_to_str(
+                        self.__delete_none(
+                            onboarding_row["bronze_cdc_apply_changes"].asDict()
+                        )
                     )
                 )
             apply_changes_from_snapshot = None
@@ -1445,7 +1491,9 @@ class OnboardDataflowspec:
                     and onboarding_row["bronze_apply_changes_from_snapshot"]):
                 self.__validate_apply_changes_from_snapshot(onboarding_row, "bronze")
                 apply_changes_from_snapshot = json.dumps(
-                    self.__delete_none(onboarding_row["bronze_apply_changes_from_snapshot"].asDict())
+                    _coerce_scd_type_to_str(
+                        self.__delete_none(onboarding_row["bronze_apply_changes_from_snapshot"].asDict())
+                    )
                 )
             data_quality_expectations = None
             quarantine_target_details = {}
@@ -1704,6 +1752,14 @@ class OnboardDataflowspec:
                         append_flow_map[key] = self.__delete_none(mp)
                     else:
                         append_flow_map[key] = json_append_flow[key]
+                # Same canonicalization as the top-level source_format:
+                # v0.0.10 onboarded case variants, but read_append_flows
+                # dispatches with exact string comparison.
+                if append_flow_map.get("source_format"):
+                    append_flow_map["source_format"] = validate_source_format(
+                        append_flow_map["source_format"],
+                        kind=f"{layer}_append_flows source_format",
+                    )
                 af_list.append(self.__delete_none(append_flow_map))
             append_flows = json.dumps(af_list)
         return append_flows, append_flows_schema
@@ -1941,7 +1997,9 @@ class OnboardDataflowspec:
             ),
             "flows": out_flows,
         }
-        group_json = json.dumps(self.__delete_none(group_payload))
+        group_json = json.dumps(
+            _coerce_scd_type_to_str(self.__delete_none(group_payload))
+        )
         return group_json, per_flow_schemas
 
     def get_validated_sinks_details(self, sinks_details_json):
@@ -2438,8 +2496,12 @@ class OnboardDataflowspec:
                     "silver_cdc_apply_changes"
                 ]
                 if self.onboard_file_type == "json":
+                    # v0.0.10 onboarding files carried scd_type as int
+                    # (issue #370); persist the canonical string form.
                     silver_cdc_apply_changes = json.dumps(
-                        self.__delete_none(silver_cdc_apply_changes_row.asDict())
+                        _coerce_scd_type_to_str(
+                            self.__delete_none(silver_cdc_apply_changes_row.asDict())
+                        )
                     )
             data_quality_expectations = None
             silver_quarantine_target_details = None
@@ -2473,7 +2535,9 @@ class OnboardDataflowspec:
                     and onboarding_row["silver_apply_changes_from_snapshot"]):
                 self.__validate_apply_changes_from_snapshot(onboarding_row, "silver")
                 apply_changes_from_snapshot = json.dumps(
-                    self.__delete_none(onboarding_row["silver_apply_changes_from_snapshot"].asDict())
+                    _coerce_scd_type_to_str(
+                        self.__delete_none(onboarding_row["silver_apply_changes_from_snapshot"].asDict())
+                    )
                 )
                 source_format = "snapshot"
             silver_row_filter = (

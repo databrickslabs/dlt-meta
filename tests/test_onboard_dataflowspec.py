@@ -535,12 +535,16 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
     def test_onboardDataFlowSpecs_pre_validates_source_format_and_scd_type(self):
         """Pre-flight enum validation must surface bad source_format / scd_type.
 
-        A typo'd ``source_format`` like ``"cloudfiles"`` (lowercase 'f')
-        falls through every ``elif source_format == ...`` branch in
+        A typo'd ``source_format`` like ``"cloud_files"`` falls through
+        every ``elif source_format == ...`` branch in
         ``DataflowPipeline``, leaving the bronze read with no input. A
         bad ``scd_type`` reaches DLT's apply_changes and fails opaquely.
         Pre-flight catches both at onboarding with the allowed values
         inlined in the error.
+
+        Case variants like ``"cloudfiles"`` are NOT errors: v0.0.10
+        onboarding accepted them via ``.lower()``, so pre-flight accepts
+        and canonicalizes them (issue #370 class of upgrade break).
 
         Includes a valid row to confirm the validator only flags the
         bogus values.
@@ -551,7 +555,7 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
                 # for bronze. UC names valid so they don't add noise.
                 "data_flow_id": "200",
                 "data_flow_group": "A1",
-                "source_format": "cloudfiles",  # lowercase 'f' typo
+                "source_format": "cloud_files",  # real typo, not a case variant
                 "source_details": {"source_path_dev": "/tmp/a"},
                 "bronze_database_dev": "ok_db",
                 "bronze_table": "ok_table",
@@ -768,7 +772,8 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
           - Partition-column list (with hyphen)
           - Cluster-by list (with period)
           - Top-level ``source_format`` enum (typo)
-          - CDC ``scd_type`` enum (numeric instead of string)
+          - CDC ``scd_type`` enum (unsupported value; note int 1/2 are
+            VALID — v0.0.10 compat, issue #370 — so we use 3 here)
           - CDC column-name field (``keys`` with hyphen)
           - Append-flow ``source_format`` enum (unsupported value)
 
@@ -794,9 +799,11 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
             "bronze_partition_columns": "ok_col,bad-col",
             "bronze_cluster_by": ["ok_col", "bad.col"],
             "bronze_cdc_apply_changes": {
-                # ``scd_type`` must be a string; numeric trips the enum
-                # validator. ``keys`` has a hyphen — column-list error.
-                "scd_type": 1,
+                # ``scd_type`` 3 is outside the supported {1, 2} set.
+                # (Int 1/2 would be ACCEPTED and coerced to "1"/"2" for
+                # v0.0.10 backward compat — issue #370.)
+                # ``keys`` has a hyphen — column-list error.
+                "scd_type": 3,
                 "keys": ["id", "bad-key"],
                 "sequence_by": "ts",
             },

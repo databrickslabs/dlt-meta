@@ -14,6 +14,27 @@ logger = logging.getLogger("sdp-meta")
 logger.setLevel(logging.INFO)
 
 
+def _coerce_scd_type_to_str(payload: dict) -> dict:
+    """Coerce an integer ``scd_type`` in ``payload`` to its string form.
+
+    Onboarding files written for v0.0.10 and earlier carried
+    ``"scd_type": 1`` as an int (issue #370), and dataflowspec tables
+    onboarded with those versions persisted the int inside the CDC JSON
+    payloads. The pipeline compares ``scd_type == "2"`` and passes the
+    value to ``stored_as_scd_type=...`` which expects a string, so an
+    int would silently disable SCD2 handling. Normalizing here — at the
+    parse boundary — covers both freshly onboarded specs and specs
+    already stored by older versions. ``bool`` is excluded because it is
+    an ``int`` subclass but was never a valid SCD type.
+
+    Mutates and returns ``payload`` for call-site convenience.
+    """
+    scd_type = payload.get("scd_type")
+    if isinstance(scd_type, int) and not isinstance(scd_type, bool):
+        payload["scd_type"] = str(scd_type)
+    return payload
+
+
 @dataclass
 class BronzeDataflowSpec:
     """A schema to hold a dataflow spec used for writing to the bronze layer."""
@@ -473,7 +494,9 @@ class DataflowSpecUtils:
     def get_apply_changes_from_snapshot(apply_changes_from_snapshot) -> ApplyChangesFromSnapshot:
         """Get Apply changes from snapshot metadata."""
         logger.info(apply_changes_from_snapshot)
-        json_apply_changes_from_snapshot = json.loads(apply_changes_from_snapshot)
+        json_apply_changes_from_snapshot = _coerce_scd_type_to_str(
+            json.loads(apply_changes_from_snapshot)
+        )
         logger.info(f"actual mergeInfo={json_apply_changes_from_snapshot}")
         payload_keys = json_apply_changes_from_snapshot.keys()
         missing_apply_changes_from_snapshot_payload_keys = set(
@@ -510,7 +533,7 @@ class DataflowSpecUtils:
     def get_cdc_apply_changes(cdc_apply_changes) -> CDCApplyChanges:
         """Get CDC Apply changes metadata."""
         logger.info(cdc_apply_changes)
-        json_cdc_apply_changes = json.loads(cdc_apply_changes)
+        json_cdc_apply_changes = _coerce_scd_type_to_str(json.loads(cdc_apply_changes))
         logger.info(f"actual mergeInfo={json_cdc_apply_changes}")
         payload_keys = json_cdc_apply_changes.keys()
         missing_cdc_payload_keys = set(DataflowSpecUtils.cdc_applychanges_api_attributes).difference(payload_keys)
@@ -621,6 +644,7 @@ class DataflowSpecUtils:
             json_group = json.loads(cdc_apply_changes_flows)
         else:
             json_group = dict(cdc_apply_changes_flows)
+        json_group = _coerce_scd_type_to_str(json_group)
         logger.info(f"actual cdc_apply_changes_flows group={json_group}")
 
         # Group-level mandatory keys.
