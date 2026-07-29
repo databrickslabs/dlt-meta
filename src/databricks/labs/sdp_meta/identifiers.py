@@ -123,7 +123,9 @@ def validate_uc_full_name(name, *, kind: str = "identifier", max_parts: int = 3)
     return name
 
 
-def validate_uc_column_list(value, *, kind: str = "column list") -> list:
+def validate_uc_column_list(
+    value, *, kind: str = "column list", allow_empty_entries: bool = False
+) -> list:
     """Validate a column-name list/string and return the parsed column names.
 
     Onboarding accepts column-name fields in several shapes that the
@@ -184,13 +186,37 @@ def validate_uc_column_list(value, *, kind: str = "column list") -> list:
 
     out = []
     for i, col in enumerate(columns):
-        if not isinstance(col, str) or not col:
+        # v0.0.10 onboarding files used ``[""]`` (a list holding one
+        # empty string) as the "no columns" idiom on the partition /
+        # cluster-by fields, and the runtime ``get_partition_cols`` in
+        # dataflow_spec.py still special-cases it (``[""] -> None``, and
+        # ``filter(None, ...)`` for longer lists). Callers validating
+        # THOSE fields pass ``allow_empty_entries=True`` so pre-flight
+        # doesn't reject what the runtime deliberately tolerates. CDC
+        # column lists (``keys``, ``column_list``, ...) are persisted
+        # verbatim and go straight to DLT, where a blank entry fails at
+        # runtime — so blanks stay errors there (the default).
+        if isinstance(col, str) and not col.strip():
+            if allow_empty_entries:
+                continue
+            raise ValueError(
+                f"{kind} entry {i} is not a non-empty string: {col!r}"
+            )
+        if not isinstance(col, str):
             raise ValueError(
                 f"{kind} entry {i} is not a non-empty string: {col!r}"
             )
         validate_uc_identifier(col, kind=f"{kind} entry {i}")
         out.append(col)
     return out
+
+
+# lower-case → canonical spelling, e.g. "cloudfiles" → "cloudFiles".
+# v0.0.10 onboarding checked ``source_format.lower()`` so any case
+# variant onboarded successfully; we keep accepting those (issue #370
+# class of upgrade break) but coerce to the canonical spelling the
+# ``read_bronze`` dispatch in dataflow_pipeline.py compares against.
+_CANONICAL_SOURCE_FORMATS = {s.lower(): s for s in SUPPORTED_SOURCE_FORMATS}
 
 
 def validate_source_format(value, *, kind: str = "source_format") -> str:
@@ -202,36 +228,46 @@ def validate_source_format(value, *, kind: str = "source_format") -> str:
     at onboarding turns that "pipeline runs but does nothing" failure
     into a clear actionable error.
 
-    Match is case-sensitive on purpose — DLT and Spark both treat
-    ``"cloudFiles"`` and ``"cloudfiles"`` as different format names, so
-    accepting variants here would mask a real bug.
+    Matching is case-INsensitive for backward compatibility — v0.0.10
+    onboarding accepted ``"cloudfiles"`` / ``"CloudFiles"`` etc. via a
+    ``.lower()`` check — but the *returned* value is always the
+    canonical spelling (``"cloudFiles"``), because the runtime dispatch
+    compares exactly. Callers that persist the format must use the
+    return value so old case variants are healed rather than stored.
     """
     if not isinstance(value, str) or not value:
         raise ValueError(
             f"{kind} must be a non-empty string, got {value!r}"
         )
-    if value not in SUPPORTED_SOURCE_FORMATS:
+    canonical = _CANONICAL_SOURCE_FORMATS.get(value.lower())
+    if canonical is None:
         # Sort for deterministic, alphabetic error messages.
         allowed = ", ".join(sorted(SUPPORTED_SOURCE_FORMATS))
         raise ValueError(
             f"{kind}={value!r} is not supported. Use one of: {allowed}."
         )
-    return value
+    return canonical
 
 
 def validate_scd_type(value, *, kind: str = "scd_type") -> str:
     """Validate ``value`` is one of :data:`SUPPORTED_SCD_TYPES` (``"1"``/``"2"``).
 
     DLT's ``apply_changes`` / ``apply_changes_from_snapshot`` accept the
-    SCD type as a string. Catching a typo (``"3"``, integer ``2``, etc.)
+    SCD type as a string. Catching a typo (``"3"``, ``"scd_2"``, etc.)
     here surfaces it during onboarding with the allowed values inlined,
     instead of bubbling up later as an opaque DLT runtime error.
+
+    Integers ``1`` / ``2`` are accepted for backward compatibility —
+    onboarding files written for v0.0.10 and earlier carried
+    ``"scd_type": 1`` (issue #370) — and are coerced to the canonical
+    string form. Callers must use the *returned* value so downstream
+    dataclasses and the ``cdc_apply_changes.scd_type == "2"`` comparisons
+    in dataflow_pipeline.py only ever see strings.
     """
-    # We deliberately reject ``int`` here even though Python's ``2 == "2"``
-    # is False — accepting both would mean the onboarding-spec dataclasses
-    # carry mixed types, and the existing ``cdc_apply_changes.scd_type
-    # == "2"`` comparisons in dataflow_pipeline.py would silently miss the
-    # int variant. The onboarding contract is "string", so we enforce it.
+    # bool is a subclass of int, and True/False were never valid SCD
+    # types in any release, so reject it before the int coercion below.
+    if isinstance(value, int) and not isinstance(value, bool):
+        value = str(value)
     if not isinstance(value, str) or not value:
         raise ValueError(
             f"{kind} must be a non-empty string, got {type(value).__name__}: {value!r}"
@@ -241,6 +277,45 @@ def validate_scd_type(value, *, kind: str = "scd_type") -> str:
         raise ValueError(
             f"{kind}={value!r} is not supported. Use one of: {allowed}."
         )
+    return value
+
+
+def validate_sequence_by(value, *, kind: str = "sequence_by") -> str:
+    """Validate a CDC ``sequence_by`` value.
+
+    ``sequence_by`` is NOT a plain identifier slot — the runtime
+    (``cdc_apply_changes`` in dataflow_pipeline.py) supports a
+    comma-separated list of columns (wrapped in ``struct(...)`` for
+    multi-column ordering, documented in the CDC guide), and DLT itself
+    accepts dotted column references such as ``_metadata.file_path``.
+    v0.0.10 applied no validation at all here, so validating it with
+    the strict regular-identifier rules would reject onboarding files
+    that worked before (issue #370 class of upgrade break).
+
+    Accepted shapes: ``"col"``, ``"col1,col2,col3"``, and dotted
+    references like ``"_metadata.file_path"`` in any position. Each
+    dot-segment of each comma-entry must be a regular identifier —
+    that's exactly what the runtime's ``struct(...)`` split and DLT's
+    column resolution can handle. Returns ``value`` unchanged.
+    """
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(
+            f"{kind} must be a non-empty string, got "
+            f"{type(value).__name__}: {value!r}"
+        )
+    for entry in value.split(","):
+        entry = entry.strip()
+        if not entry:
+            raise ValueError(
+                f"{kind} {value!r} contains an empty entry; use a "
+                f"comma-separated list of column names, e.g. "
+                f"'event_ts,sequence_id'"
+            )
+        # No max_parts cap: nested struct fields can be arbitrarily deep.
+        for i, part in enumerate(entry.split(".")):
+            validate_uc_identifier(
+                part, kind=f"segment {i + 1} of {kind} column {entry!r}"
+            )
     return value
 
 

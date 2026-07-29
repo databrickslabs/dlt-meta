@@ -307,6 +307,20 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         self.assertEqual(cdcApplyChanges.except_column_list, None)
         self.assertEqual(cdcApplyChanges.scd_type, "1")
 
+    def test_getCdcApplyChanges_int_scd_type_coerced(self):
+        """v0.0.10 specs persisted scd_type as int (issue #370); parse must
+        coerce to the canonical string so ``scd_type == "2"`` comparisons
+        and ``stored_as_scd_type=...`` keep working after an upgrade."""
+        legacy_payload = """{"keys" : ["playerId"],"sequence_by" : "sequenceNum", "scd_type" : 2}"""
+        cdcApplyChanges = DataflowSpecUtils.get_cdc_apply_changes(legacy_payload)
+        self.assertEqual(cdcApplyChanges.scd_type, "2")
+
+    def test_get_apply_changes_from_snapshot_int_scd_type_coerced(self):
+        """Same v0.0.10 int coercion (issue #370) on the snapshot payload."""
+        legacy_payload = """{"keys" : ["playerId"], "scd_type" : 1}"""
+        acfs = DataflowSpecUtils.get_apply_changes_from_snapshot(legacy_payload)
+        self.assertEqual(acfs.scd_type, "1")
+
     def test_get_append_flow_positive(self):
         append_flow_spec = """[{
             "name":"customer_bronze_flow1",
@@ -564,6 +578,22 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         self.assertIsNone(flow.select_exp)
         self.assertIsNone(flow.where_clause)
         self.assertEqual(flow.once, False)
+
+    def test_get_cdc_apply_changes_flows_int_scd_type_coerced(self):
+        """v0.0.10 files carried scd_type as int (issue #370); the flows-group
+        parser must coerce it to the canonical string form."""
+        payload = """{
+            "keys": ["id"],
+            "sequence_by": "op_ts",
+            "scd_type": 2,
+            "flows": [{
+                "name": "src_a_cdc_flow",
+                "source_format": "delta",
+                "source_details": {"database": "raw", "table": "src_a"}
+            }]
+        }"""
+        group = DataflowSpecUtils.get_cdc_apply_changes_flows(payload)
+        self.assertEqual(group.scd_type, "2")
 
     def test_get_cdc_apply_changes_flows_multi_source(self):
         """Two flows landing in one target, full group + per-flow surface."""
