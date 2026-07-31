@@ -171,6 +171,7 @@ deployment-merged.yaml
 .vscode/
 .cursor/
 .claude/
+.isaac/
 .databricks
 .databricks-login.json
 demo/conf/json/onboarding*.json

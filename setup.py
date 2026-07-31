@@ -77,7 +77,10 @@ setup(
     name="databricks-labs-sdp-meta",
     version="0.1.0",
     python_requires=">=3.8",
-    setup_requires=["wheel>=0.37.1,<=0.42.0"],
+    # No ``setup_requires``: it makes setuptools fetch build deps from PyPI
+    # mid-build, which breaks the release workflow's ``--no-isolation`` build
+    # (nothing may be fetched at build time). Build deps are supplied by
+    # .github/requirements-build.txt instead.
     install_requires=INSTALL_REQUIRES,
     extras_require={"dev": DEV_REQUIREMENTS, "IT": IT_REQUIREMENTS, "mcp": MCP_REQUIREMENTS},
     author="Ravi Gawai",
