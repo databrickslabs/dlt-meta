@@ -39,6 +39,13 @@ jobs:
       - name: Install package and dependencies
         run: pip install -e ".[dev]"
 
+      # tests/test_app_*.py import databricks_app, whose runtime deps (flask,
+      # ...) are declared here rather than in setup.py's [dev] extra. Without
+      # this, those modules fail at COLLECTION with ModuleNotFoundError, which
+      # aborts pytest with exit code 2 and skips the coverage steps entirely.
+      - name: Install Databricks App dependencies
+        run: pip install -r databricks_app/requirements.txt
+
       - name: Install coverage
         run: pip install coverage
 
