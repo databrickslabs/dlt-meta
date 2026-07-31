@@ -16,6 +16,7 @@ from databricks.labs.sdp_meta.identifiers import (
     SUPPORTED_SOURCE_FORMATS,
     is_regular_identifier,
     validate_scd_type,
+    validate_sequence_by,
     validate_source_format,
     validate_sql_where_clause,
     validate_uc_column_list,
@@ -178,9 +179,41 @@ class ValidateUcColumnListTests(unittest.TestCase):
     def test_empty_list_returns_empty(self):
         self.assertEqual(validate_uc_column_list([]), [])
 
-    def test_list_with_empty_string_rejected(self):
+    def test_list_with_empty_string_rejected_by_default(self):
+        # CDC column lists (keys, column_list, ...) are persisted
+        # verbatim into DLT calls, so a blank entry must stay an error
+        # unless the caller explicitly opts into the legacy idiom.
         with self.assertRaisesRegex(ValueError, r"non-empty"):
-            validate_uc_column_list(["col1", ""], kind="bronze_cluster_by")
+            validate_uc_column_list(["col1", ""], kind="bronze_cdc keys")
+
+    def test_list_with_empty_string_entries_skipped_when_allowed(self):
+        # v0.0.10 files used [""] as the "no columns" idiom on the
+        # partition/cluster fields and the runtime get_partition_cols
+        # still special-cases it (issue #370 class); those callers pass
+        # allow_empty_entries=True so pre-flight matches the runtime.
+        self.assertEqual(
+            validate_uc_column_list(
+                ["col1", ""],
+                kind="bronze_cluster_by",
+                allow_empty_entries=True,
+            ),
+            ["col1"],
+        )
+
+    def test_list_with_only_empty_string_allowed_returns_empty(self):
+        self.assertEqual(
+            validate_uc_column_list([""], allow_empty_entries=True), []
+        )
+
+    def test_list_with_only_empty_string_rejected_by_default(self):
+        with self.assertRaisesRegex(ValueError, r"non-empty"):
+            validate_uc_column_list([""])
+
+    def test_list_with_whitespace_entry_skipped_when_allowed(self):
+        self.assertEqual(
+            validate_uc_column_list(["  ", "col1"], allow_empty_entries=True),
+            ["col1"],
+        )
 
     def test_list_with_non_string_rejected(self):
         with self.assertRaisesRegex(ValueError, r"non-empty"):
@@ -202,9 +235,13 @@ class ValidateUcColumnListTests(unittest.TestCase):
 
 
 class ValidateSourceFormatTests(unittest.TestCase):
-    """Pin the bronze-reader format set so a typo (``cloudfiles``) fails at
+    """Pin the bronze-reader format set so a typo (``parquet``) fails at
     onboarding instead of silently falling through every if/elif branch
-    in ``DataflowPipeline`` and starting a pipeline with no input."""
+    in ``DataflowPipeline`` and starting a pipeline with no input.
+
+    Case variants are accepted for v0.0.10 backward compatibility
+    (old onboarding checked ``.lower()``) and canonicalized, because
+    the runtime dispatch compares exactly (issue #370 class)."""
 
     def test_supported_set_matches_expected(self):
         # Hard-coded so any drift between this module and dataflow_pipeline.py
@@ -219,15 +256,20 @@ class ValidateSourceFormatTests(unittest.TestCase):
         for fmt in SUPPORTED_SOURCE_FORMATS:
             self.assertEqual(validate_source_format(fmt), fmt)
 
-    def test_typo_rejected(self):
-        with self.assertRaisesRegex(ValueError, r"cloudfiles"):
-            validate_source_format("cloudfiles")
+    def test_lowercase_variant_canonicalized(self):
+        # v0.0.10 onboarding accepted "cloudfiles" via .lower(); accept
+        # it and return the canonical spelling the runtime dispatches on.
+        self.assertEqual(validate_source_format("cloudfiles"), "cloudFiles")
 
-    def test_case_sensitive(self):
-        # DLT/Spark are case-sensitive on format name; this catches the
-        # common ``CloudFiles`` typo.
+    def test_mixed_case_variant_canonicalized(self):
+        self.assertEqual(validate_source_format("CloudFiles"), "cloudFiles")
+        self.assertEqual(validate_source_format("CLOUDFILES"), "cloudFiles")
+        self.assertEqual(validate_source_format("Delta"), "delta")
+        self.assertEqual(validate_source_format("KAFKA"), "kafka")
+
+    def test_typo_rejected(self):
         with self.assertRaisesRegex(ValueError, r"is not supported"):
-            validate_source_format("CloudFiles")
+            validate_source_format("cloud_files")
 
     def test_empty_rejected(self):
         with self.assertRaisesRegex(ValueError, r"non-empty"):
@@ -253,7 +295,9 @@ class ValidateSourceFormatTests(unittest.TestCase):
 
 class ValidateScdTypeTests(unittest.TestCase):
     """``stored_as_scd_type`` is a string in DLT's apply_changes API; reject
-    integers, ``"3"``, etc., to catch typos at onboarding."""
+    ``"3"``, ``"scd_2"``, etc., to catch typos at onboarding. Integers
+    ``1``/``2`` are accepted and coerced to strings for backward
+    compatibility with v0.0.10 onboarding files (issue #370)."""
 
     def test_supported_set_matches_expected(self):
         self.assertEqual(SUPPORTED_SCD_TYPES, frozenset({"1", "2"}))
@@ -264,11 +308,21 @@ class ValidateScdTypeTests(unittest.TestCase):
     def test_two_accepted(self):
         self.assertEqual(validate_scd_type("2"), "2")
 
-    def test_int_rejected(self):
-        # ``2 == "2"`` is False in Python, but we want to fail loudly
-        # rather than silently coerce — see the comment in the validator.
+    def test_int_one_coerced_to_string(self):
+        # v0.0.10 onboarding files carried ``"scd_type": 1`` (issue #370).
+        self.assertEqual(validate_scd_type(1), "1")
+
+    def test_int_two_coerced_to_string(self):
+        self.assertEqual(validate_scd_type(2), "2")
+
+    def test_int_three_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"is not supported"):
+            validate_scd_type(3)
+
+    def test_bool_rejected(self):
+        # bool is an int subclass but was never a valid SCD type.
         with self.assertRaisesRegex(ValueError, r"non-empty string"):
-            validate_scd_type(2)
+            validate_scd_type(True)
 
     def test_three_rejected(self):
         with self.assertRaisesRegex(ValueError, r"is not supported"):
@@ -292,6 +346,51 @@ class ValidateScdTypeTests(unittest.TestCase):
     def test_kind_appears_in_error(self):
         with self.assertRaisesRegex(ValueError, r"silver scd"):
             validate_scd_type("0", kind="silver scd")
+
+
+class ValidateSequenceByTests(unittest.TestCase):
+    """``sequence_by`` supports comma-separated multi-column ordering
+    (wrapped in ``struct(...)`` by the runtime) and dotted column refs
+    (``_metadata.file_path``), so it must NOT be validated with the
+    strict regular-identifier rules (v0.0.10 compat, issue #370 class)."""
+
+    def test_single_column_accepted(self):
+        self.assertEqual(validate_sequence_by("event_ts"), "event_ts")
+
+    def test_csv_multi_column_accepted(self):
+        # Documented in docs/docs/guides/cdc.md.
+        value = "dmsTimestamp,enqueueTimestamp,sequenceId"
+        self.assertEqual(validate_sequence_by(value), value)
+
+    def test_dotted_column_accepted(self):
+        self.assertEqual(
+            validate_sequence_by("_metadata.file_path"),
+            "_metadata.file_path",
+        )
+
+    def test_csv_with_spaces_accepted(self):
+        value = "event_ts, sequence_id"
+        self.assertEqual(validate_sequence_by(value), value)
+
+    def test_hyphenated_column_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"not a valid"):
+            validate_sequence_by("bad-col")
+
+    def test_trailing_comma_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"empty entry"):
+            validate_sequence_by("event_ts,")
+
+    def test_empty_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"non-empty"):
+            validate_sequence_by("")
+
+    def test_none_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"non-empty"):
+            validate_sequence_by(None)
+
+    def test_kind_appears_in_error(self):
+        with self.assertRaisesRegex(ValueError, r"my_seq_field"):
+            validate_sequence_by("bad-col", kind="my_seq_field")
 
 
 class ValidateSqlWhereClauseTests(unittest.TestCase):

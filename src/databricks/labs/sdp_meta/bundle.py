@@ -831,8 +831,13 @@ def _flow_to_dict(spec: FlowSpec, variables: Dict[str, Any], assigned_id: str) -
     # Single source of truth lives in identifiers.py so the bundle CLI,
     # DAB template, and onboarding pre-flight all agree on the supported
     # set; ValueError message format is preserved for any caller that
-    # was matching on it.
-    validate_source_format(spec.source_format)
+    # was matching on it. The validator accepts case variants (v0.0.10
+    # compat, issue #370) and returns the canonical spelling — write it
+    # back onto the spec, because ``_build_source_details`` and the
+    # cloudFiles-only reader-options branch compare exactly and would
+    # otherwise fail with ``unhandled source_format`` on an input the
+    # validator just accepted.
+    spec.source_format = validate_source_format(spec.source_format)
 
     layer = (_var_default(variables, "layer") or "bronze_silver").lower()
     onboarding_format = (_var_default(variables, "onboarding_file_format") or "yaml").lower()
