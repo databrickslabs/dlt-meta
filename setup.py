@@ -89,7 +89,13 @@ MCP_REQUIREMENTS = ["mcp>=1.0,<2.0"]
 setup(
     name="databricks-labs-sdp-meta",
     version="0.1.0",
-    python_requires=">=3.8",
+    # Ceiling matches compat/setup.py: the pyspark 3.5.5 stack this framework
+    # runs against is incompatible with Python 3.13+ (pickle/cloudpickle
+    # changes; see GETTING_STARTED.md prerequisites). Keeping both packages'
+    # ceilings identical means `pip install dlt-meta` and
+    # `pip install databricks-labs-sdp-meta` succeed/fail on the same
+    # interpreters. Re-evaluate when pyspark ships a 3.13-compatible release.
+    python_requires=">=3.8, <3.13",
     # No ``setup_requires``: it makes setuptools fetch build deps from PyPI
     # mid-build, which breaks the release workflow's ``--no-isolation`` build
     # (nothing may be fetched at build time). Build deps are supplied by
@@ -147,8 +153,16 @@ setup(
             "stage_conf=databricks.labs.sdp_meta.stage_conf:main",
         ],
     },
+    # Per-version classifiers must cover exactly the range declared in
+    # ``python_requires`` above; tests/test_packaging_metadata.py enforces it.
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Operating System :: OS Independent",
         "Topic :: Software Development :: Testing",
         "Intended Audience :: Developers",

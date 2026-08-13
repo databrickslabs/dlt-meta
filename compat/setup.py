@@ -150,8 +150,16 @@ Source: https://github.com/databrickslabs/sdp-meta
     # explicitly ``import dlt_meta`` in their notebooks.
     cmdclass={"bdist_wheel": bdist_wheel_with_pth_file},
     entry_points={"group_1": "run=dlt_meta:main"},
+    # Must stay identical to the primary package's version classifiers so both
+    # advertise the same interpreters; tests/test_packaging_metadata.py enforces it.
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Operating System :: OS Independent",
         "Development Status :: 7 - Inactive",  # Indicates deprecated
         "Intended Audience :: Developers",
