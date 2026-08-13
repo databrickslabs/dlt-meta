@@ -91,7 +91,12 @@ jobs:
       # A tag is the only thing that names the release, but the versions live
       # in setup.py. Without this, tagging v0.2.0 would happily publish 0.1.0.
       - name: Verify tag matches built version
-        if: github.event_name == 'push'
+        # Any tag ref, regardless of trigger: a workflow_dispatch re-run on a
+        # tag with dry-run=false reaches `publish` too, and skipping the check
+        # there would let a stale setup.py version ship under a newer tag
+        # (worse: skip-existing would silently skip the upload and the GitHub
+        # Release would carry the old artifacts under the new tag name).
+        if: github.ref_type == 'tag'
         env:
           TAG_NAME: ${{ github.ref_name }}
         run: |
