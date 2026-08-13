@@ -52,6 +52,19 @@ content = re.sub(
     r'<!-- Dont remove: exclude package -->.*?<!-- Dont remove: end exclude package -->',
     '', content, flags=re.DOTALL
 )
+
+# PyPI renders the description standalone: relative image srcs and relative
+# markdown links (which work on the GitHub repo page) resolve to nothing
+# there. Absolutize them against the repo so the PyPI page has a working
+# banner and working links.
+_REPO = "https://github.com/databrickslabs/sdp-meta"
+_RAW = "https://raw.githubusercontent.com/databrickslabs/sdp-meta/main"
+# <img src="docs/..."> -> raw.githubusercontent (must serve image bytes)
+content = re.sub(r'src="(?!https?://)([^"]+)"', rf'src="{_RAW}/\1"', content)
+# [text](GETTING_STARTED.md...) -> github blob URL; leave http(s) and
+# in-page (#anchor) links alone
+content = re.sub(r'\]\((?!https?://|#)([^)]+)\)', rf']({_REPO}/blob/main/\1)', content)
+
 long_description = content
 
 INSTALL_REQUIRES = [
@@ -89,6 +102,13 @@ setup(
     description="Databricks Labs SDP-META Framework (formerly DLT-META)",
     long_description=long_description,
     long_description_content_type="text/markdown",
+    url="https://github.com/databrickslabs/sdp-meta",
+    project_urls={
+        "Documentation": "https://databrickslabs.github.io/sdp-meta/",
+        "Source": "https://github.com/databrickslabs/sdp-meta",
+        "Issues": "https://github.com/databrickslabs/sdp-meta/issues",
+        "Changelog": "https://github.com/databrickslabs/sdp-meta/blob/main/CHANGELOG.md",
+    },
     # Three roots, one wheel:
     #   ``""`` -> ``src/``           : canonical ``databricks.labs.sdp_meta``
     #   ``dlt_meta`` -> ``compat/dlt_meta``  : flat re-export shim

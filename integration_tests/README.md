@@ -192,7 +192,7 @@ Use ONLY for development. Production runs should pin a real git ref so the test 
 ### Common upgrade scenarios
 
 ```commandline
-# Default (legacy → current): v0.0.10 → feature/sdp-meta. Local wheel build.
+# Default (legacy → current): v0.0.10 → v0.1.0. Local wheel build.
 python integration_tests/run_backward_compat_tests.py \
     --uc_catalog_name=<<uc catalog name>> \
     --profile=<<DEFAULT>>
