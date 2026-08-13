@@ -12,7 +12,8 @@ Two kinds of coverage:
    YAML/JSON, exercises the layer/source/format branches, and passes the
    sdp-meta sanity checks. These are skipped automatically if the
    ``databricks`` CLI is not on PATH (so contributors without it can still run
-   ``pytest``).
+   ``pytest``). They render offline against throwaway credentials, so they
+   never touch a workspace or read the developer's ``~/.databrickscfg``.
 """
 
 from __future__ import annotations
@@ -1242,14 +1243,32 @@ class EndToEndRenderTests(unittest.TestCase):
     def _render(self, answers: dict, out: Path) -> Path:
         cfg = out / "answers.json"
         cfg.write_text(json.dumps(answers))
-        subprocess.run(
+        # ``bundle init`` refuses to start without default auth ("cannot
+        # configure default credentials") even though this template renders
+        # purely locally and calls no workspace API. Supply throwaway
+        # credentials so the render never depends on the developer's
+        # ``~/.databrickscfg`` -- otherwise it passes on a configured laptop
+        # and fails anywhere clean, CI included.
+        env = {
+            **os.environ,
+            "DATABRICKS_HOST": "https://sdp-meta-render-test.invalid",
+            "DATABRICKS_TOKEN": "not-a-real-token",
+        }
+        proc = subprocess.run(
             [
                 "databricks", "bundle", "init", str(TEMPLATE_DIR),
                 "--output-dir", str(out),
                 "--config-file", str(cfg),
             ],
-            check=True,
+            env=env,
+            capture_output=True,
+            text=True,
         )
+        if proc.returncode != 0:
+            self.fail(
+                "`databricks bundle init` failed with exit "
+                f"{proc.returncode}\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+            )
         rendered = out / answers["bundle_name"]
         self.assertTrue(rendered.is_dir(), f"rendered bundle not found: {rendered}")
         return rendered
@@ -1399,18 +1418,7 @@ class EndToEndRenderTests(unittest.TestCase):
         passes the sanity checks (modulo the deliberately-unfilled
         `__SET_ME__` sdp_meta_dependency, which we patch in here)."""
         with _tempdir() as tmp:
-            cfg = tmp / "quickstart.json"
-            cfg.write_text(json.dumps(QUICKSTART_BUNDLE_INIT_DEFAULTS))
-            subprocess.run(
-                [
-                    "databricks", "bundle", "init", str(TEMPLATE_DIR),
-                    "--output-dir", str(tmp),
-                    "--config-file", str(cfg),
-                ],
-                check=True,
-            )
-            rendered = tmp / QUICKSTART_BUNDLE_INIT_DEFAULTS["bundle_name"]
-            self.assertTrue(rendered.is_dir())
+            rendered = self._render(QUICKSTART_BUNDLE_INIT_DEFAULTS, tmp)
 
             # Quickstart deliberately ships __SET_ME__; the validator must
             # flag it. That's the WHOLE POINT of leaving it as the sentinel.
