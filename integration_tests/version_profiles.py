@@ -208,7 +208,7 @@ KNOWN_PROFILES = {
 # Public default refs. Surfaced separately so the orchestrator's
 # argparse defaults stay readable.
 DEFAULT_SOURCE_REF = "v0.0.10"
-DEFAULT_TARGET_REF = "feature/sdp-meta"
+DEFAULT_TARGET_REF = "v0.1.0"
 
 
 def resolve_profile(ref: str, *, profile_override: Optional[str] = None) -> VersionProfile:

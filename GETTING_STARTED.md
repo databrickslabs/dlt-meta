@@ -14,8 +14,8 @@ Long form: [docs site](https://databrickslabs.github.io/sdp-meta/docs/getting-st
 
 - Python 3.10, 3.11, or 3.12. The pinned `pyspark==3.5.5` test stack does not support Python 3.13+; using 3.13 / 3.14 will surface as cloudpickle / recursion errors at test time. See [Troubleshooting](#troubleshooting) below.
 - Databricks CLI v0.213 or later. See [install instructions](https://docs.databricks.com/en/dev-tools/cli/tutorial.html).
-  - macOS: ![macos_install_databricks](https://raw.githubusercontent.com/databrickslabs/sdp-meta/feature/sdp-meta/docs/static/img/macos_1_databrickslabsmac_installdatabricks.gif)
-  - Windows: ![windows_install_databricks.png](https://raw.githubusercontent.com/databrickslabs/sdp-meta/feature/sdp-meta/docs/static/img/windows_install_databricks.png)
+  - macOS: ![macos_install_databricks](https://raw.githubusercontent.com/databrickslabs/sdp-meta/main/docs/static/img/macos_1_databrickslabsmac_installdatabricks.gif)
+  - Windows: ![windows_install_databricks.png](https://raw.githubusercontent.com/databrickslabs/sdp-meta/main/docs/static/img/windows_install_databricks.png)
 - Authenticate your machine to a workspace:
   ```bash
   databricks auth login --host WORKSPACE_HOST
@@ -101,7 +101,7 @@ If you want to run the existing demo files, set up the repo first:
    ```bash
    databricks labs sdp-meta onboard
    ```
-   ![onboardingDLTMeta_2.gif](https://raw.githubusercontent.com/databrickslabs/sdp-meta/feature/sdp-meta/docs/static/img/sdp_meta_onboard.gif)
+   ![onboardingDLTMeta_2.gif](https://raw.githubusercontent.com/databrickslabs/sdp-meta/main/docs/static/img/sdp_meta_onboard.gif)
 
    Pushes code+data to your workspace, creates an onboarding job, and opens the job URL in your browser.
 
@@ -109,7 +109,7 @@ If you want to run the existing demo files, set up the repo first:
    ```bash
    databricks labs sdp-meta deploy
    ```
-   ![deployingDLTMeta_bronze_silver.gif](https://raw.githubusercontent.com/databrickslabs/sdp-meta/feature/sdp-meta/docs/static/img/sdp_meta_deploy.gif)
+   ![deployingDLTMeta_bronze_silver.gif](https://raw.githubusercontent.com/databrickslabs/sdp-meta/main/docs/static/img/sdp_meta_deploy.gif)
 
    Deploys the Lakeflow Spark Declarative Pipeline and opens its URL in your browser.
 

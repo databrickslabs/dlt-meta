@@ -1,7 +1,7 @@
 """Git-ref-based wheel builder for backward-compatibility integration tests.
 
 The backward-compatibility test runs Phase 1 against a v0.0.10 wheel and
-Phase 2 against a v0.1.0 wheel built from the ``feature/sdp-meta`` branch.
+Phase 2 against a wheel built from the ``v0.1.0`` tag.
 Building both wheels from the SAME local clone — without polluting the
 working tree — is what this module does.
 
@@ -89,8 +89,8 @@ class GitRefWheelBuilder:
     -----
 
         builder = GitRefWheelBuilder()
-        v010_whl = builder.build("v0.0.10")
-        v011_whl = builder.build("feature/sdp-meta")
+        source_whl = builder.build("v0.0.10")
+        target_whl = builder.build("v0.1.0")
         # Both paths are absolute, both wheels live under <repo>/.bc_wheels/dist/.
         builder.cleanup()
     """
@@ -331,7 +331,7 @@ def main() -> int:
 
     Usage::
 
-        python integration_tests/wheel_builder.py v0.0.10 feature/sdp-meta
+        python integration_tests/wheel_builder.py v0.0.10 v0.1.0
     """
     if len(sys.argv) < 2:
         print(__doc__)

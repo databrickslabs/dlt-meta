@@ -89,11 +89,14 @@ setup(
     author="Ravi Gawai",
     author_email="databrickslabs@databricks.com",
     license="Databricks License",
-    description="DLT-META Framework (Compatibility wrapper - please migrate to sdp-meta)",
+    description="DLT-META Framework (Compatibility wrapper - please migrate to databricks-labs-sdp-meta)",
     long_description="""
 # DLT-META Compatibility Package
 
-**DEPRECATED**: This package is a compatibility wrapper. Please migrate to `sdp-meta`.
+**DEPRECATED**: This package is a compatibility wrapper for
+[databricks-labs-sdp-meta](https://pypi.org/project/databricks-labs-sdp-meta/)
+(DLT-META is now SDP-META). Installing it pulls in the new package and keeps
+existing `dlt_meta` / `src.*` imports working unchanged.
 
 ## Migration
 
@@ -104,13 +107,30 @@ pip install dlt-meta
 
 With:
 ```bash
-pip install sdp-meta
+pip install databricks-labs-sdp-meta
 ```
 
-All functionality is identical. This wrapper package will be maintained for backwards
-compatibility but new features will only be added to `sdp-meta`.
+And migrate imports when convenient:
+```python
+# old (still works via this wrapper)
+from src.dataflow_pipeline import DataflowPipeline
+# new
+from databricks.labs.sdp_meta.dataflow_pipeline import DataflowPipeline
+```
+
+All functionality is identical. This wrapper is maintained for backwards
+compatibility; new features land only in `databricks-labs-sdp-meta`.
+
+Docs: https://databrickslabs.github.io/sdp-meta/ ·
+Source: https://github.com/databrickslabs/sdp-meta
     """,
     long_description_content_type="text/markdown",
+    url="https://github.com/databrickslabs/sdp-meta",
+    project_urls={
+        "Documentation": "https://databrickslabs.github.io/sdp-meta/",
+        "Source": "https://github.com/databrickslabs/sdp-meta",
+        "Migration Guide": "https://databrickslabs.github.io/sdp-meta/docs/operations/migration",
+    },
     # Intentionally NO packages: ``dlt_meta`` and ``src`` are provided
     # by the ``databricks-labs-sdp-meta`` dependency (see module
     # docstring). Shipping them here too would make two distributions

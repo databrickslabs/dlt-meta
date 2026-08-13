@@ -38,7 +38,7 @@
 
 ## High-Level Process Flow
 
-![SDP-META Architecture](https://raw.githubusercontent.com/databrickslabs/sdp-meta/feature/sdp-meta/docs/static/img/sdp-meta-architecture.svg)
+![SDP-META Architecture](https://raw.githubusercontent.com/databrickslabs/sdp-meta/main/docs/static/img/sdp-meta-architecture.svg)
 
 ## Feature Matrix
 
