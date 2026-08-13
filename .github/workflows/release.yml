@@ -1,20 +1,73 @@
 name: release
 
+# Hardened release pipeline per the FE → PyPI.org release doc:
+#   authorize → build → scan (fail-closed) → publish → github-release
+# Controls: actor allowlist, least-privilege per job, SHA-pinned actions,
+# hash-pinned build deps, SLSA provenance (generated at build, verified before
+# publish), SBOM/IoC scan gating publish, tag/version agreement check,
+# OIDC Trusted Publishing (no stored tokens).
+
 on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+' # semantic version tags only, e.g. v0.1.0
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Run build + scan but skip PyPI upload and GitHub Release."
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+permissions: {}          # least privilege at the top; grant per-job below
 
 jobs:
-  release:
+  # ------------------------------------------------------------------
+  # 1) Gate: only allowlisted actors may release.
+  #    This is a speed bump, not the enforcing control -- anyone with write
+  #    access can edit the list. The real gate is the `release` environment's
+  #    required reviewers, which the publish job runs under.
+  # ------------------------------------------------------------------
+  authorize:
+    name: Check actor authorization
     runs-on:
       group: databrickslabs-protected-runner-group
       labels: linux-ubuntu-latest
-    environment: release
-    permissions:
-      id-token: write   # OIDC auth to PyPI
-      contents: write   # attach artifacts to GitHub Release
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Check actor
+        env:
+          ACTOR: ${{ github.actor }}
+        run: |
+          ALLOWED="ravi-databricks"   # TODO: add other release DRIs, comma-separated
+          if [[ ",${ALLOWED}," != *",${ACTOR},"* ]]; then
+            echo "ERROR: Actor '${ACTOR}' is not authorized to release."; exit 1
+          fi
 
+  # ------------------------------------------------------------------
+  # 2) Build both wheels on the protected runner.
+  #    Build deps are hash-pinned; build runs with --no-isolation so
+  #    nothing is fetched from pypi.org at build time.
+  # ------------------------------------------------------------------
+  build:
+    name: Build sdp-meta packages
+    needs: authorize
+    runs-on:
+      group: databrickslabs-protected-runner-group
+      labels: linux-ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write                # SLSA attestation signing
+      attestations: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
@@ -22,18 +75,174 @@ jobs:
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.10'
-          cache: pip
-          cache-dependency-path: setup.py
 
-      - name: Install build tools
-        run: python -m pip install --upgrade pip build
+      - name: Install build deps (hash-pinned)
+        run: |
+          python -m pip install --no-deps --require-hashes --only-binary=:all: \
+            -r .github/requirements-build.txt
 
       - name: Build primary package (databricks-labs-sdp-meta)
-        run: python -m build --outdir dist/primary
+        run: python -m build --no-isolation --outdir dist/primary
 
       - name: Build compat redirect (dlt-meta)
         working-directory: compat
-        run: python -m build --outdir ../dist/compat
+        run: python -m build --no-isolation --outdir ../dist/compat
+
+      # A tag is the only thing that names the release, but the versions live
+      # in setup.py. Without this, tagging v0.2.0 would happily publish 0.1.0.
+      - name: Verify tag matches built version
+        if: github.event_name == 'push'
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          expected="${TAG_NAME#v}"
+          for whl in dist/primary/databricks_labs_sdp_meta-*.whl dist/compat/dlt_meta-*.whl; do
+            # Wheel filename: {name}-{version}-{python}-{abi}-{platform}.whl
+            actual="$(basename "$whl" | cut -d- -f2)"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "ERROR: tag '${TAG_NAME}' implies version '${expected}', but"
+              echo "       $(basename "$whl") was built as version '${actual}'."
+              exit 1
+            fi
+          done
+          echo "OK: both packages built as version ${expected}."
+
+      - name: Generate SLSA build provenance attestation
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: |
+            dist/primary/*
+            dist/compat/*
+
+      - name: Upload built artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sdp-meta-dist
+          path: dist/
+          if-no-files-found: error
+
+  # ==================================================================
+  # 3) SBOM / IoC scan — fail-closed: a finding blocks publish.
+  #    databricks/gh-action-scan is enterprise-shared; a bare,
+  #    SHA-pinned `uses:` resolves with the default GITHUB_TOKEN.
+  #    (Prereq: SBOM scanner GitHub App installed on databrickslabs
+  #     AND scoped to this repo.)
+  # ==================================================================
+  scan:
+    name: SBOM / IoC scan
+    needs: build
+    runs-on:
+      group: databrickslabs-protected-runner-group
+      labels: linux-ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Download dist
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: sdp-meta-dist
+          path: dist/
+
+      # Internal enterprise-shared action; no public tags to reference, so the
+      # SHA is the only version identifier.
+      - name: Security scan
+        uses: databricks/gh-action-scan@0fad8d011cec1d3db35bf32b6b4ace57baec8f1d
+        with:
+          artifact-path: dist/
+          artifact-name: sdp-meta
+
+  # ==================================================================
+  # 4) Publish to PyPI — needs: [build, scan] so a failed scan blocks
+  #    the release. OIDC Trusted Publishing; no stored API token.
+  #    Skipped for dry runs and for anything that is not a tag.
+  # ==================================================================
+  publish:
+    name: Publish to PyPI
+    needs: [build, scan]
+    # Tag-gated: a `workflow_dispatch` with dry-run=false must not be able to
+    # publish an arbitrary branch to PyPI.
+    if: >-
+      ${{ github.ref_type == 'tag'
+          && (github.event_name == 'push' || inputs.dry-run == false) }}
+    runs-on:
+      group: databrickslabs-protected-runner-group
+      labels: linux-ubuntu-latest
+    timeout-minutes: 30
+    environment: release             # Trusted Publisher is bound to this
+    permissions:
+      contents: read
+      id-token: write                # PyPI OIDC Trusted Publishing
+      attestations: read             # verify the build job's provenance
+    steps:
+      - name: Checkout scripts
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Download dist
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: sdp-meta-dist
+          path: dist/
+
+      # Closes the loop on the provenance generated in `build`: proves these
+      # exact files came out of this repo's workflow before they reach PyPI.
+      - name: Verify build provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # gh attestation verify takes exactly ONE subject per invocation.
+          shopt -s nullglob
+          files=(dist/primary/* dist/compat/*)
+          (( ${#files[@]} > 0 )) || { echo "ERROR: no artifacts to verify"; exit 1; }
+          for f in "${files[@]}"; do
+            echo "Verifying $(basename "$f") ..."
+            gh attestation verify "$f" --repo "$REPO"
+          done
+
+      # Mints a short-lived, project-scoped PyPI token from this job's
+      # GitHub OIDC token and discards it — proves the Trusted Publisher
+      # matches this repo/workflow/environment before any upload.
+      - name: Verify PyPI auth (OIDC Trusted Publishing — no upload)
+        run: bash .github/scripts/pypi-verify-auth.sh
+
+      # skip-existing makes a rerun idempotent: if the compat upload fails
+      # after the primary succeeded, rerunning this job skips the
+      # already-published primary files instead of erroring on them.
+      - name: Publish databricks-labs-sdp-meta to PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          packages-dir: dist/primary
+          skip-existing: true
+
+      - name: Publish dlt-meta compat redirect to PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          packages-dir: dist/compat
+          skip-existing: true
+
+  # ==================================================================
+  # 5) GitHub Release + Sigstore signing — after a successful publish.
+  #    contents: write is isolated here, away from the PyPI jobs.
+  # ==================================================================
+  github-release:
+    name: GitHub Release + Sigstore
+    needs: publish
+    runs-on:
+      group: databrickslabs-protected-runner-group
+      labels: linux-ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write                # attach artifacts to GitHub Release
+      id-token: write                # Sigstore signing
+    steps:
+      - name: Download dist
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: sdp-meta-dist
+          path: dist/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
@@ -44,16 +253,6 @@ jobs:
             dist/primary/databricks_labs_sdp_meta-*.tar.gz
             dist/compat/dlt_meta-*.whl
             dist/compat/dlt_meta-*.tar.gz
-
-      - name: Publish databricks-labs-sdp-meta to PyPI
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
-        with:
-          packages-dir: dist/primary
-
-      - name: Publish dlt-meta compat redirect to PyPI
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
-        with:
-          packages-dir: dist/compat
 
       - name: Sign artifacts with Sigstore
         uses: sigstore/gh-action-sigstore-python@f514d46b907ebcd5bedc05145c03b69c1edd8b46 # v3.0.0
