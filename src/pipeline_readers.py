@@ -100,6 +100,23 @@ class PipelineReaders:
         else:
             return reader.table(table_path)
 
+    def read_dlt_delta_batch(self) -> DataFrame:
+        """Read delta source as a batch DataFrame (for materialized views).
+
+        Returns:
+            DataFrame: Batch DataFrame from delta source
+        """
+        logger.info("In read_dlt_delta_batch func")
+
+        source_cl = self.source_details.get('source_catalog', None)
+        source_cl_name = f"{source_cl}." if source_cl is not None else ''
+        table_path = f"{source_cl_name}{self.source_details['source_database']}.{self.source_details['source_table']}"
+
+        if self.reader_config_options:
+            return self.spark.read.options(**self.reader_config_options).table(table_path)
+        else:
+            return self.spark.read.table(table_path)
+
     def get_db_utils(self):
         """Get databricks utils using DBUtils package."""
         from pyspark.dbutils import DBUtils

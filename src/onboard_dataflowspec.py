@@ -499,7 +499,8 @@ class OnboardDataflowspec:
             "appendFlows",
             "appendFlowsSchemas",
             "sinks",
-            "clusterBy"
+            "clusterBy",
+            "targetType"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -540,6 +541,7 @@ class OnboardDataflowspec:
                 StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True),
                 StructField("sinks", StringType(), True),
                 StructField("clusterBy", ArrayType(StringType(), True), True),
+                StructField("targetType", StringType(), True),
             ]
         )
         data = []
@@ -662,6 +664,12 @@ class OnboardDataflowspec:
             append_flows, append_flows_schemas = self.get_append_flows_json(
                 onboarding_row, "bronze", env
             )
+            target_type = "streaming_table"
+            if (
+                "bronze_target_type" in onboarding_row
+                and onboarding_row["bronze_target_type"]
+            ):
+                target_type = onboarding_row["bronze_target_type"]
             bronze_row = (
                 bronze_data_flow_spec_id,
                 bronze_data_flow_spec_group,
@@ -681,7 +689,8 @@ class OnboardDataflowspec:
                 append_flows,
                 append_flows_schemas,
                 dlt_sinks,
-                cluster_by
+                cluster_by,
+                target_type
             )
             data.append(bronze_row)
             # logger.info(bronze_parition_columns)
@@ -1096,7 +1105,8 @@ class OnboardDataflowspec:
             "appendFlows",
             "appendFlowsSchemas",
             "clusterBy",
-            "sinks"
+            "sinks",
+            "targetType"
         ]
         data_flow_spec_schema = StructType(
             [
@@ -1128,7 +1138,8 @@ class OnboardDataflowspec:
                 StructField("appendFlows", StringType(), True),
                 StructField("appendFlowsSchemas", MapType(StringType(), StringType(), True), True),
                 StructField("clusterBy", ArrayType(StringType(), True), True),
-                StructField("sinks", StringType(), True)
+                StructField("sinks", StringType(), True),
+                StructField("targetType", StringType(), True)
             ]
         )
         data = []
@@ -1265,6 +1276,14 @@ class OnboardDataflowspec:
                     self.__delete_none(onboarding_row["silver_apply_changes_from_snapshot"].asDict())
                 )
                 source_format = "snapshot"
+            
+            silver_target_type = "streaming_table"
+            if (
+                "silver_target_type" in onboarding_row
+                and onboarding_row["silver_target_type"]
+            ):
+                silver_target_type = onboarding_row["silver_target_type"]
+                
             silver_row = (
                 silver_data_flow_spec_id,
                 silver_data_flow_spec_group,
@@ -1284,7 +1303,8 @@ class OnboardDataflowspec:
                 append_flows,
                 append_flow_schemas,
                 silver_cluster_by,
-                dlt_sinks
+                dlt_sinks,
+                silver_target_type
             )
             data.append(silver_row)
             logger.info(f"silver_data ==== {data}")

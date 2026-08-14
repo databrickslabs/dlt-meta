@@ -42,6 +42,7 @@ class BronzeDataflowSpec:
     updatedBy: str
     clusterBy: list
     sinks: str
+    targetType: str
 
 
 @dataclass
@@ -73,6 +74,7 @@ class SilverDataflowSpec:
     updatedBy: str
     clusterBy: list
     sinks: str
+    targetType: str
 
 
 @dataclass
@@ -186,7 +188,8 @@ class DataflowSpecUtils:
         "appendFlowsSchemas",
         "applyChangesFromSnapshot",
         "clusterBy",
-        "sinks"
+        "sinks",
+        "targetType"
     ]
     additional_silver_df_columns = [
         "dataQualityExpectations",
@@ -196,7 +199,8 @@ class DataflowSpecUtils:
         "appendFlowsSchemas",
         "applyChangesFromSnapshot",
         "clusterBy",
-        "sinks"
+        "sinks",
+        "targetType"
     ]
     additional_cdc_apply_changes_columns = ["flow_name", "once"]
     apply_changes_from_snapshot_api_attributes = [
