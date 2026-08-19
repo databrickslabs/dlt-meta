@@ -61,11 +61,6 @@ dbutils.widgets.text(
     "governance_tagging_demo",
     "UC Volume for tags.yml",
 )
-dbutils.widgets.text(
-    "warehouse_id",
-    "",
-    "SQL Warehouse ID used by local CLI",
-)
 dbutils.widgets.dropdown(
     "execution_mode",
     "api",
@@ -146,7 +141,6 @@ volume = regular_identifier(
     dbutils.widgets.get("uc_volume_name"),
     "uc_volume_name",
 )
-warehouse_id = dbutils.widgets.get("warehouse_id").strip()
 execution_mode = dbutils.widgets.get("execution_mode").lower()
 state_table = f"{catalog}.{schema}.uc_governance_tag_assignments"
 tags_volume_path = f"/Volumes/{catalog}/{schema}/{volume}/tags.yml"
@@ -241,15 +235,11 @@ for table_name in table_names:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 4. Apply the desired tags
+# MAGIC ## 4. Generate `tags.yml`
 # MAGIC
-# MAGIC The next cell creates `tags.yml` in the configured Unity Catalog Volume.
-# MAGIC
-# MAGIC **API mode (default):** calls `apply_tags()` against the Volume file
-# MAGIC for dry-run and then calls it again for live apply.
-# MAGIC
-# MAGIC **CLI mode:** the next cell prints commands to download the generated
-# MAGIC Volume file and apply it from your local terminal.
+# MAGIC The next cell builds the desired table and column assignments, writes
+# MAGIC `tags.yml` to the configured Unity Catalog Volume, and displays the exact
+# MAGIC generated YAML.
 
 # COMMAND ----------
 
@@ -332,6 +322,20 @@ api_tags_path.write_text(rendered_tags_yaml, encoding="utf-8")
 print(f"✓ Created tags.yml at {tags_volume_path}\n")
 print(rendered_tags_yaml)
 
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 5. Apply tags
+# MAGIC
+# MAGIC **API mode (default):** the next cell calls `apply_tags()` against the
+# MAGIC generated Volume file. It displays the dry-run plan first and then the
+# MAGIC live apply output.
+# MAGIC
+# MAGIC **CLI mode:** the next cell prints commands to download the generated
+# MAGIC Volume file and apply it from your local terminal.
+
+# COMMAND ----------
+
 if execution_mode == "api":
     try:
         from databricks.labs.sdp_meta.governance.tagging import apply_tags
@@ -358,17 +362,11 @@ if execution_mode == "api":
     assert apply_code == 0, f"API apply failed with exit code {apply_code}"
     print("✓ API apply completed successfully.")
 else:
-    if not warehouse_id:
-        print(
-            "Set the warehouse_id widget to print ready-to-run commands, or "
-            "replace <warehouse-id> below."
-        )
-    warehouse_arg = warehouse_id or "<warehouse-id>"
     base_command = (
         "databricks labs sdp-meta apply-tags "
         "--tags-file ./tags.yml "
         f"--state-table {state_table} "
-        f"--warehouse-id {warehouse_arg}"
+        '--warehouse-id "$DATABRICKS_WAREHOUSE_ID"'
     )
 
     print("DOWNLOAD GENERATED CONFIGURATION:\n")
@@ -421,7 +419,7 @@ else:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 5. Verify table tags
+# MAGIC ## 6. Verify table tags
 # MAGIC
 # MAGIC In API mode, continue directly. In CLI mode, run this section after the
 # MAGIC local apply succeeds.
@@ -451,7 +449,7 @@ print("✓ Verified two table tags on each demo table.")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 6. Verify column tags
+# MAGIC ## 7. Verify column tags
 
 # COMMAND ----------
 
@@ -478,7 +476,7 @@ print("✓ Verified two column tags on each demo table.")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 7. Verify ownership state
+# MAGIC ## 8. Verify ownership state
 # MAGIC
 # MAGIC Unity Catalog stores the current tags. The Delta state table records why
 # MAGIC each assignment exists, who contributes it, and whether it was verified.
@@ -509,7 +507,7 @@ print("✓ Verified 16 applied, script-owned assignments.")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 8. Idempotency
+# MAGIC ## 9. Idempotency
 # MAGIC
 # MAGIC Rerun the apply cell in API mode, or run the same local `apply-tags`
 # MAGIC command again in CLI mode. The plan should contain `noop` actions and
@@ -518,7 +516,7 @@ print("✓ Verified 16 applied, script-owned assignments.")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 9. Optional cleanup
+# MAGIC ## 10. Optional cleanup
 # MAGIC
 # MAGIC Set the `cleanup` widget to `true` and run this final cell. It drops the
 # MAGIC demo schema, including all four tables and the ownership-state table.

@@ -46,7 +46,6 @@ Set:
 - `uc_schema_name`
 - `uc_volume_name`: managed UC Volume where the notebook writes `tags.yml`
 - `execution_mode`: `api` (default) or `cli`
-- `warehouse_id` when using CLI mode
 
 The notebook installs SDP-META and restarts Python before creating any demo
 resources. The default catalog/schema are:
@@ -58,20 +57,21 @@ sdp_meta.governance_tagging_demo
 Run the notebook through the setup-validation section. It creates all four
 tables and confirms each contains 100 rows.
 
-In `api` mode, the apply cell:
+The generation and API apply cells:
 
 1. creates a managed UC Volume if it does not exist;
 2. writes the desired configuration to
-   `/Volumes/<catalog>/<schema>/<volume>/tags.yml`;
-3. invokes the public `apply_tags(..., dry_run=True)` Python API;
-4. invokes `apply_tags(...)` for live application;
+   `/Volumes/<catalog>/<schema>/<volume>/tags.yml` and displays it;
+3. separately invokes the public `apply_tags(..., dry_run=True)` Python API;
+4. displays the plan and invokes `apply_tags(...)` for live application;
 5. uses the active Spark session for metadata reads, tag DDL, and Delta state.
 
 ### 2. Optional CLI mode
 
 Choose `execution_mode=cli` to exercise the Labs CLI instead of applying from
 the notebook. The notebook prints commands to download its generated Volume
-file and then preview and apply it using the selected warehouse.
+file and then preview and apply it. Set `DATABRICKS_WAREHOUSE_ID` in the local
+terminal before running those CLI commands.
 
 ### 3. Preview the CLI plan
 
