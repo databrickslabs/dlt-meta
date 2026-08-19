@@ -15,3 +15,5 @@ Complete technical reference documentation for SDP-META.
 | [Data Quality Rules Schema](./dq-rules) | Schema reference for the DQE rules files — `expect`, `expect_or_drop`, and `expect_or_fail` constraint types |
 | [CLI Commands](./cli-commands) | Full reference for all `databricks labs sdp-meta` commands, flags, and usage examples |
 | [DAB Bundle Parameters](./dab-parameters) | Reference for DAB bundle scaffold prompts and `resources/variables.yml` keys |
+| [`tags.yml`](./governance/tags-yaml) | Catalog scope, target resolution, and assignment schema |
+| [Governance Automation Manifests](./governance/automation-manifests) | Security, governed-tag, ABAC, and assignment templates |

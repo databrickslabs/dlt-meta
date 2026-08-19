@@ -68,6 +68,40 @@
 | [SDP-META CLI](https://databrickslabs.github.io/sdp-meta/docs/getting-started/cli) | `databricks labs sdp-meta onboard` · `deploy` · `bundle-*` |
 | [SDP-META App](https://databrickslabs.github.io/sdp-meta/docs/getting-started/app) | Browser-based UI for onboarding, deployment, and pipeline monitoring |
 | [MCP Server](https://databrickslabs.github.io/sdp-meta/docs/getting-started/mcp) | AI-assisted pipeline scaffolding via MCP-capable AI tools (Claude Code, Cursor, Claude Desktop, and others) |
+| [Unity Catalog Governance](docs/docs/concepts/governance/index.md) | Catalog-scoped table and column tagging with dry-run planning, assignment ownership, ABAC guidance, and optional DAB execution |
+
+### Unity Catalog Governance
+
+SDP-META provides declarative table and column tag management for **any Unity
+Catalog table**, including tables created outside SDP-META. Store reviewed
+assignments in a Git-managed `tags.yml`, preview changes with `--dry-run`, and
+apply them with ownership-aware reconciliation that preserves unrelated manual
+tags and prevents configuration sources from removing each other's assignments.
+
+```bash
+# Optional: generate a safe starter file from SDP-META onboarding targets
+databricks labs sdp-meta generate-tags \
+  --input onboarding.prod.yml \
+  --output tags.yml \
+  --environment prod \
+  --catalog main_prod
+
+# Plan changes for SDP-META or independently created Unity Catalog tables
+databricks labs sdp-meta apply-tags \
+  --tags-file tags.yml \
+  --state-table main_prod.sdp_meta.uc_governance_tag_assignments \
+  --warehouse-id "$DATABRICKS_WAREHOUSE_ID" \
+  --dry-run
+```
+
+Highlights include governed and ordinary tags, table and column assignments,
+safe stale-tag cleanup, conflict detection, metadata verification, auditable
+Delta ownership state, ABAC guidance, a public Python `apply_tags()` API, and
+an optional standalone DAB job.
+Start with the [governance overview](docs/docs/concepts/governance/index.md) or
+the [tagging guide](docs/docs/guides/governance/unity-catalog-tagging.md).
+To try the API or CLI against four generated UC tables, use the
+[interactive tagging demo](demo/governance-tagging/README.md).
 
 ## Getting Started
 

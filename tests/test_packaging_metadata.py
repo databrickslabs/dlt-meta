@@ -98,6 +98,15 @@ class PythonSupportMetadataTests(unittest.TestCase):
                 self.assertIn("Programming Language :: Python :: 3", classifiers)
                 self.assertIn("Programming Language :: Python :: 3 :: Only", classifiers)
 
+    def test_governance_wheel_entry_points_are_packaged(self):
+        entry_points = self.primary["entry_points"]
+        expected = {
+            "apply_tags=databricks.labs.sdp_meta.governance.tagging.applier:main",
+            "generate_tags=databricks.labs.sdp_meta.governance.tagging.generator:main",
+        }
+        self.assertTrue(expected.issubset(set(entry_points["console_scripts"])))
+        self.assertTrue(expected.issubset(set(entry_points["group_1"])))
+
 
 if __name__ == "__main__":
     unittest.main()

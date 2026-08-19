@@ -88,6 +88,8 @@ class TemplateLayoutTests(unittest.TestCase):
         self.assertTrue((root / "resources" / "variables.yml.tmpl").is_file())
         self.assertTrue((root / "resources" / "sdp_meta_onboarding_job.yml.tmpl").is_file())
         self.assertTrue((root / "resources" / "sdp_meta_pipelines.yml.tmpl").is_file())
+        self.assertTrue((root / "resources" / "sdp_meta_tagging_job.yml.tmpl").is_file())
+        self.assertTrue((root / "conf" / "tags.yml.tmpl").is_file())
         self.assertTrue((root / "notebooks" / "init_sdp_meta_pipeline.py.tmpl").is_file())
         recipes_root = root / "recipes"
         self.assertTrue(recipes_root.is_dir(), "recipes/ template dir missing")

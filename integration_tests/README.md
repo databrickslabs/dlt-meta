@@ -117,6 +117,74 @@
 
     > **Tip:** any of the five sources (`cloudfiles`, `eventhub`, `kafka`, `snapshot`, `multi_source_cdc`) accepts ```--onboarding_file_format=yaml``` to run the same test against the YAML onboarding spec.
 
+### Pipeline-coupled governance tagging
+
+Any pipeline integration run can add governance tagging with:
+
+```commandline
+--enable_governance_tagging --warehouse_id=<<SQL warehouse ID>>
+```
+
+For example:
+
+```commandline
+python integration_tests/run_integration_tests.py \
+  --source=cloudfiles \
+  --uc_catalog_name=<<uc catalog name>> \
+  --enable_governance_tagging \
+  --warehouse_id=<<SQL warehouse ID>> \
+  --profile=<<DEFAULT>>
+```
+
+The shared runner:
+
+1. discovers physical targets from the rendered onboarding file;
+2. generates a run-specific `tags.yml` containing a free-form
+   `sdp_meta_it_managed=true` table tag for every discovered target;
+3. uploads that file to the run's UC volume;
+4. runs `apply_tags` after the source's final pipeline task;
+5. runs the existing result validation only after tag application and metadata
+   verification succeed.
+
+Cloudfiles discovery includes both its initial and A2 onboarding files. The
+generated assignment state is stored in the run-scoped SDP-META schema. These
+tests use ordinary `sdp_meta_it_*` tags and do not require governed-tag
+definitions.
+
+### Governance tagging integration tests
+
+The governance tagging runner exercises the real Unity Catalog SQL backend
+without creating a Lakeflow pipeline. It creates an isolated schema and Delta
+table, then verifies:
+
+- dry-run does not create tags or assignment state;
+- table and column tag application, read-back, idempotency, and managed updates;
+- preservation of matching externally managed tags;
+- conflict detection and explicit ownership transfer;
+- stale managed-tag cleanup and preservation of externally modified values;
+- missing-table and missing-column preflight failures.
+
+Prerequisites:
+
+- a running SQL warehouse;
+- `USE CATALOG` and `CREATE SCHEMA` on the selected catalog;
+- privileges to create tables and apply free-form tags in the temporary schema;
+- access to the catalog's `information_schema`.
+
+Run:
+
+```commandline
+python integration_tests/run_governance_tagging_tests.py \
+  --uc-catalog-name=<<uc catalog name>> \
+  --warehouse-id=<<SQL warehouse ID>> \
+  --profile=<<DEFAULT>>
+```
+
+The runner drops its `sdp_meta_tagging_it_<run-id>` schema in a `finally`
+block. Pass `--keep-resources` only when the isolated schema must remain for
+debugging. The test intentionally uses free-form `sdp_meta_it_*` keys, so it
+does not require account-level governed-tag definitions or `ASSIGN`.
+
 
 10. Once finished integration output file will be copied locally to
 ```integration-test-output_<run_id>.txt```

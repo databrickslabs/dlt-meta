@@ -75,3 +75,39 @@ commands:
     description: Append flow entries to a bundle's conf/onboarding.{yml,json} (interactive single-flow prompts or batch from CSV); auto-increments data_flow_id and seeds silver_transformations.* for new silver flows
   - name: mcp
     description: Run the sdp-meta Model Context Protocol (MCP) server over stdio so an MCP-capable client can drive sdp-meta scaffolding and inspection. Requires the `mcp` extra (`pip install databricks-labs-sdp-meta[mcp]`).
+  - name: apply-tags
+    description: Reconcile table and column tags from a catalog-scoped tags YAML
+    flags:
+      - name: tags-file
+        description: Path to the catalog-scoped tags YAML
+      - name: catalog
+        description: Override defaults.catalog
+      - name: schema
+        description: Override defaults.schema
+      - name: source-id
+        description: Override the stable configuration owner ID
+      - name: state-table
+        description: Fully qualified assignment-state table
+      - name: warehouse-id
+        description: SQL warehouse ID when no Spark session is active
+      - name: dry-run
+        description: Build the reconciliation plan without mutation
+      - name: transfer-ownership
+        description: Take ownership of reviewed external conflicts
+  - name: generate-tags
+    description: Generate a tags YAML skeleton from SDP-META onboarding targets
+    flags:
+      - name: input
+        description: Input onboarding YAML or JSON
+      - name: output
+        description: Output tags YAML
+      - name: environment
+        description: Environment suffix such as dev or prod
+      - name: catalog
+        description: Catalog to select
+      - name: schema
+        description: Default schema for shortened table names
+      - name: source-id
+        description: Stable configuration owner ID
+      - name: overwrite
+        description: Replace an existing output file after explicit review

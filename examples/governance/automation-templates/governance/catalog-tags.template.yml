@@ -1,0 +1,45 @@
+version: "1"
+source_id: <stable-catalog-tags-source-id>
+
+# One reviewed file per catalog and environment.
+# This is the governance-to-data-engineering handoff consumed by apply-tags.
+defaults:
+  catalog: <environment-catalog>
+  schema: retail_bronze
+
+tables:
+  customers:
+    table:
+      data_domain: customer
+      access_tier: restricted
+    columns:
+      customer_id:
+        sensitivity: confidential
+        semantic_type: customer_id
+        masking_class: token
+      email:
+        sensitivity: pii
+        semantic_type: email
+        masking_class: email
+      date_of_birth:
+        sensitivity: pii
+        semantic_type: date_of_birth
+        masking_class: full
+
+  retail_quarantine.customers_quarantine:
+    table:
+      data_domain: customer
+      access_tier: restricted
+
+  retail_silver.customers:
+    table:
+      data_domain: customer
+      access_tier: analytics
+      row_access_policy: regional
+    columns:
+      email:
+        sensitivity: pii
+        semantic_type: email
+        masking_class: email
+      region_code:
+        semantic_type: region_code

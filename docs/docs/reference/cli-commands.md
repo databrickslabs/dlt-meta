@@ -23,6 +23,8 @@ All SDP-META operations are available through the Databricks Labs CLI extension.
 | `bundle-prepare-wheel` | Build and upload the sdp-meta wheel to a UC Volume |
 | `bundle-add-flow` | Add a new flow to an existing bundle from UC, Volumes, Kafka topics, or CSV inventory |
 | `bundle-validate` | Validate bundle configuration (enforces `sdp_meta_dependency` is set) |
+| `generate-tags` | Generate a catalog-scoped tags YAML skeleton from onboarding targets |
+| `apply-tags` | Plan, reconcile, and verify Unity Catalog table and column tags |
 | `mcp` | Start the MCP server (stdio transport) |
 
 ## `onboard`
@@ -96,6 +98,40 @@ Returns a non-zero exit code on failure, suitable for CI pipelines.
 :::tip
 Run `bundle-validate` in CI before every `databricks bundle deploy`.
 :::
+
+## `generate-tags`
+
+Generates a customer-editable tags YAML from an environment-resolved SDP-META
+onboarding file. Discovered targets are commented out so the scaffold cannot
+request cleanup until desired tags are added. It does not infer classifications.
+
+```bash
+databricks labs sdp-meta generate-tags \
+  --input onboarding.prod.yml \
+  --output tags.yml \
+  --environment prod \
+  --catalog main_prod \
+  --schema retail_bronze \
+  --source-id retail-main-tags
+```
+
+## `apply-tags`
+
+Reconciles a reviewed catalog-scoped tags YAML against existing Unity Catalog
+assignments.
+
+```bash
+databricks labs sdp-meta apply-tags \
+  --tags-file tags.yml \
+  --source-id retail-main-tags \
+  --state-table main_prod.sdp_meta.uc_governance_tag_assignments \
+  --warehouse-id "$DATABRICKS_WAREHOUSE_ID" \
+  --dry-run
+```
+
+Remove `--dry-run` only after reviewing the plan. See the
+[tagging guide](../guides/governance/unity-catalog-tagging.md) for ownership
+and permission requirements.
 
 ## `mcp`
 

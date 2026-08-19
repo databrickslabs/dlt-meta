@@ -1918,6 +1918,62 @@ def mcp(sdp_meta: SDPMeta, flags: dict = None):
     run_stdio(sdp_meta)
 
 
+def _governance_command_argv(flags, value_flags, boolean_flags=()):
+    """Translate Labs CLI flags to the governance argparse contract."""
+    arguments = []
+    flags = flags or {}
+    for name in value_flags:
+        value = flags.get(name)
+        if value is None:
+            value = flags.get(name.replace("-", "_"))
+        if value not in (None, ""):
+            arguments.extend([f"--{name}", str(value)])
+    for name in boolean_flags:
+        value = flags.get(name)
+        if value is None:
+            value = flags.get(name.replace("-", "_"))
+        if _coerce_bool(value):
+            arguments.append(f"--{name}")
+    return arguments
+
+
+def apply_tags(_sdp_meta, flags=None):
+    """Apply catalog-scoped Unity Catalog tags."""
+    from databricks.labs.sdp_meta.governance.tagging.applier import main as apply_main
+
+    arguments = _governance_command_argv(
+        flags,
+        (
+            "tags-file",
+            "catalog",
+            "schema",
+            "source-id",
+            "state-table",
+            "warehouse-id",
+        ),
+        ("dry-run", "transfer-ownership"),
+    )
+    exit_code = apply_main(arguments)
+    if exit_code:
+        raise RuntimeError(f"apply-tags failed with exit code {exit_code}")
+
+
+def generate_tags(_sdp_meta, flags=None):
+    """Generate a tags YAML skeleton from SDP-META onboarding targets."""
+    from databricks.labs.sdp_meta.governance.tagging.generator import (
+        main as generate_main,
+    )
+
+    arguments = _governance_command_argv(
+        flags,
+        ("input", "output", "environment", "catalog", "schema", "source-id"),
+        ("overwrite",),
+    )
+    exit_code = generate_main(arguments)
+    if exit_code:
+        raise RuntimeError(f"generate-tags failed with exit code {exit_code}")
+
+
 MAPPING = {
     "onboard": onboard,
     "deploy": deploy,
@@ -1927,6 +1983,8 @@ MAPPING = {
     "bundle-prepare-wheel": bundle_prepare_wheel,
     "bundle-validate": bundle_validate,
     "bundle-add-flow": bundle_add_flow,
+    "apply-tags": apply_tags,
+    "generate-tags": generate_tags,
     "mcp": mcp,
 }
 
@@ -1956,7 +2014,10 @@ def main(raw):
     sdp_meta = SDPMeta(ws)
     if command in ["onboard_ui", "deploy_ui"]:
         MAPPING[command](sdp_meta, payload)
-    elif command in ("onboard", "deploy") or command.startswith("bundle-"):
+    elif (
+        command in ("onboard", "deploy", "apply-tags", "generate-tags")
+        or command.startswith("bundle-")
+    ):
         # Flag-aware wrappers receive `flags` so they can opt into
         # non-interactive behavior (e.g. `bundle-init --quickstart`, or
         # `onboard --build-and-upload-whl`, or `deploy --whl-file-path=...`).

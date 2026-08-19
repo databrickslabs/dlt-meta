@@ -23,6 +23,11 @@ SDP-META operates in two phases:
 1. **Onboard Job** — reads your onboarding YAML or JSON file and writes structured metadata into `bronze_dataflowspec` and `silver_dataflowspec` Delta tables. Re-run this job whenever you change the onboarding file.
 2. **Generic Declarative Pipeline** — at runtime, reads the DataflowSpec Delta tables and dynamically constructs the pipeline graph: sources, transformations, expectations, CDC flows, and sinks.
 
+SDP-META also includes an optional, standalone
+[Unity Catalog governance capability](./concepts/governance/index.md). It
+reconciles Git-managed table and column tags after targets exist, and it can
+manage any Unity Catalog table—not only tables created by SDP-META.
+
 ## Feature matrix
 
 | Feature | Support |
@@ -41,5 +46,6 @@ SDP-META operates in two phases:
 | SDP-META CLI | Yes |
 | Databricks App (UI) | Yes |
 | MCP Server | Yes |
+| [Unity Catalog governance](./concepts/governance/index.md) | Table and column tags, dry-run planning, ownership-safe reconciliation, metadata verification, and optional DAB execution |
 
 For setup options, see [Getting Started](./getting-started/index.md).

@@ -1,0 +1,144 @@
+version: "1"
+
+# Desired-state manifest for a Terraform, Databricks CLI, or Python SDK adapter.
+# The adapter must translate these objects to the current Unity Catalog APIs.
+defaults:
+  catalog: <environment-catalog>
+  policy_schema: governance
+
+functions:
+  mask_email:
+    kind: column_mask
+    language: SQL
+    return_type: STRING
+    parameters:
+      - name: value
+        type: STRING
+    body: >-
+      CASE WHEN is_account_group_member('pii_readers')
+      THEN value
+      ELSE regexp_replace(value, '(^.).*(@.*$)', '$1***$2')
+      END
+
+  mask_full:
+    kind: column_mask
+    language: SQL
+    return_type: STRING
+    parameters:
+      - name: value
+        type: STRING
+    body: >-
+      CASE WHEN is_account_group_member('pii_readers')
+      THEN value
+      ELSE '***'
+      END
+
+  allow_region:
+    kind: row_filter
+    language: SQL
+    return_type: BOOLEAN
+    parameters:
+      - name: region_code
+        type: STRING
+    body: >-
+      is_account_group_member('governance_admins')
+      OR is_account_group_member(concat('region_', lower(region_code)))
+
+policies:
+  pii_email_mask:
+    kind: column_mask
+    enabled: true
+    function: mask_email
+    scope:
+      catalogs:
+        - <environment-catalog>
+      excluded_schemas:
+        - governance
+        - information_schema
+    match:
+      all:
+        - tag:
+            key: sensitivity
+            value: pii
+        - tag:
+            key: semantic_type
+            value: email
+    on_conflict: fail
+
+  confidential_full_mask:
+    kind: column_mask
+    enabled: true
+    function: mask_full
+    scope:
+      catalogs:
+        - <environment-catalog>
+      excluded_schemas:
+        - governance
+        - information_schema
+    match:
+      all:
+        - tag:
+            key: sensitivity
+            value: confidential
+        - tag:
+            key: masking_class
+            value: full
+    on_conflict: fail
+
+  regional_row_filter:
+    kind: row_filter
+    enabled: true
+    function: allow_region
+    arguments:
+      - column: region_code
+    scope:
+      catalogs:
+        - <environment-catalog>
+      excluded_schemas:
+        - governance
+        - information_schema
+    match:
+      all:
+        - tag:
+            key: row_access_policy
+            value: regional
+    on_conflict: fail
+
+grants:
+  function_execute:
+    pii_readers:
+      - mask_email
+      - mask_full
+    retail_analysts:
+      - mask_email
+      - mask_full
+      - allow_region
+    finance_analysts:
+      - mask_email
+      - mask_full
+      - allow_region
+
+verification:
+  compile_functions: true
+  verify_policy_bindings: true
+  test_cases:
+    - name: pii_reader_sees_email
+      principal_group: pii_readers
+      policy: pii_email_mask
+      expected: clear
+    - name: analyst_email_is_masked
+      principal_group: retail_analysts
+      policy: pii_email_mask
+      expected: masked
+    - name: analyst_rows_are_region_limited
+      principal_group: retail_analysts
+      policy: regional_row_filter
+      expected: filtered
+
+change_control:
+  dry_run_required: true
+  require_approval_for:
+    - disable_policy
+    - delete_policy
+    - broaden_scope
+    - add_bypass_group

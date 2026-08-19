@@ -1,0 +1,119 @@
+version: "1"
+source_id: main-onboarding-example-tags
+
+# Corresponds to an SDP-META onboarding template rendered for an environment.
+# The onboarding file supplies only target metadata. All tags below are
+# independently authored governance metadata.
+defaults:
+  catalog: main
+  schema: retail_bronze
+
+tables:
+  # data_flow_id: 100
+  customers:
+    table:
+      data_layer: bronze
+      source_system: mysql
+    columns:
+      email:
+        sensitivity: pii
+        semantic_type: email
+      dob:
+        sensitivity: pii
+        semantic_type: date_of_birth
+
+  customers_quarantine:
+    table:
+      data_layer: quarantine
+      access_tier: restricted
+    columns:
+      email:
+        sensitivity: pii
+      dob:
+        sensitivity: pii
+
+  retail_silver.customers:
+    table:
+      data_layer: silver
+    columns:
+      email:
+        sensitivity: pii
+        semantic_type: email
+      dob:
+        sensitivity: pii
+        semantic_type: date_of_birth
+
+  # data_flow_id: 101
+  transactions:
+    table:
+      data_layer: bronze
+      source_system: mysql
+    columns:
+      customer_id:
+        semantic_type: customer_id
+
+  transactions_quarantine:
+    table:
+      data_layer: quarantine
+      access_tier: restricted
+    columns:
+      customer_id:
+        semantic_type: customer_id
+
+  retail_silver.transactions:
+    table:
+      data_layer: silver
+    columns:
+      customer_id:
+        semantic_type: customer_id
+
+  # data_flow_id: 103
+  products:
+    table:
+      data_layer: bronze
+      source_system: mysql
+    columns:
+      price:
+        semantic_type: monetary_amount
+
+  products_quarantine:
+    table:
+      data_layer: quarantine
+      access_tier: restricted
+    columns:
+      price:
+        semantic_type: monetary_amount
+
+  retail_silver.products:
+    table:
+      data_layer: silver
+    columns:
+      price:
+        semantic_type: monetary_amount
+
+  # data_flow_id: 104
+  stores:
+    table:
+      data_layer: bronze
+      source_system: mysql
+    columns:
+      address:
+        sensitivity: internal
+        semantic_type: address
+
+  stores_quarantine:
+    table:
+      data_layer: quarantine
+      access_tier: restricted
+    columns:
+      address:
+        sensitivity: internal
+        semantic_type: address
+
+  retail_silver.stores:
+    table:
+      data_layer: silver
+    columns:
+      address:
+        sensitivity: internal
+        semantic_type: address

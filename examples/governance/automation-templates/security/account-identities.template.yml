@@ -1,0 +1,102 @@
+version: "1"
+
+# Account-level identity bootstrap.
+# Replace placeholder owners and member references before applying.
+account:
+  name: <databricks-account-name>
+  environment: prod
+
+groups:
+  governance_admins:
+    display_name: governance_admins
+    description: Creates governed tags, UDFs, ABAC policies, and permissions
+    owners:
+      - <security-owner-user-or-group>
+
+  data_engineers:
+    display_name: data_engineers
+    description: Develops and operates governed data pipelines
+    owners:
+      - <data-platform-owner-user-or-group>
+
+  tag_appliers:
+    display_name: tag_appliers
+    description: Runtime identities permitted to apply approved governed tags
+    owners:
+      - governance_admins
+
+  pii_readers:
+    display_name: pii_readers
+    description: Principals exempt from approved PII column masks
+    owners:
+      - governance_admins
+
+  retail_analysts:
+    display_name: retail_analysts
+    description: Retail consumers subject to ABAC masks and row filters
+    owners:
+      - <retail-data-owner-user-or-group>
+
+  finance_analysts:
+    display_name: finance_analysts
+    description: Finance consumers subject to ABAC masks and row filters
+    owners:
+      - <finance-data-owner-user-or-group>
+
+  quarantine_ops:
+    display_name: quarantine_ops
+    description: Operates protected quarantine datasets
+    owners:
+      - governance_admins
+
+service_principals:
+  sdp_pipeline_sp:
+    display_name: sdp_pipeline_sp
+    description: Creates and updates governed Unity Catalog objects
+    owners:
+      - data_engineers
+
+  sdp_tag_applier_sp:
+    display_name: sdp_tag_applier_sp
+    description: Applies catalog-scoped tags.yml assignments after pipeline success
+    owners:
+      - governance_admins
+
+memberships:
+  tag_appliers:
+    service_principals:
+      - sdp_tag_applier_sp
+
+  data_engineers:
+    service_principals:
+      - sdp_pipeline_sp
+
+# Human membership should normally come from the enterprise identity provider.
+# Use immutable IDs or approved group references in the production adapter.
+external_group_mappings:
+  pii_readers:
+    external_group: <enterprise-pii-readers-group>
+  retail_analysts:
+    external_group: <enterprise-retail-analysts-group>
+  finance_analysts:
+    external_group: <enterprise-finance-analysts-group>
+
+approval:
+  required_reviewers:
+    - <security-reviewer-group>
+  destructive_changes:
+    require_explicit_approval: true
+    protected_groups:
+      - governance_admins
+      - tag_appliers
+      - pii_readers
+
+outputs:
+  principal_aliases:
+    governance_admins: governance_admins
+    tag_applier: sdp_tag_applier_sp
+    pipeline_runner: sdp_pipeline_sp
+    pii_exemptions: pii_readers
+    retail_consumers: retail_analysts
+    finance_consumers: finance_analysts
+    quarantine_operators: quarantine_ops

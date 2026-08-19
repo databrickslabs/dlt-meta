@@ -1,0 +1,130 @@
+version: "1"
+
+# Account-level governed-tag policy bootstrap.
+# This file creates definitions and permissions; it does not assign tags to data.
+taxonomy:
+  owner: governance_admins
+  environment: prod
+
+governed_tags:
+  data_domain:
+    description: Business domain represented by the data
+    allowed_values:
+      - customer
+      - finance
+      - product
+      - store
+
+  sensitivity:
+    description: Data sensitivity classification
+    allowed_values:
+      - public
+      - internal
+      - confidential
+      - pii
+      - pci
+
+  access_tier:
+    description: Broad access classification
+    allowed_values:
+      - internal
+      - analytics
+      - restricted
+
+  semantic_type:
+    description: Stable business meaning used by policy column matching
+    allowed_values:
+      - customer_id
+      - email
+      - date_of_birth
+      - region_code
+      - monetary_amount
+      - address
+
+  masking_class:
+    description: Selects an approved masking behavior
+    allowed_values:
+      - email
+      - last_four
+      - full
+      - token
+
+  row_access_policy:
+    description: Selects an approved reusable row-filter policy
+    allowed_values:
+      - regional
+      - business_unit
+
+permissions:
+  account:
+    create:
+      - governance_admins
+
+  tags:
+    data_domain:
+      manage:
+        - governance_admins
+      assign:
+        - governance_admins
+        - sdp_tag_applier_sp
+
+    sensitivity:
+      manage:
+        - governance_admins
+      assign:
+        - governance_admins
+        - sdp_tag_applier_sp
+
+    access_tier:
+      manage:
+        - governance_admins
+      assign:
+        - governance_admins
+        - sdp_tag_applier_sp
+
+    semantic_type:
+      manage:
+        - governance_admins
+      assign:
+        - governance_admins
+        - sdp_tag_applier_sp
+
+    masking_class:
+      manage:
+        - governance_admins
+      assign:
+        - governance_admins
+        - sdp_tag_applier_sp
+
+    row_access_policy:
+      manage:
+        - governance_admins
+      assign:
+        - governance_admins
+        - sdp_tag_applier_sp
+
+# Databricks owns system-tag definitions. List only requested ASSIGN grants.
+system_tag_permissions:
+  system.certification_status:
+    assign:
+      - governance_admins
+
+# Data Classification owns class.* assignments by default.
+external_ownership:
+  reserved_prefixes:
+    class.: data_classification
+    sap.: sap_integration
+    system.: databricks_or_approved_governance_workflow
+
+change_control:
+  dry_run_required: true
+  require_approval_for:
+    - delete_policy
+    - remove_allowed_value
+    - semantic_key_change
+    - revoke_runtime_assign
+
+validation:
+  reject_sensitive_values: true
+  reject_unapproved_keys: true
+  verify_permissions_after_apply: true

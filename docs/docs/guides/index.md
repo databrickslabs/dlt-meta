@@ -16,3 +16,5 @@ sidebar_position: 1
 | Write pipeline output to an external Delta table or Kafka topic | [DLT Sink](./dlt-sink) |
 | Multiple source paths (e.g. US, EU, APAC) → single target table | [Multi-Source CDC](./multi-source-cdc) |
 | Filter rows at pipeline time by column value | [Row Filters](./row-filters) |
+| Reconcile governed tags on Unity Catalog tables and columns | [Unity Catalog Tagging](./governance/unity-catalog-tagging) |
+| Enforce masks and row filters from governed tags | [Governed Tags and ABAC](./governance/abac) |

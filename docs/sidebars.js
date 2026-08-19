@@ -25,6 +25,14 @@ const sidebars = {
         'concepts/dataflowspec',
         'concepts/pipeline-chaining',
         'concepts/data-quality',
+        {
+          type: 'category',
+          label: 'Governance',
+          link: { type: 'doc', id: 'concepts/governance/index' },
+          items: [
+            'concepts/governance/catalog-scoped-tags',
+          ],
+        },
       ],
     },
     {
@@ -37,6 +45,14 @@ const sidebars = {
         'reference/dq-rules',
         'reference/cli-commands',
         'reference/dab-parameters',
+        {
+          type: 'category',
+          label: 'Governance',
+          items: [
+            'reference/governance/tags-yaml',
+            'reference/governance/automation-manifests',
+          ],
+        },
       ],
     },
     {
@@ -52,6 +68,14 @@ const sidebars = {
         'guides/dlt-sink',
         'guides/multi-source-cdc',
         'guides/row-filters',
+        {
+          type: 'category',
+          label: 'Governance',
+          items: [
+            'guides/governance/unity-catalog-tagging',
+            'guides/governance/abac',
+          ],
+        },
       ],
     },
     {
@@ -62,6 +86,14 @@ const sidebars = {
         'operations/troubleshooting',
         'operations/integration-tests',
         'operations/migration',
+        {
+          type: 'category',
+          label: 'Governance',
+          items: [
+            'operations/governance/prerequisites',
+            'operations/governance/governed-tag-bootstrap',
+          ],
+        },
       ],
     },
     'contributing/index',

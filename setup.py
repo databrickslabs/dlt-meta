@@ -89,6 +89,7 @@ MCP_REQUIREMENTS = ["mcp>=1.0,<2.0"]
 setup(
     name="databricks-labs-sdp-meta",
     version="0.1.0",
+    include_package_data=True,
     # Ceiling matches compat/setup.py: the pyspark 3.5.5 stack this framework
     # runs against is incompatible with Python 3.13+ (pickle/cloudpickle
     # changes; see GETTING_STARTED.md prerequisites). Keeping both packages'
@@ -147,10 +148,14 @@ setup(
             # (python_wheel_task entry_point: stage_conf) to copy conf/ onto a
             # UC Volume so serverless Spark can read it.
             "stage_conf=databricks.labs.sdp_meta.stage_conf:main",
+            "apply_tags=databricks.labs.sdp_meta.governance.tagging.applier:main",
+            "generate_tags=databricks.labs.sdp_meta.governance.tagging.generator:main",
         ],
         "group_1": [
             "run=databricks.labs.sdp_meta.__main__:main",
             "stage_conf=databricks.labs.sdp_meta.stage_conf:main",
+            "apply_tags=databricks.labs.sdp_meta.governance.tagging.applier:main",
+            "generate_tags=databricks.labs.sdp_meta.governance.tagging.generator:main",
         ],
     },
     # Per-version classifiers must cover exactly the range declared in

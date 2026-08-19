@@ -1,0 +1,39 @@
+# Optional standalone governance job. Populate conf/tags.yml and run the
+# `pipelines` job successfully before invoking this job. That ordering is
+# operator-sequenced; this resource has no dependency on the pipeline job.
+resources:
+  jobs:
+    governance_tagging:
+      name: "${bundle.name} - apply Unity Catalog tags"
+      description: "Reconciles reviewed table and column tags after data objects exist."
+      tasks:
+        - task_key: stage_conf
+          python_wheel_task:
+            package_name: databricks_labs_sdp_meta
+            entry_point: stage_conf
+            named_parameters:
+              source_conf_dir: ${workspace.file_path}/conf
+              uc_catalog: ${var.uc_catalog_name}
+              uc_schema: ${var.sdp_meta_schema}
+              conf_volume: ${var.conf_volume}
+          environment_key: default
+
+        - task_key: apply_tags
+          depends_on:
+            - task_key: stage_conf
+          python_wheel_task:
+            package_name: databricks_labs_sdp_meta
+            entry_point: apply_tags
+            named_parameters:
+              tags-file: /Volumes/${var.uc_catalog_name}/${var.sdp_meta_schema}/${var.conf_volume}/conf/tags.yml
+              catalog: ${var.uc_catalog_name}
+              schema: ${var.bronze_target_schema}
+              state-table: ${var.uc_catalog_name}.${var.sdp_meta_schema}.uc_governance_tag_assignments
+          environment_key: default
+
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+            dependencies:
+              - ${var.sdp_meta_dependency}

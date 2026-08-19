@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import sys
+import tempfile
 import traceback
 import uuid
 import webbrowser
@@ -25,6 +26,9 @@ from databricks.sdk.service.workspace import ImportFormat, Language
 
 from databricks.labs.sdp_meta.identifiers import validate_uc_identifier
 from databricks.labs.sdp_meta.install import WorkspaceInstaller
+from integration_tests.governance_tagging_helper import (
+    generate_integration_tags_file,
+)
 
 # Dictionary mapping cloud providers to node types
 cloud_node_type_id_dict = {
@@ -175,6 +179,11 @@ class SDPMetaRunnerConf:
     onboarding_fanout_templates: str = None  # "demo/conf/onboarding_fanout_cars.template",
     # onboarding_file_path: str = None  # "demo/conf/onboarding_cars.json",
     onboarding_fanout_file_path: str = None  # "demo/conf/onboarding_fanout_cars.json",
+    enable_governance_tagging: bool = False
+    warehouse_id: str = None
+    governance_tags_local_path: str = None
+    governance_tags_volume_path: str = None
+    governance_source_id: str = None
 
     # cloudfiles info
     cloudfiles_template: str = "integration_tests/conf/json/cloudfiles-onboarding.template"
@@ -312,6 +321,10 @@ class SDPMETARunner:
                 if self.args.get("onboarding_file_format")
                 else "json"
             ),
+            enable_governance_tagging=self.args.get(
+                "enable_governance_tagging", False
+            ),
+            warehouse_id=self.args.get("warehouse_id"),
             # node_type_id=cloud_node_type_id_dict[self.args["cloud_provider_name"]],
             test_output_file_path=(
                 f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/"
@@ -792,6 +805,46 @@ class SDPMETARunner:
                 ),
             )
 
+        if runner_conf.enable_governance_tagging:
+            tasks.append(
+                jobs.Task(
+                    task_key="apply_governance_tags",
+                    description=(
+                        "Apply generated integration-test tags after pipelines"
+                    ),
+                    depends_on=[
+                        jobs.TaskDependency(
+                            task_key=self.get_validate_task_key(
+                                runner_conf.source
+                            )
+                        )
+                    ],
+                    environment_key="dl_meta_int_env",
+                    timeout_seconds=0,
+                    python_wheel_task=jobs.PythonWheelTask(
+                        package_name="databricks_labs_sdp_meta",
+                        entry_point="apply_tags",
+                        named_parameters={
+                            "tags-file": (
+                                runner_conf.governance_tags_volume_path
+                            ),
+                            "state-table": (
+                                f"{runner_conf.uc_catalog_name}."
+                                f"{runner_conf.sdp_meta_schema}."
+                                "uc_governance_tag_assignments"
+                            ),
+                            "warehouse-id": runner_conf.warehouse_id,
+                        },
+                    ),
+                )
+            )
+            validate_task = next(
+                task for task in tasks if task.task_key == "validate_results"
+            )
+            validate_task.depends_on = [
+                jobs.TaskDependency(task_key="apply_governance_tags")
+            ]
+
         return self.ws.jobs.create(
             name=f"sdp-meta-{runner_conf.run_id}",
             environments=sdp_meta_environments,
@@ -940,6 +993,39 @@ class SDPMETARunner:
                 runner_conf.onboarding_file_format,
             )
 
+    def generate_governance_tags_file(self, runner_conf: SDPMetaRunnerConf):
+        """Generate active integration tags from the rendered onboarding files."""
+        if not runner_conf.enable_governance_tagging:
+            return
+
+        onboarding_paths = [runner_conf.onboarding_file_path]
+        if runner_conf.source == "cloudfiles":
+            onboarding_paths.append(runner_conf.onboarding_A2_file_path)
+
+        runner_conf.governance_source_id = (
+            f"sdp-meta-it-{runner_conf.source}-{runner_conf.run_id}"
+        )
+        runner_conf.governance_tags_local_path = os.path.join(
+            tempfile.gettempdir(),
+            f"sdp-meta-governance-tags-{runner_conf.run_id}.yml",
+        )
+        runner_conf.governance_tags_volume_path = (
+            f"{runner_conf.uc_volume_path}"
+            f"sdp-meta-governance-tags-{runner_conf.run_id}.yml"
+        )
+        targets = generate_integration_tags_file(
+            onboarding_paths=onboarding_paths,
+            output_path=runner_conf.governance_tags_local_path,
+            environment=runner_conf.env,
+            catalog=runner_conf.uc_catalog_name,
+            default_schema=runner_conf.bronze_schema,
+            source_id=runner_conf.governance_source_id,
+        )
+        print(
+            f"Generated governance tags for {len(targets)} targets: "
+            f"{runner_conf.governance_tags_local_path}"
+        )
+
     @staticmethod
     def _read_template_text(template_path: str) -> str:
         with open(template_path, "r") as fh:
@@ -1086,6 +1172,13 @@ class SDPMETARunner:
                             contents=content,
                             overwrite=True,
                         )
+        if runner_conf.enable_governance_tagging:
+            with open(runner_conf.governance_tags_local_path, "rb") as content:
+                self.ws.files.upload(
+                    file_path=runner_conf.governance_tags_volume_path,
+                    contents=content,
+                    overwrite=True,
+                )
         print(f"Integration test file upload to {uc_vol_full_path} complete!!!")
 
         # Upload required notebooks for the given source
@@ -1119,6 +1212,7 @@ class SDPMETARunner:
         # When --onboarding_file_format yaml, also convert referenced silver
         # transformation and DQ-rule files so the entire pipeline runs on YAML.
         self._rewrite_silver_and_dqe_paths_to_yml(runner_conf)
+        self.generate_governance_tags_file(runner_conf)
         self.upload_files_to_databricks(runner_conf)
 
     def create_bronze_silver_dlt(self, runner_conf: SDPMetaRunnerConf):
@@ -1292,6 +1386,13 @@ def process_arguments() -> dict[str:str]:
             False,
             ["json", "yaml", "yml"],
         ],
+        [
+            "warehouse_id",
+            "SQL warehouse ID used by the optional governance tagging task.",
+            str,
+            False,
+            [],
+        ],
         # Eventhub arguments
         ["eventhub_name", "Provide eventhub_name e.g: iot", str.lower, False, []],
         [
@@ -1413,6 +1514,14 @@ def process_arguments() -> dict[str:str]:
             parser.add_argument(
                 f"--{arg[0]}", help=arg[1], type=arg[2], required=arg[3]
             )
+    parser.add_argument(
+        "--enable_governance_tagging",
+        action="store_true",
+        help=(
+            "Generate tags.yml from onboarding and apply tags after pipelines "
+            "but before result validation."
+        ),
+    )
     args = vars(parser.parse_args())
 
     # Validate UC identifiers up-front so the run fails fast with a clear
@@ -1449,6 +1558,8 @@ def process_arguments() -> dict[str:str]:
                 "kafka_sink_topic"
             ],
         )
+    if args["enable_governance_tagging"]:
+        check_cond_mandatory_arg(args, ["warehouse_id"])
 
     print(f"Processing comand line arguments Complete: {args}")
     return args

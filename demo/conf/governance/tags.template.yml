@@ -1,0 +1,53 @@
+version: "1"
+source_id: main-dev-tags
+
+defaults:
+  catalog: main_dev
+  schema: retail_bronze
+
+# Target names support three forms:
+#   table                 -> defaults.catalog + defaults.schema
+#   schema.table          -> defaults.catalog + explicit schema
+#   catalog.schema.table  -> allowed only when catalog matches defaults.catalog
+#
+# Everything under table:/columns: is customer-defined Unity Catalog
+# taxonomy. An empty target node explicitly removes stale tags previously
+# owned by this applier for that target.
+tables:
+  customers:
+    table:
+      data_domain: customer
+    columns:
+      customer_id:
+        semantic_type: customer_id
+      email:
+        semantic_type: email
+        sensitivity: pii
+
+  retail_quarantine.customers_quarantine:
+    table:
+      access_tier: restricted
+    columns:
+      email:
+        sensitivity: pii
+
+  transactions:
+    table:
+      data_domain: finance
+    columns:
+      amount:
+        semantic_type: amount
+        sensitivity: confidential
+      card_token:
+        sensitivity: pci
+
+  shared_governance.reference_codes:
+    table:
+      lifecycle: active
+
+  reporting.gl_balances:
+    table:
+      data_domain: finance
+    columns:
+      account_no:
+        sensitivity: confidential
