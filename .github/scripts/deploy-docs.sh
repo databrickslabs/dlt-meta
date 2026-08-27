@@ -60,18 +60,12 @@ git checkout main
 git pull --ff-only origin main
 
 echo "==> Installing documentation dependencies"
-(
-  cd "${REPO_ROOT}/docs"
-  node --version
-  npm --version
-  npm ci --no-audit --no-fund
-)
+node --version
+npm --version
+make docs-install
 
 echo "==> Building Docusaurus site"
-(
-  cd "${REPO_ROOT}/docs"
-  npm run build
-)
+make docs-build
 
 if [[ ! -f "${BUILD_DIR}/index.html" ]]; then
   echo "Error: build did not produce ${BUILD_DIR}/index.html" >&2
