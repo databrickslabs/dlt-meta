@@ -1,7 +1,7 @@
 # Web framework + WSGI server
 flask>=3.0
 gunicorn>=21.2
-click==8.1.7
+click==8.4.2
 
 # Databricks SDK — required by demo scripts (launch_*_demo.py) and the
 # sdp-meta CLI (`python -m databricks.labs.sdp_meta.cli`, installed from
