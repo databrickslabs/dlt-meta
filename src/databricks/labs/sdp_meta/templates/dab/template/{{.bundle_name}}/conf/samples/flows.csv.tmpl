@@ -1,0 +1,15 @@
+# Sample CSV for `databricks labs sdp-meta bundle-add-flow --from-csv`.
+# Copy or edit this file, then run:
+#   databricks labs sdp-meta bundle-add-flow
+#   (pick "csv" mode and point at the file)
+#
+# Recognized columns (others are ignored):
+#   source_format, source_path, source_database, source_table, source_schema_path,
+#   kafka_bootstrap_servers, kafka_topic, starting_offsets, snapshot_format,
+#   bronze_table, silver_table, data_flow_id, data_flow_group, source_system
+#
+# Use `data_flow_id=auto` to let the CLI auto-increment from max+1.
+source_format,source_path,source_database,source_table,bronze_table,silver_table,data_flow_id,source_system
+cloudFiles,/Volumes/{{.uc_catalog_name}}/landing/files/orders/,landing,orders,orders,orders,auto,erp
+cloudFiles,/Volumes/{{.uc_catalog_name}}/landing/files/customers/,landing,customers,customers,customers,auto,crm
+delta,,{{.uc_catalog_name}}.landing,line_items,line_items,line_items,auto,delta_landing

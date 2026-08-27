@@ -1,12 +1,77 @@
 ---
-name: dlt-meta
-description: Metadata-driven framework based on Databricks Lakeflow Declarative Pipelines 
+name: sdp-meta
+description: Metadata-driven framework based on Databricks Lakeflow Spark Declarative Pipelines 
 install:
-  script: src/install.py
-entrypoint: src/cli.py
+  script: src/databricks/labs/sdp_meta/install.py
+entrypoint: src/databricks/labs/sdp_meta/cli.py
 min_python: 3.8
 commands:
   - name: onboard
-    description: onboards dlt-meta configuration for bronze and silver layers
+    description: onboards sdp-meta configuration for bronze and silver layers
+    flags:
+      - name: build-and-upload-whl
+        description: "Build the local sdp-meta wheel, upload it to a UC volume, and use that wheel for the onboarding job. Requires UC onboarding. Invoke with the '=' syntax (e.g. --build-and-upload-whl=true) so the labs CLI string-flag parser does not consume the next CLI token as its value."
+      - name: whl-file-path
+        description: Existing wheel path to use for the onboarding job, such as /Volumes/<catalog>/<schema>/<volume>/<wheel>.whl. Mutually exclusive with --build-and-upload-whl.
+      - name: git-branch
+        description: Git branch to build a wheel from when --build-and-upload-whl is set. Defaults to the databrickslabs/sdp-meta repository when --git-url is omitted.
+      - name: git-url
+        description: Git repository URL to build a wheel from when --build-and-upload-whl is set. Accepts regular HTTPS Git URLs or pip git+ URLs.
+      - name: uc-schema
+        description: UC schema for the wheel volume when --build-and-upload-whl is set. Defaults to the prompted sdp meta schema.
+      - name: uc-schema-name
+        description: Alias for --uc-schema, matching demo launcher flag names.
+      - name: uc-volume
+        description: UC volume for the uploaded wheel when --build-and-upload-whl is set. Defaults to the wheel schema name.
+      - name: uc-volume-name
+        description: Alias for --uc-volume, matching demo launcher flag names.
+      - name: profile
+        description: Databricks CLI profile to use for authentication and the wheel upload (optional).
+      - name: pip-index-url
+        description: Forwarded to pip wheel as --index-url (optional; defaults to pip/PIP_INDEX_URL behavior).
+      - name: pip-extra-index-url
+        description: Space-separated URLs forwarded to pip wheel as --extra-index-url (optional).
+      - name: no-create-missing-uc
+        description: Do not auto-create the UC schema or volume before uploading the wheel.
   - name: deploy
-    description: Deploys DLT-Meta pipelines for bronze and silver layers after onboarding dataflowspecs is complete
+    description: Deploys sdp-meta pipelines for bronze and silver layers after onboarding dataflowspecs is complete
+    flags:
+      - name: build-and-upload-whl
+        description: "Build the local sdp-meta wheel, upload it to a UC volume, and bake the wheel path into the SDP runner notebook's `%pip install` (avoids needing PyPI access on the pipeline cluster). Requires UC. Invoke with the '=' syntax (e.g. --build-and-upload-whl=true) so the labs CLI string-flag parser does not consume the next CLI token as its value."
+      - name: whl-file-path
+        description: "Existing wheel path to bake into the SDP runner notebook's `%pip install` (e.g. /Volumes/<catalog>/<schema>/<volume>/<wheel>.whl). Mutually exclusive with --build-and-upload-whl."
+      - name: git-branch
+        description: Git branch to build a wheel from when --build-and-upload-whl is set. Defaults to the databrickslabs/sdp-meta repository when --git-url is omitted.
+      - name: git-url
+        description: Git repository URL to build a wheel from when --build-and-upload-whl is set. Accepts regular HTTPS Git URLs or pip git+ URLs.
+      - name: uc-schema
+        description: UC schema for the wheel volume when --build-and-upload-whl is set. Defaults to the deployment's bronze/silver dataflowspec schema (or dlt_target_schema as a last resort).
+      - name: uc-schema-name
+        description: "Alias for --uc-schema, matching demo launcher flag names."
+      - name: uc-volume
+        description: UC volume for the uploaded wheel when --build-and-upload-whl is set. Defaults to the wheel schema name.
+      - name: uc-volume-name
+        description: "Alias for --uc-volume, matching demo launcher flag names."
+      - name: profile
+        description: Databricks CLI profile to use for authentication and the wheel upload (optional).
+      - name: pip-index-url
+        description: Forwarded to pip wheel as --index-url (optional; defaults to pip/PIP_INDEX_URL behavior).
+      - name: pip-extra-index-url
+        description: Space-separated URLs forwarded to pip wheel as --extra-index-url (optional).
+      - name: no-create-missing-uc
+        description: Do not auto-create the UC schema or volume before uploading the wheel.
+  - name: bundle-init
+    description: Scaffold a new sdp-meta Declarative Automation Bundle (DAB) from the packaged template (onboarding job + Lakeflow Spark Declarative Pipelines + variables + recipes)
+    flags:
+      - name: quickstart
+        description: "Skip all prompts and scaffold a developer-friendly bundle (cloudFiles + bronze_silver + split + pypi) under <output-dir>/my_sdp_meta_pipeline. Edit resources/variables.yml afterwards to point at your real catalog/schema/sdp_meta_dependency. Prefer the '=' syntax (--quickstart=true) so the labs CLI string-flag parser does not consume the next CLI token (e.g. --output-dir) as its value; bare --quickstart is recovered on a best-effort basis."
+      - name: output-dir
+        description: Parent directory the new bundle folder is created under (default ".", honored by both interactive and --quickstart modes). The bundle itself lands in <output-dir>/<bundle_name>, e.g. <output-dir>/my_sdp_meta_pipeline in quickstart mode.
+  - name: bundle-prepare-wheel
+    description: Build the local sdp-meta wheel and upload it to a UC volume (for wheel_source=volume_path bundles); prints the resulting /Volumes/... path to paste into resources/variables.yml
+  - name: bundle-validate
+    description: Run `databricks bundle validate` plus sdp-meta sanity checks (layer/topology consistency, wheel_source vs sdp_meta_dependency, onboarding placeholders, dataflow_group references) against a scaffolded bundle
+  - name: bundle-add-flow
+    description: Append flow entries to a bundle's conf/onboarding.{yml,json} (interactive single-flow prompts or batch from CSV); auto-increments data_flow_id and seeds silver_transformations.* for new silver flows
+  - name: mcp
+    description: Run the sdp-meta Model Context Protocol (MCP) server over stdio so an MCP-capable client can drive sdp-meta scaffolding and inspection. Requires the `mcp` extra (`pip install databricks-labs-sdp-meta[mcp]`).

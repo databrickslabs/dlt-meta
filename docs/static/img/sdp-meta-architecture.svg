@@ -1,0 +1,115 @@
+<svg viewBox="0 0 960 500" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, sans-serif">
+
+  <!-- Background -->
+  <rect width="960" height="500" fill="#ffffff"/>
+
+  <!-- Phase labels -->
+  <text x="28" y="30" font-size="11" font-weight="600" fill="#888" letter-spacing="0.5">PHASE 1 — ONBOARDING</text>
+  <line x1="28" y1="36" x2="580" y2="36" stroke="#e0e0e0" stroke-width="1"/>
+
+  <text x="28" y="300" font-size="11" font-weight="600" fill="#888" letter-spacing="0.5">PHASE 2 — PIPELINE RUNTIME</text>
+  <line x1="28" y1="306" x2="930" y2="306" stroke="#e0e0e0" stroke-width="1"/>
+
+  <!-- ── PHASE 1 ── -->
+
+  <!-- Onboarding file box -->
+  <rect x="28" y="55" width="160" height="72" rx="8" fill="#f8f8f8" stroke="#cccccc" stroke-width="1.5"/>
+  <text x="108" y="84" text-anchor="middle" font-size="13" font-weight="600" fill="#1a1a1a">Onboarding file</text>
+  <text x="108" y="102" text-anchor="middle" font-size="11" fill="#666">YAML or JSON</text>
+  <text x="108" y="117" text-anchor="middle" font-size="11" fill="#666">per-flow config</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="188" y1="91" x2="250" y2="91" stroke="#999" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- SDP-META Onboard Job box -->
+  <rect x="254" y="55" width="180" height="72" rx="8" fill="#fff3f0" stroke="#ff5733" stroke-width="1.5"/>
+  <text x="344" y="82" text-anchor="middle" font-size="13" font-weight="600" fill="#cc2200">SDP-META</text>
+  <text x="344" y="100" text-anchor="middle" font-size="13" font-weight="600" fill="#cc2200">Onboard Job</text>
+  <text x="344" y="118" text-anchor="middle" font-size="11" fill="#888">Databricks Job</text>
+
+  <!-- Arrow 2→3 (down) -->
+  <line x1="344" y1="127" x2="344" y2="185" stroke="#999" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- DataflowSpec tables cylinder -->
+  <!-- cylinder top ellipse -->
+  <ellipse cx="344" cy="198" rx="90" ry="14" fill="#fff8e1" stroke="#f4a430" stroke-width="1.5"/>
+  <rect x="254" y="198" width="180" height="56" fill="#fff8e1" stroke="#f4a430" stroke-width="0"/>
+  <line x1="254" y1="198" x2="254" y2="254" stroke="#f4a430" stroke-width="1.5"/>
+  <line x1="434" y1="198" x2="434" y2="254" stroke="#f4a430" stroke-width="1.5"/>
+  <ellipse cx="344" cy="254" rx="90" ry="14" fill="#ffe8a0" stroke="#f4a430" stroke-width="1.5"/>
+  <text x="344" y="222" text-anchor="middle" font-size="12" font-weight="600" fill="#7a4f00">DataflowSpec tables</text>
+  <text x="344" y="238" text-anchor="middle" font-size="10" fill="#a06000">bronze_dataflowspec</text>
+  <text x="344" y="252" text-anchor="middle" font-size="10" fill="#a06000">silver_dataflowspec</text>
+
+  <!-- Delta badge -->
+  <rect x="450" y="208" width="88" height="24" rx="4" fill="#e8f4ff" stroke="#0078d4" stroke-width="1"/>
+  <text x="494" y="224" text-anchor="middle" font-size="11" font-weight="600" fill="#0078d4">△ Delta Lake</text>
+
+  <!-- ── PHASE 2 ── -->
+
+  <!-- Source data cylinder -->
+  <ellipse cx="90" cy="360" rx="62" ry="10" fill="#f0f0f0" stroke="#999" stroke-width="1.5"/>
+  <rect x="28" y="360" width="124" height="50" fill="#f0f0f0" stroke="#999" stroke-width="0"/>
+  <line x1="28" y1="360" x2="28" y2="410" stroke="#999" stroke-width="1.5"/>
+  <line x1="152" y1="360" x2="152" y2="410" stroke="#999" stroke-width="1.5"/>
+  <ellipse cx="90" cy="410" rx="62" ry="10" fill="#e0e0e0" stroke="#999" stroke-width="1.5"/>
+  <text x="90" y="386" text-anchor="middle" font-size="12" font-weight="600" fill="#333">Source data</text>
+  <text x="90" y="401" text-anchor="middle" font-size="10" fill="#666">files / streams / CDC</text>
+
+  <!-- Arrow source→pipeline -->
+  <line x1="152" y1="385" x2="218" y2="385" stroke="#999" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- DataflowSpec → Pipeline arrow (down from cylinder bottom) -->
+  <line x1="344" y1="268" x2="344" y2="340" stroke="#f4a430" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arrowheadOrange)"/>
+  <text x="350" y="310" font-size="10" fill="#a06000">drives</text>
+
+  <!-- Generic Declarative Pipeline box -->
+  <rect x="222" y="348" width="200" height="72" rx="8" fill="#fff3f0" stroke="#ff5733" stroke-width="1.5"/>
+  <text x="322" y="374" text-anchor="middle" font-size="12" font-weight="600" fill="#cc2200">Generic Declarative</text>
+  <text x="322" y="390" text-anchor="middle" font-size="12" font-weight="600" fill="#cc2200">Pipeline</text>
+  <text x="322" y="408" text-anchor="middle" font-size="10" fill="#888">reads spec, builds graph</text>
+
+  <!-- Arrow pipeline→bronze -->
+  <line x1="422" y1="384" x2="490" y2="384" stroke="#999" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- Bronze cylinder -->
+  <ellipse cx="554" cy="355" rx="62" ry="10" fill="#fdf0e0" stroke="#cd7f32" stroke-width="1.5"/>
+  <rect x="492" y="355" width="124" height="58" fill="#fdf0e0" stroke="#cd7f32" stroke-width="0"/>
+  <line x1="492" y1="355" x2="492" y2="413" stroke="#cd7f32" stroke-width="1.5"/>
+  <line x1="616" y1="355" x2="616" y2="413" stroke="#cd7f32" stroke-width="1.5"/>
+  <ellipse cx="554" cy="413" rx="62" ry="10" fill="#f5e0c0" stroke="#cd7f32" stroke-width="1.5"/>
+  <text x="554" y="380" text-anchor="middle" font-size="14" font-weight="700" fill="#7a4010">Bronze</text>
+  <text x="554" y="397" text-anchor="middle" font-size="10" fill="#a05020">Raw ingestion</text>
+  <text x="554" y="410" text-anchor="middle" font-size="10" fill="#a05020">+ quarantine</text>
+
+  <!-- Arrow bronze→silver -->
+  <line x1="616" y1="384" x2="690" y2="384" stroke="#999" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- Silver cylinder -->
+  <ellipse cx="754" cy="355" rx="62" ry="10" fill="#f4f4f4" stroke="#888" stroke-width="1.5"/>
+  <rect x="692" y="355" width="124" height="58" fill="#f4f4f4" stroke="#888" stroke-width="0"/>
+  <line x1="692" y1="355" x2="692" y2="413" stroke="#888" stroke-width="1.5"/>
+  <line x1="816" y1="355" x2="816" y2="413" stroke="#888" stroke-width="1.5"/>
+  <ellipse cx="754" cy="413" rx="62" ry="10" fill="#e0e0e0" stroke="#888" stroke-width="1.5"/>
+  <text x="754" y="380" text-anchor="middle" font-size="14" font-weight="700" fill="#333">Silver</text>
+  <text x="754" y="397" text-anchor="middle" font-size="10" fill="#555">Cleaned, enriched</text>
+  <text x="754" y="410" text-anchor="middle" font-size="10" fill="#555">analytics-ready</text>
+
+  <!-- Optional Gold hint -->
+  <line x1="816" y1="384" x2="860" y2="384" stroke="#bbb" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrowheadGray)"/>
+  <text x="880" y="388" text-anchor="middle" font-size="11" fill="#aaa">Gold…</text>
+
+  <!-- Arrowhead markers -->
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#999"/>
+    </marker>
+    <marker id="arrowheadOrange" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#f4a430"/>
+    </marker>
+    <marker id="arrowheadGray" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#bbb"/>
+    </marker>
+  </defs>
+
+</svg>

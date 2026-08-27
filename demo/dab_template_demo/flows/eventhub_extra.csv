@@ -1,0 +1,4 @@
+source_format,kafka_bootstrap_servers,kafka_topic,bronze_table,silver_table,data_flow_id,source_system
+eventhub,my-eh-namespace.servicebus.windows.net:9093,iot_telemetry,iot_telemetry,iot_telemetry,auto,eventhub
+eventhub,my-eh-namespace.servicebus.windows.net:9093,clicks,clicks,clicks,auto,eventhub
+eventhub,my-eh-namespace.servicebus.windows.net:9093,events,events,events,auto,eventhub

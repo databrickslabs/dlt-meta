@@ -12,7 +12,7 @@
     "bronze_reader_options": {
       "header": "true"
    },        
-    "bronze_database_it": "uc_catalog_name.dlt_meta_bronze_it_23de6188b0b0442a9f0bdbaed368b1f7",
+    "bronze_database_it": "uc_catalog_name.sdp_meta_bronze_it_23de6188b0b0442a9f0bdbaed368b1f7",
     "bronze_table": "stores",
     "bronze_apply_changes_from_snapshot": {
         "scd_type": "2"
@@ -30,7 +30,7 @@
     "bronze_reader_options": {
       "header": "true"
    },        
-    "bronze_database_it": "uc_catalog_name.dlt_meta_bronze_it_23de6188b0b0442a9f0bdbaed368b1f7",
+    "bronze_database_it": "uc_catalog_name.sdp_meta_bronze_it_23de6188b0b0442a9f0bdbaed368b1f7",
     "bronze_table": "stores",
     "bronze_apply_changes_from_snapshot": {
         "keys": [

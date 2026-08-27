@@ -1,16 +1,16 @@
 
 import uuid
-from src.install import WorkspaceInstaller
+from databricks.labs.sdp_meta.install import WorkspaceInstaller
 from integration_tests.run_integration_tests import (
-    DLTMETARunner,
-    DLTMetaRunnerConf,
+    SDPMETARunner,
+    SDPMetaRunnerConf,
     get_workspace_api_client,
     process_arguments
 )
 import traceback
 
 
-class DLTMETASinkDemo(DLTMETARunner):
+class SDPMETASinkDemo(SDPMETARunner):
 
     def __init__(self, args, ws, base_dir):
         self.args = args
@@ -18,15 +18,15 @@ class DLTMETASinkDemo(DLTMETARunner):
         self.wsi = WorkspaceInstaller(ws)
         self.base_dir = base_dir
 
-    def run(self, runner_conf: DLTMetaRunnerConf):
+    def run(self, runner_conf: SDPMetaRunnerConf):
         """
-        Runs the DLT-META Sink Demo by calling the necessary methods in the correct order.
+        Runs the SDP-META Sink Demo by calling the necessary methods in the correct order.
 
         Parameters:
-        - runner_conf: The DLTMetaRunnerConf object containing the runner configuration parameters.
+        - runner_conf: The SDPMetaRunnerConf object containing the runner configuration parameters.
         """
         try:
-            self.init_dltmeta_runner_conf(runner_conf)
+            self.init_sdp_meta_runner_conf(runner_conf)
             self.create_bronze_silver_dlt(runner_conf)
             self.launch_workflow(runner_conf)
         except Exception as e:
@@ -35,26 +35,26 @@ class DLTMETASinkDemo(DLTMETARunner):
         # finally:
         #     self.clean_up(runner_conf)
 
-    def init_runner_conf(self) -> DLTMetaRunnerConf:
+    def init_runner_conf(self) -> SDPMetaRunnerConf:
         """
         Initialize the runner configuration for running integration tests.
 
         Returns:
         -------
-        DLTMetaRunnerConf
+        SDPMetaRunnerConf
             The initialized runner configuration.
         """
         run_id = uuid.uuid4().hex
-        runner_conf = DLTMetaRunnerConf(
+        runner_conf = SDPMetaRunnerConf(
             run_id=run_id,
             username=self.wsi._my_username,
             uc_catalog_name=self.args["uc_catalog_name"],
             int_tests_dir="demo",
-            dlt_meta_schema=f"dlt_meta_dataflowspecs_demo_{run_id}",
-            bronze_schema=f"dlt_meta_bronze_demo_{run_id}",
-            runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_demo/{run_id}",
+            sdp_meta_schema=f"sdp_meta_dataflowspecs_demo_{run_id}",
+            bronze_schema=f"sdp_meta_bronze_demo_{run_id}",
+            runners_nb_path=f"/Users/{self.wsi._my_username}/sdp_meta_demo/{run_id}",
             source="kafka",
-            kafka_template="demo/conf/kafka-sink-onboarding.template",
+            kafka_template="demo/conf/json/kafka-sink-onboarding.template",
             kafka_source_topic=self.args["kafka_source_topic"],
             kafka_source_servers_secrets_scope_name=self.args["kafka_source_servers_secrets_scope_name"],
             kafka_source_servers_secrets_scope_key=self.args["kafka_source_servers_secrets_scope_key"],
@@ -62,17 +62,18 @@ class DLTMETASinkDemo(DLTMETARunner):
             kafka_sink_servers_secret_scope_name=self.args["kafka_sink_servers_secret_scope_name"],
             kafka_sink_servers_secret_scope_key=self.args["kafka_sink_servers_secret_scope_key"],
             env="demo",
-            onboarding_file_path="demo/conf/onboarding.json",
+            onboarding_file_path="demo/conf/json/onboarding.json",
+            onboarding_file_format=self.args.get("onboarding_file_format") or "json",
             runners_full_local_path='./demo/notebooks/dlt_sink_runners/',
             test_output_file_path=(
-                f"/Users/{self.wsi._my_username}/dlt_meta_demo/"
+                f"/Users/{self.wsi._my_username}/sdp_meta_demo/"
                 f"{run_id}/demo-output.csv"
             ),
         )
 
         return runner_conf
 
-    def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
+    def launch_workflow(self, runner_conf: SDPMetaRunnerConf):
         created_job = self.create_workflow_spec(runner_conf)
         self.open_job_url(runner_conf, created_job)
 
@@ -80,10 +81,10 @@ class DLTMETASinkDemo(DLTMETARunner):
 def main():
     args = process_arguments()
     workspace_client = get_workspace_api_client(args["profile"])
-    dltmeta_afam_demo_runner = DLTMETASinkDemo(args, workspace_client, "demo")
+    sdp_meta_afam_demo_runner = SDPMETASinkDemo(args, workspace_client, "demo")
     print("initializing complete")
-    runner_conf = dltmeta_afam_demo_runner.init_runner_conf()
-    dltmeta_afam_demo_runner.run(runner_conf)
+    runner_conf = sdp_meta_afam_demo_runner.init_runner_conf()
+    sdp_meta_afam_demo_runner.run(runner_conf)
 
 
 if __name__ == "__main__":

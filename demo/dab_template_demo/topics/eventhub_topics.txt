@@ -1,0 +1,7 @@
+# 5 Event Hubs (within the same namespace) added in bulk via from_topics.py.
+# Lines starting with `#` are ignored.
+iot.telemetry
+iot.commands
+clicks
+events.user
+events.system

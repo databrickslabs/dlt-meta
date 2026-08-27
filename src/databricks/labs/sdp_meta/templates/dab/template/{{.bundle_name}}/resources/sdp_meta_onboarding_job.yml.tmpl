@@ -1,0 +1,59 @@
+# Onboarding job: reads conf/${var.onboarding_file_name} and writes/updates rows in the
+# bronze/silver dataflowspec tables. Run once (per schema change) before running the pipelines.
+#
+# Two tasks run in sequence:
+#   1. stage_conf         - copies the bundle's conf/ tree onto a UC Volume and
+#                           rewrites ${workspace.file_path}/conf references to the
+#                           volume path. Serverless Spark cannot read conf files
+#                           from ${workspace.file_path} (/Workspace/.../files/...),
+#                           and DAB never substitutes ${workspace.file_path} inside
+#                           synced data files, so this step is what makes a plain
+#                           `databricks bundle run onboarding` work on serverless.
+#   2. onboard_dataflowspecs - reads the onboarding file from the UC Volume and
+#                           writes the dataflowspec rows (with volume-absolute
+#                           paths the pipelines can also read on serverless).
+
+resources:
+  jobs:
+    onboarding:
+      name: "${bundle.name} - sdp-meta onboarding"
+      description: "Writes sdp-meta dataflow specifications from the onboarding file."
+      tasks:
+        - task_key: stage_conf
+          python_wheel_task:
+            package_name: databricks_labs_sdp_meta
+            entry_point: stage_conf
+            named_parameters:
+              source_conf_dir: ${workspace.file_path}/conf
+              uc_catalog: ${var.uc_catalog_name}
+              uc_schema: ${var.sdp_meta_schema}
+              conf_volume: ${var.conf_volume}
+          environment_key: default
+        - task_key: onboard_dataflowspecs
+          depends_on:
+            - task_key: stage_conf
+          python_wheel_task:
+            package_name: databricks_labs_sdp_meta
+            entry_point: run
+            named_parameters:
+              onboard_layer: ${var.layer}
+              database: ${var.uc_catalog_name}.${var.sdp_meta_schema}
+              onboarding_file_path: /Volumes/${var.uc_catalog_name}/${var.sdp_meta_schema}/${var.conf_volume}/conf/${var.onboarding_file_name}
+              {{- if or (eq .layer "bronze") (eq .layer "bronze_silver")}}
+              bronze_dataflowspec_table: ${var.bronze_dataflowspec_table}
+              {{- end}}
+              {{- if or (eq .layer "silver") (eq .layer "bronze_silver")}}
+              silver_dataflowspec_table: ${var.silver_dataflowspec_table}
+              {{- end}}
+              uc_enabled: "True"
+              import_author: ${var.author}
+              version: ${var.dataflowspec_version}
+              overwrite: ${var.overwrite_dataflowspecs}
+              env: ${bundle.target}
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            client: "1"
+            dependencies:
+              - ${var.sdp_meta_dependency}

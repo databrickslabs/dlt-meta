@@ -1,0 +1,12 @@
+# Build-time dependencies for the release workflow.
+# Regenerate the hash-pinned requirements-build.txt with:
+#   bash .github/scripts/gen-build-hashes.sh
+#
+# `python -m build --no-isolation` needs the build frontend AND the
+# setuptools backend present in the environment.
+build
+packaging
+pyproject_hooks
+tomli
+setuptools
+wheel

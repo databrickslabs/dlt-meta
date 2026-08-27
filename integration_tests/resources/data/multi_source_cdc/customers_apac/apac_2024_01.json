@@ -1,0 +1,5 @@
+{"addr":"1 Marina Bay Singapore 018989","mail":"grace.apac@example.com","fname":"Grace","lname":"Goh","cust_id":"apac-001","op":"I","op_time":"2024-01-15 22:00:00"}
+{"addr":"2-1-1 Marunouchi Tokyo 100-0005","mail":"henry.apac@example.com","fname":"Henry","lname":"Hashimoto","cust_id":"apac-002","op":"I","op_time":"2024-01-15 23:00:00"}
+{"addr":"1 Hill Road Mumbai 400001","mail":"isha.apac@example.com","fname":"Isha","lname":"Iyer","cust_id":"apac-003","op":"I","op_time":"2024-01-16 00:00:00"}
+{"addr":"3-1-1 Marunouchi Tokyo 100-0005","mail":"henry.apac@example.com","fname":"Henry","lname":"Hashimoto","cust_id":"apac-002","op":"U","op_time":"2024-01-16 13:00:00"}
+{"addr":"1 Hill Road Mumbai 400001","mail":"isha.apac@example.com","fname":"Isha","lname":"Iyer","cust_id":"apac-003","op":"D","op_time":"2024-01-17 11:30:00"}

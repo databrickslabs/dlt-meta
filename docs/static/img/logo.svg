@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!--
+    SDP-META logo: metadata spec (DataflowSpec) drives a two-stage pipeline.
+    Left:  white doc with row-lines = the onboarding spec / DataflowSpec table.
+    Arrow: spec feeds the pipeline.
+    Right: two nodes (Bronze + Silver) connected via a forked bus.
+  -->
+  <!-- Databricks-red background -->
+  <rect width="48" height="48" rx="10" fill="#FF3621"/>
+
+  <!-- Metadata spec doc (left) -->
+  <rect x="3" y="11" width="14" height="26" rx="3" fill="white"/>
+  <!-- Spec row lines — suggest schema / config rows -->
+  <line x1="6" y1="18" x2="14" y2="18" stroke="#FF3621" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="6" y1="24" x2="14" y2="24" stroke="#FF3621" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="6" y1="30" x2="11" y2="30" stroke="#FF3621" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Curved path from doc centre → top stage (Bronze) -->
+  <path d="M 17 22 C 26 22 24 13 31 13" fill="none" stroke="rgba(255,255,255,0.80)" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Curved path from doc centre → bottom stage (Silver) -->
+  <path d="M 17 26 C 26 26 24 35 31 35" fill="none" stroke="rgba(255,255,255,0.80)" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Pipeline stage 1 — Bronze -->
+  <rect x="31" y="7" width="15" height="12" rx="4" fill="white"/>
+
+  <!-- Pipeline stage 2 — Silver -->
+  <rect x="31" y="29" width="15" height="12" rx="4" fill="rgba(255,255,255,0.72)"/>
+</svg>

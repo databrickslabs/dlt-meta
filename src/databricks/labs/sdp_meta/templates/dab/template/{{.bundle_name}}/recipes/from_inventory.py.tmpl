@@ -1,0 +1,87 @@
+"""Generate flows from a Python inventory: a dict of `source_system -> [tables]`
+plus a naming convention. Useful when you have a hand-curated list of source
+tables (e.g. produced by your data governance tool, an Excel export, or a
+JIRA ticket) and want one flow per row without writing 200 lines of YAML.
+
+Edit the INVENTORY constant below (or load it from a JSON/YAML/SF query) and
+then run:
+
+    python recipes/from_inventory.py
+    python recipes/from_inventory.py --apply
+
+Naming convention applied here (override in `_table_names_for`):
+  bronze table = `<system>_<table>`
+  silver table = `<table>`
+  data_flow_group = `<system>_group`
+
+Pre-filled defaults from `bundle-init`:
+  source_format default = cloudFiles, rooted under
+    /Volumes/{{.uc_catalog_name}}/landing/files/<system>/<table>/
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from typing import Dict, List, Tuple
+
+from databricks.labs.sdp_meta.bundle import (
+    BundleAddFlowCommand,
+    FlowSpec,
+    bundle_add_flow,
+)
+
+
+# ---- EDIT ME -----------------------------------------------------------------
+# Map of source_system -> list of table names. Replace with your real inventory.
+INVENTORY: Dict[str, List[str]] = {
+    "erp":  ["orders", "order_lines", "shipments", "invoices"],
+    "crm":  ["customers", "leads", "opportunities"],
+    "ops":  ["events", "audit_log"],
+}
+
+# Where the cloudFiles landing zone lives. Pre-filled from your bundle's catalog.
+LANDING_ROOT = "/Volumes/{{.uc_catalog_name}}/landing/files"
+# ------------------------------------------------------------------------------
+
+
+def _table_names_for(system: str, table: str) -> Tuple[str, str]:
+    """Return (bronze_name, silver_name). Override to fit your conventions."""
+    return f"{system}_{table}", table
+
+
+def build_flows() -> List[FlowSpec]:
+    flows: List[FlowSpec] = []
+    for system, tables in INVENTORY.items():
+        for table in tables:
+            bronze_name, silver_name = _table_names_for(system, table)
+            flows.append(FlowSpec(
+                source_format="cloudFiles",
+                source_path=f"{LANDING_ROOT}/{system}/{table}/",
+                bronze_table=bronze_name,
+                silver_table=silver_name,
+                data_flow_group=f"{system}_group",
+                source_system=system,
+            ))
+    return flows
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n", maxsplit=1)[0])
+    parser.add_argument("--bundle-dir", default=".",
+                        help="Path to the bundle root (default: current directory)")
+    parser.add_argument("--apply", action="store_true",
+                        help="Actually write the flows. Without this flag, runs in dry-run mode.")
+    args = parser.parse_args()
+
+    flows = build_flows()
+    print(f"Inventory expands to {len(flows)} flow(s) across {len(INVENTORY)} system(s).")
+    return bundle_add_flow(BundleAddFlowCommand(
+        bundle_dir=args.bundle_dir,
+        flows=flows,
+        dry_run=not args.apply,
+    ))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

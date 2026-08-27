@@ -1,0 +1,96 @@
+[
+    {
+        "data_flow_id": "200",
+        "data_flow_group": "A1",
+        "source_system": "MYSQL",
+        "source_format": "cloudFiles",
+        "source_details": {
+            "source_database": "APP",
+            "source_table": "CUSTOMERS",
+            "source_path_dev": "tests/resources/data/customers",
+            "source_schema_path": "tests/resources/schema/customer_schema.ddl"
+        },
+        "bronze_database_dev": "bronze",
+        "bronze_database_staging": "bronze",
+        "bronze_database_prd": "bronze",
+        "bronze_table": "customers_cdc",
+        "bronze_reader_options": {
+            "cloudFiles.format": "json",
+            "cloudFiles.inferColumnTypes": "true",
+            "cloudFiles.rescuedDataColumn": "_rescued_data"
+        },
+        "bronze_table_path_dev": "tests/resources/delta/customers",
+        "bronze_cdc_apply_changes_flows": {
+            "keys": ["customer_id"],
+            "sequence_by": "operation_date",
+            "scd_type": "1",
+            "apply_as_deletes": "operation = 'DELETE'",
+            "except_column_list": [
+                "operation",
+                "operation_date",
+                "_rescued_data"
+            ],
+            "flows": [
+                {
+                    "name": "us_cdc",
+                    "source_format": "cloudFiles",
+                    "source_details": {
+                        "source_database": "APP",
+                        "source_table": "CUSTOMERS_US",
+                        "source_path_dev": "tests/resources/data/customers",
+                        "source_schema_path": "tests/resources/schema/customer_schema.ddl"
+                    },
+                    "reader_options": {
+                        "cloudFiles.format": "json",
+                        "cloudFiles.inferColumnTypes": "true",
+                        "cloudFiles.rescuedDataColumn": "_rescued_data"
+                    },
+                    "select_exp": [
+                        "id AS customer_id",
+                        "firstname",
+                        "lastname",
+                        "email",
+                        "address",
+                        "operation",
+                        "operation_date",
+                        "_rescued_data"
+                    ],
+                    "where_clause": ["operation IN ('APPEND','UPDATE','DELETE')"],
+                    "once": false
+                },
+                {
+                    "name": "eu_cdc",
+                    "source_format": "cloudFiles",
+                    "source_details": {
+                        "source_database": "APP",
+                        "source_table": "CUSTOMERS_EU",
+                        "source_path_dev": "tests/resources/data/customers",
+                        "source_schema_path": "tests/resources/schema/customer_schema.ddl"
+                    },
+                    "reader_options": {
+                        "cloudFiles.format": "json",
+                        "cloudFiles.inferColumnTypes": "true",
+                        "cloudFiles.rescuedDataColumn": "_rescued_data"
+                    },
+                    "select_exp": [
+                        "id AS customer_id",
+                        "firstname",
+                        "lastname",
+                        "email",
+                        "address",
+                        "operation",
+                        "operation_date",
+                        "_rescued_data"
+                    ],
+                    "once": false
+                }
+            ]
+        },
+        "silver_database_dev": "silver",
+        "silver_database_staging": "silver",
+        "silver_database_prd": "silver",
+        "silver_table": "customers",
+        "silver_table_path_dev": "tests/resources/data/silver/customers",
+        "silver_transformation_json_dev": "tests/resources/silver_transformations.json"
+    }
+]

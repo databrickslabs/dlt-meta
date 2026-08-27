@@ -1,0 +1,5 @@
+include labs.yml
+include README.md
+include LICENSE.txt
+include CHANGELOG.md
+recursive-include src/databricks/labs/sdp_meta/templates *

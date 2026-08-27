@@ -1,0 +1,16 @@
+{
+  "_comment": "Answers for `databricks bundle init` -> sdp-meta DAB template, scenario B: bronze-only kafka ingestion. pipeline_mode is irrelevant when layer=bronze (no silver to combine), but a value is required by the schema. {uc_catalog_name}, {sdp_meta_schema}, {bronze_target_schema}, and {silver_target_schema} are substituted at runtime (driven by --uc-catalog-name and --uc-schema).",
+  "bundle_name": "dab_demo_kafka_bronze",
+  "uc_catalog_name": "{uc_catalog_name}",
+  "sdp_meta_schema": "{sdp_meta_schema}",
+  "bronze_target_schema": "{bronze_target_schema}",
+  "silver_target_schema": "{silver_target_schema}",
+  "layer": "bronze",
+  "pipeline_mode": "split",
+  "source_format": "kafka",
+  "onboarding_file_format": "json",
+  "dataflow_group": "dab_demo_kafka_group",
+  "wheel_source": "volume_path",
+  "sdp_meta_dependency": "__SET_ME__",
+  "author": "dab-template-demo"
+}
