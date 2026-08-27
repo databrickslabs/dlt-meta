@@ -1,16 +1,16 @@
 
 import uuid
 import traceback
-from databricks.labs.sdp_meta.install import WorkspaceInstaller
+from src.install import WorkspaceInstaller
 from integration_tests.run_integration_tests import (
-    SDPMETARunner,
-    SDPMetaRunnerConf,
+    DLTMETARunner,
+    DLTMetaRunnerConf,
     get_workspace_api_client,
     process_arguments
 )
 
 
-class SDPMETAFEHDemo(SDPMETARunner):
+class DLTMETAFEHDemo(DLTMETARunner):
 
     def __init__(self, args, ws, base_dir):
         self.args = args
@@ -18,15 +18,15 @@ class SDPMETAFEHDemo(SDPMETARunner):
         self.wsi = WorkspaceInstaller(ws)
         self.base_dir = base_dir
 
-    def run(self, runner_conf: SDPMetaRunnerConf):
+    def run(self, runner_conf: DLTMetaRunnerConf):
         """
-        Runs the SDP-META Append Flow Eventhub Demo by calling the necessary methods in the correct order.
+        Runs the DLT-META Append Flow Autoloader Demo by calling the necessary methods in the correct order.
 
         Parameters:
-        - runner_conf: The SDPMetaRunnerConf object containing the runner configuration parameters.
+        - runner_conf: The DLTMetaRunnerConf object containing the runner configuration parameters.
         """
         try:
-            self.init_sdp_meta_runner_conf(runner_conf)
+            self.init_dltmeta_runner_conf(runner_conf)
             self.create_bronze_silver_dlt(runner_conf)
             self.launch_workflow(runner_conf)
         except Exception as e:
@@ -35,27 +35,26 @@ class SDPMETAFEHDemo(SDPMETARunner):
         # finally:
         #     self.clean_up(runner_conf)
 
-    def init_runner_conf(self) -> SDPMetaRunnerConf:
+    def init_runner_conf(self) -> DLTMetaRunnerConf:
         """
         Initialize the runner configuration for running integration tests.
 
         Returns:
         -------
-        SDPMetaRunnerConf
+        DLTMetaRunnerConf
             The initialized runner configuration.
         """
         run_id = uuid.uuid4().hex
-        runner_conf = SDPMetaRunnerConf(
+        runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
             username=self.wsi._my_username,
             int_tests_dir="demo",
-            sdp_meta_schema=f"sdp_meta_dataflowspecs_demo_{run_id}",
-            bronze_schema=f"sdp_meta_bronze_demo_{run_id}",
-            runners_nb_path=f"/Users/{self.wsi._my_username}/sdp_meta_demo/{run_id}",
+            dlt_meta_schema=f"dlt_meta_dataflowspecs_demo_{run_id}",
+            bronze_schema=f"dlt_meta_bronze_demo_{run_id}",
+            runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_demo/{run_id}",
             source="eventhub",
-            eventhub_template="demo/conf/json/eventhub-onboarding.template",
-            onboarding_file_path="demo/conf/json/onboarding.json",
-            onboarding_file_format=self.args.get("onboarding_file_format") or "json",
+            eventhub_template="demo/conf/eventhub-onboarding.template",
+            onboarding_file_path="demo/conf/onboarding.json",
             env="demo",
             # eventhub provided args
             eventhub_name=self.args["eventhub_name"],
@@ -75,7 +74,7 @@ class SDPMETAFEHDemo(SDPMETARunner):
         runner_conf.runners_full_local_path = 'demo/notebooks/afam_eventhub_runners'
         return runner_conf
 
-    def launch_workflow(self, runner_conf: SDPMetaRunnerConf):
+    def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
         created_job = self.create_workflow_spec(runner_conf)
         self.open_job_url(runner_conf, created_job)
         return created_job
@@ -84,10 +83,10 @@ class SDPMETAFEHDemo(SDPMETARunner):
 def main():
     args = process_arguments()
     workspace_client = get_workspace_api_client(args['profile'])
-    sdp_meta_afam_demo_runner = SDPMETAFEHDemo(args, workspace_client, "demo")
+    dltmeta_afam_demo_runner = DLTMETAFEHDemo(args, workspace_client, "demo")
     print("initializing complete")
-    runner_conf = sdp_meta_afam_demo_runner.init_runner_conf()
-    sdp_meta_afam_demo_runner.run(runner_conf)
+    runner_conf = dltmeta_afam_demo_runner.init_runner_conf()
+    dltmeta_afam_demo_runner.run(runner_conf)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,0 @@
-{"postal_address":"10 Downing Street London SW1A 2AA","email_address":"diana.eu@example.com","given_name":"Diana","customer_id":"eu-001","family_name":"Davies","change_type":"INSERT","change_ts":"2024-01-15 14:00:00"}
-{"postal_address":"4 Place de la Concorde Paris 75008","email_address":"emma.eu@example.com","given_name":"Emma","customer_id":"eu-002","family_name":"Evans","change_type":"INSERT","change_ts":"2024-01-15 15:00:00"}
-{"postal_address":"Unter den Linden 1 Berlin 10117","email_address":"frank.eu@example.com","given_name":"Frank","customer_id":"eu-003","family_name":"Fischer","change_type":"INSERT","change_ts":"2024-01-15 16:00:00"}
-{"postal_address":"4 Place de la Concorde Paris 75008","email_address":"emma.eu.new@example.com","given_name":"Emma","customer_id":"eu-002","family_name":"Evans","change_type":"UPDATE","change_ts":"2024-01-16 11:00:00"}
-{"postal_address":"Unter den Linden 1 Berlin 10117","email_address":"frank.eu@example.com","given_name":"Frank","customer_id":"eu-003","family_name":"Fischer","change_type":"DELETE","change_ts":"2024-01-17 10:00:00"}

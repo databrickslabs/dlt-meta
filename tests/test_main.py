@@ -1,15 +1,15 @@
 """Test Main class."""
-from tests.utils import SDPFrameworkTestCase
+from tests.utils import DLTFrameworkTestCase
 import sys
 import copy
-from databricks.labs.sdp_meta import __main__
+from src import __main__
 from unittest.mock import MagicMock
 
 spark = MagicMock()
 OnboardDataflowspec = MagicMock()
 
 
-class MainTests(SDPFrameworkTestCase):
+class MainTests(DLTFrameworkTestCase):
     """Main Unit Test ."""
 
     def test_parse_args(self):
@@ -108,6 +108,9 @@ class MainTests(SDPFrameworkTestCase):
 
     def test_main_bronze_silver_uc(self):
         """Test bronze and silver onboarding for uc."""
+        OnboardDataflowspec.return_value = None
+        spark_mock = MagicMock("SparkSession")
+        spark.builder.appName("DLT-META_Onboarding_Task").getOrCreate().return_value = spark_mock
         param_map = copy.deepcopy(self.onboarding_bronze_silver_params_uc_map)
         param_map["onboard_layer"] = "bronze_silver"
         list = ["dummy_test"]
@@ -123,6 +126,11 @@ class MainTests(SDPFrameworkTestCase):
             f"{param_map['database']}.{param_map['silver_dataflowspec_table']}")
         )
         self.assertEqual(silver_dataflowSpec_df.count(), 3)
+        del param_map['onboard_layer']
+        del param_map['uc_enabled']
+        del param_map['bronze_dataflowspec_path']
+        del param_map['silver_dataflowspec_path']
+        OnboardDataflowspec.called_once_with(spark_mock, param_map, uc_enabled=True)
 
     def test_onboarding(self):
         mock_onboard_dataflowspec = OnboardDataflowspec
@@ -137,7 +145,7 @@ class MainTests(SDPFrameworkTestCase):
         }
 
         spark_mock = MagicMock("SparkSession")
-        spark.builder.appName("SDP-META_Onboarding_Task").getOrCreate().return_value = spark_mock
+        spark.builder.appName("DLT-META_Onboarding_Task").getOrCreate().return_value = spark_mock
 
         mock_onboard_obj = MagicMock()
         mock_onboard_dataflowspec.return_value = mock_onboard_obj

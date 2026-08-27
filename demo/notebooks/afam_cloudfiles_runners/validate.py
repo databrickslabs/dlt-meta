@@ -2,7 +2,7 @@
 import pandas as pd
 
 run_id = dbutils.widgets.get("run_id")
-uc_enabled = dbutils.widgets.get("uc_enabled").strip().lower() == "true"
+uc_enabled = eval(dbutils.widgets.get("uc_enabled"))
 uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
 bronze_schema = dbutils.widgets.get("bronze_schema")
 silver_schema = dbutils.widgets.get("silver_schema")
@@ -23,7 +23,7 @@ UC_TABLES = {
 }
 
 
-log_list.append("Validating Lakeflow Spark Declarative Pipeline Bronze and Silver Table Counts...")
+log_list.append("Validating Lakeflow Declarative Pipeline Bronze and Silver Table Counts...")
 for table, counts in UC_TABLES.items():
     query = spark.sql(f"SELECT count(*) as cnt FROM {table}")
     cnt = query.collect()[0].cnt

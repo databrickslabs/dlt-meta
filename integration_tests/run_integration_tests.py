@@ -9,9 +9,6 @@ import traceback
 import uuid
 import webbrowser
 from dataclasses import dataclass
-from datetime import timedelta
-
-import yaml
 
 # Add project root to Python path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,8 +20,7 @@ from databricks.sdk.service.catalog import SchemasAPI, VolumeInfo, VolumeType
 from databricks.sdk.service.pipelines import NotebookLibrary, PipelineLibrary
 from databricks.sdk.service.workspace import ImportFormat, Language
 
-from databricks.labs.sdp_meta.identifiers import validate_uc_identifier
-from databricks.labs.sdp_meta.install import WorkspaceInstaller
+from src.install import WorkspaceInstaller
 
 # Dictionary mapping cloud providers to node types
 cloud_node_type_id_dict = {
@@ -34,62 +30,8 @@ cloud_node_type_id_dict = {
 }
 
 
-def create_pipeline(ws, **kwargs):
-    """Create a pipeline via ``ws.pipelines.create(...)``, tolerating both
-    the modern ``schema=`` parameter and the legacy ``target=`` parameter.
-
-    The SDK requires exactly one of ``schema`` or ``target``. ``schema`` is
-    the direct-publishing-mode (DPM) API and is what Unity-Catalog
-    workspaces with DPM enabled expect; ``target`` is the legacy fallback
-    still needed on workspaces / pipelines where DPM is not enabled.
-
-    Shared by the integration test runners and every demo launcher under
-    ``demo/`` (all of which already import from this module). The
-    shipping ``databricks.labs.sdp_meta`` package does NOT depend on this
-    helper -- production CLI code (``cli.py``) has its own private copy
-    so the customer-facing wheel doesn't carry a demo/test compatibility
-    API on its surface.
-
-    Behavior:
-      * If the caller passes ``schema=``, try it first and retry with
-        ``target=`` (same value) on any exception.
-      * If the caller passes ``target=`` (or neither), pass through
-        untouched -- no fallback needed.
-      * If both attempts fail, raise ``RuntimeError`` chaining both
-        underlying errors so operators can diagnose the real cause.
-
-    Deprecation note: ``target=`` is documented as deprecated for pipeline
-    creation in favor of ``schema=``. When it is fully removed from the
-    SDK, the fallback branch becomes dead code (``schema=`` succeeds on
-    every DPM-enabled workspace, so we return before reaching the
-    fallback) and this helper can be replaced with a plain
-    ``ws.pipelines.create(**kwargs)`` call.
-    """
-    if "schema" not in kwargs:
-        return ws.pipelines.create(**kwargs)
-    schema_val = kwargs.pop("schema")
-    try:
-        return ws.pipelines.create(schema=schema_val, **kwargs)
-    except Exception as e_schema:
-        print(
-            f"  [warn] pipelines.create(schema={schema_val!r}) failed: "
-            f"{type(e_schema).__name__}: {e_schema}"
-        )
-        print(f"  [info] retrying with legacy target={schema_val!r} ...")
-        try:
-            return ws.pipelines.create(target=schema_val, **kwargs)
-        except Exception as e_target:
-            raise RuntimeError(
-                "pipelines.create() failed with both parameter forms.\n"
-                f"  schema={schema_val!r}: "
-                f"{type(e_schema).__name__}: {e_schema}\n"
-                f"  target={schema_val!r}: "
-                f"{type(e_target).__name__}: {e_target}"
-            ) from e_target
-
-
 @dataclass
-class SDPMetaRunnerConf:
+class DLTMetaRunnerConf:
     """
     A class to hold information required for running integration tests.
 
@@ -105,8 +47,8 @@ class SDPMetaRunnerConf:
         The path to the onboarding file to use for the test run.
     int_tests_dir : str, optional
         The directory containing the integration tests.
-    sdp_meta_schema : str, optional
-        The name of the SDP meta schema to use for the test run.
+    dlt_meta_schema : str, optional
+        The name of the DLT meta schema to use for the test run.
     bronze_schema : str, optional
         The name of the bronze schema to use for the test run.
     silver_schema : str, optional
@@ -148,13 +90,12 @@ class SDPMetaRunnerConf:
     run_name: str = None
     uc_catalog_name: str = None
     uc_volume_name: str = "dlt_meta_files"
-    onboarding_file_format: str = "json"  # "json" | "yaml"
-    onboarding_file_path: str = "integration_tests/conf/json/onboarding.json"
-    onboarding_A2_file_path: str = "integration_tests/conf/json/onboarding_A2.json"
-    # onboarding_fanout_file_path: str = "integration_tests/conf/json/onboarding.json"
+    onboarding_file_path: str = "integration_tests/conf/onboarding.json"
+    onboarding_A2_file_path: str = "integration_tests/conf/onboarding_A2.json"
+    # onboarding_fanout_file_path: str = "integration_tests/conf/onboarding.json"
     # onboarding_fanout_templates: str = None
     int_tests_dir: str = "integration_tests"
-    sdp_meta_schema: str = None
+    dlt_meta_schema: str = None
     bronze_schema: str = None
     silver_schema: str = None
     runners_nb_path: str = None
@@ -177,13 +118,13 @@ class SDPMetaRunnerConf:
     onboarding_fanout_file_path: str = None  # "demo/conf/onboarding_fanout_cars.json",
 
     # cloudfiles info
-    cloudfiles_template: str = "integration_tests/conf/json/cloudfiles-onboarding.template"
+    cloudfiles_template: str = "integration_tests/conf/cloudfiles-onboarding.template"
     cloudfiles_A2_template: str = (
-        "integration_tests/conf/json/cloudfiles-onboarding_A2.template"
+        "integration_tests/conf/cloudfiles-onboarding_A2.template"
     )
 
     # eventhub info
-    eventhub_template: str = "integration_tests/conf/json/eventhub-onboarding.template"
+    eventhub_template: str = "integration_tests/conf/eventhub-onboarding.template"
     eventhub_input_data: str = None
     eventhub_append_flow_input_data: str = None
     eventhub_name: str = None
@@ -197,7 +138,7 @@ class SDPMetaRunnerConf:
     eventhub_port: str = None
 
     # kafka info
-    kafka_template: str = "integration_tests/conf/json/kafka-onboarding.template"
+    kafka_template: str = "integration_tests/conf/kafka-onboarding.template"
     kafka_source_topic: str = None
     kafka_source_broker: str = None
     kafka_source_servers_secrets_scope_name: str = None
@@ -207,79 +148,10 @@ class SDPMetaRunnerConf:
     kafka_sink_servers_secret_scope_key: str = None
 
     # snapshot info
-    snapshot_template: str = "integration_tests/conf/json/snapshot-onboarding.template"
-
-    # multi-source AUTO CDC info (issue #294): three regional bronze CDC
-    # sources -> one unified silver SCD-1 ``customers`` table via
-    # ``silver_cdc_apply_changes_flows``. No A2 incremental step; no
-    # external publish-events step. The template carries both layers'
-    # rows so a single onboarding run produces a 4-task workflow
-    # (onboard -> bronze -> silver -> validate).
-    multi_source_cdc_template: str = (
-        "integration_tests/conf/json/multi-source-cdc-onboarding.template"
-    )
-
-    def __post_init__(self):
-        """Adjust onboarding file paths based on the requested file format."""
-        fmt = (self.onboarding_file_format or "json").lower()
-        if fmt not in ("json", "yaml", "yml"):
-            raise ValueError(
-                f"Unsupported onboarding_file_format='{self.onboarding_file_format}'. "
-                "Use 'json' or 'yaml'."
-            )
-        # Normalize "yml" to "yaml" internally; use ".yml" as the on-disk extension.
-        self.onboarding_file_format = "yaml" if fmt in ("yaml", "yml") else "json"
-        if self.onboarding_file_format == "yaml":
-            self.onboarding_file_path = self._to_yaml_variant(self.onboarding_file_path)
-            self.onboarding_A2_file_path = self._to_yaml_variant(self.onboarding_A2_file_path)
-            if self.onboarding_fanout_file_path:
-                self.onboarding_fanout_file_path = self._to_yaml_variant(
-                    self.onboarding_fanout_file_path
-                )
-            self.cloudfiles_template = self._to_yaml_variant(self.cloudfiles_template)
-            self.cloudfiles_A2_template = self._to_yaml_variant(self.cloudfiles_A2_template)
-            self.eventhub_template = self._to_yaml_variant(self.eventhub_template)
-            self.kafka_template = self._to_yaml_variant(self.kafka_template)
-            self.snapshot_template = self._to_yaml_variant(self.snapshot_template)
-            self.multi_source_cdc_template = self._to_yaml_variant(
-                self.multi_source_cdc_template
-            )
-            if self.onboarding_fanout_templates:
-                self.onboarding_fanout_templates = self._to_yaml_variant(
-                    self.onboarding_fanout_templates
-                )
-
-    @staticmethod
-    def _to_yaml_variant(path: str) -> str:
-        """Translate a `/json/` conf-bucket path to its `/yml/` sibling.
-
-        Rules:
-          * Swap the path segment `/json/` to `/yml/` so the file resolves under
-            the YAML conf bucket.
-          * For templates ending in `.template`, append `.yml` (e.g.
-            `cloudfiles-onboarding.template` -> `cloudfiles-onboarding.template.yml`).
-          * For files ending in `.json`, swap the trailing extension to `.yml`.
-          * Paths already ending in `.yml`/`.yaml` are returned unchanged.
-
-        The swap is unconditional: this method is also used to compute *output*
-        paths (e.g. the runtime-generated `onboarding.yml`) which by definition
-        do not exist on disk yet. If a template's YAML sibling is missing, the
-        downstream open() will surface a clear `FileNotFoundError` pointing at
-        the YAML path the user asked for.
-        """
-        if not path:
-            return path
-        if path.endswith((".yml", ".yaml")):
-            return path
-        candidate = path.replace("/json/", "/yml/")
-        if candidate.endswith(".template"):
-            return f"{candidate}.yml"
-        if candidate.endswith(".json"):
-            return f"{candidate[:-5]}.yml"
-        return candidate
+    snapshot_template: str = "integration_tests/conf/snapshot-onboarding.template"
 
 
-class SDPMETARunner:
+class DLTMETARunner:
     """
     A class to run integration tests for DLT-Meta.
 
@@ -295,23 +167,18 @@ class SDPMETARunner:
         self.wsi = WorkspaceInstaller(ws)
         self.base_dir = base_dir
 
-    def init_runner_conf(self) -> SDPMetaRunnerConf:
+    def init_runner_conf(self) -> DLTMetaRunnerConf:
         """Initialize the runner configuration for running integration tests."""
         run_id = uuid.uuid4().hex
-        runner_conf = SDPMetaRunnerConf(
+        runner_conf = DLTMetaRunnerConf(
             run_id=run_id,
             username=self.wsi._my_username,
             uc_catalog_name=self.args["uc_catalog_name"],
-            sdp_meta_schema=f"sdp_meta_dataflowspecs_it_{run_id}",
+            dlt_meta_schema=f"dlt_meta_dataflowspecs_it_{run_id}",
             bronze_schema=f"dlt_meta_bronze_it_{run_id}",
-            silver_schema=f"sdp_meta_silver_it_{run_id}",
+            silver_schema=f"dlt_meta_silver_it_{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
             source=self.args["source"] if "source" in self.args else None,
-            onboarding_file_format=(
-                self.args["onboarding_file_format"]
-                if self.args.get("onboarding_file_format")
-                else "json"
-            ),
             # node_type_id=cloud_node_type_id_dict[self.args["cloud_provider_name"]],
             test_output_file_path=(
                 f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/"
@@ -365,35 +232,31 @@ class SDPMETARunner:
             "eventhub": "./integration_tests/notebooks/eventhub_runners/",
             "kafka": "./integration_tests/notebooks/kafka_runners/",
             "snapshot": "./integration_tests/notebooks/snapshot_runners/",
-            "multi_source_cdc": (
-                "./integration_tests/notebooks/multi_source_cdc_runners/"
-            ),
         }
         try:
             runner_conf.runners_full_local_path = source_paths[runner_conf.source]
         except KeyError:
             raise Exception(
-                "Given source is not supported. Supported sources are: "
-                "cloudfiles, eventhub, kafka, snapshot, multi_source_cdc"
+                "Given source is not support. Support source are: cloudfiles, eventhub, kafka or snapshot"
             )
 
         return runner_conf
 
     def _install_folder(self):
-        return f"/Users/{self.wsi._my_username}/sdp-meta"
+        return f"/Users/{self.wsi._my_username}/dlt-meta"
 
     def _my_username(self, ws):
         if not hasattr(ws, "_me"):
             ws._me = ws.current_user.me()
         return ws._me.user_name
 
-    def create_sdp_meta_pipeline(
+    def create_dlt_meta_pipeline(
         self,
         pipeline_name: str,
         layer: str,
         group: str,
         target_schema: str,
-        runner_conf: SDPMetaRunnerConf,
+        runner_conf: DLTMetaRunnerConf,
     ) -> str:
         """
         Create a DLT pipeline.
@@ -403,7 +266,7 @@ class SDPMETARunner:
         pipeline_name : str = The name of the pipeline.
         layer : str = The layer of the pipeline.
         target_schema : str = The target schema of the pipeline.
-        runner_conf : SDPMetaRunnerConf = The runner configuration.
+        runner_conf : DLTMetaRunnerConf = The runner configuration.
 
         Returns:
         -------
@@ -415,32 +278,16 @@ class SDPMETARunner:
         """
         configuration = {
             "layer": layer,
-            "sdp_meta_whl": runner_conf.remote_whl_path,
+            f"{layer}.group": group,
+            "dlt_meta_whl": runner_conf.remote_whl_path,
             "pipelines.externalSink.enabled": "true",
         }
-        # For the combined ``bronze_silver`` layer we set BOTH per-layer
-        # group + dataflowspec table entries; the runtime expects them
-        # prefixed by the individual layer name, not the combined
-        # ``bronze_silver``. Mirrors the demo launcher
-        # (``demo/launch_multi_source_cdc_demo.py``) and Stage 11 of the
-        # interactive demo notebook so the whole multi-source CDC
-        # fan-in lives inside one observable DLT flow graph.
-        if layer == "bronze_silver":
-            for sub_layer in ("bronze", "silver"):
-                configuration[f"{sub_layer}.group"] = group
-                configuration[f"{sub_layer}.dataflowspecTable"] = (
-                    f"{runner_conf.uc_catalog_name}."
-                    f"{runner_conf.sdp_meta_schema}."
-                    f"{sub_layer}_dataflowspec_cdc"
-                )
-        else:
-            configuration[f"{layer}.group"] = group
-            configuration[f"{layer}.dataflowspecTable"] = (
-                f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}.{layer}_dataflowspec_cdc"
-            )
+        created = None
 
-        created = create_pipeline(
-            self.ws,
+        configuration[f"{layer}.dataflowspecTable"] = (
+            f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}.{layer}_dataflowspec_cdc"
+        )
+        created = self.ws.pipelines.create(
             catalog=runner_conf.uc_catalog_name,
             name=pipeline_name,
             serverless=True,
@@ -448,7 +295,7 @@ class SDPMETARunner:
             libraries=[
                 PipelineLibrary(
                     notebook=NotebookLibrary(
-                        path=f"{runner_conf.runners_nb_path}/runners/init_sdp_meta_pipeline.py"
+                        path=f"{runner_conf.runners_nb_path}/runners/init_dlt_meta_pipeline.py"
                     )
                 )
             ],
@@ -459,9 +306,9 @@ class SDPMETARunner:
             raise Exception("Pipeline creation failed")
         return created.pipeline_id
 
-    def create_workflow_spec(self, runner_conf: SDPMetaRunnerConf):
+    def create_workflow_spec(self, runner_conf: DLTMetaRunnerConf):
         """Create the Databricks Workflow Job given the DLT Meta configuration specs"""
-        sdp_meta_environments = [
+        dltmeta_environments = [
             jobs.JobEnvironment(
                 environment_key="dl_meta_int_env",
                 spec=compute.Environment(
@@ -472,30 +319,27 @@ class SDPMETARunner:
         ]
         tasks = [
             jobs.Task(
-                task_key="setup_sdp_meta_pipeline_spec",
+                task_key="setup_dlt_meta_pipeline_spec",
                 environment_key="dl_meta_int_env",
                 description="test",
                 timeout_seconds=0,
                 python_wheel_task=jobs.PythonWheelTask(
-                    package_name="databricks_labs_sdp_meta",
+                    package_name="dlt_meta",
                     entry_point="run",
                     named_parameters={
                         "onboard_layer": (
                             "bronze_silver"
-                            if runner_conf.source
-                            in ["cloudfiles", "snapshot", "multi_source_cdc"]
+                            if runner_conf.source in ["cloudfiles", "snapshot"]
                             else "bronze"
                         ),
-                        "database": f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}",
-                        "onboarding_file_path": (
-                            f"{runner_conf.uc_volume_path}{runner_conf.onboarding_file_path}"
-                        ),
+                        "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
+                        "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding.json",
                         "silver_dataflowspec_table": "silver_dataflowspec_cdc",
-                        "silver_dataflowspec_path": f"{runner_conf.uc_volume_path}data/dlt_spec/silver",
+                        "silver_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/silver",
                         "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                         "import_author": "Ravi",
                         "version": "v1",
-                        "bronze_dataflowspec_path": f"{runner_conf.uc_volume_path}data/dlt_spec/bronze",
+                        "bronze_dataflowspec_path": f"{runner_conf.uc_volume_path}/data/dlt_spec/bronze",
                         "overwrite": "True",
                         "env": runner_conf.env,
                         "uc_enabled": "True",
@@ -503,39 +347,13 @@ class SDPMETARunner:
                 ),
             ),
             jobs.Task(
-                # Multi-source AUTO CDC (issue #294) collapses bronze +
-                # silver into ONE combined ``bronze_silver`` pipeline
-                # (see ``create_bronze_silver_dlt``), so the
-                # ``bronze_dlt_pipeline`` task name would be misleading
-                # for that source. Use ``sdp-meta-pipeline`` instead so
-                # the workflow graph in the UI reflects what the task
-                # actually does. Every other source keeps the historical
-                # task_key untouched.
-                task_key=(
-                    "sdp-meta-pipeline"
-                    if runner_conf.source == "multi_source_cdc"
-                    else "bronze_dlt_pipeline"
-                ),
+                task_key="bronze_dlt_pipeline",
                 depends_on=[
                     jobs.TaskDependency(
                         task_key=(
-                            # The cloudfiles customers flow declares a
-                            # bronze_row_filter that references the
-                            # `customer_op_filter` UDF (issue #303); that UDF
-                            # must exist before DLT can CREATE TABLE
-                            # bronze.customers, so the bronze pipeline depends
-                            # on the pre-pipeline UDF setup task specifically
-                            # for cloudfiles. snapshot and multi_source_cdc
-                            # (issue #294) chain off the standard spec setup;
-                            # everything else still chains off publish_events.
-                            "setup_row_filter_udf"
-                            if runner_conf.source == "cloudfiles"
-                            else (
-                                "setup_sdp_meta_pipeline_spec"
-                                if runner_conf.source
-                                in ("snapshot", "multi_source_cdc")
-                                else "publish_events"
-                            )
+                            "setup_dlt_meta_pipeline_spec"
+                            if runner_conf.source == "cloudfiles" or runner_conf.source == "snapshot"
+                            else "publish_events"
                         )
                     )
                 ],
@@ -561,8 +379,7 @@ class SDPMETARunner:
                         "bronze_schema": f"{runner_conf.bronze_schema}",
                         "silver_schema": (
                             f"{runner_conf.silver_schema}"
-                            if runner_conf.source
-                            in ("cloudfiles", "snapshot", "multi_source_cdc")
+                            if runner_conf.source == "cloudfiles" or runner_conf.source == "snapshot"
                             else ""
                         ),
                         "output_file_path": f"/Workspace{runner_conf.test_output_file_path}",
@@ -576,29 +393,6 @@ class SDPMETARunner:
             tasks.extend(
                 [
                     jobs.Task(
-                        # Creates `<catalog>.<bronze_schema>.customer_op_filter`
-                        # so that the bronze + silver `customers` tables (which
-                        # reference it via ROW FILTER in the onboarding spec)
-                        # can be created by the bronze DLT pipeline. Predicate:
-                        # admins see all rows; non-admins see APPEND+UPDATE only.
-                        task_key="setup_row_filter_udf",
-                        depends_on=[
-                            jobs.TaskDependency(
-                                task_key="setup_sdp_meta_pipeline_spec"
-                            )
-                        ],
-                        notebook_task=jobs.NotebookTask(
-                            notebook_path=(
-                                f"{runner_conf.runners_nb_path}"
-                                "/runners/setup_row_filter_udf.py"
-                            ),
-                            base_parameters={
-                                "uc_catalog_name": runner_conf.uc_catalog_name,
-                                "bronze_schema": runner_conf.bronze_schema,
-                            },
-                        ),
-                    ),
-                    jobs.Task(
                         task_key="onboard_spec_A2",
                         depends_on=[
                             jobs.TaskDependency(task_key="bronze_dlt_pipeline")
@@ -607,14 +401,12 @@ class SDPMETARunner:
                         environment_key="dl_meta_int_env",
                         timeout_seconds=0,
                         python_wheel_task=jobs.PythonWheelTask(
-                            package_name="databricks_labs_sdp_meta",
+                            package_name="dlt_meta",
                             entry_point="run",
                             named_parameters={
                                 "onboard_layer": "bronze",
-                                "database": f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}",
-                                "onboarding_file_path": (  # noqa : E501
-                                    f"{runner_conf.uc_volume_path}{runner_conf.onboarding_A2_file_path}"
-                                ),
+                                "database": f"{runner_conf.uc_catalog_name}.{runner_conf.dlt_meta_schema}",
+                                "onboarding_file_path": f"{runner_conf.uc_volume_path}/{self.base_dir}/conf/onboarding_A2.json",  # noqa : E501
                                 "bronze_dataflowspec_table": "bronze_dataflowspec_cdc",
                                 "import_author": "Ravi",
                                 "version": "v1",
@@ -649,7 +441,7 @@ class SDPMETARunner:
                 ),
                 "version": "1",
                 "source_catalog": runner_conf.uc_catalog_name,
-                "source_database": runner_conf.sdp_meta_schema,
+                "source_database": runner_conf.dlt_meta_schema,
                 "source_table": "source_products_delta"
             }
             base_parameters_v2 = {
@@ -658,7 +450,7 @@ class SDPMETARunner:
                 ),
                 "version": "2",
                 "source_catalog": runner_conf.uc_catalog_name,
-                "source_database": runner_conf.sdp_meta_schema,
+                "source_database": runner_conf.dlt_meta_schema,
                 "source_table": "source_products_delta"
             }
             base_parameters_v3 = {
@@ -667,7 +459,7 @@ class SDPMETARunner:
                 ),
                 "version": "3",
                 "source_catalog": runner_conf.uc_catalog_name,
-                "source_database": runner_conf.sdp_meta_schema,
+                "source_database": runner_conf.dlt_meta_schema,
                 "source_table": "source_stores_delta"
             }
             tasks[1].depends_on = [jobs.TaskDependency(task_key='create_source_tables')]
@@ -676,7 +468,7 @@ class SDPMETARunner:
                     jobs.Task(
                         task_key="create_source_tables",
                         depends_on=[
-                            jobs.TaskDependency(task_key="setup_sdp_meta_pipeline_spec")
+                            jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")
                         ],
                         notebook_task=jobs.NotebookTask(
                             notebook_path=f"{runner_conf.runners_nb_path}/runners/upload_snapshots.py",
@@ -747,18 +539,6 @@ class SDPMETARunner:
                     )
                 ]
             )
-        elif runner_conf.source == "multi_source_cdc":
-            # Multi-source AUTO CDC (issue #294): the pipeline task
-            # above is named ``sdp-meta-pipeline`` and already runs the
-            # **combined** ``bronze_silver`` pipeline (3 regional CDC
-            # bronze tables AND the unified silver multi-source AUTO
-            # CDC merge inside one DLT flow graph). So we don't need a
-            # separate ``silver_dlt_pipeline`` task — the validate task
-            # just depends on ``sdp-meta-pipeline`` directly (see
-            # ``get_validate_task_key``). The workflow is the minimal
-            # 3-task shape: setup -> sdp-meta-pipeline -> validate. No
-            # A2 step, no publish_events (seed JSON is already on volume).
-            pass
         else:
             if runner_conf.source == "eventhub":
                 base_parameters = {
@@ -767,15 +547,15 @@ class SDPMETARunner:
                     "eventhub_namespace": runner_conf.eventhub_namespace,
                     "eventhub_secrets_scope_name": runner_conf.eventhub_secrets_scope_name,
                     "eventhub_accesskey_name": runner_conf.eventhub_producer_accesskey_name,
-                    "eventhub_input_data": f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
-                    "eventhub_append_flow_input_data": f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/iot_eventhub_af/iot.json",  # noqa : E501
+                    "eventhub_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
+                    "eventhub_append_flow_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot_eventhub_af/iot.json",  # noqa : E501
                 }
             elif runner_conf.source == "kafka":
                 base_parameters = {
                     "kafka_source_topic": runner_conf.kafka_source_topic,
                     "kafka_source_servers_secrets_scope_name": runner_conf.kafka_source_servers_secrets_scope_name,
                     "kafka_source_servers_secrets_scope_key": runner_conf.kafka_source_servers_secrets_scope_key,
-                    "kafka_input_data": f"{runner_conf.uc_volume_path}{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
+                    "kafka_input_data": f"/{runner_conf.uc_volume_path}/{self.base_dir}/resources/data/iot/iot.json",  # noqa : E501
                 }
 
             tasks.append(
@@ -783,7 +563,7 @@ class SDPMETARunner:
                     task_key="publish_events",
                     description="test",
                     depends_on=[
-                        jobs.TaskDependency(task_key="setup_sdp_meta_pipeline_spec")
+                        jobs.TaskDependency(task_key="setup_dlt_meta_pipeline_spec")
                     ],
                     notebook_task=jobs.NotebookTask(
                         notebook_path=f"{runner_conf.runners_nb_path}/runners/publish_events.py",
@@ -793,8 +573,8 @@ class SDPMETARunner:
             )
 
         return self.ws.jobs.create(
-            name=f"sdp-meta-{runner_conf.run_id}",
-            environments=sdp_meta_environments,
+            name=f"dlt-meta-{runner_conf.run_id}",
+            environments=dltmeta_environments,
             tasks=tasks,
         )
 
@@ -803,14 +583,6 @@ class SDPMETARunner:
             return "silver_dlt_pipeline"
         elif source == "snapshot":
             return "silver_v3_dlt_pipeline"
-        elif source == "multi_source_cdc":
-            # The bronze task for MSC runs the COMBINED bronze+silver
-            # pipeline (see ``create_bronze_silver_dlt``) and is
-            # named ``sdp-meta-pipeline`` (not ``bronze_dlt_pipeline``)
-            # to reflect what it actually does, so validate depends
-            # on that task directly instead of on a separate silver
-            # task.
-            return "sdp-meta-pipeline"
         else:
             return "bronze_dlt_pipeline"
 
@@ -818,7 +590,7 @@ class SDPMETARunner:
         """Create UC schemas and volumes needed to run the integration tests"""
         SchemasAPI(self.ws.api_client).create(
             catalog_name=runner_conf.uc_catalog_name,
-            name=runner_conf.sdp_meta_schema,
+            name=runner_conf.dlt_meta_schema,
             comment="dlt_meta framework schema",
         )
         SchemasAPI(self.ws.api_client).create(
@@ -834,7 +606,7 @@ class SDPMETARunner:
             )
         volume_info = self.ws.volumes.create(
             catalog_name=runner_conf.uc_catalog_name,
-            schema_name=runner_conf.sdp_meta_schema,
+            schema_name=runner_conf.dlt_meta_schema,
             name=runner_conf.uc_volume_name,
             volume_type=VolumeType.MANAGED,
         )
@@ -844,7 +616,7 @@ class SDPMETARunner:
             f"{runner_conf.volume_info.schema_name}/{runner_conf.volume_info.name}/"
         )
 
-    def generate_onboarding_file(self, runner_conf: SDPMetaRunnerConf):
+    def generate_onboarding_file(self, runner_conf: DLTMetaRunnerConf):
         """Generate onboarding file from templates."""
 
         string_subs = {
@@ -853,10 +625,10 @@ class SDPMETARunner:
             "{bronze_schema}": runner_conf.bronze_schema,
         }
 
-        if runner_conf.source in ["cloudfiles", "snapshot", "multi_source_cdc"]:
+        if runner_conf.source in ["cloudfiles", "snapshot"]:
             string_subs.update({
                 "{silver_schema}": runner_conf.silver_schema,
-                "{source_database}": runner_conf.sdp_meta_schema
+                "{source_database}": runner_conf.dlt_meta_schema
             })
         elif runner_conf.source == "eventhub":
             string_subs.update(
@@ -897,169 +669,40 @@ class SDPMETARunner:
             template_path = runner_conf.kafka_template
         elif runner_conf.source == "snapshot":
             template_path = runner_conf.snapshot_template
-        elif runner_conf.source == "multi_source_cdc":
-            template_path = runner_conf.multi_source_cdc_template
 
         if template_path:
-            onboard_text = self._read_template_text(template_path)
+            with open(f"{template_path}", "r") as f:
+                onboard_json = f.read()
 
             if runner_conf.source == "cloudfiles":
-                onboard_text_a2 = self._read_template_text(runner_conf.cloudfiles_A2_template)
+                with open(f"{runner_conf.cloudfiles_A2_template}") as f:
+                    onboard_json_a2 = f.read()
 
             for key, val in string_subs.items():
                 val = "" if val is None else val  # Ensure val is a string
-                onboard_text = onboard_text.replace(key, val)
+                onboard_json = onboard_json.replace(key, val)
                 if runner_conf.source == "cloudfiles":
-                    onboard_text_a2 = onboard_text_a2.replace(key, val)
+                    onboard_json_a2 = onboard_json_a2.replace(key, val)
 
-            self._write_onboarding_file(
-                runner_conf.onboarding_file_path,
-                self._parse_template_payload(template_path, onboard_text),
-                runner_conf.onboarding_file_format,
-            )
+            with open(runner_conf.onboarding_file_path, "w") as onboarding_file:
+                json.dump(json.loads(onboard_json), onboarding_file, indent=4)
 
             if runner_conf.source == "cloudfiles":
-                self._write_onboarding_file(
-                    runner_conf.onboarding_A2_file_path,
-                    self._parse_template_payload(
-                        runner_conf.cloudfiles_A2_template, onboard_text_a2
-                    ),
-                    runner_conf.onboarding_file_format,
-                )
+                with open(runner_conf.onboarding_A2_file_path, "w") as onboarding_file_a2:
+                    json.dump(json.loads(onboard_json_a2), onboarding_file_a2, indent=4)
 
         if runner_conf.onboarding_fanout_templates:
             template = runner_conf.onboarding_fanout_templates
-            onboard_text = self._read_template_text(template)
+            with open(f"{template}", "r") as f:
+                onboard_json = f.read()
 
             for key, val in string_subs.items():
-                onboard_text = onboard_text.replace(key, val)
+                onboard_json = onboard_json.replace(key, val)
 
-            self._write_onboarding_file(
-                runner_conf.onboarding_fanout_file_path,
-                self._parse_template_payload(template, onboard_text),
-                runner_conf.onboarding_file_format,
-            )
+            with open(runner_conf.onboarding_fanout_file_path, "w") as onboarding_file:
+                json.dump(json.loads(onboard_json), onboarding_file, indent=4)
 
-    @staticmethod
-    def _read_template_text(template_path: str) -> str:
-        with open(template_path, "r") as fh:
-            return fh.read()
-
-    @staticmethod
-    def _parse_template_payload(template_path: str, text: str):
-        """Parse a substituted template body. YAML if the path ends in .yml/.yaml, else JSON."""
-        if template_path.endswith((".yml", ".yaml")):
-            return yaml.safe_load(text)
-        return json.loads(text)
-
-    @staticmethod
-    def _write_onboarding_file(path: str, payload, file_format: str):
-        """Serialize the onboarding payload as JSON or YAML depending on file_format."""
-        with open(path, "w") as fh:
-            if file_format == "yaml":
-                yaml.safe_dump(payload, fh, sort_keys=False, default_flow_style=False)
-            else:
-                json.dump(payload, fh, indent=4)
-
-    # Keys in the onboarding spec whose values point at external silver/DQ files.
-    # When the user selects YAML format, these files are also converted to YAML so
-    # the entire pipeline (onboarding + silver transforms + DQ rules) is YAML.
-    _SILVER_DQE_KEY_PREFIXES = (
-        "silver_transformation_json_",
-        "bronze_data_quality_expectations_json_",
-        "silver_data_quality_expectations_json_",
-    )
-
-    def _rewrite_silver_and_dqe_paths_to_yml(self, runner_conf: SDPMetaRunnerConf):
-        """Rewrite silver/DQ paths in generated onboarding specs from ``.json`` to ``.yml``.
-
-        Assumes dedicated ``.yml`` siblings already exist next to the corresponding
-        ``.json`` files in ``integration_tests/conf/`` (they are committed to the
-        repo). Walks the just-generated onboarding files, finds every value
-        pointing at a ``.json`` silver-transformation or DQ-expectations file, and
-        rewrites the path to the ``.yml`` sibling. Raises if the expected sibling
-        is missing locally (so we never silently ship a stale spec to the cluster).
-
-        No-op unless ``runner_conf.onboarding_file_format == "yaml"``.
-        """
-        if runner_conf.onboarding_file_format != "yaml":
-            return
-
-        rewritten = set()
-        missing_siblings = []
-        candidate_paths = [
-            runner_conf.onboarding_file_path,
-            runner_conf.onboarding_A2_file_path,
-        ]
-        if runner_conf.onboarding_fanout_file_path:
-            candidate_paths.append(runner_conf.onboarding_fanout_file_path)
-        for onboarding_path in candidate_paths:
-            if not onboarding_path or not os.path.exists(onboarding_path):
-                continue
-            with open(onboarding_path) as fh:
-                spec = yaml.safe_load(fh)
-            if not isinstance(spec, list):
-                continue
-            mutated = False
-            for entry in spec:
-                if not isinstance(entry, dict):
-                    continue
-                for key, value in list(entry.items()):
-                    if not any(key.startswith(p) for p in self._SILVER_DQE_KEY_PREFIXES):
-                        continue
-                    if not isinstance(value, str) or not value.endswith(".json"):
-                        continue
-                    local_src = self._resolve_local_conf_path(value, runner_conf)
-                    if local_src is None:
-                        missing_siblings.append(value)
-                        continue
-                    # Mirror the on-disk json/ -> yml/ bucket split when looking
-                    # for the YAML sibling, and rewrite both the bucket and the
-                    # extension in the spec value. Reuse the same helper that
-                    # SDPMetaRunnerConf.__post_init__ uses so the json/->yml/
-                    # contract lives in exactly one place.
-                    yml_local = SDPMetaRunnerConf._to_yaml_variant(local_src)
-                    if not os.path.exists(yml_local):
-                        missing_siblings.append(yml_local)
-                        continue
-                    entry[key] = SDPMetaRunnerConf._to_yaml_variant(value)
-                    rewritten.add(yml_local)
-                    mutated = True
-            if mutated:
-                with open(onboarding_path, "w") as fh:
-                    yaml.safe_dump(spec, fh, sort_keys=False, default_flow_style=False)
-
-        if missing_siblings:
-            raise FileNotFoundError(
-                "Missing dedicated .yml sibling(s) for YAML integration run; "
-                f"create them next to the .json file(s): {sorted(set(missing_siblings))}"
-            )
-        if rewritten:
-            print(
-                f"Rewrote {len(rewritten)} silver/DQ path(s) to dedicated .yml "
-                f"siblings for YAML integration run: {sorted(rewritten)}"
-            )
-
-    @staticmethod
-    def _resolve_local_conf_path(spec_path: str, runner_conf: SDPMetaRunnerConf):
-        """Map a spec path (which may be a UC volume path) back to a local conf file.
-
-        The spec path always contains the substring ``/<basename>/conf/`` (e.g.
-        ``/integration_tests/conf/...``). We use the basename of
-        ``runner_conf.int_tests_dir`` to find that marker, then rebuild the local
-        filesystem path under the runner's actual ``int_tests_dir``.
-
-        Returns the local filesystem path if the file exists, else ``None``.
-        """
-        int_dir_name = os.path.basename(runner_conf.int_tests_dir.rstrip("/"))
-        marker = f"/{int_dir_name}/conf/"
-        if marker not in spec_path:
-            return None
-        rel = spec_path.split(marker, 1)[1]
-        local = os.path.join(runner_conf.int_tests_dir, "conf", rel)
-        return local if os.path.exists(local) else None
-
-    def upload_files_to_databricks(self, runner_conf: SDPMetaRunnerConf):
+    def upload_files_to_databricks(self, runner_conf: DLTMetaRunnerConf):
         """
         Upload all necessary data, configuration files, wheels, and notebooks to run the
         integration tests
@@ -1076,10 +719,11 @@ class SDPMETARunner:
                         overwrite=True,
                     )
 
-        # Upload generated onboarding files (JSON or YAML) and DQE JSONs from the conf dir.
+        # Upload all the JSONs in the conf directory, that is the generated onboarding JSONs and
+        # the DQE JSONS
         for root, dirs, files in os.walk(f"{runner_conf.int_tests_dir}/conf"):
             for file in files:
-                if file.endswith((".json", ".yml", ".yaml")):
+                if file.endswith(".json"):
                     with open(os.path.join(root, file), "rb") as content:
                         self.ws.files.upload(
                             file_path=f"{runner_conf.uc_volume_path}{root}/{file}",
@@ -1110,44 +754,17 @@ class SDPMETARunner:
         )
         print(f"Python wheel upload to {runner_conf.remote_whl_path} completed!!!")
 
-    def init_sdp_meta_runner_conf(self, runner_conf: SDPMetaRunnerConf):
+    def init_dltmeta_runner_conf(self, runner_conf: DLTMetaRunnerConf):
         """Create testing metadata including schemas, volumes, and uploading necessary notebooks"""
 
         # Generate uc schemas, volumes and upload onboarding files
         self.initialize_uc_resources(runner_conf)
         self.generate_onboarding_file(runner_conf)
-        # When --onboarding_file_format yaml, also convert referenced silver
-        # transformation and DQ-rule files so the entire pipeline runs on YAML.
-        self._rewrite_silver_and_dqe_paths_to_yml(runner_conf)
         self.upload_files_to_databricks(runner_conf)
 
-    def create_bronze_silver_dlt(self, runner_conf: SDPMetaRunnerConf):
-        # Multi-source AUTO CDC (issue #294) uses a SINGLE combined
-        # ``bronze_silver`` pipeline so the whole fan-in (N bronze CDC
-        # tables → one silver target via ``silver_cdc_apply_changes_flows``)
-        # lives inside one observable DLT flow graph. Matches Stage 11
-        # of the interactive demo notebook and the standalone demo
-        # launcher (``demo/launch_multi_source_cdc_demo.py``). We stash
-        # the combined pipeline id on ``bronze_pipeline_id`` so the
-        # existing workflow-spec / cleanup wiring can reuse it, and
-        # leave ``silver_pipeline_id`` as ``None``.
-        if runner_conf.source == "multi_source_cdc":
-            # Pipeline resource name matches the workflow task_key
-            # (``sdp-meta-pipeline``) so the Pipelines UI and the Jobs
-            # UI line up at a glance for this combined bronze+silver
-            # MSC run.
-            runner_conf.bronze_pipeline_id = self.create_sdp_meta_pipeline(
-                f"sdp-meta-pipeline-{runner_conf.run_id}",
-                "bronze_silver",
-                "A1",
-                runner_conf.bronze_schema,
-                runner_conf,
-            )
-            runner_conf.silver_pipeline_id = None
-            return
-
-        runner_conf.bronze_pipeline_id = self.create_sdp_meta_pipeline(
-            f"sdp-meta-bronze-{runner_conf.run_id}",
+    def create_bronze_silver_dlt(self, runner_conf: DLTMetaRunnerConf):
+        runner_conf.bronze_pipeline_id = self.create_dlt_meta_pipeline(
+            f"dlt-meta-bronze-{runner_conf.run_id}",
             "bronze",
             "A1",
             runner_conf.bronze_schema,
@@ -1155,8 +772,8 @@ class SDPMETARunner:
         )
 
         if runner_conf.source == "cloudfiles":
-            runner_conf.bronze_pipeline_A2_id = self.create_sdp_meta_pipeline(
-                f"sdp-meta-bronze-A2-{runner_conf.run_id}",
+            runner_conf.bronze_pipeline_A2_id = self.create_dlt_meta_pipeline(
+                f"dlt-meta-bronze-A2-{runner_conf.run_id}",
                 "bronze",
                 "A2",
                 runner_conf.bronze_schema,
@@ -1164,15 +781,15 @@ class SDPMETARunner:
             )
 
         if runner_conf.source in ["cloudfiles", "snapshot"]:
-            runner_conf.silver_pipeline_id = self.create_sdp_meta_pipeline(
-                f"sdp-meta-silver-{runner_conf.run_id}",
+            runner_conf.silver_pipeline_id = self.create_dlt_meta_pipeline(
+                f"dlt-meta-silver-{runner_conf.run_id}",
                 "silver",
                 "A1",
                 runner_conf.silver_schema,
                 runner_conf,
             )
 
-    def launch_workflow(self, runner_conf: SDPMetaRunnerConf):
+    def launch_workflow(self, runner_conf: DLTMetaRunnerConf):
 
         created_job = self.create_workflow_spec(runner_conf)
 
@@ -1182,11 +799,11 @@ class SDPMETARunner:
             f"{self.ws.config.host}/jobs/{created_job.job_id}?o={self.ws.get_workspace_id()}"
         )
         print(f"Waiting for job to complete. job_id={created_job.job_id}")
-        run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result(timeout=timedelta(minutes=20))
+        run_by_id = self.ws.jobs.run_now(job_id=created_job.job_id).result()
         print(f"Job run finished. run_id={run_by_id}")
         return created_job
 
-    def download_test_results(self, runner_conf: SDPMetaRunnerConf):
+    def download_test_results(self, runner_conf: DLTMetaRunnerConf):
         ws_output_file = self.ws.workspace.download(runner_conf.test_output_file_path)
         with open(
             f"integration_test_output_{runner_conf.run_id}.csv", "wb"
@@ -1200,7 +817,7 @@ class SDPMETARunner:
         webbrowser.open(url)
         print(f"Job created successfully. job_id={created_job.job_id}, url={url}")
 
-    def clean_up(self, runner_conf: SDPMetaRunnerConf):
+    def clean_up(self, runner_conf: DLTMetaRunnerConf):
         print("Cleaning up...")
         if runner_conf.job_id:
             self.ws.jobs.delete(runner_conf.job_id)
@@ -1212,7 +829,7 @@ class SDPMETARunner:
             self.ws.pipelines.delete(runner_conf.silver_pipeline_id)
         if runner_conf.uc_catalog_name:
             test_schema_list = [
-                runner_conf.sdp_meta_schema,
+                runner_conf.dlt_meta_schema,
                 runner_conf.bronze_schema,
                 runner_conf.silver_schema,
             ]
@@ -1237,9 +854,9 @@ class SDPMETARunner:
                     self.ws.schemas.delete(schema.full_name)
         print("Cleaning up complete!!!")
 
-    def run(self, runner_conf: SDPMetaRunnerConf):
+    def run(self, runner_conf: DLTMetaRunnerConf):
         try:
-            self.init_sdp_meta_runner_conf(runner_conf)
+            self.init_dltmeta_runner_conf(runner_conf)
             self.create_bronze_silver_dlt(runner_conf)
             self.launch_workflow(runner_conf)
             self.download_test_results(runner_conf)
@@ -1280,17 +897,10 @@ def process_arguments() -> dict[str:str]:
         ],
         [
             "source",
-            "Provide source type: cloudfiles, eventhub, kafka, snapshot, multi_source_cdc",
+            "Provide source type: cloudfiles, eventhub, kafka",
             str.lower,
             False,
-            ["cloudfiles", "eventhub", "kafka", "snapshot", "multi_source_cdc"],
-        ],
-        [
-            "onboarding_file_format",
-            "Format of the generated onboarding file: 'json' (default) or 'yaml'.",
-            str.lower,
-            False,
-            ["json", "yaml", "yml"],
+            ["cloudfiles", "eventhub", "kafka", "snapshot"],
         ],
         # Eventhub arguments
         ["eventhub_name", "Provide eventhub_name e.g: iot", str.lower, False, []],
@@ -1415,12 +1025,6 @@ def process_arguments() -> dict[str:str]:
             )
     args = vars(parser.parse_args())
 
-    # Validate UC identifiers up-front so the run fails fast with a clear
-    # error message instead of crashing later inside CREATE SCHEMA / CREATE
-    # VOLUME / spark.read.table when a hyphenated catalog or other illegal
-    # name was passed (issue #261). Strictly regular SQL identifiers only.
-    validate_uc_identifier(args["uc_catalog_name"], kind="--uc_catalog_name")
-
     def check_cond_mandatory_arg(args, mandatory_args):
         """Post argument parsing check for conditionally required arguments"""
         for mand_arg in mandatory_args:
@@ -1455,43 +1059,21 @@ def process_arguments() -> dict[str:str]:
 
 
 def get_workspace_api_client(profile=None) -> WorkspaceClient:
-    """Get a ``WorkspaceClient`` configured for the current runtime.
-
-    Resolution order:
-
-    1. **Databricks Apps container** — when ``DATABRICKS_APP_PORT`` is set
-       the platform has injected ``DATABRICKS_HOST`` plus the app's
-       service-principal OAuth credentials (``DATABRICKS_CLIENT_ID`` /
-       ``DATABRICKS_CLIENT_SECRET``) into the environment. The SDK's
-       default credentials provider picks these up automatically when
-       ``WorkspaceClient()`` is constructed with no arguments — no
-       profile, no interactive prompts. The explicit ``profile`` argument
-       is intentionally ignored in this branch: ``~/.databrickscfg``
-       does not exist in the container, and falling back to it would
-       fail the exact way Apps callers are trying to avoid.
-    2. **Local CLI with ``--profile``** — uses the named
-       ``~/.databrickscfg`` entry. This is the path
-       ``run_integration_tests.py`` and the ``launch_*_demo.py`` scripts
-       take when invoked from a developer's terminal.
-    3. **Interactive fallback** — prompts for host + token via ``input()``
-       so ad-hoc local runs without a configured profile still work.
-       Requires a real stdin; do NOT route App / CI traffic through
-       this branch (it raises ``EOFError`` when stdin is not a TTY).
-    """
-    if os.environ.get("DATABRICKS_APP_PORT"):
-        return WorkspaceClient()
+    """Get api client with config."""
     if profile:
-        return WorkspaceClient(profile=profile)
-    return WorkspaceClient(
-        host=input("Databricks Workspace URL: "), token=input("Token: ")
-    )
+        workspace_client = WorkspaceClient(profile=profile)
+    else:
+        workspace_client = WorkspaceClient(
+            host=input("Databricks Workspace URL: "), token=input("Token: ")
+        )
+    return workspace_client
 
 
 def main():
     """Entry method to run integration tests."""
     args = process_arguments()
     workspace_client = get_workspace_api_client(args["profile"])
-    integration_test_runner = SDPMETARunner(args, workspace_client, "integration_tests")
+    integration_test_runner = DLTMETARunner(args, workspace_client, "integration_tests")
     runner_conf = integration_test_runner.init_runner_conf()
     integration_test_runner.run(runner_conf)
 

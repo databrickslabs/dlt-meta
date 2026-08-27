@@ -1,2 +1,0 @@
-expect_or_drop:
-  valid_customer_id: customer_id IS NOT NULL

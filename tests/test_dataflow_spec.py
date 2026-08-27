@@ -1,22 +1,17 @@
 """Test DataflowSpec script."""
 import copy
-import os
-import shutil
 import sys
-import tempfile
 from unittest.mock import MagicMock, patch
 import json
-from tests.utils import SDPFrameworkTestCase
-from databricks.labs.sdp_meta.dataflow_spec import (
+from tests.utils import DLTFrameworkTestCase
+from src.dataflow_spec import (
     DataflowSpecUtils,
     CDCApplyChanges,
     ApplyChangesFromSnapshot,
     BronzeDataflowSpec,
     SilverDataflowSpec,
-    CDCApplyChangesFlow,
-    CDCApplyChangesFlowGroup,
 )
-from databricks.labs.sdp_meta.onboard_dataflowspec import OnboardDataflowspec
+from src.onboard_dataflowspec import OnboardDataflowspec
 
 sys.modules["pyspark.dbutils"] = MagicMock()
 dbutils = MagicMock()
@@ -24,7 +19,7 @@ DBUtils = MagicMock()
 spark = MagicMock()
 
 
-class DataFlowSpecTests(SDPFrameworkTestCase):
+class DataFlowSpecTests(DLTFrameworkTestCase):
     """Test DataflowSpec script."""
 
     def test_checkSparkDataFlowpipelineSparkConfParams_negative(self):
@@ -127,107 +122,6 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         self.spark.conf.unset("silver.group")
         self.spark.conf.unset("silver.dataflowspecTable")
 
-    def _write_onboarding_with_row_filters(self):
-        """Write a temp onboarding file with row filters on the first record (data_flow_id 100, A1).
-
-        Uses the canonical Databricks UC row-filter clause format
-        ``ROW FILTER <catalog>.<schema>.<function> ON (<column>)``. The UDF
-        does not need to actually exist for these tests because they only
-        verify string round-tripping through the onboarding spec.
-
-        Also sets the sibling ``bronze_quarantine_row_filter`` /
-        ``silver_quarantine_row_filter`` fields with a *different* function
-        name. Quarantine row-filter is opt-in and independent from the main
-        row-filter (see ``DataflowPipeline._get_quarantine_row_filter`` for
-        the rationale); using a distinct function here proves the two
-        fields are persisted independently rather than aliased.
-        """
-        with open(self.onboarding_json_file) as f:
-            onboarding = json.load(f)
-        onboarding[0]["bronze_row_filter"] = (
-            "ROW FILTER main.bronze.region_filter ON (region)"
-        )
-        onboarding[0]["silver_row_filter"] = (
-            "ROW FILTER main.silver.department_filter ON (department)"
-        )
-        onboarding[0]["bronze_quarantine_row_filter"] = (
-            "ROW FILTER main.bronze.quarantine_region_filter ON (region)"
-        )
-        onboarding[0]["silver_quarantine_row_filter"] = (
-            "ROW FILTER main.silver.quarantine_department_filter ON (department)"
-        )
-        tmp_dir = tempfile.mkdtemp()
-        rf_file = os.path.join(tmp_dir, "onboarding_row_filter.json")
-        with open(rf_file, "w") as f:
-            json.dump(onboarding, f)
-        return tmp_dir, rf_file
-
-    def test_bronze_row_filter_onboarded_and_roundtrips(self):
-        """bronze_row_filter onboards into BronzeDataflowSpec.rowFilter; absent record -> None."""
-        tmp_dir, rf_file = self._write_onboarding_with_row_filters()
-        opm = copy.deepcopy(self.onboarding_bronze_silver_params_map)
-        opm["onboarding_file_path"] = rf_file
-        del opm["silver_dataflowspec_table"]
-        del opm["silver_dataflowspec_path"]
-        OnboardDataflowspec(self.spark, opm).onboard_bronze_dataflow_spec()
-        self.spark.sql("CREATE DATABASE if not exists " + opm["database"])
-
-        self.spark.conf.set("layer", "bronze")
-        self.spark.conf.set("bronze.group", "A1")
-        self.spark.conf.set("bronze.dataflowspecTable",
-                            f"{opm['database']}.{opm['bronze_dataflowspec_table']}")
-        bronze_specs = list(DataflowSpecUtils.get_bronze_dataflow_spec(self.spark))
-        bronze_filters = [s.rowFilter for s in bronze_specs]
-        bronze_quarantine_filters = [s.quarantineRowFilter for s in bronze_specs]
-        # A1 has two records; only data_flow_id 100 carries a filter, the other stays None.
-        self.assertIn(
-            "ROW FILTER main.bronze.region_filter ON (region)", bronze_filters
-        )
-        self.assertIn(None, bronze_filters)
-        # Quarantine row filter round-trips on the same record and stays
-        # independent of the main rowFilter.
-        self.assertIn(
-            "ROW FILTER main.bronze.quarantine_region_filter ON (region)",
-            bronze_quarantine_filters,
-        )
-        self.assertIn(None, bronze_quarantine_filters)
-
-        for conf in ["layer", "bronze.group", "bronze.dataflowspecTable"]:
-            self.spark.conf.unset(conf)
-        shutil.rmtree(tmp_dir)
-
-    def test_silver_row_filter_onboarded_and_roundtrips(self):
-        """silver_row_filter onboards into SilverDataflowSpec.rowFilter; absent record -> None."""
-        tmp_dir, rf_file = self._write_onboarding_with_row_filters()
-        opm = copy.deepcopy(self.onboarding_bronze_silver_params_map)
-        opm["onboarding_file_path"] = rf_file
-        del opm["bronze_dataflowspec_table"]
-        del opm["bronze_dataflowspec_path"]
-        self.spark.sql("CREATE DATABASE if not exists " + opm["database"])
-        OnboardDataflowspec(self.spark, opm).onboard_silver_dataflow_spec()
-
-        self.spark.conf.set("layer", "silver")
-        self.spark.conf.set("silver.group", "A1")
-        self.spark.conf.set("silver.dataflowspecTable",
-                            f"{opm['database']}.{opm['silver_dataflowspec_table']}")
-        silver_specs = list(DataflowSpecUtils.get_silver_dataflow_spec(self.spark))
-        silver_filters = [s.rowFilter for s in silver_specs]
-        silver_quarantine_filters = [s.quarantineRowFilter for s in silver_specs]
-        self.assertIn(
-            "ROW FILTER main.silver.department_filter ON (department)",
-            silver_filters,
-        )
-        self.assertIn(None, silver_filters)
-        self.assertIn(
-            "ROW FILTER main.silver.quarantine_department_filter ON (department)",
-            silver_quarantine_filters,
-        )
-        self.assertIn(None, silver_quarantine_filters)
-
-        for conf in ["layer", "silver.group", "silver.dataflowspecTable"]:
-            self.spark.conf.unset(conf)
-        shutil.rmtree(tmp_dir)
-
     def test_get_dataflow_spec_positive(self):
         opm = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         del opm["silver_dataflowspec_table"]
@@ -306,20 +200,6 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         self.assertEqual(cdcApplyChanges.column_list, None)
         self.assertEqual(cdcApplyChanges.except_column_list, None)
         self.assertEqual(cdcApplyChanges.scd_type, "1")
-
-    def test_getCdcApplyChanges_int_scd_type_coerced(self):
-        """v0.0.10 specs persisted scd_type as int (issue #370); parse must
-        coerce to the canonical string so ``scd_type == "2"`` comparisons
-        and ``stored_as_scd_type=...`` keep working after an upgrade."""
-        legacy_payload = """{"keys" : ["playerId"],"sequence_by" : "sequenceNum", "scd_type" : 2}"""
-        cdcApplyChanges = DataflowSpecUtils.get_cdc_apply_changes(legacy_payload)
-        self.assertEqual(cdcApplyChanges.scd_type, "2")
-
-    def test_get_apply_changes_from_snapshot_int_scd_type_coerced(self):
-        """Same v0.0.10 int coercion (issue #370) on the snapshot payload."""
-        legacy_payload = """{"keys" : ["playerId"], "scd_type" : 1}"""
-        acfs = DataflowSpecUtils.get_apply_changes_from_snapshot(legacy_payload)
-        self.assertEqual(acfs.scd_type, "1")
 
     def test_get_append_flow_positive(self):
         append_flow_spec = """[{
@@ -539,273 +419,6 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         with self.assertRaises(Exception):
             DataflowSpecUtils.get_append_flows(missing_sd_append_flow_spec)
 
-    # --------------------------------------------------------------
-    # Multi-source AUTO CDC parser tests (issue #294)
-    # --------------------------------------------------------------
-
-    def test_get_cdc_apply_changes_flows_minimal(self):
-        """Minimal valid group: group-level mandatory fields + one flow with
-        only its mandatory fields. Defaults must be filled at both levels."""
-        payload = """{
-            "keys": ["id"],
-            "sequence_by": "op_ts",
-            "scd_type": "1",
-            "flows": [{
-                "name": "src_a_cdc_flow",
-                "source_format": "delta",
-                "source_details": {"database": "raw", "table": "src_a"}
-            }]
-        }"""
-        group = DataflowSpecUtils.get_cdc_apply_changes_flows(payload)
-        self.assertEqual(type(group), CDCApplyChangesFlowGroup)
-        self.assertEqual(group.keys, ["id"])
-        self.assertEqual(group.sequence_by, "op_ts")
-        self.assertEqual(group.scd_type, "1")
-        # Group-level defaults inherit from cdcApplyChanges defaults.
-        self.assertIsNone(group.where)
-        self.assertEqual(group.ignore_null_updates, False)
-        self.assertIsNone(group.apply_as_deletes)
-        self.assertIsNone(group.apply_as_truncates)
-        self.assertIsNone(group.column_list)
-        # Per-flow defaults applied.
-        self.assertEqual(len(group.flows), 1)
-        flow = group.flows[0]
-        self.assertEqual(type(flow), CDCApplyChangesFlow)
-        self.assertEqual(flow.name, "src_a_cdc_flow")
-        self.assertEqual(flow.source_format, "delta")
-        self.assertEqual(flow.source_details, {"database": "raw", "table": "src_a"})
-        self.assertIsNone(flow.reader_options)
-        self.assertIsNone(flow.select_exp)
-        self.assertIsNone(flow.where_clause)
-        self.assertEqual(flow.once, False)
-
-    def test_get_cdc_apply_changes_flows_int_scd_type_coerced(self):
-        """v0.0.10 files carried scd_type as int (issue #370); the flows-group
-        parser must coerce it to the canonical string form."""
-        payload = """{
-            "keys": ["id"],
-            "sequence_by": "op_ts",
-            "scd_type": 2,
-            "flows": [{
-                "name": "src_a_cdc_flow",
-                "source_format": "delta",
-                "source_details": {"database": "raw", "table": "src_a"}
-            }]
-        }"""
-        group = DataflowSpecUtils.get_cdc_apply_changes_flows(payload)
-        self.assertEqual(group.scd_type, "2")
-
-    def test_get_cdc_apply_changes_flows_multi_source(self):
-        """Two flows landing in one target, full group + per-flow surface."""
-        payload = """{
-            "keys": ["customer_id"],
-            "sequence_by": "op_ts",
-            "scd_type": "2",
-            "apply_as_deletes": "operation = 'DELETE'",
-            "except_column_list": ["operation", "_rescued_data"],
-            "ignore_null_updates": true,
-            "flows": [
-                {
-                    "name": "us_cdc",
-                    "source_format": "cloudFiles",
-                    "source_details": {
-                        "path": "/mnt/raw/us",
-                        "source_schema_path": "tests/resources/schema/customers.ddl"
-                    },
-                    "reader_options": {"cloudFiles.format": "json"},
-                    "select_exp": [
-                        "customer_id AS customer_id",
-                        "first_name AS firstname",
-                        "operation",
-                        "op_ts",
-                        "_rescued_data"
-                    ],
-                    "where_clause": ["region = 'US'"],
-                    "once": true
-                },
-                {
-                    "name": "eu_cdc",
-                    "source_format": "kafka",
-                    "source_details": {
-                        "subscribe": "customers_eu",
-                        "kafka.bootstrap.servers": "broker:9092"
-                    },
-                    "reader_options": {"startingOffsets": "latest"},
-                    "select_exp": ["cust_id AS customer_id", "fname AS firstname",
-                                   "operation", "op_ts", "_rescued_data"]
-                }
-            ]
-        }"""
-        group = DataflowSpecUtils.get_cdc_apply_changes_flows(payload)
-        self.assertEqual(group.scd_type, "2")
-        self.assertEqual(group.apply_as_deletes, "operation = 'DELETE'")
-        self.assertEqual(group.except_column_list,
-                         ["operation", "_rescued_data"])
-        self.assertEqual(group.ignore_null_updates, True)
-        self.assertEqual(len(group.flows), 2)
-        names = [f.name for f in group.flows]
-        self.assertEqual(names, ["us_cdc", "eu_cdc"])
-        # Per-flow once defaults to False when omitted.
-        eu = next(f for f in group.flows if f.name == "eu_cdc")
-        self.assertEqual(eu.once, False)
-        self.assertIsNone(eu.where_clause)
-        # Per-flow once explicit when set.
-        us = next(f for f in group.flows if f.name == "us_cdc")
-        self.assertEqual(us.once, True)
-        self.assertEqual(us.where_clause, ["region = 'US'"])
-
-    def test_get_cdc_apply_changes_flows_accepts_dict(self):
-        """Parser must also accept an already-deserialized dict, not just str."""
-        payload = {
-            "keys": ["id"],
-            "sequence_by": "op_ts",
-            "scd_type": "1",
-            "flows": [{
-                "name": "f1",
-                "source_format": "delta",
-                "source_details": {"database": "raw", "table": "t1"},
-            }],
-        }
-        group = DataflowSpecUtils.get_cdc_apply_changes_flows(payload)
-        self.assertEqual(group.flows[0].name, "f1")
-
-    def test_get_cdc_apply_changes_flows_missing_group_mandatory(self):
-        """Group-level mandatory missing -> raise."""
-        # Missing keys.
-        with self.assertRaises(Exception):
-            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
-                "sequence_by": "op_ts",
-                "scd_type": "1",
-                "flows": [{
-                    "name": "f1",
-                    "source_format": "delta",
-                    "source_details": {"database": "raw", "table": "t"}
-                }]
-            }""")
-        # Missing sequence_by.
-        with self.assertRaises(Exception):
-            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
-                "keys": ["id"],
-                "scd_type": "1",
-                "flows": [{
-                    "name": "f1",
-                    "source_format": "delta",
-                    "source_details": {"database": "raw", "table": "t"}
-                }]
-            }""")
-        # Missing scd_type.
-        with self.assertRaises(Exception):
-            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
-                "keys": ["id"],
-                "sequence_by": "op_ts",
-                "flows": [{
-                    "name": "f1",
-                    "source_format": "delta",
-                    "source_details": {"database": "raw", "table": "t"}
-                }]
-            }""")
-        # Missing flows.
-        with self.assertRaises(Exception):
-            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
-                "keys": ["id"],
-                "sequence_by": "op_ts",
-                "scd_type": "1"
-            }""")
-
-    def test_get_cdc_apply_changes_flows_empty_flow_list(self):
-        """flows must be non-empty."""
-        with self.assertRaises(Exception):
-            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
-                "keys": ["id"],
-                "sequence_by": "op_ts",
-                "scd_type": "1",
-                "flows": []
-            }""")
-
-    def test_get_cdc_apply_changes_flows_missing_flow_mandatory(self):
-        """Per-flow mandatory missing -> raise. Each missing key tested
-        independently so a regression on any one is caught."""
-        # Missing flow name.
-        with self.assertRaises(Exception):
-            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
-                "keys": ["id"],
-                "sequence_by": "op_ts",
-                "scd_type": "1",
-                "flows": [{
-                    "source_format": "delta",
-                    "source_details": {"database": "raw", "table": "t"}
-                }]
-            }""")
-        # Missing source_format.
-        with self.assertRaises(Exception):
-            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
-                "keys": ["id"],
-                "sequence_by": "op_ts",
-                "scd_type": "1",
-                "flows": [{
-                    "name": "f1",
-                    "source_details": {"database": "raw", "table": "t"}
-                }]
-            }""")
-        # Missing source_details.
-        with self.assertRaises(Exception):
-            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
-                "keys": ["id"],
-                "sequence_by": "op_ts",
-                "scd_type": "1",
-                "flows": [{
-                    "name": "f1",
-                    "source_format": "delta"
-                }]
-            }""")
-
-    def test_get_cdc_apply_changes_flows_duplicate_flow_names(self):
-        """Duplicate flow.name within a group must raise — the runtime uses
-        flow.name as the DLT view name AND ``flow_name``, so duplicates
-        would silently collide and one flow would overwrite the other."""
-        with self.assertRaises(Exception):
-            DataflowSpecUtils.get_cdc_apply_changes_flows("""{
-                "keys": ["id"],
-                "sequence_by": "op_ts",
-                "scd_type": "1",
-                "flows": [
-                    {
-                        "name": "dupe",
-                        "source_format": "delta",
-                        "source_details": {"database": "r", "table": "a"}
-                    },
-                    {
-                        "name": "dupe",
-                        "source_format": "delta",
-                        "source_details": {"database": "r", "table": "b"}
-                    }
-                ]
-            }""")
-
-    def test_get_cdc_apply_changes_flows_extra_per_flow_keys_ignored_silently(self):
-        """An accidental extra per-flow key (typo, copy-paste artifact)
-        must NOT silently pass through into the constructor. The parser
-        keeps only the known per-flow keys so any extra key from a future
-        config drift is visible by its absence rather than passed
-        through into a CDCApplyChangesFlow it can't honor."""
-        payload = """{
-            "keys": ["id"],
-            "sequence_by": "op_ts",
-            "scd_type": "1",
-            "flows": [{
-                "name": "f1",
-                "source_format": "delta",
-                "source_details": {"database": "raw", "table": "t1"},
-                "ignored_typo_field": "this should not crash but should not pass through"
-            }]
-        }"""
-        group = DataflowSpecUtils.get_cdc_apply_changes_flows(payload)
-        # CDCApplyChangesFlow does not carry ignored_typo_field. The
-        # parser drops it silently rather than raising — pre-flight
-        # validation in onboarding is the surface that warns the user.
-        flow = group.flows[0]
-        self.assertFalse(hasattr(flow, "ignored_typo_field"))
-
     def test_populate_additional_df_cols(self):
         """Test the populate_additional_df_cols method."""
         row_dict = {
@@ -974,7 +587,7 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].options, {"path": "/test/path"})
 
-    @patch('databricks.labs.sdp_meta.dataflow_spec.DataflowSpecUtils.get_db_utils')
+    @patch('src.dataflow_spec.DataflowSpecUtils.get_db_utils')
     def test_get_sinks_kafka_with_ssl_missing_params(self, mock_get_db_utils):
         """Test Kafka sink with SSL but missing required parameters to cover lines 503-511."""
         mock_dbutils = MagicMock()
@@ -997,7 +610,7 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
             DataflowSpecUtils.get_sinks(sink_spec, self.spark)
         self.assertIn("Kafka ssl required params are", str(context.exception))
 
-    @patch('databricks.labs.sdp_meta.dataflow_spec.DataflowSpecUtils.get_db_utils')
+    @patch('src.dataflow_spec.DataflowSpecUtils.get_db_utils')
     def test_get_sinks_kafka_with_complete_ssl_config(self, mock_get_db_utils):
         """Test Kafka sink with complete SSL configuration to cover lines 486-502."""
         mock_dbutils = MagicMock()
@@ -1026,7 +639,7 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         self.assertEqual(result[0].options["kafka.ssl.keystore.password"], "secret_keystore_scope_keystore_key")
         self.assertEqual(result[0].options["kafka.ssl.truststore.password"], "secret_truststore_scope_truststore_key")
 
-    @patch('databricks.labs.sdp_meta.dataflow_spec.DataflowSpecUtils.get_db_utils')
+    @patch('src.dataflow_spec.DataflowSpecUtils.get_db_utils')
     def test_get_sinks_kafka_basic_config(self, mock_get_db_utils):
         """Test Kafka sink with basic configuration to cover lines 475-482."""
         mock_dbutils = MagicMock()
@@ -1048,7 +661,7 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         self.assertNotIn("kafka_sink_servers_secret_scope_name", result[0].options)
         self.assertNotIn("kafka_sink_servers_secret_scope_key", result[0].options)
 
-    @patch('databricks.labs.sdp_meta.dataflow_spec.DataflowSpecUtils.get_db_utils')
+    @patch('src.dataflow_spec.DataflowSpecUtils.get_db_utils')
     def test_get_sinks_eventhub_config(self, mock_get_db_utils):
         """Test EventHub sink configuration to cover lines 513-549."""
         mock_dbutils = MagicMock()
@@ -1081,7 +694,7 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         self.assertNotIn("eventhub.port", result[0].options)
         self.assertNotIn("eventhub.name", result[0].options)
 
-    @patch('databricks.labs.sdp_meta.dataflow_spec.DataflowSpecUtils.get_db_utils')
+    @patch('src.dataflow_spec.DataflowSpecUtils.get_db_utils')
     def test_get_sinks_eventhub_with_default_secret_name(self, mock_get_db_utils):
         """Test EventHub sink with default secret name to cover line 522."""
         mock_dbutils = MagicMock()
@@ -1137,10 +750,3 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         # Should have null values for explicitly set null optional attributes
         self.assertEqual(result[0].select_exp, None)
         self.assertEqual(result[0].where_clause, None)
-
-    def test_get_db_utils_import_error(self):
-        """Test get_db_utils raises RuntimeError when DBUtils is not available."""
-        with patch.dict(sys.modules, {"pyspark.dbutils": None}):
-            with self.assertRaises(RuntimeError) as context:
-                DataflowSpecUtils.get_db_utils(self.spark)
-            self.assertIn("DBUtils is not available", str(context.exception))

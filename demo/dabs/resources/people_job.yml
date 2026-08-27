@@ -10,10 +10,10 @@ resources:
       tasks:
         - task_key: onboard_bronze_silver_tables
           python_wheel_task:
-            package_name: databricks_labs_sdp_meta
+            package_name: dlt_meta
             entry_point: run
             named_parameters:
-              database: ${var.${bundle.target}_catalog_name}.${var.sdp_meta_schema}
+              database: ${var.${bundle.target}_catalog_name}.${var.dlt_meta_schema}
               onboarding_file_path: ${var.people_onboarding_file_path}
               bronze_dataflowspec_table: ${var.bronze_dataflowspecTable}
               silver_dataflowspec_table: ${var.silver_dataflowspecTable}
@@ -29,10 +29,10 @@ resources:
 
         - task_key: onboard_silver_fanout_tables
           python_wheel_task:
-            package_name: databricks_labs_sdp_meta
+            package_name: dlt_meta
             entry_point: run
             named_parameters:
-              database: ${var.${bundle.target}_catalog_name}.${var.sdp_meta_schema}
+              database: ${var.${bundle.target}_catalog_name}.${var.dlt_meta_schema}
               onboarding_file_path: ${var.people_fanout_onboarding_file_path}
               silver_dataflowspec_table: ${var.silver_dataflowspecTable}
               uc_enabled: ${var.uc_enabled}
@@ -51,14 +51,11 @@ resources:
           spec: 
             client: "1"
             dependencies:
-              # Locally-built sdp-meta wheel uploaded to UC volume by
-              # demo/generate_dabs_resources.py. The package is not on PyPI
-              # yet so we install from the volume path instead of the name.
-              - ${var.sdp_meta_wheel_path}
+              - dlt-meta
 
     execute_pipelines_people:
       name: People - Raw_Br_Si Job
-      description: "Job to execute the Bronze and Silver SDP-META pipelines"
+      description: "Job to execute the Bronze and Silver DLT-META pipelines"
 
       tasks:
         - task_key: bronze_people_pipeline

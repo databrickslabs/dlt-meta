@@ -2,7 +2,7 @@
 import pandas as pd
 
 run_id = dbutils.widgets.get("run_id")
-uc_enabled = dbutils.widgets.get("uc_enabled").strip().lower() == "true"
+uc_enabled = eval(dbutils.widgets.get("uc_enabled"))
 uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
 output_file_path = dbutils.widgets.get("output_file_path")
 bronze_schema = dbutils.widgets.get("bronze_schema")
@@ -21,7 +21,7 @@ NON_UC_TABLES = {
     f"{uc_catalog_name}.{bronze_schema}.bronze_{run_id}_iot_quarantine": 2
 }
 
-log_list.append("Validating Lakeflow Spark Declarative Pipeline EVenthub Bronze Table Counts...")
+log_list.append("Validating Lakeflow Declarative Pipeline EVenthub Bronze Table Counts...")
 tables = UC_TABLES if uc_enabled else NON_UC_TABLES
 for table, counts in tables.items():
     query = spark.sql(f"SELECT count(*) as cnt FROM {table}")

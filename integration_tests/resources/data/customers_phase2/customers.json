@@ -1,5 +1,0 @@
-{"address":"100 Phase2 Lane\nUpgradeville, CA 90210","email":"alice.phase2@example.com","firstname":"Alice","id":"bc0aa01a-1111-1111-1111-000000000001","lastname":"Upgrade","operation":"APPEND","operation_date":"06-08-2026 09:00:00"}
-{"address":"101 Phase2 Lane\nUpgradeville, CA 90210","email":"bob.phase2@example.com","firstname":"Bob","id":"bc0aa01a-2222-2222-2222-000000000002","lastname":"Migrate","operation":"APPEND","operation_date":"06-08-2026 09:01:00"}
-{"address":"102 Phase2 Lane\nUpgradeville, CA 90210","email":"carol.phase2@example.com","firstname":"Carol","id":"bc0aa01a-3333-3333-3333-000000000003","lastname":"Compatible","operation":"UPDATE","operation_date":"06-08-2026 09:02:00"}
-{"address":"103 Phase2 Lane\nUpgradeville, CA 90210","email":"dan.phase2@example.com","firstname":"Dan","id":"bc0aa01a-4444-4444-4444-000000000004","lastname":"Backward","operation":"APPEND","operation_date":"06-08-2026 09:03:00"}
-{"address":"104 Phase2 Lane\nUpgradeville, CA 90210","email":"eve.phase2@example.com","firstname":"Eve","id":"bc0aa01a-5555-5555-5555-000000000005","lastname":"Forward","operation":"APPEND","operation_date":"06-08-2026 09:04:00"}

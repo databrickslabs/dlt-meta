@@ -1,7 +1,7 @@
-# This is a Declarative Automation Bundle definition for dbx_dab_sdp_meta_demo.
-# See https://docs.databricks.com/aws/en/dev-tools/bundles/ for documentation.
+# This is a Databricks asset bundle definition for dbx_dab_dlt_meta_demo_aug_2025.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
 bundle:
-  name: dab_sdp_meta_demo
+  name: dab_dlt_meta_demo
   uuid: fb711a7b-ceb7-4054-a49c-cf1d53702692
 
 include:

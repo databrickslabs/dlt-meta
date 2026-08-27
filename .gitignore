@@ -13,28 +13,9 @@ spark-warehouse
 # C extensions
 *.so
 
-# Docusaurus
-docs/build/
-docs/.docusaurus/
-docs/node_modules/
-# Legacy Hugo generator artifacts (site is now Docusaurus, builds to docs/build/)
-docs/public/
+# Hugo
 docs/.hugo_build.lock
-
-# Local DAB scaffolds and demo runs (created by `databricks labs sdp-meta
-# bundle-init` and `demo/launch_dab_template_demo.py` -- per-developer
-# output, never checked in).
-test-dab/
-my_pipeline/
-demo_runs/
-demo_runs_*/
-
-# Backward-compat integration test artifacts. The git-ref-based wheel
-# builder (integration_tests/wheel_builder.py) checks worktrees out
-# under .bc_wheels/worktrees/ and copies built wheels into
-# .bc_wheels/dist/ for the Phase 1 / Phase 2 wheel swap. Per-developer
-# artifacts; never checked in.
-.bc_wheels/
+docs/public/
 
 # Distribution / packaging
 .Python
@@ -169,26 +150,10 @@ deployment-merged.yaml
 #IDE
 .idea/
 .vscode/
-.cursor/
-.claude/
-.isaac/
 .databricks
 .databricks-login.json
-demo/conf/json/onboarding*.json
-demo/conf/yml/onboarding*.yml
-demo/dabs/conf/json/onboarding_bronze_silver_people.json
-demo/dabs/conf/json/onboarding_silver_fanout_people.json
-demo/dabs/conf/yml/onboarding_bronze_silver_people.yml
-demo/dabs/conf/yml/onboarding_silver_fanout_people.yml
-integration_tests/conf/json/onboarding*.json
-integration_tests/conf/yml/onboarding*.yml
-integration_tests/conf/json/backward_compat_onboarding_*.json
+demo/conf/onboarding.json
+integration_tests/conf/onboarding*.json
+demo/conf/onboarding*.json
 integration_test_output*.csv
-backward_compat_phase*.csv
 onboarding_job_details.json
-
-# Local stash folder for screenshots that get copied into
-# docs/static/img/sdp-meta-app/ (see databricks_app/USER_GUIDE.md and
-# docs/docs/getting-started/app.md). Folder name contains spaces and is
-# not a committed asset path.
-/SDP-META Databricks App Screenshots/

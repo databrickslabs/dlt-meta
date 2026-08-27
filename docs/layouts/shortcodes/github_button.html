@@ -1,0 +1,76 @@
+{{ $button := .Get "button"}}
+{{ $data_icon := "mark-github" }}
+{{ $aria_label := "" }}
+{{ $button_text := "" }}
+{{ $href := "" }}
+
+{{if eq $button "follow"}}
+{{ $href = printf "%s" (.Get "user")}}
+{{ $aria_label = printf "Follow @%s on GitHub" (.Get "user") }}
+{{ $button_text = printf "Follow @%s" (.Get "user") }}
+{{else if eq $button "sponsor"}}
+{{ $href = printf "sponsors/%s" (.Get "user")}}
+{{ $data_icon = "heart" }}
+{{ $aria_label = printf "Sponsor @%s on GitHub" (.Get "user") }}
+{{ $button_text = "Sponsor" }}
+{{else if eq $button "watch"}}
+{{ $href = printf "%s/%s/subscription" (.Get "user") (.Get "repo")}}
+{{ $data_icon = "eye" }}
+{{ $aria_label = printf "Watch %s/%s on GitHub" (.Get "user") (.Get "repo")}}
+{{ $button_text = "Watch" }}
+{{else if eq $button "star"}}
+{{ $href = printf "%s/%s/" (.Get "user") (.Get "repo")}}
+{{ $data_icon = "star" }}
+{{ $aria_label = printf "Star %s/%s on GitHub" (.Get "user") (.Get "repo")}}
+{{ $button_text = "Star" }}
+{{else if eq $button "fork"}}
+{{ $href = printf "%s/%s/fork" (.Get "user") (.Get "repo")}}
+{{ $data_icon = "repo-forked" }}
+{{ $aria_label = printf "Fork %s/%s on GitHub" (.Get "user") (.Get "repo")}}
+{{ $button_text = "Fork" }}
+{{else if eq $button "template"}}
+{{ $href = printf "%s/%s/generate" (.Get "user") (.Get "repo")}}
+{{ $data_icon = "repo-template" }}
+{{ $aria_label = printf "Use this template %s/%s on GitHub" (.Get "user") (.Get "repo")}}
+{{ $button_text = "Use this template" }}
+{{else if eq $button "issue"}}
+{{ $href = printf "%s/%s/issues" (.Get "user") (.Get "repo")}}
+{{ $data_icon = "issue-opened" }}
+{{ $aria_label = printf "Issue %s/%s on GitHub" (.Get "user") (.Get "repo")}}
+{{ $button_text = "Issue" }}
+{{else if eq $button "download"}}
+{{ $branch := default "master" (.Get "branch")}}
+{{ $href = printf "%s/%s/archive/%s.zip" (.Get "user") (.Get "repo") $branch}}
+{{ $data_icon = "download" }}
+{{ $aria_label = printf "Download %s/%s on GitHub" (.Get "user") (.Get "repo")}}
+{{ $button_text = "Download" }}
+{{else if eq $button "view"}}
+{{ $href = printf "%s/%s" (.Get "user") (.Get "repo")}}
+{{ $data_icon = "mark-github" }}
+{{ $aria_label = printf "View %s/%s on GitHub" (.Get "user") (.Get "repo")}}
+{{ $button_text = .Get "repo" }}
+{{end}}
+
+{{ with .Get "text" }}
+{{ $button_text = . }}
+{{ end }}
+
+{{ with .Get "icon" }}
+{{ $data_icon = . }}
+{{ end }}
+
+{{ with .Get "aria_label" }}
+{{ $aria_label = . }}
+{{ end }}
+
+<a
+        class="github-button"
+        href="https://github.com/{{$href}}"
+        data-icon="octicon-{{$data_icon}}"
+        aria-label="{{$aria_label}}"
+        {{ with .Get "count"}} data-show-count="{{.}}"{{ end }}
+{{if eq "true" (.Get "dark")}}data-color-scheme="dark"{{ end }}
+{{if eq "true" (.Get "large")}}data-size="large"{{ end }}
+>
+{{$button_text}}
+</a>

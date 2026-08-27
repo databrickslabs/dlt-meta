@@ -5,16 +5,16 @@ import os
 import json
 from pyspark.sql.functions import lit, struct
 from pyspark.sql.types import StructType
-from databricks.labs.sdp_meta.dataflow_spec import BronzeDataflowSpec
-from databricks.labs.sdp_meta.pipeline_readers import PipelineReaders
-from tests.utils import SDPFrameworkTestCase
+from src.dataflow_spec import BronzeDataflowSpec
+from src.pipeline_readers import PipelineReaders
+from tests.utils import DLTFrameworkTestCase
 from unittest.mock import MagicMock, patch
 from pyspark.sql import SparkSession
-sys.modules["pyspark.pipelines"] = MagicMock()
+sys.modules["dlt"] = MagicMock()
 sys.modules["pyspark.dbutils"] = MagicMock()
 
 
-from databricks.labs.sdp_meta.onboard_dataflowspec import OnboardDataflowspec
+from src.onboard_dataflowspec import OnboardDataflowspec
 import pyspark.sql.types as T
 
 dbutils = MagicMock()
@@ -23,7 +23,7 @@ spark = MagicMock()
 spark.readStream = MagicMock()
 
 
-class PipelineReadersTests(SDPFrameworkTestCase):
+class PipelineReadersTests(DLTFrameworkTestCase):
     """Pieline readers unit tests."""
 
     bronze_dataflow_spec_map = {
@@ -50,15 +50,10 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "sinks": None,
         "version": "v1",
         "createDate": datetime.now,
-        "createdBy": "sdp-meta-unittest",
+        "createdBy": "dlt-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "sdp-meta-unittest",
+        "updatedBy": "dlt-meta-unittest",
         "clusterBy": [""],
-        "clusterByAuto": False,
-        "cdcApplyChangesFlows": None,
-        "cdcApplyChangesFlowsSchemas": None,
-        "rowFilter": None,
-        "quarantineRowFilter": None,
     }
 
     bronze_eventhub_dataflow_spec_map = {
@@ -98,15 +93,10 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "sinks": None,
         "version": "v1",
         "createDate": datetime.now,
-        "createdBy": "sdp-meta-unittest",
+        "createdBy": "dlt-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "sdp-meta-unittest",
+        "updatedBy": "dlt-meta-unittest",
         "clusterBy": [""],
-        "clusterByAuto": False,
-        "cdcApplyChangesFlows": None,
-        "cdcApplyChangesFlowsSchemas": None,
-        "rowFilter": None,
-        "quarantineRowFilter": None,
     }
 
     bronze_eventhub_dataflow_spec_omit_secret_map = {
@@ -145,15 +135,10 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "sinks": None,
         "version": "v1",
         "createDate": datetime.now,
-        "createdBy": "sdp-meta-unittest",
+        "createdBy": "dlt-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "sdp-meta-unittest",
+        "updatedBy": "dlt-meta-unittest",
         "clusterBy": [""],
-        "clusterByAuto": False,
-        "cdcApplyChangesFlows": None,
-        "cdcApplyChangesFlowsSchemas": None,
-        "rowFilter": None,
-        "quarantineRowFilter": None,
     }
 
     bronze_kafka_dataflow_spec_map = {
@@ -184,27 +169,15 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         "sinks": None,
         "version": "v1",
         "createDate": datetime.now,
-        "createdBy": "sdp-meta-unittest",
+        "createdBy": "dlt-meta-unittest",
         "updateDate": datetime.now,
-        "updatedBy": "sdp-meta-unittest",
+        "updatedBy": "dlt-meta-unittest",
         "clusterBy": [""],
-        "clusterByAuto": False,
-        "cdcApplyChangesFlows": None,
-        "cdcApplyChangesFlowsSchemas": None,
-        "rowFilter": None,
-        "quarantineRowFilter": None,
     }
 
+    @classmethod
     def setUp(self):
-        """Set initial resources.
-
-        Note: ``setUp`` is a regular instance method (not @classmethod)
-        because the base class ``SDPFrameworkTestCase.setUp`` is also
-        an instance method. The historical ``@classmethod``
-        annotation here was a bug paired with the matching bug in
-        the base class -- both have been fixed in the same refactor
-        that moved Spark startup into ``setUpClass`` for perf.
-        """
+        """Set initial resources."""
         super().setUp()
         onboardDataFlowSpecs = OnboardDataflowspec(self.spark, self.onboarding_bronze_silver_params_map)
         onboardDataFlowSpecs.onboard_dataflow_specs()
@@ -425,22 +398,6 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         )
         dbutils = pipeline_readers.get_db_utils()
         self.assertIsNotNone(dbutils)
-
-    def test_get_db_utils_import_error(self):
-        """Test get_db_utils raises RuntimeError when DBUtils is not available."""
-        bronze_map = PipelineReadersTests.bronze_kafka_dataflow_spec_map
-        bronze_dataflow_spec = BronzeDataflowSpec(**bronze_map)
-        pipeline_readers = PipelineReaders(
-            self.spark,
-            bronze_dataflow_spec.sourceFormat,
-            bronze_dataflow_spec.sourceDetails,
-            bronze_dataflow_spec.readerConfigOptions,
-            bronze_dataflow_spec.schema
-        )
-        with patch.dict(sys.modules, {"pyspark.dbutils": None}):
-            with self.assertRaises(RuntimeError) as context:
-                pipeline_readers.get_db_utils()
-            self.assertIn("DBUtils is not available", str(context.exception))
 
     @patch.object(SparkSession, "readStream", return_value={"called"})
     @patch.object(dbutils, "secrets.get", return_value={"called"})
