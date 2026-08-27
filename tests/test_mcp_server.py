@@ -23,6 +23,31 @@ except ImportError:  # pragma: no cover - skip path
 
 
 @unittest.skipUnless(_MCP_AVAILABLE, "mcp extra not installed")
+class PathResolutionTests(unittest.TestCase):
+    """Environment overrides resolve consistently across CI platforms."""
+
+    def test_examples_dir_uses_valid_environment_override(self):
+        with tempfile.TemporaryDirectory() as examples_dir:
+            with patch.dict(
+                os.environ,
+                {"SDP_META_EXAMPLES_DIR": examples_dir},
+            ):
+                self.assertEqual(
+                    mcp_server._locate_examples_dir(),
+                    Path(examples_dir).resolve(),
+                )
+
+    def test_invalid_mcp_root_falls_back_to_working_directory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            missing_root = str(Path(temp_dir) / "missing")
+            with patch.dict(
+                os.environ,
+                {"SDP_META_MCP_ROOT": missing_root},
+            ):
+                self.assertEqual(mcp_server._mcp_root(), Path.cwd().resolve())
+
+
+@unittest.skipUnless(_MCP_AVAILABLE, "mcp extra not installed")
 class ListToolsTests(unittest.TestCase):
     """Lock-in: the v0 tool surface."""
 
