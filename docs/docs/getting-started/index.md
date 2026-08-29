@@ -8,6 +8,20 @@ sidebar_position: 1
 
 SDP-META supports several deployment paths. All lead to the same outcome: a running Bronze/Silver pipeline driven by onboarding metadata.
 
+## Prefer video?
+
+Watch the **[SDP-Meta Deep-Dive: Building Data Pipelines at Scale on Databricks](https://youtu.be/Z0CYboIzp9M)** — a walkthrough of the framework with a Demo.
+
+<div style={{position:'relative',paddingBottom:'56.25%',height:0,maxWidth:'640px'}}>
+  <iframe
+    style={{position:'absolute',top:0,left:0,width:'100%',height:'100%'}}
+    src="https://www.youtube-nocookie.com/embed/Z0CYboIzp9M"
+    title="SDP-Meta Deep-Dive: Building Data Pipelines at Scale on Databricks"
+    loading="lazy"
+    allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowFullScreen></iframe>
+</div>
+
 :::tip Migrating from DLT-META?
 If you are upgrading an existing `dlt-meta` installation after the v0.1.0 rename, follow the [migration guide](../operations/migration.md) first. Your onboarding files do not need to change, but package names, CLI commands, Python imports, and some compatibility shims have a deprecation timeline.
 :::

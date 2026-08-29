@@ -22,6 +22,12 @@
 
 `SDP-META` is a metadata-driven framework for [Lakeflow Spark Declarative Pipelines](https://www.databricks.com/product/data-engineering/spark-declarative-pipelines). Define your Bronze and Silver pipelines in a JSON or YAML onboarding file — a single generic Declarative Pipeline reads the resulting DataflowSpec at runtime and builds the full processing graph automatically. No pipeline code to write.
 
+> 📺 **New to SDP-META?** Watch the [SDP-Meta Deep-Dive: Building Data Pipelines at Scale on Databricks](https://youtu.be/Z0CYboIzp9M) — a video walkthrough of the framework with a Demo.
+
+**Who it's for:** platform and data engineering teams standardizing repeatable Bronze/Silver pipelines across many datasets — onboarding new feeds through metadata instead of new pipeline code, with consistent data quality, quarantine, CDC, clustering, and sink patterns available through Bundles, CLI, UI, MCP, and agent workflows.
+
+**When it's not the best fit:** one or two simple pipelines, Gold-layer business modeling, tables that each need unique application logic, a managed connector and downstream logic that already satisfy the complete Bronze/Silver requirement, or a need for a formal support SLA (SDP-META is a Databricks Labs project). See the [Introduction](https://databrickslabs.github.io/sdp-meta/docs/intro) for the full positioning.
+
 ### Components
 
 #### Metadata Interface
@@ -96,6 +102,7 @@ See the **[DLT-META → SDP-META migration guide](https://databrickslabs.github.
 ## Resources
 
 - [Documentation](https://databrickslabs.github.io/sdp-meta/)
+- [Video: SDP-Meta Deep-Dive](https://youtu.be/Z0CYboIzp9M)
 - [FAQ](https://databrickslabs.github.io/sdp-meta/docs/faq)
 - [Migration Guide](https://databrickslabs.github.io/sdp-meta/docs/operations/migration)
 - [Release Notes](CHANGELOG.md)
