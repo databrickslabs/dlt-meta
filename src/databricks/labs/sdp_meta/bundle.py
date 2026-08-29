@@ -25,7 +25,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, TextIO, Tuple
 
 import yaml
 
@@ -74,10 +74,31 @@ def _resolve_databricks_cli() -> str:
     return path
 
 
-def _run(cmd: List[str], *, cwd: Optional[Path] = None, check: bool = True) -> subprocess.CompletedProcess:
+def _run(
+    cmd: List[str],
+    *,
+    cwd: Optional[Path] = None,
+    check: bool = True,
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess:
     """Thin wrapper around subprocess.run that logs the command."""
     logger.info("$ %s", " ".join(cmd))
-    return subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=check)
+    return subprocess.run(
+        cmd,
+        cwd=str(cwd) if cwd else None,
+        check=check,
+        stdout=subprocess.PIPE if capture_output else None,
+        stderr=subprocess.STDOUT if capture_output else None,
+        text=capture_output,
+    )
+
+
+def _write_process_output(
+    result: subprocess.CompletedProcess, output: Optional[TextIO]
+) -> None:
+    """Forward captured subprocess output to a non-protocol stream."""
+    if output is not None and result.stdout:
+        print(result.stdout, file=output, end="")
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +182,7 @@ def _stamp_sdp_meta_version(bundle_dir: Path) -> None:
         variables_yml.write_text(patched)
 
 
-def bundle_init(cmd: BundleInitCommand) -> int:
+def bundle_init(cmd: BundleInitCommand, *, output: Optional[TextIO] = None) -> int:
     """Scaffold a new sdp-meta DAB from the packaged template.
 
     Delegates to ``databricks bundle init <template> --output-dir ...``.
@@ -180,7 +201,8 @@ def bundle_init(cmd: BundleInitCommand) -> int:
     if cmd.profile:
         argv.extend(["--profile", cmd.profile])
 
-    result = _run(argv, check=False)
+    result = _run(argv, check=False, capture_output=output is not None)
+    _write_process_output(result, output)
     if result.returncode != 0:
         logger.error("databricks bundle init failed with exit code %s", result.returncode)
         return result.returncode
@@ -199,13 +221,15 @@ def bundle_init(cmd: BundleInitCommand) -> int:
             "Next:\n"
             f"  cd {bundle_dir}\n"
             "  # edit conf/onboarding.* with your real sources, then:\n"
-            "  databricks bundle deploy --target dev"
+            "  databricks bundle deploy --target dev",
+            file=output,
         )
     else:
         print(
             "\nBundle scaffolded under "
             f"{output_dir}. Next: edit conf/onboarding.* with your real sources, "
-            "then `databricks bundle deploy --target dev`."
+            "then `databricks bundle deploy --target dev`.",
+            file=output,
         )
     return 0
 
@@ -654,7 +678,9 @@ def _sdp_meta_sanity_checks(bundle_dir: Path) -> List[str]:
     return errors
 
 
-def bundle_validate(cmd: BundleValidateCommand) -> int:
+def bundle_validate(
+    cmd: BundleValidateCommand, *, output: Optional[TextIO] = None
+) -> int:
     """Run `databricks bundle validate` plus sdp-meta sanity checks.
 
     Exit code is:
@@ -663,16 +689,19 @@ def bundle_validate(cmd: BundleValidateCommand) -> int:
     """
     bundle_dir = Path(cmd.bundle_dir).resolve()
     if not (bundle_dir / "databricks.yml").is_file():
-        print(f"ERROR: {bundle_dir} does not look like a bundle (no databricks.yml)")
+        print(
+            f"ERROR: {bundle_dir} does not look like a bundle (no databricks.yml)",
+            file=output,
+        )
         return 2
 
     errors = _sdp_meta_sanity_checks(bundle_dir)
     if errors:
-        print("sdp-meta sanity checks FAILED:")
+        print("sdp-meta sanity checks FAILED:", file=output)
         for err in errors:
-            print(f"  - {err}")
+            print(f"  - {err}", file=output)
     else:
-        print("sdp-meta sanity checks: OK")
+        print("sdp-meta sanity checks: OK", file=output)
 
     databricks_cli = _resolve_databricks_cli()
     argv = [databricks_cli, "bundle", "validate"]
@@ -681,10 +710,16 @@ def bundle_validate(cmd: BundleValidateCommand) -> int:
     if cmd.profile:
         argv.extend(["--profile", cmd.profile])
 
-    result = _run(argv, cwd=bundle_dir, check=False)
+    result = _run(
+        argv,
+        cwd=bundle_dir,
+        check=False,
+        capture_output=output is not None,
+    )
+    _write_process_output(result, output)
 
     if result.returncode == 0 and not errors:
-        print("\nAll checks passed.")
+        print("\nAll checks passed.", file=output)
         return 0
     if result.returncode != 0:
         return result.returncode
@@ -1031,7 +1066,9 @@ def _flows_from_csv(csv_path: Path) -> List[FlowSpec]:
     return flows
 
 
-def bundle_add_flow(cmd: BundleAddFlowCommand) -> int:
+def bundle_add_flow(
+    cmd: BundleAddFlowCommand, *, output: Optional[TextIO] = None
+) -> int:
     """Append one or more flow entries to a bundle's onboarding file.
 
     Reads bundle defaults from `resources/variables.yml`, auto-increments
@@ -1041,7 +1078,10 @@ def bundle_add_flow(cmd: BundleAddFlowCommand) -> int:
     """
     bundle_dir = Path(cmd.bundle_dir).resolve()
     if not (bundle_dir / "databricks.yml").is_file():
-        print(f"ERROR: {bundle_dir} does not look like a bundle (no databricks.yml)")
+        print(
+            f"ERROR: {bundle_dir} does not look like a bundle (no databricks.yml)",
+            file=output,
+        )
         return 2
 
     variables = _read_variables_yml(bundle_dir)
@@ -1052,12 +1092,15 @@ def bundle_add_flow(cmd: BundleAddFlowCommand) -> int:
     if cmd.from_csv:
         csv_path = Path(cmd.from_csv).resolve()
         if not csv_path.is_file():
-            print(f"ERROR: --from-csv path not found: {csv_path}")
+            print(f"ERROR: --from-csv path not found: {csv_path}", file=output)
             return 2
         pending.extend(_flows_from_csv(csv_path))
 
     if not pending:
-        print("ERROR: no flows to add. Pass at least one FlowSpec or --from-csv.")
+        print(
+            "ERROR: no flows to add. Pass at least one FlowSpec or --from-csv.",
+            file=output,
+        )
         return 2
 
     next_id = _next_data_flow_id(existing)
@@ -1077,20 +1120,26 @@ def bundle_add_flow(cmd: BundleAddFlowCommand) -> int:
         if assigned in existing_ids:
             print(
                 f"ERROR: data_flow_id={assigned!r} already exists in {onboarding_path.name}. "
-                "Pick a different id or use `auto`."
+                "Pick a different id or use `auto`.",
+                file=output,
             )
             return 2
         existing_ids.add(assigned)
         new_entries.append(_flow_to_dict(spec, variables, assigned))
 
     if cmd.dry_run:
-        print(f"Would append {len(new_entries)} flow(s) to {onboarding_path.relative_to(bundle_dir)}:")
+        print(
+            f"Would append {len(new_entries)} flow(s) to "
+            f"{onboarding_path.relative_to(bundle_dir)}:",
+            file=output,
+        )
         for entry in new_entries:
             print(
                 f"  - data_flow_id={entry['data_flow_id']!r}, "
                 f"source_format={entry['source_format']!r}, "
                 f"bronze={entry.get('bronze_table')!r}, "
-                f"silver={entry.get('silver_table')!r}"
+                f"silver={entry.get('silver_table')!r}",
+                file=output,
             )
         return 0
 
@@ -1115,7 +1164,10 @@ def bundle_add_flow(cmd: BundleAddFlowCommand) -> int:
     msg = f"Appended {len(new_entries)} flow(s) to {onboarding_path.relative_to(bundle_dir)}."
     if seeded:
         msg += f" Seeded {seeded} default silver transformation row(s) in conf/."
-    print(msg + " Run `databricks labs sdp-meta bundle-validate` to confirm.")
+    print(
+        msg + " Run `databricks labs sdp-meta bundle-validate` to confirm.",
+        file=output,
+    )
     return 0
 
 

@@ -32,7 +32,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip' # caching pip dependencies
-          cache-dependency-path: setup.py
+          cache-dependency-path: |
+            setup.py
+            requirements-dev.txt
 
       # tests/test_bundle.py::EndToEndRenderTests shells out to
       # `databricks bundle init` to render the real template, and skips itself
@@ -47,7 +49,7 @@ jobs:
         run: python -m pip install --upgrade pip
 
       # The MCP server is part of the measured src/ tree. Install its optional
-      # runtime so tests/test_mcp_server.py runs instead of skipping 29 tests.
+      # runtime so tests/test_mcp_server.py runs instead of skipping MCP tests.
       - name: Install package and dependencies
         run: pip install -e ".[dev,mcp]"
 

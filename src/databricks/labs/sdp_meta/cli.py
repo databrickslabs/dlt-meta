@@ -1875,32 +1875,9 @@ def mcp(sdp_meta: SDPMeta, flags: dict = None):
     """
     del flags
 
-    # ── Module-shadowing guard ───────────────────────────────────────
-    # The `databricks labs` CLI runs this file as a script, so
-    # ``sys.path[0]`` is this module's own directory
-    # (``.../databricks/labs/sdp_meta``). That directory contains a
-    # local ``mcp`` subpackage (``sdp_meta/mcp/``), which SHADOWS the
-    # PyPI ``mcp`` SDK: ``server.py``'s ``from mcp.server import
-    # Server`` then resolves ``mcp`` to the local package and
-    # ``mcp.server`` to server.py itself → a circular self-import that
-    # surfaces as ``ImportError: cannot import name 'Server' from
-    # partially initialized module 'mcp.server'``. Drop the script dir
-    # from ``sys.path`` so the top-level ``mcp`` resolves to the
-    # installed SDK. (Absolute ``databricks.labs.sdp_meta.mcp`` imports
-    # still work — those go through the fully-qualified package path,
-    # not the bare ``mcp`` name.)
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    if sys.path and os.path.abspath(sys.path[0]) == script_dir:
-        sys.path.pop(0)
-
     try:
-        from databricks.labs.sdp_meta.mcp.server import run_stdio
+        from databricks.labs.sdp_meta.mcp_server import run_stdio
     except ImportError as exc:
-        # Only the genuinely-missing PyPI SDK should be reported as a
-        # missing extra. A circular import / partially-initialized
-        # ``mcp.server`` means shadowing (or a broken install), NOT a
-        # missing dependency — misreporting it as "install the extra"
-        # sends users down the wrong path (they already have it).
         import importlib.util
 
         sdk_present = importlib.util.find_spec("mcp") is not None
@@ -1910,10 +1887,8 @@ def mcp(sdp_meta: SDPMeta, flags: dict = None):
                 "pip install 'databricks-labs-sdp-meta[mcp]'"
             ) from exc
         raise ImportError(
-            "Failed to import the sdp-meta MCP server even though the "
-            "`mcp` SDK is installed. This usually means the local "
-            "`sdp_meta/mcp` package shadowed the PyPI `mcp` SDK on "
-            f"sys.path. Original error: {exc}"
+            "Failed to import the SDP-META MCP server even though the "
+            f"`mcp` SDK is installed. Original error: {exc}"
         ) from exc
     run_stdio(sdp_meta)
 
