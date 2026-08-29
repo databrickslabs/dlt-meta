@@ -23,7 +23,9 @@ databricks auth login --host YOUR_WORKSPACE_URL
 ```
 
 :::note
-To also install the Python package (required for the MCP server or local development), run `pip install databricks-labs-sdp-meta`.
+To use the MCP server, install its optional dependencies with
+`pip install 'databricks-labs-sdp-meta[mcp]'`. For local development without
+MCP, install `databricks-labs-sdp-meta`.
 :::
 
 ## Deployment paths
