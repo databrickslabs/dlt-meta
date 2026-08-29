@@ -81,7 +81,7 @@ DEV_REQUIREMENTS = [
     "pyspark==3.5.5"
 ]
 
-IT_REQUIREMENTS = ["typer[all]==0.6.1"]
+IT_REQUIREMENTS = ["typer[all]==0.27.1"]
 
 MCP_REQUIREMENTS = ["mcp>=1.0,<2.0"]
 
