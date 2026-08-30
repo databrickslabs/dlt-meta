@@ -2,6 +2,7 @@
 import io
 import unittest
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 from databricks.sdk.service.workspace import ObjectType
 
@@ -155,6 +156,33 @@ class EnsureVolumeTests(unittest.TestCase):
         ws = _FakeWorkspaceClient({}, raise_on_create=True)
         # Must not raise even when schema/volume already exist.
         stage_conf.ensure_volume(ws, "main", "sdp_meta", "bundle_conf")
+
+
+class StageConfMainTests(unittest.TestCase):
+    def test_main_stages_configuration_with_workspace_client(self):
+        ws = MagicMock()
+        argv = [
+            "--source_conf_dir=/Workspace/Users/me/files/conf",
+            "--uc_catalog=main",
+            "--uc_schema=sdp_meta",
+            "--conf_volume=bundle_conf",
+        ]
+        with (
+            patch("databricks.sdk.WorkspaceClient", return_value=ws),
+            patch("databricks.labs.sdp_meta.stage_conf.ensure_volume") as ensure,
+            patch(
+                "databricks.labs.sdp_meta.stage_conf.stage_conf_tree",
+                return_value=3,
+            ) as stage,
+        ):
+            stage_conf.main(argv)
+
+        ensure.assert_called_once_with(ws, "main", "sdp_meta", "bundle_conf")
+        stage.assert_called_once_with(
+            ws,
+            "/Workspace/Users/me/files/conf",
+            "/Volumes/main/sdp_meta/bundle_conf/conf",
+        )
 
 
 if __name__ == "__main__":
