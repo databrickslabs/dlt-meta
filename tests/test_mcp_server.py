@@ -6,7 +6,7 @@ stdio plumbing. Live workspace calls and the actual ``databricks bundle ...``
 subprocesses are mocked at the bundle.py boundary.
 """
 
-import json
+import asyncio
 import os
 import shutil
 import sys
@@ -16,7 +16,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 try:
-    from databricks.labs.sdp_meta.mcp import server as mcp_server  # noqa: F401
+    from mcp import Client, StdioServerParameters, stdio_client
+    from databricks.labs.sdp_meta import mcp_server  # noqa: F401
     _MCP_AVAILABLE = True
 except ImportError:  # pragma: no cover - skip path
     _MCP_AVAILABLE = False
@@ -28,6 +29,9 @@ class PathResolutionTests(unittest.TestCase):
 
     def test_examples_dir_uses_valid_environment_override(self):
         with tempfile.TemporaryDirectory() as examples_dir:
+            json_dir = Path(examples_dir) / "json"
+            json_dir.mkdir()
+            (json_dir / "sample.json").write_text("{}")
             with patch.dict(
                 os.environ,
                 {"SDP_META_EXAMPLES_DIR": examples_dir},
@@ -37,14 +41,42 @@ class PathResolutionTests(unittest.TestCase):
                     Path(examples_dir).resolve(),
                 )
 
-    def test_invalid_mcp_root_falls_back_to_working_directory(self):
+    def test_invalid_mcp_root_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             missing_root = str(Path(temp_dir) / "missing")
             with patch.dict(
                 os.environ,
                 {"SDP_META_MCP_ROOT": missing_root},
             ):
-                self.assertEqual(mcp_server._mcp_root(), Path.cwd().resolve())
+                with self.assertRaisesRegex(ValueError, "not an existing directory"):
+                    mcp_server._mcp_root()
+
+    def test_missing_mcp_root_is_rejected(self):
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "SDP_META_MCP_ROOT must be set"):
+                mcp_server._mcp_root()
+
+    @unittest.skipUnless(Path("/tmp").is_symlink(), "macOS /tmp alias required")
+    def test_absolute_tmp_alias_inside_root_is_allowed(self):
+        with tempfile.TemporaryDirectory(dir="/tmp") as root:
+            with patch.dict(os.environ, {"SDP_META_MCP_ROOT": root}):
+                resolved = mcp_server._resolve_within_root(
+                    str(Path(root) / "bundle"), kind="bundle_dir"
+                )
+        self.assertEqual(resolved, (Path(root) / "bundle").resolve())
+
+    def test_symlink_target_outside_root_is_rejected(self):
+        with tempfile.TemporaryDirectory() as root:
+            with tempfile.TemporaryDirectory() as outside:
+                link = Path(root) / "escape"
+                link.symlink_to(outside, target_is_directory=True)
+                with patch.dict(os.environ, {"SDP_META_MCP_ROOT": root}):
+                    with self.assertRaisesRegex(
+                        ValueError, "outside the MCP filesystem root"
+                    ):
+                        mcp_server._resolve_within_root(
+                            str(link / "file"), kind="bundle_dir"
+                        )
 
 
 @unittest.skipUnless(_MCP_AVAILABLE, "mcp extra not installed")
@@ -52,7 +84,11 @@ class ListToolsTests(unittest.TestCase):
     """Lock-in: the v0 tool surface."""
 
     def test_lists_v0_tools(self):
-        names = {t.name for t in mcp_server.list_tools()}
+        async def get_tools():
+            async with Client(mcp_server.build_server(), raise_exceptions=True) as client:
+                return (await client.list_tools()).tools
+
+        names = {tool.name for tool in asyncio.run(get_tools())}
         self.assertEqual(
             names,
             {
@@ -65,13 +101,117 @@ class ListToolsTests(unittest.TestCase):
         )
 
     def test_every_tool_has_schema_and_description(self):
-        for tool in mcp_server.list_tools():
+        async def get_tools():
+            async with Client(mcp_server.build_server(), raise_exceptions=True) as client:
+                return (await client.list_tools()).tools
+
+        for tool in asyncio.run(get_tools()):
             self.assertTrue(tool.description, f"{tool.name} missing description")
-            self.assertEqual(tool.inputSchema.get("type"), "object")
+            self.assertEqual(tool.input_schema.get("type"), "object")
+            self.assertIsNotNone(tool.annotations)
 
     def test_unknown_tool_raises(self):
         with self.assertRaisesRegex(ValueError, "Unknown tool"):
             mcp_server.call_tool("does_not_exist", {})
+
+
+@unittest.skipUnless(_MCP_AVAILABLE, "mcp extra not installed")
+class ProtocolTests(unittest.TestCase):
+    """Exercise real MCP 2.x registration, validation, and result wrapping."""
+
+    @patch(
+        "databricks.labs.sdp_meta.mcp_server._locate_examples_dir",
+        return_value=None,
+    )
+    def test_server_starts_without_template_resources(self, _locate):
+        async def inspect_server():
+            with self.assertLogs(
+                "databricks.labs.sdp_meta.mcp", level="ERROR"
+            ):
+                server = mcp_server.build_server()
+            async with Client(server, raise_exceptions=True) as client:
+                tools = (await client.list_tools()).tools
+                resources = (await client.list_resources()).resources
+                return tools, resources
+
+        tools, resources = asyncio.run(inspect_server())
+        self.assertEqual(len(tools), 5)
+        self.assertEqual(resources, [])
+
+    def test_client_call_returns_structured_content(self):
+        async def call_list_templates():
+            async with Client(mcp_server.build_server(), raise_exceptions=True) as client:
+                return await client.call_tool("sdp_meta_list_templates", {})
+
+        result = asyncio.run(call_list_templates())
+        self.assertFalse(result.is_error)
+        self.assertIn("templates", result.structured_content["result"])
+
+    def test_tool_failure_is_visible_as_error_result(self):
+        async def call_without_root():
+            with patch.dict(os.environ, {}, clear=True):
+                async with Client(mcp_server.build_server()) as client:
+                    return await client.call_tool(
+                        "sdp_meta_bundle_validate", {"bundle_dir": "."}
+                    )
+
+        result = asyncio.run(call_without_root())
+        self.assertTrue(result.is_error)
+        self.assertIn("SDP_META_MCP_ROOT", result.content[0].text)
+
+    @patch("databricks.labs.sdp_meta.bundle.bundle_validate", return_value=2)
+    def test_invalid_bundle_is_a_normal_negative_result(self, _validate):
+        async def validate_bundle(root):
+            with patch.dict(os.environ, {"SDP_META_MCP_ROOT": root}):
+                async with Client(mcp_server.build_server()) as client:
+                    return await client.call_tool(
+                        "sdp_meta_bundle_validate", {"bundle_dir": "."}
+                    )
+
+        with tempfile.TemporaryDirectory() as root:
+            result = asyncio.run(validate_bundle(root))
+        self.assertFalse(result.is_error)
+        self.assertEqual(result.structured_content["result"]["returncode"], 2)
+
+    def test_client_rejects_invalid_tool_input(self):
+        async def call_with_invalid_flows():
+            async with Client(mcp_server.build_server()) as client:
+                return await client.call_tool(
+                    "sdp_meta_bundle_add_flow", {"flows": "not-a-list"}
+                )
+
+        result = asyncio.run(call_with_invalid_flows())
+        self.assertTrue(result.is_error)
+
+    def test_stdio_transport_lists_calls_and_reads(self):
+        async def exercise_stdio():
+            parameters = StdioServerParameters(
+                command=sys.executable,
+                args=[
+                    "-c",
+                    (
+                        "from databricks.labs.sdp_meta.mcp_server import "
+                        "run_stdio; run_stdio()"
+                    ),
+                ],
+                env={
+                    **os.environ,
+                    "SDP_META_MCP_ROOT": str(Path.cwd()),
+                },
+                cwd=str(Path.cwd()),
+            )
+            async with Client(stdio_client(parameters)) as client:
+                tools = await client.list_tools()
+                result = await client.call_tool("sdp_meta_list_templates", {})
+                resource = await client.read_resource(
+                    "sdp-meta://templates/json/cloudfiles-onboarding.template"
+                )
+                return tools, result, resource
+
+        tools, result, resource = asyncio.run(exercise_stdio())
+        self.assertEqual(len(tools.tools), 5)
+        self.assertFalse(result.is_error)
+        self.assertIn("data_flow_id", resource.contents[0].text)
 
 
 @unittest.skipUnless(_MCP_AVAILABLE, "mcp extra not installed")
@@ -80,8 +220,7 @@ class TemplateToolTests(unittest.TestCase):
 
     def test_list_templates_returns_packaged_names(self):
         result = mcp_server.call_tool("sdp_meta_list_templates", {})
-        payload = json.loads(result[0].text)
-        names = payload["templates"]
+        names = result["templates"]
         self.assertIn("json/cloudfiles-onboarding.template", names)
         self.assertIn("yml/cloudfiles-onboarding.template.yml", names)
         # Both formats should be represented.
@@ -93,10 +232,10 @@ class TemplateToolTests(unittest.TestCase):
             "sdp_meta_get_onboarding_template",
             {"name": "json/cloudfiles-onboarding.template"},
         )
-        payload = json.loads(result[0].text)
-        self.assertEqual(payload["name"], "json/cloudfiles-onboarding.template")
+        self.assertEqual(result["name"], "json/cloudfiles-onboarding.template")
         # Content is real JSON template text, not empty.
-        self.assertGreater(len(payload["content"]), 100)
+        self.assertGreater(len(result["content"]), 100)
+        self.assertNotIn("path", result)
 
     def test_get_onboarding_template_unknown_name_raises(self):
         with self.assertRaisesRegex(FileNotFoundError, "Template 'no/such.json' not found"):
@@ -107,6 +246,14 @@ class TemplateToolTests(unittest.TestCase):
     def test_get_onboarding_template_requires_name(self):
         with self.assertRaisesRegex(ValueError, "`name` is required"):
             mcp_server.call_tool("sdp_meta_get_onboarding_template", {})
+
+    @patch(
+        "databricks.labs.sdp_meta.mcp_server._locate_examples_dir",
+        return_value=None,
+    )
+    def test_missing_packaged_templates_fail_actionably(self, _locate):
+        with self.assertRaisesRegex(RuntimeError, "templates are unavailable"):
+            mcp_server._list_template_files()
 
 
 @unittest.skipUnless(_MCP_AVAILABLE, "mcp extra not installed")
@@ -139,8 +286,7 @@ class BundleInitToolTests(unittest.TestCase):
             "sdp_meta_bundle_init",
             {"output_dir": str(out_dir), "quickstart": True},
         )
-        payload = json.loads(result[0].text)
-        self.assertEqual(payload["returncode"], 0)
+        self.assertEqual(result["returncode"], 0)
         # write_quickstart_config_file is called with the resolved Path.
         mock_write_cfg.assert_called_once()
         # bundle_init received a BundleInitCommand pointing at our config,
@@ -261,24 +407,27 @@ class BundleValidateToolTests(unittest.TestCase):
         self.assertEqual(cmd.bundle_dir, str(bundle_dir))
         self.assertEqual(cmd.target, "dev")
         self.assertEqual(cmd.profile, "p")
-        payload = json.loads(result[0].text)
-        self.assertEqual(payload["returncode"], 0)
+        self.assertEqual(result["returncode"], 0)
 
     @patch("databricks.labs.sdp_meta.bundle.bundle_validate")
-    def test_validate_propagates_non_zero_rc(self, mock_validate):
+    def test_validate_returns_non_zero_rc_as_normal_result(self, mock_validate):
         mock_validate.return_value = 2
         result = mcp_server.call_tool(
             "sdp_meta_bundle_validate", {"bundle_dir": str(self.root / "b")}
         )
-        payload = json.loads(result[0].text)
-        self.assertEqual(payload["returncode"], 2)
+        self.assertEqual(result["returncode"], 2)
+
+    @patch("databricks.labs.sdp_meta.bundle.bundle_validate")
+    def test_validate_rejects_cli_flag_as_target(self, mock_validate):
+        with self.assertRaisesRegex(ValueError, "target"):
+            mcp_server.call_tool(
+                "sdp_meta_bundle_validate",
+                {"bundle_dir": str(self.root / "b"), "target": "--profile"},
+            )
+        mock_validate.assert_not_called()
 
     @patch("databricks.labs.sdp_meta.bundle.bundle_validate")
     def test_bundle_dir_outside_root_is_rejected(self, mock_validate):
-        # ``/etc`` is a symlink to ``/private/etc`` on macOS, so this may be
-        # rejected by either the plain out-of-root branch ("outside the MCP
-        # filesystem root") or the symlink-escape branch ("escapes the MCP
-        # filesystem root"). Match the substring common to both.
         with self.assertRaisesRegex(ValueError, "MCP filesystem root"):
             mcp_server.call_tool(
                 "sdp_meta_bundle_validate",
@@ -326,9 +475,8 @@ class BundleAddFlowToolTests(unittest.TestCase):
         # NOT sandbox-constrained and passes through verbatim.
         self.assertEqual(cmd.flows[0].source_path, "/Volumes/c/s/v/in")
         self.assertEqual(cmd.flows[0].bronze_table, "raw_orders")
-        payload = json.loads(result[0].text)
-        self.assertEqual(payload["returncode"], 0)
-        self.assertEqual(payload["flows_added"][0]["bronze_table"], "raw_orders")
+        self.assertEqual(result["returncode"], 0)
+        self.assertEqual(result["flows_added"][0]["bronze_table"], "raw_orders")
 
     @patch("databricks.labs.sdp_meta.bundle.bundle_add_flow")
     def test_add_flow_sandboxes_onboarding_file(self, mock_add):
@@ -374,7 +522,11 @@ class BundleAddFlowToolTests(unittest.TestCase):
 class ResourceTests(unittest.TestCase):
 
     def test_list_resources_includes_packaged_templates(self):
-        resources = mcp_server.list_resources()
+        async def get_resources():
+            async with Client(mcp_server.build_server(), raise_exceptions=True) as client:
+                return (await client.list_resources()).resources
+
+        resources = asyncio.run(get_resources())
         uris = {str(r.uri) for r in resources}
         self.assertTrue(
             any(u.endswith("json/cloudfiles-onboarding.template") for u in uris),
@@ -382,18 +534,14 @@ class ResourceTests(unittest.TestCase):
         )
 
     def test_read_resource_returns_template_text(self):
-        text = mcp_server.read_resource(
-            "sdp-meta://templates/json/cloudfiles-onboarding.template"
-        )
-        self.assertIn("data_flow_id", text)
+        async def read_template():
+            async with Client(mcp_server.build_server(), raise_exceptions=True) as client:
+                return await client.read_resource(
+                    "sdp-meta://templates/json/cloudfiles-onboarding.template"
+                )
 
-    def test_read_resource_rejects_unknown_scheme(self):
-        with self.assertRaisesRegex(ValueError, "Unsupported resource URI"):
-            mcp_server.read_resource("https://example.com/foo")
-
-    def test_read_resource_rejects_missing_template(self):
-        with self.assertRaisesRegex(FileNotFoundError, "Template not found"):
-            mcp_server.read_resource("sdp-meta://templates/json/nope.template")
+        result = asyncio.run(read_template())
+        self.assertIn("data_flow_id", result.contents[0].text)
 
 
 @unittest.skipUnless(_MCP_AVAILABLE, "mcp extra not installed")
@@ -425,18 +573,15 @@ class CliWiringTests(unittest.TestCase):
         """If `mcp` extra is missing, the CLI handler should ImportError clearly."""
         from databricks.labs.sdp_meta.cli import mcp as mcp_cmd
 
-        with patch.dict("sys.modules", {"databricks.labs.sdp_meta.mcp.server": None}):
+        with patch.dict("sys.modules", {"databricks.labs.sdp_meta.mcp_server": None}):
             with self.assertRaises(ImportError) as ctx:
                 mcp_cmd(MagicMock())
             self.assertIn("mcp", str(ctx.exception).lower())
 
 
 @unittest.skipUnless(_MCP_AVAILABLE, "mcp extra not installed")
-class McpShadowGuardTests(unittest.TestCase):
-    """Regression: the `mcp` CLI command must survive the local
-    ``sdp_meta/mcp`` package shadowing the PyPI ``mcp`` SDK when
-    ``databricks labs`` runs cli.py as a script (script dir on
-    ``sys.path[0]``)."""
+class McpCliTests(unittest.TestCase):
+    """The local server module must not shadow the external MCP SDK."""
 
     def setUp(self):
         from databricks.labs.sdp_meta import cli
@@ -448,44 +593,36 @@ class McpShadowGuardTests(unittest.TestCase):
     def tearDown(self):
         sys.path[:] = self._orig_path
 
-    def test_guard_pops_shadowing_script_dir_and_runs(self):
-        # Simulate the labs script invocation: the module's own dir (which
-        # contains the local ``mcp`` subpackage) sits at sys.path[0].
+    def test_command_runs_without_mutating_sys_path(self):
         sys.path.insert(0, self.script_dir)
         with patch(
-            "databricks.labs.sdp_meta.mcp.server.run_stdio"
+            "databricks.labs.sdp_meta.mcp_server.run_stdio"
         ) as mock_run:
             self.cli.mcp(MagicMock())
         mock_run.assert_called_once()
-        # The guard removed the shadowing script dir from position 0 so the
-        # bare ``mcp`` import could resolve to the installed SDK.
-        if sys.path:
-            self.assertNotEqual(
-                os.path.abspath(sys.path[0]), self.script_dir
-            )
+        self.assertEqual(os.path.abspath(sys.path[0]), self.script_dir)
 
     def test_missing_sdk_reports_extra_not_installed(self):
         # Genuine missing dependency: find_spec("mcp") is None AND the
         # server import fails -> the message must point at the extra.
         with patch.dict(
-            "sys.modules", {"databricks.labs.sdp_meta.mcp.server": None}
+            "sys.modules", {"databricks.labs.sdp_meta.mcp_server": None}
         ):
             with patch("importlib.util.find_spec", return_value=None):
                 with self.assertRaises(ImportError) as ctx:
                     self.cli.mcp(MagicMock())
         self.assertIn("extra is not installed", str(ctx.exception))
 
-    def test_import_failure_with_sdk_present_reports_shadowing(self):
+    def test_import_failure_with_sdk_present_reports_original_error(self):
         # SDK is present but the server import still fails -> this is NOT a
-        # missing extra; the message must call out shadowing instead of
-        # sending the user to reinstall a dependency they already have.
+        # missing extra, so report it as an import failure.
         with patch.dict(
-            "sys.modules", {"databricks.labs.sdp_meta.mcp.server": None}
+            "sys.modules", {"databricks.labs.sdp_meta.mcp_server": None}
         ):
             with patch("importlib.util.find_spec", return_value=object()):
                 with self.assertRaises(ImportError) as ctx:
                     self.cli.mcp(MagicMock())
-        self.assertIn("shadow", str(ctx.exception).lower())
+        self.assertIn("failed to import", str(ctx.exception).lower())
 
 
 if __name__ == "__main__":
