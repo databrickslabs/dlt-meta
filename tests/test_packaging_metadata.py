@@ -99,5 +99,17 @@ class PythonSupportMetadataTests(unittest.TestCase):
                 self.assertIn("Programming Language :: Python :: 3 :: Only", classifiers)
 
 
+class CompatibilityDependencyMetadataTests(unittest.TestCase):
+
+    def test_compat_wrapper_is_bounded_to_legacy_compatible_release_series(self):
+        compat = _setup_kwargs(COMPAT_SETUP)
+        self.assertEqual(
+            compat.get("install_requires"),
+            ["databricks-labs-sdp-meta>=0.1.0,<0.2.0"],
+            "dlt-meta 0.1.x must not resolve to a primary 0.2+ release after "
+            "the legacy dlt_meta and src.* compatibility surfaces are removed",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

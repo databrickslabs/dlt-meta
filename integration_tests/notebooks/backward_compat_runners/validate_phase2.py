@@ -37,6 +37,7 @@ target_main_whl = dbutils.widgets.get("target_main_whl")
 # COMMAND ----------
 
 import json
+from importlib.metadata import PackageNotFoundError, version
 
 import pandas as pd
 
@@ -49,9 +50,35 @@ output_file_path = dbutils.widgets.get("output_file_path")
 uc_volume_path = dbutils.widgets.get("uc_volume_path").rstrip("/")
 phase2_customer_delta = int(dbutils.widgets.get("phase2_customer_delta"))
 phase2_transaction_delta = int(dbutils.widgets.get("phase2_transaction_delta"))
+target_install_surface = dbutils.widgets.get("target_install_surface")
+target_package_version = dbutils.widgets.get("target_package_version")
 
 log_list = []
 log_list.append("Backward-compat Phase 2 (v0.1.0 upgrade) validation starting.")
+
+# In compatibility-wheelhouse mode, prove the legacy PyPI distribution
+# resolved the local primary distribution at the same release version.
+if target_install_surface == "compat_wheelhouse":
+    try:
+        compat_version = version("dlt-meta")
+        primary_version = version("databricks-labs-sdp-meta")
+    except PackageNotFoundError as exc:
+        raise AssertionError(
+            f"Compatibility redirect distribution missing: {exc}"
+        ) from exc
+
+    assert compat_version == target_package_version, (
+        f"dlt-meta={compat_version!r}, expected={target_package_version!r}"
+    )
+    assert primary_version == target_package_version, (
+        f"databricks-labs-sdp-meta={primary_version!r}, "
+        f"expected={target_package_version!r}"
+    )
+    log_list.append(
+        "Compatibility wheel resolution: "
+        f"dlt-meta=={compat_version} resolved "
+        f"databricks-labs-sdp-meta=={primary_version}. Passed!"
+    )
 
 # (1) Read Phase 1 counts back.
 phase1_counts_path = f"{uc_volume_path}/tmp/backward_compat_phase1_counts_{run_id}.json"

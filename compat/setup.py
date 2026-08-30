@@ -84,7 +84,9 @@ setup(
     # ships a 3.13-compatible release.
     python_requires=">=3.8, <3.13",
     install_requires=[
-        "databricks-labs-sdp-meta>=0.1.0",  # Depends on the new primary package
+        # Keep this redirect on the release series that provides the legacy
+        # dlt_meta and src.* compatibility surfaces.
+        "databricks-labs-sdp-meta>=0.1.0,<0.2.0",
     ],
     author="Ravi Gawai",
     author_email="databrickslabs@databricks.com",
