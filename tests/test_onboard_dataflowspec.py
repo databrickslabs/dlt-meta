@@ -27,6 +27,125 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
         params = copy.deepcopy(self.onboarding_bronze_silver_params_map)
         return OnboardDataflowspec(self.spark, params)
 
+    @staticmethod
+    def _row(values):
+        row = MagicMock()
+        row.asDict.return_value = values
+        return row
+
+    def test_validated_sinks_rejects_missing_required_keys(self):
+        onboarder = self._make_onboarder()
+        with self.assertRaisesRegex(Exception, "Missing sink details keys"):
+            onboarder.get_validated_sinks_details([self._row({"name": "sink"})])
+
+    def test_validated_sinks_rejects_unsupported_format(self):
+        onboarder = self._make_onboarder()
+        sink = self._row({
+            "name": "sink",
+            "format": "parquet",
+            "options": self._row({"path": "/tmp/out"}),
+        })
+        with self.assertRaisesRegex(Exception, "not supported"):
+            onboarder.get_validated_sinks_details([sink])
+
+    def test_validated_delta_sink_requires_path_or_table(self):
+        onboarder = self._make_onboarder()
+        sink = self._row({
+            "name": "sink",
+            "format": "delta",
+            "options": self._row({"checkpointLocation": "/tmp/checkpoint"}),
+        })
+        with self.assertRaisesRegex(Exception, "Missing delta sink options"):
+            onboarder.get_validated_sinks_details([sink])
+
+    def test_validated_sinks_normalizes_and_serializes(self):
+        onboarder = self._make_onboarder()
+        sinks = [
+            self._row({
+                "name": "DELTA_SINK",
+                "format": "DELTA",
+                "options": self._row({"path": "/tmp/out", "unused": None}),
+                "select_exp": ["id"],
+                "where_clause": ["id > 0"],
+            }),
+            self._row({
+                "name": "KAFKA_SINK",
+                "format": "kafka",
+                "options": self._row({"topic": "events"}),
+            }),
+        ]
+
+        result = json.loads(onboarder.get_validated_sinks_details(sinks))
+
+        self.assertEqual(result[0]["name"], "delta_sink")
+        self.assertEqual(result[0]["format"], "delta")
+        self.assertEqual(json.loads(result[0]["options"]), {"path": "/tmp/out"})
+        self.assertEqual(result[1]["format"], "kafka")
+
+    def test_bronze_source_details_maps_metadata_and_schema(self):
+        onboarder = self._make_onboarder()
+        onboarder.bronze_schema_mapper = MagicMock(return_value="mapped-schema")
+        source_metadata = self._row({
+            "select_metadata_cols": self._row({"file_name": "_metadata.file_name"}),
+            "include_autoloader_metadata_column": True,
+        })
+        onboarding_row = {
+            "source_format": "cloudFiles",
+            "bronze_reader_options": self._row({"cloudFiles.format": "json"}),
+            "source_details": self._row({
+                "source_path_dev": "/tmp/input",
+                "source_catalog_dev": "main",
+                "source_database": "raw",
+                "source_table": "events",
+                "source_metadata": source_metadata,
+                "source_schema_path": "/tmp/schema.ddl",
+            }),
+        }
+
+        details, options, schema = (
+            onboarder.get_bronze_source_details_reader_options_schema(
+                onboarding_row, "dev"
+            )
+        )
+
+        self.assertEqual(details["path"], "/tmp/input")
+        self.assertEqual(details["catalog"], "main")
+        self.assertEqual(details["source_database"], "raw")
+        self.assertEqual(options, {"cloudFiles.format": "json"})
+        self.assertEqual(schema, "mapped-schema")
+        onboarder.bronze_schema_mapper.assert_called_once_with(
+            "/tmp/schema.ddl", self.spark
+        )
+
+    def test_snapshot_source_requires_format(self):
+        onboarder = self._make_onboarder()
+        onboarding_row = {
+            "source_format": "snapshot",
+            "bronze_reader_options": {},
+            "source_details": self._row({"source_path_dev": "/tmp/input"}),
+        }
+        with self.assertRaisesRegex(Exception, "snapshot_format is missing"):
+            onboarder.get_bronze_source_details_reader_options_schema(
+                onboarding_row, "dev"
+            )
+
+    def test_non_uc_snapshot_source_requires_path(self):
+        onboarder = self._make_onboarder()
+        onboarder.uc_enabled = False
+        onboarding_row = {
+            "source_format": "snapshot",
+            "bronze_reader_options": {},
+            "source_details": self._row({
+                "snapshot_format": "delta",
+                "source_database": "raw",
+                "source_table": "events",
+            }),
+        }
+        with self.assertRaisesRegex(Exception, "source_path_dev is missing"):
+            onboarder.get_bronze_source_details_reader_options_schema(
+                onboarding_row, "dev"
+            )
+
     def test_onboard_yml_bronze_dataflow_spec(self):
         """Test onboarding bronze dataflow spec from YAML file."""
         onboarding_params_map = copy.deepcopy(self.onboarding_bronze_silver_params_map)

@@ -10,6 +10,9 @@ end-to-end flows in ``test_cli.py``.
 """
 from __future__ import annotations
 
+from contextlib import nullcontext
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -17,8 +20,11 @@ from databricks.sdk.errors import NotFound, DatabricksError
 from databricks.sdk.service.catalog import VolumeType
 
 from databricks.labs.sdp_meta.cli import (
+    _build_and_upload_git_wheel,
+    _create_pipeline,
     _ensure_uc_schema_and_volume,
     _git_wheel_source,
+    _read_dependency_from_onboarding_json,
     _volume_path_exists,
 )
 
@@ -57,6 +63,108 @@ class TestGitWheelSourceBuilder(unittest.TestCase):
     def test_url_without_branch_omits_at_suffix(self):
         result = _git_wheel_source({"git_url": "https://github.com/foo/bar.git"})
         self.assertEqual(result, "git+https://github.com/foo/bar.git")
+
+
+class TestCreatePipelineSchemaFallback(unittest.TestCase):
+    def test_passes_through_when_schema_is_absent(self):
+        ws = MagicMock()
+        expected = object()
+        ws.pipelines.create.return_value = expected
+
+        result = _create_pipeline(ws, name="pipeline")
+
+        self.assertIs(result, expected)
+        ws.pipelines.create.assert_called_once_with(name="pipeline")
+
+    def test_uses_schema_when_supported(self):
+        ws = MagicMock()
+        expected = object()
+        ws.pipelines.create.return_value = expected
+
+        result = _create_pipeline(
+            ws, name="pipeline", schema="target"
+        )
+
+        self.assertIs(result, expected)
+        ws.pipelines.create.assert_called_once_with(
+            schema="target", name="pipeline"
+        )
+
+    def test_retries_with_legacy_target(self):
+        ws = MagicMock()
+        expected = object()
+        ws.pipelines.create.side_effect = [ValueError("schema"), expected]
+
+        result = _create_pipeline(
+            ws, name="pipeline", schema="target"
+        )
+
+        self.assertIs(result, expected)
+        self.assertEqual(ws.pipelines.create.call_count, 2)
+        ws.pipelines.create.assert_called_with(
+            target="target", name="pipeline"
+        )
+
+    def test_reports_both_schema_and_target_failures(self):
+        ws = MagicMock()
+        ws.pipelines.create.side_effect = [
+            ValueError("schema rejected"),
+            RuntimeError("target rejected"),
+        ]
+
+        with self.assertRaisesRegex(
+            RuntimeError, "failed with both parameter forms"
+        ) as raised:
+            _create_pipeline(
+                ws, name="pipeline", schema="target"
+            )
+
+        self.assertIn("schema rejected", str(raised.exception))
+        self.assertIn("target rejected", str(raised.exception))
+
+
+class TestReadPersistedDependency(unittest.TestCase):
+    def test_returns_none_when_file_is_missing(self):
+        with patch(
+            "databricks.labs.sdp_meta.cli.os.path.isfile",
+            return_value=False,
+        ):
+            self.assertIsNone(_read_dependency_from_onboarding_json())
+
+    def test_returns_none_for_invalid_json(self):
+        with (
+            patch(
+                "databricks.labs.sdp_meta.cli.os.path.isfile",
+                return_value=True,
+            ),
+            patch("builtins.open", unittest.mock.mock_open(read_data="{")),
+        ):
+            self.assertIsNone(_read_dependency_from_onboarding_json())
+
+    def test_returns_none_for_non_mapping_or_blank_dependency(self):
+        for payload in ('["not", "a", "mapping"]', '{"sdp_meta_dependency": " "}'):
+            with (
+                patch(
+                    "databricks.labs.sdp_meta.cli.os.path.isfile",
+                    return_value=True,
+                ),
+                patch("builtins.open", unittest.mock.mock_open(read_data=payload)),
+            ):
+                self.assertIsNone(_read_dependency_from_onboarding_json())
+
+    def test_returns_non_empty_dependency(self):
+        payload = '{"sdp_meta_dependency": "/Volumes/c/s/v/package.whl"}'
+        with (
+            patch(
+                "databricks.labs.sdp_meta.cli.os.path.isfile",
+                return_value=True,
+            ),
+            patch("builtins.open", unittest.mock.mock_open(read_data=payload)),
+        ):
+            self.assertEqual(
+                _read_dependency_from_onboarding_json(),
+                "/Volumes/c/s/v/package.whl",
+            )
 
 
 class TestVolumePathExistsProbe(unittest.TestCase):
@@ -189,6 +297,90 @@ class TestEnsureUcSchemaAndVolume(unittest.TestCase):
                     create_if_missing=False,
                 )
         ws.volumes.create.assert_not_called()
+
+
+class TestBuildAndUploadGitWheel(unittest.TestCase):
+    def test_builds_with_indexes_and_uploads_generated_wheel(self):
+        ws = MagicMock()
+        with tempfile.TemporaryDirectory() as tmp:
+            wheel = Path(tmp) / "databricks_labs_sdp_meta-1.2.3-py3-none-any.whl"
+            wheel.write_bytes(b"wheel-bytes")
+            flags = {
+                "pip_index_url": "https://primary.example/simple",
+                "pip_extra_index_url": [
+                    "https://extra-one.example/simple",
+                    "https://extra-two.example/simple",
+                ],
+                "no_create_missing_uc": True,
+            }
+            with (
+                patch(
+                    "databricks.labs.sdp_meta.cli.tempfile.TemporaryDirectory",
+                    return_value=nullcontext(tmp),
+                ),
+                patch(
+                    "databricks.labs.sdp_meta.cli._ensure_uc_schema_and_volume"
+                ) as ensure,
+                patch(
+                    "databricks.labs.sdp_meta.cli._volume_path_exists",
+                    return_value=True,
+                ),
+                patch("databricks.labs.sdp_meta.cli.subprocess.run") as run,
+                patch("builtins.print") as print_,
+            ):
+                result = _build_and_upload_git_wheel(
+                    ws,
+                    uc_catalog="main",
+                    uc_schema="meta",
+                    uc_volume="wheels",
+                    source="git+https://example/repo.git@main",
+                    flags=flags,
+                )
+
+        ensure.assert_called_once_with(
+            ws, "main", "meta", "wheels", create_if_missing=False
+        )
+        command = run.call_args.args[0]
+        self.assertIn("--no-deps", command)
+        self.assertIn("https://primary.example/simple", command)
+        self.assertIn("https://extra-one.example/simple", command)
+        self.assertIn("https://extra-two.example/simple", command)
+        self.assertEqual(command[-1], "git+https://example/repo.git@main")
+        run.assert_called_once_with(command, check=True)
+        expected = (
+            "/Volumes/main/meta/wheels/"
+            "databricks_labs_sdp_meta-1.2.3-py3-none-any.whl"
+        )
+        self.assertEqual(result, expected)
+        ws.files.upload.assert_called_once()
+        self.assertEqual(ws.files.upload.call_args.kwargs["file_path"], expected)
+        self.assertTrue(ws.files.upload.call_args.kwargs["overwrite"])
+        self.assertTrue(
+            any("Overwriting existing wheel" in str(call) for call in print_.call_args_list)
+        )
+
+    def test_raises_when_pip_produces_no_wheel(self):
+        ws = MagicMock()
+        with tempfile.TemporaryDirectory() as tmp:
+            with (
+                patch(
+                    "databricks.labs.sdp_meta.cli.tempfile.TemporaryDirectory",
+                    return_value=nullcontext(tmp),
+                ),
+                patch(
+                    "databricks.labs.sdp_meta.cli._ensure_uc_schema_and_volume"
+                ),
+                patch("databricks.labs.sdp_meta.cli.subprocess.run"),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "produced no wheel"):
+                    _build_and_upload_git_wheel(
+                        ws,
+                        uc_catalog="main",
+                        uc_schema="meta",
+                        uc_volume="wheels",
+                        source="/trusted/local/source",
+                        flags={},
+                    )
 
 
 if __name__ == "__main__":
