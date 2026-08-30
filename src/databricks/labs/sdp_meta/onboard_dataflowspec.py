@@ -203,7 +203,7 @@ class OnboardDataflowspec:
 
     def onboard_dataflow_specs(self):
         """
-        Onboard_dataflow_specs method will onboard dataFlowSpecs for bronze, silver and gold.
+        Onboard_dataflow_specs method will onboard dataFlowSpecs for bronze and silver.
 
         This method takes in a SparkSession object and a dictionary object containing the following attributes:
         - onboarding_file_path: The path to the onboarding file.
