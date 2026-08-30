@@ -109,6 +109,16 @@ class CompatibilityDependencyMetadataTests(unittest.TestCase):
             "dlt-meta 0.1.x must not resolve to a primary 0.2+ release after "
             "the legacy dlt_meta and src.* compatibility surfaces are removed",
         )
+class McpDependencyMetadataTests(unittest.TestCase):
+
+    def test_mcp_sdk_range_matches_development_requirements(self):
+        expected = "mcp>=2.0.0,<3.0"
+        setup_text = PRIMARY_SETUP.read_text(encoding="utf-8")
+        requirements_text = (
+            REPO_ROOT / "requirements-dev.txt"
+        ).read_text(encoding="utf-8")
+        self.assertIn(f'MCP_REQUIREMENTS = ["{expected}"]', setup_text)
+        self.assertIn(expected, requirements_text.splitlines())
 
 
 if __name__ == "__main__":

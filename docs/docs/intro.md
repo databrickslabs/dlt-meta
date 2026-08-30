@@ -14,6 +14,42 @@ The v0.1.0 release renames DLT-META to SDP-META. Existing onboarding JSON/YAML f
 Start with the [DLT-META → SDP-META migration guide](./operations/migration.md) for the step-by-step upgrade plan and deprecation timeline.
 :::
 
+## What is SDP-META?
+
+SDP-META helps data platform and data engineering teams standardize repeatable Bronze and Silver pipelines across many datasets.
+
+Teams describe sources, targets, data quality rules, CDC behavior, transformations, and sinks in YAML or JSON. SDP-META persists that contract as DataflowSpec metadata and uses a single generic pipeline that reads the spec at runtime and builds the full processing graph.
+
+Its primary value is reducing per-table pipeline code while giving teams consistent patterns, controls, and deployment options.
+
+## Who is it for?
+
+Use SDP-META when:
+
+- Many datasets follow common ingestion and transformation patterns.
+- A platform team wants reusable Bronze/Silver standards.
+- New feeds should be onboarded through metadata instead of new pipeline code.
+- Data quality, quarantine, CDC, clustering, and sinks need consistent implementation.
+- Teams need the same model through Bundles, CLI, UI, or AI tools.
+
+## When is it not the best fit?
+
+Consider another approach when:
+
+- You only have one or two simple pipelines.
+- Gold-layer business modeling is the primary requirement.
+- Most tables require unique application logic.
+- A managed connector and downstream logic already satisfy the complete Bronze/Silver requirement.
+- You require a product with a formal support SLA; SDP-META is a Labs project.
+
+## Why SDP-META?
+
+- **Persistent metadata contract:** DataflowSpec records remain queryable and governable in Delta tables.
+- **Runtime-driven pipelines:** Metadata changes do not require maintaining generated per-table pipeline definitions.
+- **Bronze/Silver specialization:** Built-in ingestion, quality, quarantine, CDC, fan-out, row-filtering, clustering, and sink patterns.
+- **Multiple interfaces, one model:** Bundles, CLI, Databricks App, MCP, and agent workflows all use the same metadata contract.
+- **Designed for repeatability:** Best suited to onboarding and operating many similarly structured data flows.
+
 ## Architecture
 
 ![SDP-META Architecture](/img/sdp-meta-architecture.svg)
@@ -31,7 +67,7 @@ SDP-META operates in two phases:
 | Layers | Bronze, Silver |
 | Custom transformations | Bronze and Silver layers |
 | Data Quality Expectations | Bronze, Silver |
-| Quarantine table | Bronze layer |
+| Quarantine table | Bronze, Silver |
 | CDC (create_auto_cdc_flow) | Bronze, Silver |
 | CDC from Snapshot | Bronze layer |
 | append_flow | Bronze layer |

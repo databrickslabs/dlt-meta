@@ -3,3 +3,5 @@ include README.md
 include LICENSE.txt
 include CHANGELOG.md
 recursive-include src/databricks/labs/sdp_meta/templates *
+recursive-include examples/json *
+recursive-include examples/yml *
