@@ -109,6 +109,8 @@ class CompatibilityDependencyMetadataTests(unittest.TestCase):
             "dlt-meta 0.1.x must not resolve to a primary 0.2+ release after "
             "the legacy dlt_meta and src.* compatibility surfaces are removed",
         )
+
+
 class McpDependencyMetadataTests(unittest.TestCase):
 
     def test_mcp_sdk_range_matches_development_requirements(self):
