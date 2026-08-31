@@ -356,7 +356,7 @@ def main() -> int:
         default="main",
         help="Branch passed to the demo's git_branch widget. Drives BOTH "
              "(a) ``pip install git+https://github.com/databrickslabs/"
-             "dlt-meta.git@<branch>`` when --install-source=git_branch, "
+             "sdp-meta.git@<branch>`` when --install-source=git_branch, "
              "AND (b) where the demo fetches sample CSVs and onboarding "
              "templates from raw.githubusercontent.com (always — even "
              "when installing from a wheel).",
@@ -433,7 +433,7 @@ def main() -> int:
         default="dbdatagen",
         choices=["dbdatagen", "github"],
         help="Demo data-source widget. 'github' downloads deterministic "
-             "CSVs from the dlt-meta repo (recommended for CI smoke). "
+             "CSVs from the sdp-meta repo (recommended for CI smoke). "
              "'dbdatagen' generates random synthetic data (interactive "
              "demos only — counts vary run-to-run).",
     )

@@ -1,4 +1,4 @@
-"""Unity Catalog pre-flight checks for the dlt-meta databricks_app.
+"""Unity Catalog pre-flight checks for the SDP-META Databricks App.
 
 The App runs as a Databricks Apps service principal (its identity inside
 the workspace is whatever `WorkspaceClient().current_user.me()` returns

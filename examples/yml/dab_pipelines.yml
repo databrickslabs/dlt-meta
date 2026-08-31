@@ -1,4 +1,4 @@
-# Bronze and Silver DLT Meta Pipelines for People Data
+# Bronze and Silver SDP-META Declarative Pipelines for People Data
 resources:
   pipelines:
     pipeline_bronze_people:

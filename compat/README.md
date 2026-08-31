@@ -64,7 +64,7 @@ from databricks.labs.sdp_meta.dataflow_pipeline import DataflowPipeline
 
 ### Configuration Files
 
-Your existing configuration files (JSON/YAML) will continue to work without changes. Field names like `dlt_meta_schema`, `dlt_meta_bronze_schema`, etc. are still supported.
+The legacy `dlt_meta_schema` key in `onboarding_job_details.json` remains supported as an alias for `sdp_meta_schema`.
 
 ## How the `src.*` shim works
 
