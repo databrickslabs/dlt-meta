@@ -38,7 +38,7 @@ class TestGitWheelSourceBuilder(unittest.TestCase):
         self.assertIsNone(_git_wheel_source({}))
 
     def test_defaults_git_url_when_only_branch_given(self):
-        # Branch alone -> defaults the URL to the public dlt-meta
+        # Branch alone -> defaults the URL to the public sdp-meta
         # repo so users don't have to spell it out for upstream
         # branch builds.
         result = _git_wheel_source({"git_branch": "feature/sdp-meta"})

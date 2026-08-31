@@ -43,7 +43,7 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      image: 'img/sdp-meta-social.png',
+      image: 'img/sdp-meta-banner.png',
       navbar: {
         title: 'SDP-META',
         logo: {

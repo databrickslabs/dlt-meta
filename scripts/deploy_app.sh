@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-# scripts/deploy_app.sh — deploy the dlt-meta databricks_app to Databricks Apps
+# scripts/deploy_app.sh — deploy the sdp-meta databricks_app to Databricks Apps
 #
 # Why this script exists
 # ──────────────────────
@@ -8,7 +8,7 @@
 # shell out to the sdp-meta CLI (`python -m databricks.labs.sdp_meta.cli`,
 # installed from the wheel that databricks_app/start.sh builds) and to
 # `demo/launch_*_demo.py`. The latter import from src/, demo/, and
-# integration_tests/, so the Apps platform needs the FULL dlt-meta repo at
+# integration_tests/, so the Apps platform needs the FULL sdp-meta repo at
 # the deployment source-code-path (Mode A in databricks_app/start.sh).
 #
 # Mode A requires `app.yaml` and `requirements.txt` at the source-code-path

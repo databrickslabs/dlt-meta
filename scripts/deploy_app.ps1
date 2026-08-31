@@ -2,7 +2,7 @@
 <#
 .SYNOPSIS
     Windows-native PowerShell port of scripts/deploy_app.sh -- deploys the
-    dlt-meta databricks_app to Databricks Apps.
+    sdp-meta databricks_app to Databricks Apps.
 
 .DESCRIPTION
     Mirrors the bash script step-for-step so the deploy behaves identically

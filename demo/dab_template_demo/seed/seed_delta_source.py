@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Seed delta source tables for the dlt-meta `delta` demo scenario
+# MAGIC # Seed delta source tables for the SDP-META `delta` demo scenario
 # MAGIC
 # MAGIC This notebook is uploaded + executed by `demo/launch_dab_template_demo.py`
 # MAGIC during STAGE 4 of the `delta` scenario. It reads CSV files from a UC
