@@ -1,6 +1,7 @@
 """Test for install module."""
 import os
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch, mock_open
@@ -181,6 +182,36 @@ class TestWorkspaceInstaller(unittest.TestCase):
 
         # Should not raise error for RESOURCE_DOES_NOT_EXIST
         installer._configure()
+
+    def test_upload_wheel_to_workspace_and_uc_volume(self):
+        installer = WorkspaceInstaller(self.mock_ws)
+        self.mock_ws.current_user.me.return_value.user_name = "test@example.com"
+        with tempfile.TemporaryDirectory() as tmp:
+            wheel = Path(tmp) / "sdp_meta-1.0.0-py3-none-any.whl"
+            wheel.write_bytes(b"wheel-bytes")
+            with patch.object(installer, "_build_wheel", return_value=wheel):
+                result = installer._upload_wheel("/Volumes/main/meta/wheels/")
+
+        self.assertEqual(
+            result,
+            "/Volumes/main/meta/wheels/wheels/sdp_meta-1.0.0-py3-none-any.whl",
+        )
+        self.mock_ws.workspace.mkdirs.assert_called_once_with(
+            "/Users/test@example.com/sdp-meta/wheels"
+        )
+        self.mock_ws.workspace.upload.assert_called_once()
+        workspace_upload = self.mock_ws.workspace.upload.call_args
+        self.assertEqual(
+            workspace_upload.args[0],
+            "/Users/test@example.com/sdp-meta/wheels/"
+            "sdp_meta-1.0.0-py3-none-any.whl",
+        )
+        self.mock_ws.files.upload.assert_called_once()
+        self.assertEqual(
+            self.mock_ws.files.upload.call_args.args[0],
+            "/Volumes/main/meta/wheels/wheels/"
+            "sdp_meta-1.0.0-py3-none-any.whl",
+        )
 
     def test_configure_other_error(self):
         """Test _configure when other DatabricksError occurs."""

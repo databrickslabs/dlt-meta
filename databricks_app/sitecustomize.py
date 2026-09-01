@@ -1,4 +1,4 @@
-"""Auto-loaded compatibility shim for dlt-meta demos running inside Databricks Apps.
+"""Auto-loaded compatibility shim for SDP-META demos running inside Databricks Apps.
 
 Why this file exists
 --------------------

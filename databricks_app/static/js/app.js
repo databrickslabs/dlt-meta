@@ -76,9 +76,9 @@ function showView(viewName) {
 
     // Update header
     const titles = {
-        setup: { title: 'Setup', subtitle: 'Configure your DLT-META environment' },
+        setup: { title: 'Setup', subtitle: 'Configure your SDP-META environment' },
         onboarding: { title: 'Onboarding', subtitle: 'Configure data source onboarding' },
-        deployment: { title: 'Deployment', subtitle: 'Deploy DLT pipelines' },
+        deployment: { title: 'Deployment', subtitle: 'Deploy Declarative Pipelines' },
         demos: { title: 'Demos', subtitle: 'Run pre-configured demo scenarios' },
         cli: { title: 'CLI', subtitle: 'Execute commands directly' }
     };
@@ -458,7 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Initialize terminal
-    appendToTerminal('Welcome to DLT-META CLI Browser Interface', 'input-line');
+    appendToTerminal('Welcome to SDP-META CLI Browser Interface', 'input-line');
     appendToTerminal('Type a command or click one of the suggestions', 'input-line');
     appendToTerminal('$ ', 'prompt');
 });

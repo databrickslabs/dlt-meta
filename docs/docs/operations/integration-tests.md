@@ -21,8 +21,8 @@ git clone https://github.com/databrickslabs/sdp-meta.git
 cd sdp-meta
 python -m venv .venv
 source .venv/bin/activate
-pip install databricks-sdk
-export PYTHONPATH=$(pwd)
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
 ```
 
 ## Running integration tests
@@ -92,6 +92,83 @@ python integration_tests/run_integration_tests.py \
 |---|---|
 | `--kafka_topic_name` | Kafka topic name |
 | `--kafka_broker` | Broker address, e.g. `host:9092` |
+
+## Testing backward-compatible upgrades
+
+`integration_tests/run_backward_compat_tests.py` verifies that an existing
+pipeline continues working when its installed package is upgraded. It runs
+both versions against the same pipeline IDs and checkpoints:
+
+1. Phase 1 builds and installs the source wheel, onboards the legacy
+   configuration, runs Bronze and Silver, and records baseline row counts.
+2. Phase 2 swaps the existing pipelines to the target install specification,
+   adds an incremental input batch, reruns Bronze and Silver, and verifies data
+   preservation, incremental growth, package resolution, and legacy imports.
+
+The default run tests the released legacy-to-current upgrade:
+
+```bash
+python integration_tests/run_backward_compat_tests.py \
+  --uc_catalog_name=<your_catalog> \
+  --profile=<profile-name>
+```
+
+Use `--build_target_from_worktree` while testing uncommitted target-side
+changes. The source wheel still comes from the pinned source Git ref:
+
+```bash
+python integration_tests/run_backward_compat_tests.py \
+  --uc_catalog_name=<your_catalog> \
+  --install_mode=local \
+  --build_target_from_worktree \
+  --profile=<profile-name>
+```
+
+### Testing the `dlt-meta` compatibility redirect
+
+The `compat_wheelhouse` target surface verifies that installing the legacy
+`dlt-meta` distribution resolves the new `databricks-labs-sdp-meta`
+distribution and keeps `dlt_meta` and `src.*` compatibility available:
+
+```bash
+python integration_tests/run_backward_compat_tests.py \
+  --uc_catalog_name=<your_catalog> \
+  --install_mode=local \
+  --build_target_from_worktree \
+  --target_install_surface=compat_wheelhouse \
+  --profile=<profile-name>
+```
+
+This mode is limited to local-wheel, legacy-to-current upgrades. Before
+creating workspace resources, the runner:
+
+- builds the target primary and redirect wheels;
+- derives their shared package version and fails if they disagree;
+- downloads a complete binary runtime wheelhouse for the target interpreter;
+- verifies the primary wheel's unconditional runtime dependencies are present;
+- uploads the wheelhouse to the run's Unity Catalog volume.
+
+Phase 1 uses the source notebook's original wheel install. At the phase
+boundary, only the uploaded notebook copy is replaced with a Phase 2 install
+that uses `--force-reinstall --no-index --find-links`. The pipeline therefore
+resolves `dlt-meta==<derived-version>` entirely from the uploaded wheelhouse
+without requiring PyPI access from serverless compute.
+
+`--target_package_version=<version>` is optional. When omitted, the version is
+derived from the built target wheels. When supplied, it acts as an assertion
+and the run fails before upload if it does not match both wheels.
+
+`--compat_python_version` selects the CPython minor version used when
+downloading binary dependencies and defaults to `3.12`. Override it when the
+target Databricks runtime uses another supported Python minor version:
+
+```bash
+--compat_python_version=3.11
+```
+
+The dependency download runs on the machine launching the test and requires
+PyPI or package-mirror access there. It times out after 600 seconds with a
+diagnostic instead of hanging indefinitely.
 
 ## Test output
 

@@ -41,9 +41,12 @@ The standalone ``compat/`` package remains as a no-op PyPI redirect
 duplicate of the same shim it would otherwise install transitively,
 which pip detects as already-satisfied and no-ops.
 """
-from setuptools import setup, find_namespace_packages, find_packages
+from pathlib import Path
+import shutil
 
 import re
+from setuptools import find_namespace_packages, find_packages, setup
+from setuptools.command.build_py import build_py
 
 with open("README.md", "r") as fh:
     content = fh.read()
@@ -74,16 +77,46 @@ INSTALL_REQUIRES = [
 ]
 
 DEV_REQUIREMENTS = [
-    "flake8==6.0",
+    "flake8==7.3.0",
     "delta-spark==3.0.0",
     "pytest>=7.0.0",
     "coverage>=7.0.0",
     "pyspark==3.5.5"
 ]
 
-IT_REQUIREMENTS = ["typer[all]==0.6.1"]
+IT_REQUIREMENTS = ["typer[all]==0.27.1"]
 
-MCP_REQUIREMENTS = ["mcp>=1.0,<2.0"]
+MCP_REQUIREMENTS = ["mcp>=2.0.0,<3.0"]
+
+
+class BuildPyWithExamples(build_py):
+    """Copy onboarding examples into the importable package in release wheels."""
+
+    def run(self):
+        source_root = Path(__file__).resolve().parent / "examples"
+        missing_directories = [
+            name for name in ("json", "yml") if not (source_root / name).is_dir()
+        ]
+        if missing_directories:
+            raise FileNotFoundError(
+                "Cannot package MCP examples: expected examples/json and "
+                f"examples/yml below {source_root}; missing {missing_directories}."
+            )
+        package_root = (
+            Path(self.build_lib) / "databricks" / "labs" / "sdp_meta"
+        )
+        # Incremental builds can retain deleted modules (including the removed
+        # ``sdp_meta.mcp`` package). Rebuild this package subtree from source.
+        if package_root.exists():
+            shutil.rmtree(package_root)
+        super().run()
+        destination_root = package_root / "_packaged_examples"
+        for directory_name in ("json", "yml"):
+            source = source_root / directory_name
+            destination = destination_root / directory_name
+            if destination.exists():
+                shutil.rmtree(destination)
+            shutil.copytree(source, destination)
 
 
 setup(
@@ -102,6 +135,7 @@ setup(
     # .github/requirements-build.txt instead.
     install_requires=INSTALL_REQUIRES,
     extras_require={"dev": DEV_REQUIREMENTS, "IT": IT_REQUIREMENTS, "mcp": MCP_REQUIREMENTS},
+    cmdclass={"build_py": BuildPyWithExamples},
     author="Ravi Gawai",
     author_email="databrickslabs@databricks.com",
     license="Databricks License",

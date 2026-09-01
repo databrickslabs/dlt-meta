@@ -220,7 +220,7 @@ elif install_source == "pypi":
 else:
     sdp_meta_install_target = (
         f"git+https://github.com/databrickslabs/"
-        f"dlt-meta.git@{git_branch}"
+        f"sdp-meta.git@{git_branch}"
     )
 
 print(f"Git Branch         : {git_branch}")
@@ -350,7 +350,7 @@ elif install_source == "pypi":
 else:
     sdp_meta_install_target = (
         f"git+https://github.com/databrickslabs/"
-        f"dlt-meta.git@{git_branch}"
+        f"sdp-meta.git@{git_branch}"
     )
 
 # Re-validate after re-reading widgets in this cell to match the strict
@@ -805,7 +805,7 @@ print(f"  Created: {snap_st_path}")
 # MAGIC - **dbdatagen**: generates synthetic data using
 # MAGIC   [dbldatagen](https://github.com/databrickslabs/dbldatagen)
 # MAGIC - **github**: downloads sample data from the
-# MAGIC   [dlt-meta repo](https://github.com/databrickslabs/sdp-meta/tree/main/demo/resources)
+# MAGIC   [sdp-meta repo](https://github.com/databrickslabs/sdp-meta/tree/main/demo/resources)
 
 # COMMAND ----------
 
@@ -1052,7 +1052,7 @@ else:  # github
     import requests
 
     REPO_OWNER = "databrickslabs"
-    REPO_NAME = "dlt-meta"
+    REPO_NAME = "sdp-meta"
 
     def download_file(source, destination):
         raw_url = (
@@ -1440,7 +1440,7 @@ def _load_sample_onboarding_text(onboarding_format, conf_ext, git_branch):
     Resolution order (first match wins):
 
     1. **Workspace co-located** — when the notebook was imported as part of
-       the dlt-meta repo (so its workspace path contains ``/demo/``), we
+       the sdp-meta repo (so its workspace path contains ``/demo/``), we
        read the sibling ``demo/conf/{json|yml}/sample_onboarding.{json|yml}``
        directly via ``open()``. Fast, offline-friendly.
     2. **GitHub raw fallback** — when the notebook was uploaded standalone
@@ -1484,10 +1484,10 @@ def _load_sample_onboarding_text(onboarding_format, conf_ext, git_branch):
         return resp.text, raw_url
     raise RuntimeError(
         f"Could not load sample onboarding file. Notebook path "
-        f"({nb_path}) is not under a dlt-meta repo checkout, and the "
+        f"({nb_path}) is not under a sdp-meta repo checkout, and the "
         f"GitHub fallback at {raw_url} returned HTTP "
         f"{resp.status_code}. Either re-import the notebook under the "
-        f"dlt-meta repo, or set the 'git_branch' widget to a branch that "
+        f"sdp-meta repo, or set the 'git_branch' widget to a branch that "
         f"contains {rel_path}."
     )
 

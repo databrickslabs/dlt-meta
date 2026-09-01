@@ -656,7 +656,6 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
     def test_dlt_write_silver(self, mock_dlt):
         mock_dlt_table = MagicMock(return_value=lambda func: func)
         mock_dlt.table = mock_dlt_table
-        DataflowPipeline.get_silver_schema = MagicMock
         silver_dataflow_spec = SilverDataflowSpec(
             **DataflowPipelineTests.silver_dataflow_spec_map
         )
@@ -702,7 +701,6 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
     @patch.object(DataflowPipeline, 'write_silver', new_callable=MagicMock)
     def test_dataflowpipeline_silver_write(self, mock_dfp):
         mock_dfp.write_bronze.return_value = None
-        DataflowPipeline.get_silver_schema = MagicMock
         silver_dataflow_spec = SilverDataflowSpec(
             **DataflowPipelineTests.silver_dataflow_spec_map
         )
@@ -718,7 +716,6 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
     @patch.object(DataflowPipeline, 'write_bronze', new_callable=MagicMock)
     def test_dataflowpipeline_bronze_write(self, mock_dfp):
         mock_dfp.write_bronze.return_value = None
-        DataflowPipeline.get_silver_schema = MagicMock
         bronze_dataflow_spec = BronzeDataflowSpec(
             **DataflowPipelineTests.bronze_dataflow_spec_map
         )
@@ -2436,6 +2433,72 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         reader_opts = pipeline._get_reader_config_options()
         self.assertIn("maxFilesPerTrigger", reader_opts)
         self.assertEqual(reader_opts["maxFilesPerTrigger"], "1")
+
+    def _mock_source_reader_pipeline(self, *, uc_enabled):
+        bronze_spec_map = copy.deepcopy(
+            DataflowPipelineTests.bronze_dataflow_spec_map
+        )
+        pipeline = DataflowPipeline(
+            self.spark,
+            BronzeDataflowSpec(**bronze_spec_map),
+            "test_view",
+        )
+        pipeline.uc_enabled = uc_enabled
+        pipeline._get_source_table_info = MagicMock(return_value=(
+            "main.raw.events",
+            {"path": "/tmp/events"},
+        ))
+        pipeline._get_reader_config_options = MagicMock(
+            return_value={"ignoreDeletes": "true"}
+        )
+        reader = MagicMock()
+        pipeline._create_dataframe_reader = MagicMock(return_value=reader)
+        return pipeline, reader
+
+    def test_read_from_source_snapshot_uses_uc_table(self):
+        pipeline, reader = self._mock_source_reader_pipeline(uc_enabled=True)
+        expected = object()
+        reader.table.return_value = expected
+
+        result = pipeline._read_from_source("snapshot")
+
+        self.assertIs(result, expected)
+        reader.table.assert_called_once_with("main.raw.events")
+        reader.load.assert_not_called()
+
+    def test_read_from_source_snapshot_uses_delta_path_without_uc(self):
+        pipeline, reader = self._mock_source_reader_pipeline(uc_enabled=False)
+        expected = object()
+        reader.load.return_value = expected
+
+        result = pipeline._read_from_source("snapshot")
+
+        self.assertIs(result, expected)
+        reader.load.assert_called_once_with(path="/tmp/events", format="delta")
+        reader.table.assert_not_called()
+
+    def test_read_from_source_streaming_uses_uc_table(self):
+        pipeline, reader = self._mock_source_reader_pipeline(uc_enabled=True)
+        expected = object()
+        reader.table.return_value = expected
+
+        result = pipeline._read_from_source("delta", is_streaming=True)
+
+        self.assertIs(result, expected)
+        reader.table.assert_called_once_with("main.raw.events")
+
+    def test_read_from_source_batch_uses_path_without_uc(self):
+        pipeline, reader = self._mock_source_reader_pipeline(uc_enabled=False)
+        expected = object()
+        reader.load.return_value = expected
+
+        result = pipeline._read_from_source("delta", is_streaming=False)
+
+        self.assertIs(result, expected)
+        pipeline._create_dataframe_reader.assert_called_once_with(
+            False, {"ignoreDeletes": "true"}
+        )
+        reader.load.assert_called_once_with(path="/tmp/events", format="delta")
 
     def test_create_dataframe_reader_with_options(self):
         """Test _create_dataframe_reader with various options."""

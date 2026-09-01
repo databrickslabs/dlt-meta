@@ -43,7 +43,7 @@ from werkzeug.exceptions import HTTPException
 # down the whole app at import time.
 _log_handlers: list[logging.Handler] = [logging.StreamHandler()]
 try:
-    _log_file = os.path.join(os.environ.get("TMPDIR", "/tmp"), "dlt-meta-app.log")
+    _log_file = os.path.join(os.environ.get("TMPDIR", "/tmp"), "sdp-meta-app.log")
     _log_handlers.append(logging.FileHandler(_log_file))
 except OSError:
     pass  # read-only FS \u2014 stdout/stderr capture is enough.

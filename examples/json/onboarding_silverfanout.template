@@ -30,7 +30,7 @@
             "pipelines.reset.allowed": "false",
             "pipelines.autoOptimize.zOrderCols": "id,email"
         },
-        "silver_transformation_json_dev": "{dbfs_path}/dlt-meta/conf/silver_transformations_fanout.json",
-        "silver_data_quality_expectations_json_dev": "{dbfs_path}/dlt-meta/conf/dqe/customers/silver_data_quality_expectations.json"
+        "silver_transformation_json_dev": "{dbfs_path}/sdp-meta/conf/silver_transformations_fanout.json",
+        "silver_data_quality_expectations_json_dev": "{dbfs_path}/sdp-meta/conf/dqe/customers/silver_data_quality_expectations.json"
     }
 ]

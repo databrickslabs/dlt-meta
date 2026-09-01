@@ -260,7 +260,10 @@ The compat package will be maintained through v0.1.x with no new features. `src.
 
 **Q: What is the SDP-META MCP Agent?**
 
-An MCP (Model Context Protocol) server that exposes SDP-META operations to MCP-capable AI assistants (Claude Code, Cursor, Claude Desktop, and others). It lets you onboard, deploy, and inspect pipelines through natural language.
+An MCP (Model Context Protocol) server that lets MCP-capable AI assistants
+(Claude Code, Cursor, Claude Desktop, and others) scaffold, inspect, modify, and
+validate local SDP-META bundles through natural language. Live onboarding and
+deployment remain explicit CLI operations.
 
 **Q: How do I install the MCP Agent?**
 

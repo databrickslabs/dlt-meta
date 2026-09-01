@@ -14,14 +14,15 @@ jobs:
     strategy:
       max-parallel: 1
       matrix:
-        python-version: ['3.9']
+        # mcp>=1 requires Python 3.10 or newer.
+        python-version: ['3.10']
         os: [ ubuntu-latest ]
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Java
-        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           distribution: 'temurin'
           java-version: '11'
@@ -31,7 +32,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip' # caching pip dependencies
-          cache-dependency-path: setup.py
+          cache-dependency-path: |
+            setup.py
+            requirements-dev.txt
 
       # tests/test_bundle.py::EndToEndRenderTests shells out to
       # `databricks bundle init` to render the real template, and skips itself
@@ -40,13 +43,15 @@ jobs:
       # silently skip on every run. The CLI version follows the pinned action
       # (currently 1.10.0).
       - name: Set up Databricks CLI
-        uses: databricks/setup-cli@8821c27b1fe57472264eeb6e50c1f31d69552f28 # v1.10.0
+        uses: databricks/setup-cli@6bb7075f85b326f8b9ce160933dfe9bcd63c8121 # v1.13.0
 
       - name: Install pip
         run: python -m pip install --upgrade pip
 
+      # The MCP server is part of the measured src/ tree. Install its optional
+      # runtime so tests/test_mcp_server.py runs instead of skipping MCP tests.
       - name: Install package and dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,mcp]"
 
       # tests/test_app_*.py import databricks_app, whose runtime deps (flask,
       # ...) are declared here rather than in setup.py's [dev] extra. Without
@@ -79,12 +84,15 @@ jobs:
       - name: Run Unit Tests
         run: python -m coverage run -m pytest tests/ -v
 
+      - name: Enforce branch-aware coverage floor
+        run: python -m coverage report --precision=2 --fail-under=90
+
       - name: Generate coverage XML
         run: python -m coverage xml -o coverage.xml
 
       - name: Publish test coverage
         if: startsWith(matrix.os,'ubuntu')
-        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml

@@ -101,7 +101,7 @@ If you want to run the existing demo files, set up the repo first:
    ```bash
    databricks labs sdp-meta onboard
    ```
-   ![onboardingDLTMeta_2.gif](https://raw.githubusercontent.com/databrickslabs/sdp-meta/main/docs/static/img/sdp_meta_onboard.gif)
+   ![SDP-META onboarding](https://raw.githubusercontent.com/databrickslabs/sdp-meta/main/docs/static/img/sdp_meta_onboard.gif)
 
    Pushes code+data to your workspace, creates an onboarding job, and opens the job URL in your browser.
 
@@ -109,7 +109,7 @@ If you want to run the existing demo files, set up the repo first:
    ```bash
    databricks labs sdp-meta deploy
    ```
-   ![deployingDLTMeta_bronze_silver.gif](https://raw.githubusercontent.com/databrickslabs/sdp-meta/main/docs/static/img/sdp_meta_deploy.gif)
+   ![SDP-META deployment](https://raw.githubusercontent.com/databrickslabs/sdp-meta/main/docs/static/img/sdp_meta_deploy.gif)
 
    Deploys the Lakeflow Spark Declarative Pipeline and opens its URL in your browser.
 

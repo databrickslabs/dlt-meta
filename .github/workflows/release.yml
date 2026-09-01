@@ -84,6 +84,51 @@ jobs:
       - name: Build primary package (databricks-labs-sdp-meta)
         run: python -m build --no-isolation --outdir dist/primary
 
+      - name: Verify MCP server and examples are packaged
+        run: |
+          wheel="$(printf '%s\n' dist/primary/databricks_labs_sdp_meta-*.whl)"
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          wheel = next(Path("dist/primary").glob("databricks_labs_sdp_meta-*.whl"))
+          with ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+
+          required = {
+              "databricks/labs/sdp_meta/mcp_server.py",
+              "databricks/labs/sdp_meta/_packaged_examples/json/cloudfiles-onboarding.template",
+              "databricks/labs/sdp_meta/_packaged_examples/yml/cloudfiles-onboarding.template.yml",
+          }
+          missing = required - names
+          if missing:
+              raise SystemExit(f"MCP wheel assets missing: {sorted(missing)}")
+          if any(name.startswith("databricks/labs/sdp_meta/mcp/") for name in names):
+              raise SystemExit("Removed sdp_meta.mcp package would shadow the MCP SDK")
+          PY
+          verify_env="$(mktemp -d)"
+          python -m venv "${verify_env}"
+          "${verify_env}/bin/python" -m pip install --no-deps "${wheel}"
+          (
+            cd /tmp
+            "${verify_env}/bin/python" - <<'PY'
+          from importlib.resources import files
+          import databricks.labs.sdp_meta._packaged_examples
+
+          root = files("databricks.labs.sdp_meta._packaged_examples")
+          templates = [
+              path
+              for directory in ("json", "yml")
+              for path in root.joinpath(directory).rglob("*")
+              if path.is_file()
+          ]
+          if len(templates) != 34:
+              raise SystemExit(
+                  f"Installed MCP package exposes {len(templates)} templates, expected 34"
+              )
+          PY
+          )
+
       - name: Build compat redirect (dlt-meta)
         working-directory: compat
         run: python -m build --no-isolation --outdir ../dist/compat
@@ -144,7 +189,7 @@ jobs:
       contents: read
     steps:
       - name: Download dist
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: sdp-meta-dist
           path: dist/
@@ -186,7 +231,7 @@ jobs:
           sparse-checkout: .github/scripts
 
       - name: Download dist
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: sdp-meta-dist
           path: dist/
@@ -244,7 +289,7 @@ jobs:
       id-token: write                # Sigstore signing
     steps:
       - name: Download dist
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: sdp-meta-dist
           path: dist/
@@ -260,7 +305,7 @@ jobs:
             dist/compat/dlt_meta-*.tar.gz
 
       - name: Sign artifacts with Sigstore
-        uses: sigstore/gh-action-sigstore-python@f514d46b907ebcd5bedc05145c03b69c1edd8b46 # v3.0.0
+        uses: sigstore/gh-action-sigstore-python@790bc6befb9d733738f18d8f895854b453640ec9 # v3.5.0
         with:
           inputs: |
             dist/primary/databricks_labs_sdp_meta-*.whl
