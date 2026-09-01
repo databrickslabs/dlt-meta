@@ -21,7 +21,7 @@ coverage>=7.15.4
 pyspark==3.5.5
 
 # Integration-test CLI (IT_REQUIREMENTS in setup.py)
-typer[all]==0.27.1
+typer[all]==0.27.2
 
 # MCP server extra (MCP_REQUIREMENTS in setup.py)
 mcp>=2.0.0,<3.0
