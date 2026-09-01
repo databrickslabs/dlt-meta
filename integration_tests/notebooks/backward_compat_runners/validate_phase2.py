@@ -56,9 +56,13 @@ target_package_version = dbutils.widgets.get("target_package_version")
 log_list = []
 log_list.append("Backward-compat Phase 2 (v0.1.0 upgrade) validation starting.")
 
-# In compatibility-wheelhouse mode, prove the legacy PyPI distribution
-# resolved the local primary distribution at the same release version.
-if target_install_surface == "compat_wheelhouse":
+# Whenever a target package version is pinned (compat_wheelhouse mode, or
+# install_mode=pypi where Phase 2 installed dlt-meta==<version> from the
+# live index), prove the legacy PyPI distribution resolved the primary
+# distribution at the same release version.
+if target_install_surface == "compat_wheelhouse" or (
+    target_package_version and target_main_whl.startswith("dlt-meta==")
+):
     try:
         compat_version = version("dlt-meta")
         primary_version = version("databricks-labs-sdp-meta")
