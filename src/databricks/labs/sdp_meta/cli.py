@@ -722,7 +722,7 @@ class SDPMeta:
                 }
             )
         named_parameters = self._get_onboarding_named_parameters(cmd)
-        sdp_meta_dependency = cmd.sdp_meta_dependency or f"sdp-meta=={self.version}"
+        sdp_meta_dependency = cmd.sdp_meta_dependency or f"databricks-labs-sdp-meta=={self.version}"
         sdp_meta_environments = [
             jobs.JobEnvironment(
                 environment_key="sdp_meta_cli_env",
