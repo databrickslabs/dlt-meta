@@ -115,7 +115,14 @@
 
         The workflow is a minimal 3-task fan-in: `setup_sdp_meta_pipeline_spec → sdp-meta-pipeline → validate_results` (no A2 incremental step, no publish-events step). The `sdp-meta-pipeline` task runs **one** combined Lakeflow Spark Declarative Pipeline configured with `layer=bronze_silver` (groups `bronze.group=A1` and `silver.group=A1`), so all three regional bronze CDC tables AND the unified silver multi-source AUTO CDC merge execute inside a single observable DLT flow graph — matching Stage 11 of the interactive demo notebook and the standalone `demo/launch_multi_source_cdc_demo.py`. Seed data lives under [`integration_tests/resources/data/multi_source_cdc/`](resources/data/multi_source_cdc/) and the onboarding template is [`integration_tests/conf/json/multi-source-cdc-onboarding.template`](conf/json/multi-source-cdc-onboarding.template) (YAML sibling: [`conf/yml/multi-source-cdc-onboarding.template.yml`](conf/yml/multi-source-cdc-onboarding.template.yml)).
 
-    > **Tip:** any of the five sources (`cloudfiles`, `eventhub`, `kafka`, `snapshot`, `multi_source_cdc`) accepts ```--onboarding_file_format=yaml``` to run the same test against the YAML onboarding spec.
+    - 9f. Run the command for **bitemporal** (issue [#359](https://github.com/databrickslabs/sdp-meta/issues/359))
+        ```commandline
+        python integration_tests/run_integration_tests.py --source=bitemporal --uc_catalog_name=<<uc catalog name>> --profile=<<DEFAULT>>
+        ```
+
+        End-to-end checks for bitemporal AUTO CDC (`scd_type: bitemporal` + `system_sequence_by`). Seeds one bronze CDC source whose 4 events include a **late-arriving correction** (business time 11:30, ingested at 14:00), then runs a bronze pipeline whose `bronze_cdc_apply_changes` block is stored as bitemporal. The validator asserts the four generated bitemporal columns (`__START_AT`/`__END_AT`/`__SYSTEM_START_AT`/`__SYSTEM_END_AT`), the version-row total, the current rows on both time axes, an as-of-system-time query that returns the *pre-correction* belief, and the rewritten business-history row the late event produced. Workflow is the minimal 3-task shape: `setup_sdp_meta_pipeline_spec → bronze_dlt_pipeline → validate_results`. Seed data lives under [`integration_tests/resources/data/bitemporal/`](resources/data/bitemporal/) and the onboarding template is [`integration_tests/conf/json/bitemporal-onboarding.template`](conf/json/bitemporal-onboarding.template) (YAML sibling: [`conf/yml/bitemporal-onboarding.template.yml`](conf/yml/bitemporal-onboarding.template.yml)). Requires a runtime channel where bitemporal AUTO CDC (Beta) is available.
+
+    > **Tip:** any of the six sources (`cloudfiles`, `eventhub`, `kafka`, `snapshot`, `multi_source_cdc`, `bitemporal`) accepts ```--onboarding_file_format=yaml``` to run the same test against the YAML onboarding spec.
 
 
 10. Once finished integration output file will be copied locally to
@@ -343,6 +350,7 @@ The dataclass defaults all point at the `/json/` tree. When the runner is starte
 | `integration_tests/conf/json/kafka-onboarding.template`      | `integration_tests/conf/yml/kafka-onboarding.template.yml`      |
 | `integration_tests/conf/json/snapshot-onboarding.template`   | `integration_tests/conf/yml/snapshot-onboarding.template.yml`   |
 | `integration_tests/conf/json/multi-source-cdc-onboarding.template` | `integration_tests/conf/yml/multi-source-cdc-onboarding.template.yml` |
+| `integration_tests/conf/json/bitemporal-onboarding.template` | `integration_tests/conf/yml/bitemporal-onboarding.template.yml` |
 | `integration_tests/conf/json/onboarding.json` *(generated)*  | `integration_tests/conf/yml/onboarding.yml` *(generated)*       |
 | `integration_tests/conf/json/onboarding_A2.json` *(generated)* | `integration_tests/conf/yml/onboarding_A2.yml` *(generated)*  |
 

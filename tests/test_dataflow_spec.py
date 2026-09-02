@@ -321,6 +321,37 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         acfs = DataflowSpecUtils.get_apply_changes_from_snapshot(legacy_payload)
         self.assertEqual(acfs.scd_type, "1")
 
+    def test_getCdcApplyChanges_bitemporal_positive(self):
+        """scd_type 'bitemporal' with system_sequence_by parses (issue #359);
+        payloads without the field default it to None (backward compat with
+        specs written before the field existed)."""
+        payload = (
+            """{"keys" : ["playerId"], "sequence_by" : "eventTs", """
+            """"scd_type" : "bitemporal", "system_sequence_by" : "ingestTs"}"""
+        )
+        cdcApplyChanges = DataflowSpecUtils.get_cdc_apply_changes(payload)
+        self.assertEqual(cdcApplyChanges.scd_type, "bitemporal")
+        self.assertEqual(cdcApplyChanges.system_sequence_by, "ingestTs")
+        scd1_payload = """{"keys" : ["playerId"],"sequence_by" : "sequenceNum", "scd_type" : "1"}"""
+        self.assertIsNone(DataflowSpecUtils.get_cdc_apply_changes(scd1_payload).system_sequence_by)
+
+    def test_getCdcApplyChanges_bitemporal_requires_system_sequence_by(self):
+        """Bitemporal targets need a system-time column; missing it must fail
+        at parse time, not as an opaque runtime error."""
+        payload = """{"keys" : ["playerId"], "sequence_by" : "eventTs", "scd_type" : "bitemporal"}"""
+        with self.assertRaisesRegex(Exception, "system_sequence_by"):
+            DataflowSpecUtils.get_cdc_apply_changes(payload)
+
+    def test_getCdcApplyChanges_system_sequence_by_requires_bitemporal(self):
+        """system_sequence_by on SCD 1/2 would be silently ignored by the
+        runtime; reject the mismatch (same failure class as issue #370)."""
+        payload = (
+            """{"keys" : ["playerId"], "sequence_by" : "eventTs", """
+            """"scd_type" : "1", "system_sequence_by" : "ingestTs"}"""
+        )
+        with self.assertRaisesRegex(Exception, "bitemporal"):
+            DataflowSpecUtils.get_cdc_apply_changes(payload)
+
     def test_get_append_flow_positive(self):
         append_flow_spec = """[{
             "name":"customer_bronze_flow1",

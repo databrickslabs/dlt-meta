@@ -11,6 +11,7 @@ Use this pattern when your source system emits a CDC stream with insert, update,
 Supported SCD types:
 - **Type 1** (`scd_type: 1`) — overwrite the existing row; no history retained
 - **Type 2** (`scd_type: 2`) — retain full row history with validity timestamps
+- **Bitemporal** (`scd_type: bitemporal`, Beta) — track history across both business time (`sequence_by`) and system time (`system_sequence_by`), so the table can answer both "what was true at T" and "what did we know at T". Requires `system_sequence_by` and a runtime channel where bitemporal AUTO CDC is available.
 
 ## `bronze_cdc_apply_changes` configuration
 
@@ -30,11 +31,30 @@ Supported SCD types:
 |---|---|---|---|
 | `keys` | array of strings | Yes | Primary key columns |
 | `sequence_by` | string | Yes | Column(s) used to order events and determine the most recent |
-| `scd_type` | string | Yes | `1` for overwrite or `2` for history |
+| `scd_type` | string | Yes | `1` for overwrite, `2` for history, or `bitemporal` (Beta) for business-time plus system-time history |
 | `apply_as_deletes` | string | No | SQL expression identifying delete events |
 | `except_column_list` | array of strings | No | Columns to exclude from the target table |
 | `track_history_column_list` | array of strings | No | (Type 2 only) Columns whose changes trigger a new history row |
 | `track_history_except_column_list` | array of strings | No | (Type 2 only) Columns to exclude from history tracking |
+| `system_sequence_by` | string | Bitemporal only | Column holding the system time at which each CDC event became known (e.g. an ingestion timestamp). Required with `scd_type: bitemporal`, rejected otherwise. Must be a sortable data type. |
+
+### Bitemporal example (Beta)
+
+```json
+{
+  "bronze_cdc_apply_changes": {
+    "keys": ["customer_id"],
+    "sequence_by": "event_ts",
+    "scd_type": "bitemporal",
+    "system_sequence_by": "ingest_ts",
+    "except_column_list": ["Op", "_rescued_data"]
+  }
+}
+```
+
+:::note
+Bitemporal AUTO CDC is a Beta runtime feature. `system_sequence_by` is only sent to `create_auto_cdc_flow` when configured, so existing SCD 1/2 flows are unaffected on runtime channels that predate the parameter.
+:::
 
 ## `silver_cdc_apply_changes` configuration
 

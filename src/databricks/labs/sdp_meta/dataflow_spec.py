@@ -150,6 +150,7 @@ class CDCApplyChanges:
     once: bool
     ignore_null_updates_column_list: list
     ignore_null_updates_except_column_list: list
+    system_sequence_by: str
 
 
 @dataclass
@@ -249,7 +250,8 @@ class DataflowSpecUtils:
         "flow_name",
         "once",
         "ignore_null_updates_column_list",
-        "ignore_null_updates_except_column_list"
+        "ignore_null_updates_except_column_list",
+        "system_sequence_by"
     ]
 
     cdc_applychanges_api_attributes_defaults = {
@@ -264,7 +266,8 @@ class DataflowSpecUtils:
         "flow_name": None,
         "once": False,
         "ignore_null_updates_column_list": None,
-        "ignore_null_updates_except_column_list": None
+        "ignore_null_updates_except_column_list": None,
+        "system_sequence_by": None
     }
 
     append_flow_mandatory_attributes = ["name", "source_format", "create_streaming_table", "source_details"]
@@ -343,7 +346,7 @@ class DataflowSpecUtils:
         "rowFilter",
         "quarantineRowFilter",
     ]
-    additional_cdc_apply_changes_columns = ["flow_name", "once"]
+    additional_cdc_apply_changes_columns = ["flow_name", "once", "system_sequence_by"]
     apply_changes_from_snapshot_api_attributes = [
         "keys",
         "scd_type",
@@ -560,6 +563,23 @@ class DataflowSpecUtils:
             json_cdc_apply_changes,
             DataflowSpecUtils.additional_cdc_apply_changes_columns
         )
+        # ``system_sequence_by`` and ``scd_type: "bitemporal"`` only make
+        # sense together (issue #359): the runtime requires a system-time
+        # column for bitemporal targets, and silently ignores the column on
+        # SCD 1/2 — rejecting the mismatch here surfaces it at onboarding
+        # instead of as a wrong table downstream (same failure class as
+        # issue #370).
+        scd_type = json_cdc_apply_changes.get("scd_type")
+        system_sequence_by = json_cdc_apply_changes.get("system_sequence_by")
+        if scd_type == "bitemporal" and not system_sequence_by:
+            raise Exception(
+                "scd_type 'bitemporal' requires system_sequence_by (the column holding "
+                "the system time at which each CDC event became known)"
+            )
+        if system_sequence_by and scd_type != "bitemporal":
+            raise Exception(
+                f"system_sequence_by is only supported with scd_type 'bitemporal', got scd_type {scd_type!r}"
+            )
         return CDCApplyChanges(**json_cdc_apply_changes)
 
     @staticmethod
