@@ -819,6 +819,13 @@ class DataflowPipeline:
             sequence_cols = [col.strip() for col in sequence_by.split(',')]
             sequence_by = struct(*sequence_cols)  # Use struct() from pyspark.sql.functions
 
+        # system_sequence_by (bitemporal, Beta) is passed only when set:
+        # runtimes that predate the parameter reject the kwarg even as None,
+        # so existing SCD 1/2 flows must not see it (issue #359).
+        optional_cdc_kwargs = {}
+        if cdc_apply_changes.system_sequence_by:
+            optional_cdc_kwargs["system_sequence_by"] = cdc_apply_changes.system_sequence_by
+
         dp.create_auto_cdc_flow(
             target=target_table,
             source=self.view_name,
@@ -836,7 +843,8 @@ class DataflowPipeline:
             flow_name=cdc_apply_changes.flow_name,
             once=cdc_apply_changes.once,
             ignore_null_updates_column_list=cdc_apply_changes.ignore_null_updates_column_list,
-            ignore_null_updates_except_column_list=cdc_apply_changes.ignore_null_updates_except_column_list
+            ignore_null_updates_except_column_list=cdc_apply_changes.ignore_null_updates_except_column_list,
+            **optional_cdc_kwargs
         )
 
     def cdc_apply_changes_flows(self):

@@ -570,6 +570,64 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         with self.assertRaises(Exception):
             dlt_data_flow.cdc_apply_changes()
 
+    def _make_silver_cdc_pipeline(self, cdc_apply_changes_dict):
+        """Build a silver DataflowPipeline around ``cdc_apply_changes_dict``,
+        with the bronze source table materialized (same setup as
+        test_cdc_apply_changes_scd_type2)."""
+        silver_dataflow_spec = SilverDataflowSpec(**DataflowPipelineTests.silver_dataflow_spec_map)
+        silver_dataflow_spec.cdcApplyChanges = json.dumps(cdc_apply_changes_dict)
+        self.spark.sql("CREATE DATABASE IF NOT EXISTS bronze")
+        self.spark.sql("DROP TABLE IF EXISTS bronze.customer")
+        if os.path.exists(f"{self.temp_delta_tables_path}/tables/customer"):
+            shutil.rmtree(f"{self.temp_delta_tables_path}/tables/customer")
+        options = {"rescuedDataColumn": "_rescued_data", "inferColumnTypes": "true", "multiline": True}
+        customers_parquet_df = self.spark.read.options(**options).json("tests/resources/data/customers")
+        (customers_parquet_df.withColumn("_rescued_data", lit("Test")).write.format("delta")
+            .mode("append").option("path", f"{self.temp_delta_tables_path}/tables/customer")
+            .saveAsTable("bronze.customer")
+         )
+        return DataflowPipeline(
+            self.spark,
+            silver_dataflow_spec,
+            f"{silver_dataflow_spec.targetDetails['table']}_inputview",
+            None,
+        )
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
+    def test_cdc_apply_changes_bitemporal_passes_system_sequence_by(
+            self, mock_create_streaming_table, mock_dlt):
+        """scd_type 'bitemporal' forwards system_sequence_by to
+        create_auto_cdc_flow (issue #359)."""
+        mock_create_streaming_table.return_value = None
+        mock_dlt.create_auto_cdc_flow = MagicMock(return_value=None)
+        dlt_data_flow = self._make_silver_cdc_pipeline({
+            "keys": ["id"],
+            "sequence_by": "operation_date",
+            "scd_type": "bitemporal",
+            "system_sequence_by": "ingest_ts",
+            "except_column_list": ["operation", "operation_date", "_rescued_data"],
+        })
+        dlt_data_flow.cdc_apply_changes()
+        _, kwargs = mock_dlt.create_auto_cdc_flow.call_args
+        self.assertEqual(kwargs["stored_as_scd_type"], "bitemporal")
+        self.assertEqual(kwargs["system_sequence_by"], "ingest_ts")
+
+    @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
+    @patch.object(DataflowPipeline, "create_streaming_table", new_callable=MagicMock)
+    def test_cdc_apply_changes_scd1_omits_system_sequence_by(
+            self, mock_create_streaming_table, mock_dlt):
+        """SCD 1/2 flows must not see the system_sequence_by kwarg at all —
+        runtimes that predate the parameter reject it even as None
+        (issue #359)."""
+        mock_create_streaming_table.return_value = None
+        mock_dlt.create_auto_cdc_flow = MagicMock(return_value=None)
+        dlt_data_flow = self._make_silver_cdc_pipeline(self.silver_cdc_apply_changes)
+        dlt_data_flow.cdc_apply_changes()
+        _, kwargs = mock_dlt.create_auto_cdc_flow.call_args
+        self.assertEqual(kwargs["stored_as_scd_type"], "1")
+        self.assertNotIn("system_sequence_by", kwargs)
+
     @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     def test_dlt_view_bronze_call(self, mock_dlt):
         mock_dlt.temporary_view = MagicMock(return_value=None)

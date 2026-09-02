@@ -46,8 +46,10 @@ SUPPORTED_SOURCE_FORMATS = frozenset(
 # DLT requires the value as a string ("1" or "2"); see
 # ``dlt.apply_changes(stored_as_scd_type=...)`` and the existing
 # ``cdc_apply_changes.scd_type == "2"`` comparison in
-# ``dataflow_pipeline.py``.
-SUPPORTED_SCD_TYPES = frozenset({"1", "2"})
+# ``dataflow_pipeline.py``. "bitemporal" (Beta) additionally requires
+# ``system_sequence_by`` — enforced in
+# ``DataflowSpecUtils.get_cdc_apply_changes`` (issue #359).
+SUPPORTED_SCD_TYPES = frozenset({"1", "2", "bitemporal"})
 
 
 def is_regular_identifier(name) -> bool:
@@ -250,7 +252,8 @@ def validate_source_format(value, *, kind: str = "source_format") -> str:
 
 
 def validate_scd_type(value, *, kind: str = "scd_type") -> str:
-    """Validate ``value`` is one of :data:`SUPPORTED_SCD_TYPES` (``"1"``/``"2"``).
+    """Validate ``value`` is one of :data:`SUPPORTED_SCD_TYPES`
+    (``"1"``/``"2"``/``"bitemporal"``).
 
     DLT's ``apply_changes`` / ``apply_changes_from_snapshot`` accept the
     SCD type as a string. Catching a typo (``"3"``, ``"scd_2"``, etc.)

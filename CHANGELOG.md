@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- **Bitemporal AUTO CDC support (Beta)**: `cdc_apply_changes` accepts `scd_type: "bitemporal"` with a new `system_sequence_by` attribute, forwarded to `create_auto_cdc_flow` to track history across both business time (`sequence_by`) and system time. The attribute is only sent when configured, so existing SCD 1/2 flows are unaffected on runtimes that predate the parameter. [Issue #359](https://github.com/databrickslabs/sdp-meta/issues/359)
+
 ## [v0.1.0]
 ### ⚠️ Breaking Changes
 - **Project rename `dlt-meta` → `sdp-meta`** to align with the Lakeflow Spark Declarative Pipelines product naming. This affects the PyPI package, CLI command, Python import path, source layout, and main class name. A backward-compatibility wrapper is published so existing installations keep working with a deprecation warning. [PR](https://github.com/databrickslabs/sdp-meta/pull/289)

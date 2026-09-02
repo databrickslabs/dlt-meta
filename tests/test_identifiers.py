@@ -300,13 +300,16 @@ class ValidateScdTypeTests(unittest.TestCase):
     compatibility with v0.0.10 onboarding files (issue #370)."""
 
     def test_supported_set_matches_expected(self):
-        self.assertEqual(SUPPORTED_SCD_TYPES, frozenset({"1", "2"}))
+        self.assertEqual(SUPPORTED_SCD_TYPES, frozenset({"1", "2", "bitemporal"}))
 
     def test_one_accepted(self):
         self.assertEqual(validate_scd_type("1"), "1")
 
     def test_two_accepted(self):
         self.assertEqual(validate_scd_type("2"), "2")
+
+    def test_bitemporal_accepted(self):
+        self.assertEqual(validate_scd_type("bitemporal"), "bitemporal")
 
     def test_int_one_coerced_to_string(self):
         # v0.0.10 onboarding files carried ``"scd_type": 1`` (issue #370).
