@@ -1,0 +1,4 @@
+{"id":"c-001","name":"alice","operation":"APPEND","event_ts":"2024-01-15T10:00:00.000Z","ingest_ts":"2024-01-15T10:05:00.000Z"}
+{"id":"c-001","name":"alice_v2","operation":"UPDATE","event_ts":"2024-01-15T12:00:00.000Z","ingest_ts":"2024-01-15T12:05:00.000Z"}
+{"id":"c-002","name":"bob","operation":"APPEND","event_ts":"2024-01-15T11:00:00.000Z","ingest_ts":"2024-01-15T11:05:00.000Z"}
+{"id":"c-002","name":"bob_corrected","operation":"UPDATE","event_ts":"2024-01-15T11:30:00.000Z","ingest_ts":"2024-01-15T14:00:00.000Z"}

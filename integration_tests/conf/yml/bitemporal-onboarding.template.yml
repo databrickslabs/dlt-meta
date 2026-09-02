@@ -1,0 +1,26 @@
+- data_flow_id: "bt-it-100"
+  data_flow_group: "A1"
+  source_system: "BitemporalCDC"
+  source_format: "cloudFiles"
+  source_details:
+    source_database: "APP"
+    source_table: "CUSTOMERS_CDC"
+    source_path_it: "{uc_volume_path}/integration_tests/resources/data/bitemporal/customers_cdc"
+    source_schema_path: "{uc_volume_path}/integration_tests/resources/data/bitemporal/ddl/customers_cdc.ddl"
+  bronze_catalog_it: "{uc_catalog_name}"
+  bronze_database_it: "{bronze_schema}"
+  bronze_table: "customers_bitemporal"
+  bronze_reader_options:
+    cloudFiles.format: "json"
+    cloudFiles.rescuedDataColumn: "_rescued_data"
+  bronze_cdc_apply_changes:
+    keys:
+      - "id"
+    sequence_by: "event_ts"
+    scd_type: "bitemporal"
+    system_sequence_by: "ingest_ts"
+    except_column_list:
+      - "operation"
+      - "_rescued_data"
+  bronze_table_properties:
+    pipelines.autoOptimize.managed: "true"

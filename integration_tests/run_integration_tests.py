@@ -219,6 +219,15 @@ class SDPMetaRunnerConf:
         "integration_tests/conf/json/multi-source-cdc-onboarding.template"
     )
 
+    # bitemporal AUTO CDC info (issue #359): one bronze CDC source with
+    # ``scd_type: bitemporal`` + ``system_sequence_by``. The seed file
+    # contains a late-arriving correction so validation can assert both
+    # time axes (business and system) on the target. Bronze-only: the
+    # minimal 3-task workflow (onboard -> bronze -> validate).
+    bitemporal_template: str = (
+        "integration_tests/conf/json/bitemporal-onboarding.template"
+    )
+
     def __post_init__(self):
         """Adjust onboarding file paths based on the requested file format."""
         fmt = (self.onboarding_file_format or "json").lower()
@@ -244,6 +253,7 @@ class SDPMetaRunnerConf:
             self.multi_source_cdc_template = self._to_yaml_variant(
                 self.multi_source_cdc_template
             )
+            self.bitemporal_template = self._to_yaml_variant(self.bitemporal_template)
             if self.onboarding_fanout_templates:
                 self.onboarding_fanout_templates = self._to_yaml_variant(
                     self.onboarding_fanout_templates
@@ -368,13 +378,14 @@ class SDPMETARunner:
             "multi_source_cdc": (
                 "./integration_tests/notebooks/multi_source_cdc_runners/"
             ),
+            "bitemporal": "./integration_tests/notebooks/bitemporal_runners/",
         }
         try:
             runner_conf.runners_full_local_path = source_paths[runner_conf.source]
         except KeyError:
             raise Exception(
                 "Given source is not supported. Supported sources are: "
-                "cloudfiles, eventhub, kafka, snapshot, multi_source_cdc"
+                "cloudfiles, eventhub, kafka, snapshot, multi_source_cdc, bitemporal"
             )
 
         return runner_conf
@@ -465,7 +476,11 @@ class SDPMETARunner:
             jobs.JobEnvironment(
                 environment_key="dl_meta_int_env",
                 spec=compute.Environment(
-                    client="1",
+                    # Serverless environment version. "1" is rejected by newer
+                    # workspaces (e.g. Free Edition: "Workspace doesn't support
+                    # Client-1 channel for REPL"); "2" is the current GA
+                    # environment version.
+                    client="2",
                     dependencies=[runner_conf.remote_whl_path],
                 ),
             )
@@ -533,7 +548,7 @@ class SDPMETARunner:
                             else (
                                 "setup_sdp_meta_pipeline_spec"
                                 if runner_conf.source
-                                in ("snapshot", "multi_source_cdc")
+                                in ("snapshot", "multi_source_cdc", "bitemporal")
                                 else "publish_events"
                             )
                         )
@@ -759,6 +774,12 @@ class SDPMETARunner:
             # 3-task shape: setup -> sdp-meta-pipeline -> validate. No
             # A2 step, no publish_events (seed JSON is already on volume).
             pass
+        elif runner_conf.source == "bitemporal":
+            # Bitemporal AUTO CDC (issue #359): bronze-only, seed JSON is
+            # already on the volume, so no publish_events / upload step and
+            # no silver pipeline. Minimal 3-task workflow: setup ->
+            # bronze_dlt_pipeline -> validate.
+            pass
         else:
             if runner_conf.source == "eventhub":
                 base_parameters = {
@@ -899,6 +920,8 @@ class SDPMETARunner:
             template_path = runner_conf.snapshot_template
         elif runner_conf.source == "multi_source_cdc":
             template_path = runner_conf.multi_source_cdc_template
+        elif runner_conf.source == "bitemporal":
+            template_path = runner_conf.bitemporal_template
 
         if template_path:
             onboard_text = self._read_template_text(template_path)
@@ -1280,10 +1303,11 @@ def process_arguments() -> dict[str:str]:
         ],
         [
             "source",
-            "Provide source type: cloudfiles, eventhub, kafka, snapshot, multi_source_cdc",
+            "Provide source type: cloudfiles, eventhub, kafka, snapshot, "
+            "multi_source_cdc, bitemporal",
             str.lower,
             False,
-            ["cloudfiles", "eventhub", "kafka", "snapshot", "multi_source_cdc"],
+            ["cloudfiles", "eventhub", "kafka", "snapshot", "multi_source_cdc", "bitemporal"],
         ],
         [
             "onboarding_file_format",
