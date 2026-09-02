@@ -1,6 +1,6 @@
 # Web framework + WSGI server
 flask>=3.0
-gunicorn>=21.2
+gunicorn>=26.2.0
 click==8.4.2
 
 # Databricks SDK — required by demo scripts (launch_*_demo.py) and the
