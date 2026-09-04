@@ -12,6 +12,8 @@ arguments = [
     "--onboarding_file_path",
     "--database",
     "--env",
+    "--ingestion_dataflowspec_table",
+    "--ingestion_dataflowspec_path",
     "--bronze_dataflowspec_table",
     "--bronze_dataflowspec_path",
     "--silver_dataflowspec_table",
@@ -27,7 +29,13 @@ def parse_args():
     """Parse command line."""
     parser = argparse.ArgumentParser()
     for argument in arguments:
-        parser.add_argument(argument)
+        if argument in (
+            "--ingestion_dataflowspec_table",
+            "--ingestion_dataflowspec_path",
+        ):
+            parser.add_argument(argument, default=argparse.SUPPRESS)
+        else:
+            parser.add_argument(argument)
     args = parser.parse_args()
     logger.info(f"Input arguments dict: {args}")
     return args
@@ -46,6 +54,8 @@ def onboard_dataflowspecs(args):
     del onboarding_args_dict['onboard_layer']
     del onboarding_args_dict['uc_enabled']
     if uc_enabled:
+        if 'ingestion_dataflowspec_path' in onboarding_args_dict:
+            del onboarding_args_dict['ingestion_dataflowspec_path']
         if 'bronze_dataflowspec_path' in onboarding_args_dict:
             del onboarding_args_dict['bronze_dataflowspec_path']
         if 'silver_dataflowspec_path' in onboarding_args_dict:
@@ -53,14 +63,19 @@ def onboard_dataflowspecs(args):
     spark = SparkSession.builder.appName("SDP-META_Onboarding_Task").getOrCreate()
     onboard_obj = OnboardDataflowspec(spark, onboarding_args_dict, uc_enabled=uc_enabled)
 
-    if onboard_layer.lower() == "bronze_silver":
+    if onboard_layer.lower() == "ingestion":
+        onboard_obj.onboard_ingestion_dataflow_spec()
+    elif onboard_layer.lower() == "bronze_silver":
         onboard_obj.onboard_dataflow_specs()
     elif onboard_layer.lower() == "bronze":
         onboard_obj.onboard_bronze_dataflow_spec()
     elif onboard_layer.lower() == "silver":
         onboard_obj.onboard_silver_dataflow_spec()
     else:
-        raise Exception("onboard_layer argument missing in commandline")
+        raise Exception(
+            "onboard_layer must be one of ingestion, bronze, silver, "
+            "bronze_silver"
+        )
 
 
 if __name__ == "__main__":

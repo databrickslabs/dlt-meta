@@ -157,6 +157,8 @@ class WorkspaceConfig(_Config["WorkspaceConfig"]):
     sdp_meta_onboard_group: str
     serverless: bool
     num_workers: int
+    ingestion_dataflowspec_table: str = "ingestion_dataflowspec"
+    ingestion_dataflowspec_path: Optional[str] = None
     # ``connect`` is declared on the parent ``_Config`` as a class
     # annotation, but ``_Config`` is NOT a @dataclass, so the
     # annotation is *not* picked up as a dataclass field on this

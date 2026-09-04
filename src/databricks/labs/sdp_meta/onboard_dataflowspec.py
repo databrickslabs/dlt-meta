@@ -2,6 +2,7 @@
 
 import copy
 import dataclasses
+import functools
 import json
 import yaml
 import logging
@@ -11,8 +12,17 @@ import re
 import tempfile
 
 import pyspark.sql.types as T
+from delta.tables import DeltaTable
 from pyspark.sql import functions as f
-from pyspark.sql.types import ArrayType, MapType, StringType, StructField, StructType
+from pyspark.sql.types import (
+    ArrayType,
+    BooleanType,
+    MapType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
 from databricks.labs.sdp_meta.dataflow_spec import (
     BronzeDataflowSpec,
@@ -30,10 +40,39 @@ from databricks.labs.sdp_meta.identifiers import (
     validate_uc_full_name,
     validate_uc_identifier,
 )
+from databricks.labs.sdp_meta.lfc.models import (
+    IngestionDataflowSpec,
+    IngestionDataflowSpecUtils,
+)
+from databricks.labs.sdp_meta.lfc.onboarding import (
+    PreparedOnboarding,
+    prepare_onboarding_rows,
+)
 from databricks.labs.sdp_meta.metastore_ops import DeltaPipelinesInternalTableOps, DeltaPipelinesMetaStoreOps
 
 logger = logging.getLogger("databricks.labs.sdp_meta")
 logger.setLevel(logging.INFO)
+
+
+def _cleans_prepared_files(method):
+    """Remove materialized resolved-onboarding JSON when onboarding finishes.
+
+    Public onboarding methods nest (``onboard_dataflow_specs`` calls the
+    ingestion/bronze/silver methods, which call each other's prerequisites),
+    so a depth counter defers cleanup to the outermost call — an inner
+    method must not delete a file a sibling still reads through the cache.
+    The cache re-materializes on demand if a cleaned-up file is needed again.
+    """
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        self._onboarding_depth += 1
+        try:
+            return method(self, *args, **kwargs)
+        finally:
+            self._onboarding_depth -= 1
+            if self._onboarding_depth == 0:
+                self._cleanup_prepared_onboarding_files()
+    return wrapper
 
 
 # Column-name fields inside ``<layer>_cdc_apply_changes`` that drive
@@ -104,8 +143,25 @@ class OnboardDataflowspec:
         self.deltaPipelinesInternalTableOps = DeltaPipelinesInternalTableOps(self.spark)
         self.onboard_file_type = None
         self._onboarding_files_processed: set = set()
+        self._prepared_onboarding = None
+        self._prepared_onboarding_cache = {}
+        # Materialized resolved-row JSON files, removed by
+        # ``_cleanup_prepared_onboarding_files`` when the outermost public
+        # onboarding method returns (``_onboarding_depth`` reaches zero).
+        self._prepared_onboarding_files = set()
+        self._onboarding_depth = 0
+        self._ingestion_onboarded = False
 
     def __initialize_paths(self, uc_enabled):
+        ingestion_keys = {
+            "ingestion_dataflowspec_table",
+            "ingestion_dataflowspec_path",
+        }
+        for target in (self.bronze_dict_obj, self.silver_dict_obj):
+            for key in ingestion_keys:
+                target.pop(key, None)
+        if uc_enabled:
+            self.dict_obj.pop("ingestion_dataflowspec_path", None)
         if "silver_dataflowspec_table" in self.bronze_dict_obj:
             del self.bronze_dict_obj["silver_dataflowspec_table"]
         if "silver_dataflowspec_path" in self.bronze_dict_obj:
@@ -201,6 +257,7 @@ class OnboardDataflowspec:
                 f"missing attributes : {set(attributes).difference(attributes_keys)}"
             )
 
+    @_cleans_prepared_files
     def onboard_dataflow_specs(self):
         """
         Onboard_dataflow_specs method will onboard dataFlowSpecs for bronze, silver and gold.
@@ -234,6 +291,13 @@ class OnboardDataflowspec:
             "version",
             "overwrite",
         ]
+        if "ingestion_dataflowspec_table" in self.dict_obj:
+            attributes.append("ingestion_dataflowspec_table")
+        if (
+            not self.uc_enabled
+            and "ingestion_dataflowspec_path" in self.dict_obj
+        ):
+            attributes.append("ingestion_dataflowspec_path")
         if self.uc_enabled:
             if "bronze_dataflowspec_path" in self.dict_obj:
                 del self.dict_obj["bronze_dataflowspec_path"]
@@ -269,6 +333,7 @@ class OnboardDataflowspec:
         # up. Aggregating errors also gives the user the full picture in
         # one shot instead of fix-rerun-fix-rerun (issue #261).
         self.__pre_validate_onboarding_uc_names()
+        self.onboard_ingestion_dataflow_spec()
         self.onboard_bronze_dataflow_spec()
         self.onboard_silver_dataflow_spec()
 
@@ -786,6 +851,150 @@ class OnboardDataflowspec:
             f"""{self.dict_obj["database"]}.{self.dict_obj["silver_dataflowspec_table"]}"""
         ).show()
 
+    @staticmethod
+    def _ingestion_map_values(values):
+        """Normalize persistence maps to Spark's map<string,string> schema."""
+        if values is None:
+            return None
+        normalized = {}
+        for key, value in values.items():
+            if isinstance(value, bool):
+                normalized[str(key)] = "true" if value else "false"
+            elif value is not None:
+                normalized[str(key)] = str(value)
+        return normalized
+
+    def _persisted_ingestion_specs(self):
+        """Load latest persisted specs for cross-file ingestion references."""
+        database = self.dict_obj.get("database")
+        table = self.dict_obj.get(
+            "ingestion_dataflowspec_table", "ingestion_dataflowspec"
+        )
+        if not database or not table:
+            return []
+        full_name = f"{database}.{table}"
+        if not self.spark.catalog.tableExists(full_name):
+            return []
+        dataflow_spec_df = self.spark.read.table(full_name)
+        return IngestionDataflowSpecUtils.get_ingestion_dataflow_spec(
+            self.spark,
+            dataflow_spec_df=dataflow_spec_df,
+        )
+
+    @staticmethod
+    def _ingestion_schema():
+        """Return the exact persisted IngestionDataflowSpec schema/order."""
+        string_map = MapType(StringType(), StringType(), True)
+        return StructType([
+            StructField("dataFlowId", StringType(), True),
+            StructField("dataFlowGroup", StringType(), True),
+            StructField("sourceType", StringType(), True),
+            StructField("connectionName", StringType(), True),
+            StructField("connectionSpec", StringType(), True),
+            StructField("manageConnection", BooleanType(), True),
+            StructField("gatewayDetails", string_map, True),
+            StructField("sourceConfigurations", StringType(), True),
+            StructField("objects", StringType(), True),
+            StructField("targetDetails", string_map, True),
+            StructField("schedule", StringType(), True),
+            StructField("deploy", BooleanType(), True),
+            StructField("gatewayPipelineConfiguration", StringType(), True),
+            StructField("ingestionPipelineConfiguration", StringType(), True),
+            StructField("gatewayCompute", StringType(), True),
+            StructField("version", StringType(), True),
+            StructField("createDate", TimestampType(), True),
+            StructField("createdBy", StringType(), True),
+            StructField("updateDate", TimestampType(), True),
+            StructField("updatedBy", StringType(), True),
+        ])
+
+    @_cleans_prepared_files
+    def onboard_ingestion_dataflow_spec(self):
+        """Persist validated ingestion rows before downstream onboarding."""
+        if self._ingestion_onboarded:
+            return
+        self.__get_onboarding_file_dataframe(
+            self.dict_obj["onboarding_file_path"]
+        )
+        specs = self._prepared_onboarding.ingestion_specs
+        if not specs:
+            self._ingestion_onboarded = True
+            return
+
+        database = self.dict_obj["database"]
+        table = self.dict_obj.get(
+            "ingestion_dataflowspec_table", "ingestion_dataflowspec"
+        )
+        validate_uc_full_name(
+            database, kind="dict_obj['database']", max_parts=2
+        )
+        validate_uc_identifier(
+            table, kind="dict_obj['ingestion_dataflowspec_table']"
+        )
+        path = self.dict_obj.get("ingestion_dataflowspec_path")
+        if not self.uc_enabled and not path:
+            raise ValueError(
+                "ingestion_dataflowspec_path is required for non-UC "
+                "ingestion onboarding"
+            )
+
+        fields = [field.name for field in dataclasses.fields(IngestionDataflowSpec)]
+        persistence_rows = []
+        for spec in specs:
+            row = dict(spec)
+            row["gatewayDetails"] = self._ingestion_map_values(
+                row.get("gatewayDetails")
+            )
+            row["targetDetails"] = self._ingestion_map_values(
+                row.get("targetDetails")
+            )
+            persistence_rows.append(tuple(row[field] for field in fields))
+        ingestion_df = self.spark.createDataFrame(
+            persistence_rows, schema=self._ingestion_schema()
+        ).select(fields)
+
+        overwrite = self.dict_obj["overwrite"] == "True"
+        target_exists = (
+            self.spark.catalog.tableExists(f"{database}.{table}")
+            if self.uc_enabled
+            else DeltaTable.isDeltaTable(self.spark, path)
+        )
+        if overwrite or not target_exists:
+            writer = (
+                ingestion_df.write.format("delta")
+                .mode("overwrite")
+                .option("mergeSchema", "true")
+            )
+            if self.uc_enabled:
+                writer.saveAsTable(f"{database}.{table}")
+            else:
+                writer.save(path=path)
+        else:
+            if self.uc_enabled:
+                original_df = self.spark.read.format("delta").table(
+                    f"{database}.{table}"
+                )
+            else:
+                self.deltaPipelinesMetaStoreOps.register_table_in_metastore(
+                    database, table, path
+                )
+                original_df = self.spark.read.format("delta").load(path)
+            self.deltaPipelinesInternalTableOps.merge(
+                ingestion_df,
+                f"{database}.{table}",
+                ["dataFlowId"],
+                original_df.columns,
+            )
+        if not self.uc_enabled:
+            self.deltaPipelinesMetaStoreOps.create_database(
+                database, "sdp-meta database"
+            )
+            self.deltaPipelinesMetaStoreOps.register_table_in_metastore(
+                database, table, path
+            )
+        self._ingestion_onboarded = True
+
+    @_cleans_prepared_files
     def onboard_silver_dataflow_spec(self):
         """
         Onboard silver dataflow spec.
@@ -825,6 +1034,7 @@ class OnboardDataflowspec:
         # a no-op if ``onboard_dataflow_specs`` already validated silver
         # up front (issue #343 finding #1).
         self.__pre_validate_onboarding_uc_names(layers=("silver",))
+        self.onboard_ingestion_dataflow_spec()
 
         onboarding_df = self.__get_onboarding_file_dataframe(
             dict_obj["onboarding_file_path"]
@@ -955,6 +1165,7 @@ class OnboardDataflowspec:
         if not self.uc_enabled:
             self.register_silver_dataflow_spec_tables()
 
+    @_cleans_prepared_files
     def onboard_bronze_dataflow_spec(self):
         """
         Onboard bronze dataflow spec.
@@ -1001,6 +1212,7 @@ class OnboardDataflowspec:
         # a no-op if ``onboard_dataflow_specs`` already validated bronze
         # up front (issue #343 finding #1).
         self.__pre_validate_onboarding_uc_names(layers=("bronze",))
+        self.onboard_ingestion_dataflow_spec()
 
         onboarding_df = self.__get_onboarding_file_dataframe(
             dict_obj["onboarding_file_path"]
@@ -1221,7 +1433,129 @@ class OnboardDataflowspec:
                 onboarding_df_dupes.show()
                 raise Exception("onboarding file have duplicated data_flow_ids! ")
             self._onboarding_files_processed.add(onboarding_file_path)
-        return onboarding_df
+
+        cached = self._prepared_onboarding_cache.get(onboarding_file_path)
+        if cached is not None:
+            self._prepared_onboarding, prepared_path = cached
+            if prepared_path is None:
+                return onboarding_df
+            if not self._prepared_path_exists(prepared_path):
+                # The materialized file was cleaned up after an earlier
+                # public onboarding call; re-materialize from the cached rows.
+                prepared_path = self._write_prepared_onboarding_json(
+                    onboarding_file_path, self._prepared_onboarding.rows
+                )
+                self._prepared_onboarding_cache[onboarding_file_path] = (
+                    self._prepared_onboarding,
+                    prepared_path,
+                )
+            return self.spark.read.option("multiline", "true").json(
+                prepared_path
+            )
+
+        if not {"ingestion", "ingestion_ref"}.intersection(
+            onboarding_df.columns
+        ):
+            self._prepared_onboarding = PreparedOnboarding([], [], {})
+            self._prepared_onboarding_cache[onboarding_file_path] = (
+                self._prepared_onboarding,
+                None,
+            )
+            return onboarding_df
+
+        raw_rows = [
+            row.asDict(recursive=True)
+            if hasattr(row, "asDict")
+            else dict(row)
+            for row in onboarding_df.collect()
+        ]
+        self._prepared_onboarding = prepare_onboarding_rows(
+            raw_rows,
+            self.dict_obj["env"],
+            version=self.dict_obj["version"],
+            created_by=self.dict_obj["import_author"],
+            persisted_ingestion_specs=self._persisted_ingestion_specs(),
+        )
+        if not any(
+            "ingestion" in row or "ingestion_ref" in row
+            for row in raw_rows
+        ):
+            self._prepared_onboarding_cache[onboarding_file_path] = (
+                self._prepared_onboarding,
+                None,
+            )
+            return onboarding_df
+        prepared_path = self._write_prepared_onboarding_json(
+            onboarding_file_path, self._prepared_onboarding.rows
+        )
+        self._prepared_onboarding_cache[onboarding_file_path] = (
+            self._prepared_onboarding,
+            prepared_path,
+        )
+        prepared_df = (
+            self.spark.read.option("multiline", "true").json(prepared_path)
+        )
+        return prepared_df
+
+    def _write_prepared_onboarding_json(self, onboarding_file_path, rows):
+        """Materialize reference-resolved rows where Spark can read them.
+
+        A uniquely-created sibling is used because the onboarding file's own
+        directory is cluster-readable (a UC volume or workspace path), while
+        a driver-local tempdir is not readable on multi-node clusters. Every
+        file written here is tracked and removed by
+        ``_cleanup_prepared_onboarding_files`` when the outermost public
+        onboarding method returns, so no artifact is left next to the user's
+        onboarding config.
+        """
+        base_name = os.path.splitext(os.path.basename(onboarding_file_path))[0]
+        parent_dir = os.path.dirname(onboarding_file_path)
+        try:
+            # NamedTemporaryFile uses O_EXCL, so concurrent onboard jobs can
+            # neither overwrite nor later delete one another's artifact.
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                # Spark ignores filenames beginning with "." or "_".
+                prefix=f"{base_name}_ingestion_resolved_",
+                suffix=".json",
+                dir=parent_dir or ".",
+                delete=False,
+            ) as handle:
+                json.dump(rows, handle, indent=2)
+                sibling = handle.name
+            self._prepared_onboarding_files.add(sibling)
+            return sibling
+        except OSError as exc:
+            raise OSError(
+                "could not create a cluster-readable prepared onboarding "
+                f"file next to {onboarding_file_path!r}"
+            ) from exc
+
+    @staticmethod
+    def _prepared_path_local(prepared_path):
+        """Return the local filesystem path behind a materialized-JSON path."""
+        if prepared_path.startswith("file://"):
+            return prepared_path[len("file://"):]
+        return prepared_path
+
+    def _prepared_path_exists(self, prepared_path):
+        return os.path.exists(self._prepared_path_local(prepared_path))
+
+    def _cleanup_prepared_onboarding_files(self):
+        """Remove materialized resolved-row files; the cache re-creates them."""
+        for prepared_path in list(self._prepared_onboarding_files):
+            local_path = self._prepared_path_local(prepared_path)
+            try:
+                if os.path.exists(local_path):
+                    os.remove(local_path)
+            except OSError as exc:
+                logger.warning(
+                    "could not remove prepared onboarding file %s: %s",
+                    local_path,
+                    exc,
+                )
+            self._prepared_onboarding_files.discard(prepared_path)
 
     def __add_audit_columns(self, df, dict_obj):
         """Add_audit_columns method will add AuditColumns like version, dates, author.

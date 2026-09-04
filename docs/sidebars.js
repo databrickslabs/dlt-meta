@@ -33,6 +33,7 @@ const sidebars = {
       link: { type: 'doc', id: 'reference/index' },
       items: [
         'reference/onboarding-fields',
+        'reference/ingestion-fields',
         'reference/silver-transformations',
         'reference/dq-rules',
         'reference/cli-commands',
@@ -45,6 +46,7 @@ const sidebars = {
       link: { type: 'doc', id: 'guides/index' },
       items: [
         'guides/autoloader',
+        'guides/lakeflow-connect-postgres',
         'guides/kafka-eventhub',
         'guides/cdc',
         'guides/snapshot',

@@ -10,7 +10,9 @@ name: release
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+' # semantic version tags only, e.g. v0.1.0
+      # GitHub tag filters use glob syntax. The workflow's version check below
+      # remains the strict semantic-version guard.
+      - 'v[0-9]*.[0-9]*.[0-9]*'
   workflow_dispatch:
     inputs:
       dry-run:

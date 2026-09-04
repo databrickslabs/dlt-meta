@@ -68,6 +68,7 @@
 | [SDP-META CLI](https://databrickslabs.github.io/sdp-meta/docs/getting-started/cli) | `databricks labs sdp-meta onboard` · `deploy` · `bundle-*` |
 | [SDP-META App](https://databrickslabs.github.io/sdp-meta/docs/getting-started/app) | Browser-based UI for onboarding, deployment, and pipeline monitoring |
 | [MCP Server](https://databrickslabs.github.io/sdp-meta/docs/getting-started/mcp) | AI-assisted pipeline scaffolding via MCP-capable AI tools (Claude Code, Cursor, Claude Desktop, and others) |
+| [Lakeflow Connect ingestion](docs/docs/guides/lakeflow-connect-postgres.md) | Metadata-driven PostgreSQL CDC gateway and ingestion pipelines with LFC landing tables as Bronze |
 
 ## Getting Started
 

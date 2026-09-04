@@ -34,8 +34,24 @@ commands:
       - name: no-create-missing-uc
         description: Do not auto-create the UC schema or volume before uploading the wheel.
   - name: deploy
-    description: Deploys sdp-meta pipelines for bronze and silver layers after onboarding dataflowspecs is complete
+    description: Deploys bronze/silver pipelines interactively, or reconciles Lakeflow Connect ingestion with --layer=ingestion
     flags:
+      - name: layer
+        description: Set to ingestion to use the non-interactive Lakeflow Connect SDK reconciliation path. Omit to retain the existing interactive bronze/silver flow.
+      - name: ingestion-dataflowspec-table
+        description: Required three-part catalog.schema.table containing normalized ingestion dataflowspec rows when --layer=ingestion.
+      - name: ingestion-state-table
+        description: Optional three-part ownership-state table. Defaults to <spec-catalog>.<spec-schema>.ingestion_deployment_state.
+      - name: warehouse-id
+        description: Required SQL warehouse used to read ingestion specs and persist deployment ownership state.
+      - name: data-flow-group
+        description: Optional ingestion dataFlowGroup selector.
+      - name: data-flow-ids
+        description: Optional comma-separated or space-separated ingestion dataFlowId selector.
+      - name: dry-run
+        description: Set true to print create/update/noop/drift/prune actions without pipeline or state writes.
+      - name: prune
+        description: Set true to delete only pipeline IDs owned by state rows whose dataFlowId is absent from the full desired spec table.
       - name: build-and-upload-whl
         description: "Build the local sdp-meta wheel, upload it to a UC volume, and bake the wheel path into the SDP runner notebook's `%pip install` (avoids needing PyPI access on the pipeline cluster). Requires UC. Invoke with the '=' syntax (e.g. --build-and-upload-whl=true) so the labs CLI string-flag parser does not consume the next CLI token as its value."
       - name: whl-file-path
@@ -60,6 +76,44 @@ commands:
         description: Space-separated URLs forwarded to pip wheel as --extra-index-url (optional).
       - name: no-create-missing-uc
         description: Do not auto-create the UC schema or volume before uploading the wheel.
+  - name: lfc-connection
+    description: Preview or create an idempotent Unity Catalog database connection using secret scope references
+    flags:
+      - name: connection-name
+        description: Unity Catalog connection name.
+      - name: connection-type
+        description: Connection type. Defaults to postgresql.
+      - name: host
+        description: PostgreSQL host name.
+      - name: port
+        description: PostgreSQL port. Defaults to 5432.
+      - name: database
+        description: Optional PostgreSQL database name.
+      - name: scope
+        description: Databricks secret scope containing credentials.
+      - name: username-key
+        description: Username secret key. Defaults to username.
+      - name: password-key
+        description: Password secret key. Defaults to password.
+      - name: managed
+        description: Set false to require and reuse a pre-existing connection. Defaults true.
+      - name: warehouse-id
+        description: SQL warehouse used to execute CREATE CONNECTION.
+      - name: execute
+        description: Set true to execute; omitted prints SQL only.
+  - name: ingestion-generate
+    description: Generate native Lakeflow Connect gateway, ingestion, and schedule DAB resources from onboarding metadata
+    flags:
+      - name: onboarding-file
+        description: Path to the YAML onboarding metadata.
+      - name: resources-dir
+        description: Bundle resources directory. Defaults to resources.
+      - name: env
+        description: Environment suffix used to resolve fields such as catalog_prod. Defaults to prod.
+      - name: check
+        description: Validate generated files are current without writing changes.
+      - name: strict
+        description: Treat validation warnings, including unknown keys and placeholders, as errors.
   - name: bundle-init
     description: Scaffold a new sdp-meta Declarative Automation Bundle (DAB) from the packaged template (onboarding job + Lakeflow Spark Declarative Pipelines + variables + recipes)
     flags:

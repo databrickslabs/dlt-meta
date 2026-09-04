@@ -9,6 +9,7 @@ sidebar_position: 1
 | Scenario | Guide |
 |---|---|
 | Ingest files landing in S3, ADLS, or GCS using Databricks Autoloader | [Autoloader / Cloud Files](./autoloader) |
+| Replicate PostgreSQL tables with managed Lakeflow Connect CDC | [Lakeflow Connect for PostgreSQL](./lakeflow-connect-postgres) |
 | Ingest from Kafka or Azure Event Hubs | [Kafka & Event Hubs](./kafka-eventhub) |
 | CDC merge — Type 1 or Type 2 SCD from a change-data-capture source | [CDC with apply_changes](./cdc) |
 | Full snapshot ingestion — replace-all semantics, not streaming | [Snapshot Ingestion](./snapshot) |

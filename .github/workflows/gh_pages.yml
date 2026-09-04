@@ -33,11 +33,33 @@ jobs:
           cache: "npm"
           cache-dependency-path: docs/package-lock.json
 
+      # npm 10.x (bundled with Node 20) has reify bugs where `npm ci` with
+      # package.json `overrides` (our webpack pin) completes without error but
+      # leaves node_modules incomplete — including missing .bin links, which
+      # surfaced as `docusaurus: not found` / exit 127 at build time.
+      # npm 11 fixes this class of bug. Pinned exactly for reproducibility.
+      - name: Setup npm
+        run: npm install --global npm@11.6.2
+
       - name: Install dependencies
-        run: cd docs && npm ci
+        working-directory: docs
+        run: |
+          node --version && npm --version
+          npm config get registry
+          npm ci --no-audit --no-fund
+          # Fail HERE with context if the install didn't produce the CLI,
+          # instead of a bare "exit 127" later in the build step.
+          test -x node_modules/.bin/docusaurus || {
+            echo "ERROR: docusaurus binary missing after npm ci."
+            echo "Installed @docusaurus packages:"; ls node_modules/@docusaurus 2>/dev/null || true
+            exit 1
+          }
 
       - name: Build
-        run: cd docs && npm run build
+        working-directory: docs
+        # --no-install: error clearly if the local binary is absent rather
+        # than attempting a network fetch on a restricted-egress runner.
+        run: npx --no-install docusaurus build
         env:
           NODE_ENV: production
 

@@ -20,7 +20,13 @@ permissions:
 jobs:
   analyze:
     name: Analyze
-    runs-on: ubuntu-latest
+    # The databrickslabs org has a GitHub IP allow list; GitHub-hosted
+    # ubuntu-latest runners have dynamic IPs that are not on it, so the
+    # CodeQL Action's API calls (diff retrieval, SARIF upload) get 403s
+    # and fail the job. Run on the allow-listed protected runner group.
+    runs-on:
+      group: databrickslabs-protected-runner-group
+      labels: linux-ubuntu-latest
     permissions:
       contents: read
       security-events: write

@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- **Lakeflow Connect for PostgreSQL** (`lfc` package): onboard `ingestion` blocks to a persisted `ingestion_dataflowspec` table, reference landing tables from Bronze/Silver flows via `ingestion_ref`, create UC connections with secret references (`lfc-connection`), generate native gateway/ingestion/schedule DAB resources (`ingestion-generate`), and reconcile deployments through the SDK with ownership state, drift refusal, and explicit prune (`deploy --layer=ingestion`).
+
+### Changed
+- **Boolean CLI flags are now strict**: values other than `true/false/1/0/yes/no/on/off` raise an error instead of being treated as truthy (the pflag spillover case — a value starting with `-` — is still recovered). Previously any non-empty value counted as true.
+
 ## [v0.1.0]
 ### ⚠️ Breaking Changes
 - **Project rename `dlt-meta` → `sdp-meta`** to align with the Lakeflow Spark Declarative Pipelines product naming. This affects the PyPI package, CLI command, Python import path, source layout, and main class name. A backward-compatibility wrapper is published so existing installations keep working with a deprecation warning. [PR](https://github.com/databrickslabs/sdp-meta/pull/289)

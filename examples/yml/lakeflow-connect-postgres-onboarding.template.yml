@@ -1,0 +1,54 @@
+- data_flow_id: "300"
+  data_flow_group: postgres_orders
+  ingestion:
+    source:
+      type: POSTGRESQL
+      catalog: ordersdb
+      schema: public
+      connection: orders_connection
+      slot:
+        publication: databricks_publication
+        slot: databricks_slot
+    target:
+      catalog_prod: main
+      schema: orders
+    gateway:
+      storage_catalog_prod: main
+      storage_schema: lfc_staging
+      pipeline_configuration:
+        pipelines.cdc.snapshot.qbc.maxConnections: "70"
+        pipelines.gateway.mapUuidToString: "true"
+        pipelines.qbcMaxRowsPerSplitIfLobColumnsPresent: "-1"
+        pipelines.qbcNumSnapshotSplit: "10"
+      compute:
+        node_type_id: r8i.2xlarge
+        autoscale:
+          min_workers: 1
+          max_workers: 10
+          mode: ENHANCED
+        apply_policy_default_values: true
+    ingestion_pipeline:
+      pipeline_configuration: {}
+    schedule:
+      quartz_cron_expression: "0 0/15 * * * ?"
+      timezone_id: UTC
+    tables:
+      - name: customers
+        scd: 1
+      - name: payments
+        scd: 2
+
+- data_flow_id: "301"
+  data_flow_group: postgres_orders
+  ingestion_ref:
+    data_flow_id: "300"
+    table: customers
+  silver_database_prod: main.orders_silver
+  silver_table: customers
+  silver_reader_options:
+    readChangeFeed: "true"
+  silver_cdc_apply_changes:
+    keys:
+      - customer_id
+    sequence_by: _commit_version
+    scd_type: "1"

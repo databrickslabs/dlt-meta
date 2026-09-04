@@ -18,7 +18,9 @@ All SDP-META operations are available through the Databricks Labs CLI extension.
 | Command | Description |
 |---|---|
 | `onboard` | Interactive onboarding wizard — prompts for config, pushes code, creates onboarding job |
-| `deploy` | Deploy bronze/silver Declarative Pipeline interactively |
+| `deploy` | Deploy Bronze/Silver pipelines or reconcile managed ingestion |
+| `lfc-connection` | Preview or create an LFC UC database connection using secret references |
+| `ingestion-generate` | Validate ingestion metadata and generate LFC DAB resources |
 | `bundle-init` | Scaffold a new DAB bundle (`--quickstart` for zero-prompt fast path) |
 | `bundle-prepare-wheel` | Build and upload the sdp-meta wheel to a UC Volume |
 | `bundle-add-flow` | Add a new flow to an existing bundle from UC, Volumes, Kafka topics, or CSV inventory |
@@ -48,6 +50,62 @@ databricks labs sdp-meta deploy
 ```
 
 Prompts for: layer, pipeline group, dataflowspec table names, catalog/schema, and cluster configuration. After completion, prints and opens the pipeline URL.
+
+Lakeflow Connect ingestion uses a non-interactive SDK reconciliation path:
+
+```bash
+databricks labs sdp-meta deploy \
+  --layer=ingestion \
+  --ingestion-dataflowspec-table=main.sdp_meta.ingestion_dataflowspec \
+  --warehouse-id=<sql-warehouse-id> \
+  --dry-run=true
+```
+
+Remove `--dry-run=true` to apply the reviewed actions. The ownership table
+defaults to `main.sdp_meta.ingestion_deployment_state`; override it with
+`--ingestion-state-table=<catalog.schema.table>`. Limit reconciliation with
+`--data-flow-group=<group>` and/or `--data-flow-ids=<id1,id2>`.
+
+Omitted specs are never deleted by default. `--prune=true` deletes only
+gateway and ingestion pipeline IDs recorded in the ownership table whose
+`dataFlowId` is absent from the full desired spec table. A dry run reports
+those prune actions without deleting pipelines or writing state.
+
+The SDK path reconciles gateway and ingestion pipelines only. Schedule metadata
+is persisted and generated for DAB use, but SDK schedule-job reconciliation is
+not currently performed.
+
+## `lfc-connection`
+
+Preview idempotent UC connection SQL:
+
+```bash
+databricks labs sdp-meta lfc-connection \
+  --connection-name=orders_connection \
+  --host=orders-db.example.com \
+  --database=ordersdb \
+  --scope=orders_scope
+```
+
+Execute it with `--warehouse-id=<id> --execute=true`. Set `--managed=false` to
+require and reuse an existing connection without generating SQL.
+
+## `ingestion-generate`
+
+Validate onboarding metadata and generate native LFC gateway, ingestion, and
+schedule resources:
+
+```bash
+databricks labs sdp-meta ingestion-generate \
+  --onboarding-file=conf/onboarding.yml \
+  --resources-dir=resources \
+  --env=prod \
+  --strict=true
+```
+
+`--strict=true` treats unknown keys, unresolved placeholders, and other
+validation warnings as errors. Use `--check=true` in CI to fail when generated
+resources are stale without writing files.
 
 ## `bundle-init`
 

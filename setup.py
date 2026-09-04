@@ -69,7 +69,8 @@ long_description = content
 
 INSTALL_REQUIRES = [
     "setuptools>=65,<83",
-    "databricks-sdk>=0.20,<1",
+    # IngestionPipelineDefinition was introduced in 0.30.0.
+    "databricks-sdk>=0.30,<1",
     "PyYAML>=6.0,<7",
 ]
 
@@ -101,7 +102,11 @@ setup(
     # (nothing may be fetched at build time). Build deps are supplied by
     # .github/requirements-build.txt instead.
     install_requires=INSTALL_REQUIRES,
-    extras_require={"dev": DEV_REQUIREMENTS, "IT": IT_REQUIREMENTS, "mcp": MCP_REQUIREMENTS},
+    extras_require={
+        "dev": DEV_REQUIREMENTS,
+        "IT": IT_REQUIREMENTS,
+        "mcp": MCP_REQUIREMENTS,
+    },
     author="Ravi Gawai",
     author_email="databrickslabs@databricks.com",
     license="Databricks License",

@@ -24,6 +24,12 @@ from databricks.labs.sdp_meta.identifiers import (
     validate_uc_identifier,
 )
 from databricks.labs.sdp_meta.install import WorkspaceInstaller
+from databricks.labs.sdp_meta.lfc.connections import (
+    ConnectionSpec,
+    SecretReferences,
+    execute_create_connection,
+    preflight_connection,
+)
 
 logger = logging.getLogger('databricks.labs.sdp_meta')
 
@@ -296,6 +302,8 @@ class OnboardCommand:
     uc_catalog_name: str = None
     uc_volume_path: str = None
     overwrite: bool = True
+    ingestion_dataflowspec_table: str = "ingestion_dataflowspec"
+    ingestion_dataflowspec_path: str = None
     bronze_dataflowspec_table: str = "bronze_dataflowspec"
     silver_dataflowspec_table: str = "silver_dataflowspec"
     bronze_dataflowspec_path: str = None
@@ -310,12 +318,21 @@ class OnboardCommand:
             raise ValueError("onboarding_files_dir_path is required")
         if not self.onboard_layer or self.onboard_layer == "":
             raise ValueError("onboard_layer is required")
-        if self.onboard_layer.lower() not in ["bronze", "silver", "bronze_silver"]:
-            raise ValueError("onboard_layer must be one of bronze, silver, bronze_silver")
+        if self.onboard_layer.lower() not in [
+            "ingestion", "bronze", "silver", "bronze_silver"
+        ]:
+            raise ValueError(
+                "onboard_layer must be one of ingestion, bronze, silver, "
+                "bronze_silver"
+            )
         # if self.uc_enabled == "":
         #     raise ValueError("uc_enabled is required, please set to True or False")
         if not self.uc_enabled and not self.dbfs_path:
             raise ValueError("dbfs_path is required")
+        if not self.uc_enabled and not self.ingestion_dataflowspec_path:
+            self.ingestion_dataflowspec_path = (
+                f"{self.dbfs_path.rstrip('/')}/ingestion_dataflow_specs"
+            )
         if not self.serverless:
             if not self.cloud:
                 raise ValueError("cloud is required")
@@ -355,6 +372,11 @@ class OnboardCommand:
         # ``uc_enabled``. Only ``uc_catalog_name`` is gated because the
         # non-UC code path never references it.
         validate_uc_identifier(self.sdp_meta_schema, kind="sdp_meta_schema")
+        if self.ingestion_dataflowspec_table:
+            validate_uc_identifier(
+                self.ingestion_dataflowspec_table,
+                kind="ingestion_dataflowspec_table",
+            )
         if self.bronze_dataflowspec_table:
             validate_uc_identifier(
                 self.bronze_dataflowspec_table, kind="bronze_dataflowspec_table"
@@ -773,6 +795,14 @@ class SDPMeta:
             "env": cmd.env,
             "uc_enabled": "True" if cmd.uc_enabled else "False"
         }
+        if cmd.ingestion_dataflowspec_table != "ingestion_dataflowspec":
+            named_parameters["ingestion_dataflowspec_table"] = (
+                cmd.ingestion_dataflowspec_table
+            )
+        if not cmd.uc_enabled:
+            named_parameters["ingestion_dataflowspec_path"] = (
+                cmd.ingestion_dataflowspec_path
+            )
         if cmd.uc_enabled:
             # Use basename only — cmd.onboarding_file_path is a full local path
             # after update_ws_onboarding_paths runs, and uc_volume_path has a
@@ -964,7 +994,9 @@ class SDPMeta:
             kind="silver_schema",
             default=f'sdp_meta_silver_{uuid.uuid4().hex}')
         onboard_cmd_dict["onboard_layer"] = self._wsi._choice(
-            "Provide sdp meta layer", ['bronze', 'silver', 'bronze_silver'])
+            "Provide sdp meta layer",
+            ['ingestion', 'bronze', 'silver', 'bronze_silver'],
+        )
         if onboard_cmd_dict["onboard_layer"] in ["bronze", "bronze_silver"]:
             onboard_cmd_dict["bronze_dataflowspec_table"] = self._ident_question(
                 "Provide bronze dataflow spec table name",
@@ -1136,7 +1168,8 @@ class SDPMeta:
         layer_map = {
             "0": "bronze",
             "1": "bronze_silver",
-            "2": "silver"
+            "2": "silver",
+            "3": "ingestion",
         }
         onboard_cmd_dict["onboard_layer"] = layer_map.get(form_data.get('sdp_meta_layer'), 'bronze_silver')
 
@@ -1435,6 +1468,14 @@ def onboard_ui(sdp_meta: SDPMeta, form_data):
 def deploy(sdp_meta: SDPMeta, flags: dict = None):
     logger.info("Please answer a couple of questions to for launching SDP META deployment job")
     flags = flags or {}
+    explicit_layer = _flag_value(flags, "layer")
+    if explicit_layer is not None:
+        if str(explicit_layer).strip().lower() == "ingestion":
+            return deploy_ingestion_sdk(sdp_meta, flags)
+        raise ValueError(
+            "--layer only supports 'ingestion'; omit --layer for the "
+            "interactive bronze/silver deployment"
+        )
     cmd = sdp_meta._load_deploy_config()
     # Resolution order for the SDP runner notebook's `%pip install` target:
     #   1. --whl-file-path=...                         (explicit override)
@@ -1470,6 +1511,55 @@ def deploy(sdp_meta: SDPMeta, flags: dict = None):
             f"%pip install: {cmd.sdp_meta_dependency}"
         )
     sdp_meta.deploy(cmd)
+
+
+def deploy_ingestion_sdk(sdp_meta: SDPMeta, flags: dict = None):
+    """Reconcile normalized ingestion specs through the Workspace SDK."""
+    from databricks.labs.sdp_meta.lfc.sdk_service import IngestionSdkService
+    from databricks.labs.sdp_meta.lfc.state import IngestionStateRepository
+
+    flags = flags or {}
+    spec_table = _required_cli_flag(
+        flags,
+        "ingestion-dataflowspec-table",
+        "ingestion_dataflowspec_table",
+    )
+    warehouse_id = _required_cli_flag(
+        flags, "warehouse-id", "warehouse_id"
+    )
+    state_table = _flag_value(
+        flags, "ingestion-state-table", "ingestion_state_table"
+    )
+    group = _flag_value(flags, "data-flow-group", "data_flow_group")
+    raw_ids = _flag_value(
+        flags, "data-flow-ids", "data_flow_ids", "data-flow-id", "data_flow_id"
+    )
+    data_flow_ids = (
+        [
+            item
+            for token in str(raw_ids).split()
+            for item in token.split(",")
+            if item
+        ]
+        if raw_ids is not None
+        else None
+    )
+    repository = IngestionStateRepository(
+        sdp_meta._ws,
+        warehouse_id,
+        spec_table,
+        state_table,
+    )
+    result = IngestionSdkService(
+        sdp_meta._ws, repository
+    ).reconcile(
+        data_flow_group=str(group) if group is not None else None,
+        data_flow_ids=data_flow_ids,
+        dry_run=_has_flag(flags, "dry-run", "dry_run"),
+        prune=_has_flag(flags, "prune"),
+    )
+    print(json.dumps(result.as_dict(), indent=2, sort_keys=True))
+    return result
 
 
 def deploy_ui(sdp_meta: SDPMeta, form_data):
@@ -1715,9 +1805,8 @@ def _is_truthy_flag(value) -> bool:
     The `databricks labs` CLI exposes every declared flag as a pflag *string*
     flag, so there is no native boolean type and an unsupplied flag arrives as
     ``""`` (the registered default). We therefore treat the *empty* / *None*
-    case as false, the explicit falsy keywords as false, and any other
-    non-empty value as truthy presence. That keeps the canonical
-    ``--flag=true`` invocation working *and* recovers the common spillover
+    case as false and accept only explicit boolean keywords. The one exception
+    is a value beginning with ``-``, which recovers the common spillover
     case where pflag eats the next CLI token as the value (e.g. value ends up
     being ``"--profile"`` because the user typed
     ``--build-and-upload-whl --profile profile_name``).
@@ -1729,7 +1818,13 @@ def _is_truthy_flag(value) -> bool:
         return False
     if sv.lower() in ("0", "false", "no", "off"):
         return False
-    return True
+    if sv.lower() in ("1", "true", "yes", "on"):
+        return True
+    if sv.startswith("-"):
+        return True
+    raise ValueError(
+        "boolean flags require true/false (received %r)" % value
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1866,6 +1961,207 @@ def bundle_add_flow(sdp_meta: SDPMeta, flags: dict = None):
         sys.exit(rc)
 
 
+def _required_cli_flag(flags: dict, *names: str) -> str:
+    value = _flag_value(flags, *names)
+    if value is None:
+        raise ValueError(f"--{names[0]} is required")
+    return str(value)
+
+
+def lfc_connection(sdp_meta: SDPMeta, flags: dict = None):
+    """Preview or create a Unity Catalog PostgreSQL connection."""
+    flags = flags or {}
+    managed_raw = _flag_value(flags, "managed")
+    managed = (
+        True
+        if managed_raw is None
+        else _is_truthy_flag(managed_raw)
+    )
+    name = _required_cli_flag(flags, "connection-name", "connection_name")
+    if not managed:
+        preflight = preflight_connection(
+            sdp_meta._ws, name, managed=False
+        )
+        print(
+            f"reusing unmanaged connection {preflight.name}; "
+            "no connection SQL executed"
+        )
+        return
+
+    spec = ConnectionSpec(
+        name=name,
+        connection_type=str(
+            _flag_value(flags, "connection-type", "connection_type")
+            or "postgresql"
+        ),
+        host=_required_cli_flag(flags, "host"),
+        port=int(_flag_value(flags, "port") or 5432),
+        database=_flag_value(flags, "database"),
+        secrets=SecretReferences(
+            scope=_required_cli_flag(flags, "scope"),
+            username_key=str(
+                _flag_value(flags, "username-key", "username_key")
+                or "username"
+            ),
+            password_key=str(
+                _flag_value(flags, "password-key", "password_key")
+                or "password"
+            ),
+        ),
+    )
+    preflight_connection(
+        sdp_meta._ws,
+        name,
+        managed=True,
+        desired=spec,
+    )
+    execute = _has_flag(flags, "execute")
+    warehouse_id = _flag_value(flags, "warehouse-id", "warehouse_id")
+    if execute and not warehouse_id:
+        raise ValueError("--warehouse-id is required with --execute=true")
+    sql = execute_create_connection(
+        sdp_meta._ws,
+        str(warehouse_id or "dry-run"),
+        spec,
+        execute=execute,
+    )
+    print(sql)
+    if execute:
+        print(f"submitted connection creation for {name}")
+
+
+def ingestion_generate(sdp_meta: SDPMeta, flags: dict = None):
+    """Generate native LFC DAB resources from onboarding metadata."""
+    del sdp_meta
+    flags = flags or {}
+    onboarding_path = Path(
+        _required_cli_flag(flags, "onboarding-file", "onboarding_file")
+    )
+    resources_dir = Path(
+        _flag_value(flags, "resources-dir", "resources_dir") or "resources"
+    )
+    env = str(_flag_value(flags, "env") or "prod")
+    check = _has_flag(flags, "check")
+
+    with onboarding_path.open() as handle:
+        document = yaml.safe_load(handle) or []
+    if isinstance(document, dict):
+        rows = document.get("dataflows", document.get("flows"))
+    else:
+        rows = document
+    if not isinstance(rows, list):
+        raise ValueError(
+            "onboarding metadata must be a list or contain a dataflows list"
+        )
+
+    from databricks.labs.sdp_meta.lfc.bundle import (
+        planned_files,
+    )
+    from databricks.labs.sdp_meta.lfc.onboarding import (
+        onboard_ingestion_rows,
+    )
+    from databricks.labs.sdp_meta.lfc.validation import (
+        strict_failures,
+        validate as validate_ingestion,
+    )
+
+    errors, warnings = validate_ingestion(rows, env)
+    failures = strict_failures(
+        errors,
+        warnings,
+        strict=_has_flag(flags, "strict"),
+    )
+    if failures:
+        raise ValueError(
+            "invalid ingestion metadata:\n- " + "\n- ".join(failures)
+        )
+    for warning in warnings:
+        print(f"warning: {warning}", file=sys.stderr)
+    specs = onboard_ingestion_rows(rows, env).ingestion_specs
+    plan = planned_files(specs, resources_dir)
+    wanted = {path for path, _ in plan.values()}
+    source_key = uuid.uuid5(
+        uuid.NAMESPACE_URL, str(onboarding_path.resolve())
+    ).hex
+    manifest_path = resources_dir / (
+        ".sdp-meta-ingestion-%s.manifest.json" % source_key
+    )
+    manifest_glob = ".sdp-meta-ingestion-*.manifest.json"
+
+    def _read_generation_manifest(path):
+        manifest = json.loads(path.read_text())
+        if not isinstance(manifest, list) or not all(
+            isinstance(name, str) and Path(name).name == name
+            for name in manifest
+        ):
+            raise ValueError(
+                "invalid ingestion generation manifest: %s" % path
+            )
+        return set(manifest)
+
+    previously_owned = set()
+    if manifest_path.exists():
+        previously_owned = {
+            resources_dir / name
+            for name in _read_generation_manifest(manifest_path)
+        }
+
+    wanted_names = {path.name for path in wanted}
+    claims = {}
+    for other_manifest in resources_dir.glob(manifest_glob):
+        if other_manifest == manifest_path:
+            continue
+        for name in _read_generation_manifest(other_manifest):
+            claims.setdefault(name, []).append(other_manifest)
+    collisions = wanted_names.intersection(claims)
+    if collisions:
+        details = "; ".join(
+            "%s is owned by %s"
+            % (
+                name,
+                ", ".join(str(path) for path in claims[name]),
+            )
+            for name in sorted(collisions)
+        )
+        raise ValueError(
+            "generated ingestion resource ownership collision: " + details
+        )
+
+    stale = {
+        path
+        for path in previously_owned - wanted
+        if path.exists() and path.name not in claims
+    }
+
+    if check:
+        drift = [
+            path
+            for path, content in plan.values()
+            if not path.exists() or path.read_text() != content
+        ]
+        drift.extend(sorted(stale))
+        if drift:
+            names = ", ".join(path.name for path in drift)
+            raise ValueError(
+                "generated ingestion resources are stale: %s" % names
+            )
+        print("generated ingestion resources are up to date")
+        return
+
+    resources_dir.mkdir(parents=True, exist_ok=True)
+    for path, content in plan.values():
+        path.write_text(content)
+    for path in stale:
+        path.unlink()
+    manifest_path.write_text(
+        json.dumps(sorted(path.name for path in wanted), indent=2) + "\n"
+    )
+    print(
+        "generated %d ingestion pair(s) in %s"
+        % (len(plan), resources_dir)
+    )
+
+
 def mcp(sdp_meta: SDPMeta, flags: dict = None):
     """Run the sdp-meta MCP server over stdio.
 
@@ -1927,6 +2223,8 @@ MAPPING = {
     "bundle-prepare-wheel": bundle_prepare_wheel,
     "bundle-validate": bundle_validate,
     "bundle-add-flow": bundle_add_flow,
+    "lfc-connection": lfc_connection,
+    "ingestion-generate": ingestion_generate,
     "mcp": mcp,
 }
 
@@ -1956,7 +2254,15 @@ def main(raw):
     sdp_meta = SDPMeta(ws)
     if command in ["onboard_ui", "deploy_ui"]:
         MAPPING[command](sdp_meta, payload)
-    elif command in ("onboard", "deploy") or command.startswith("bundle-"):
+    elif (
+        command in (
+            "onboard",
+            "deploy",
+            "lfc-connection",
+            "ingestion-generate",
+        )
+        or command.startswith("bundle-")
+    ):
         # Flag-aware wrappers receive `flags` so they can opt into
         # non-interactive behavior (e.g. `bundle-init --quickstart`, or
         # `onboard --build-and-upload-whl`, or `deploy --whl-file-path=...`).
