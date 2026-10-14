@@ -22,6 +22,9 @@ from databricks.labs.sdp_meta.dataflow_spec import (
 )
 from databricks.labs.sdp_meta.identifiers import (
     SUPPORTED_SOURCE_FORMATS,
+    normalize_legacy_delimited_full_name,
+    to_sql_full_name,
+    to_sql_identifier,
     validate_scd_type,
     validate_sequence_by,
     validate_source_format,
@@ -34,6 +37,13 @@ from databricks.labs.sdp_meta.metastore_ops import DeltaPipelinesInternalTableOp
 
 logger = logging.getLogger("databricks.labs.sdp_meta")
 logger.setLevel(logging.INFO)
+
+
+def _quoted_table_name(database: str, table: str) -> str:
+    return (
+        f"{to_sql_full_name(database, kind='database', max_parts=2)}."
+        f"{to_sql_identifier(table, kind='table')}"
+    )
 
 
 # Column-name fields inside ``<layer>_cdc_apply_changes`` that drive
@@ -178,6 +188,30 @@ class OnboardDataflowspec:
             )
 
     @staticmethod
+    def __normalize_legacy_uc_names(onboarding_row, env, *, recursive=False):
+        """Return a row with legacy SQL-delimited UC names made raw."""
+        row = (
+            onboarding_row.asDict(recursive=recursive)
+            if hasattr(onboarding_row, "asDict")
+            else dict(onboarding_row)
+        )
+        for layer in ("bronze", "silver"):
+            fields = (
+                f"{layer}_database_{env}",
+                f"{layer}_catalog_{env}",
+                f"{layer}_database_quarantine_{env}",
+                f"{layer}_catalog_quarantine_{env}",
+                f"{layer}_table",
+                f"{layer}_quarantine_table",
+            )
+            for field in fields:
+                if row.get(field):
+                    row[field] = normalize_legacy_delimited_full_name(
+                        row[field], kind=field
+                    )
+        return row
+
+    @staticmethod
     def __validate_dict_attributes(attributes, dict_obj):
         """Validate dict attributes method will validate dict attributes keys.
 
@@ -250,6 +284,17 @@ class OnboardDataflowspec:
         # would only fail much later with a confusing Spark error
         # (issue #261). `database` may be 1- or 2-part (`schema` or
         # `catalog.schema`); the table names are single identifiers.
+        self.dict_obj["database"] = normalize_legacy_delimited_full_name(
+            self.dict_obj["database"], kind="dict_obj['database']"
+        )
+        self.dict_obj["bronze_dataflowspec_table"] = normalize_legacy_delimited_full_name(
+            self.dict_obj["bronze_dataflowspec_table"],
+            kind="dict_obj['bronze_dataflowspec_table']",
+        )
+        self.dict_obj["silver_dataflowspec_table"] = normalize_legacy_delimited_full_name(
+            self.dict_obj["silver_dataflowspec_table"],
+            kind="dict_obj['silver_dataflowspec_table']",
+        )
         validate_uc_full_name(
             self.dict_obj["database"], kind="dict_obj['database']", max_parts=2,
         )
@@ -396,10 +441,7 @@ class OnboardDataflowspec:
             # apply_changes_from_snapshot, append_flows entries) come
             # through as plain dicts; the enum checks below need to peek
             # inside them without re-doing asDict() at every level.
-            if hasattr(row, "asDict"):
-                row_dict = row.asDict(recursive=True)
-            else:
-                row_dict = dict(row)
+            row_dict = self.__normalize_legacy_uc_names(row, env, recursive=True)
             flow_id = row_dict.get("data_flow_id", "<unknown>")
 
             # Top-level source_format applies to the bronze read path
@@ -504,11 +546,17 @@ class OnboardDataflowspec:
                     # WHERE clause uses \u2014 blocks statement separators,
                     # comments, and DDL/DML keywords while accepting a
                     # legitimate ``ROW FILTER ... ON (...)`` clause.
-                    (f"{layer}_row_filter", validate_sql_where_clause, {}),
+                    # Backticks are allowed here only for UC identifier
+                    # delimiters in UDF names.
+                    (
+                        f"{layer}_row_filter",
+                        validate_sql_where_clause,
+                        {"allow_identifier_delimiters": True},
+                    ),
                     (
                         f"{layer}_quarantine_row_filter",
                         validate_sql_where_clause,
-                        {},
+                        {"allow_identifier_delimiters": True},
                     ),
                 ]
                 for field, validator, kwargs in checks:
@@ -773,7 +821,10 @@ class OnboardDataflowspec:
             f"""onboarded bronze table={self.dict_obj["database"]}.{self.dict_obj["bronze_dataflowspec_table"]}"""
         )
         self.spark.read.table(
-            f"""{self.dict_obj["database"]}.{self.dict_obj["bronze_dataflowspec_table"]}"""
+            _quoted_table_name(
+                self.dict_obj["database"],
+                self.dict_obj["bronze_dataflowspec_table"],
+            )
         ).show()
 
     def register_silver_dataflow_spec_tables(self):
@@ -790,7 +841,10 @@ class OnboardDataflowspec:
             f"""onboarded silver table={self.dict_obj["database"]}.{self.dict_obj["silver_dataflowspec_table"]}"""
         )
         self.spark.read.table(
-            f"""{self.dict_obj["database"]}.{self.dict_obj["silver_dataflowspec_table"]}"""
+            _quoted_table_name(
+                self.dict_obj["database"],
+                self.dict_obj["silver_dataflowspec_table"],
+            )
         ).show()
 
     def onboard_silver_dataflow_spec(self):
@@ -927,6 +981,7 @@ class OnboardDataflowspec:
         silver_dataflow_spec_df = silver_dataflow_spec_df.select(silver_fields)
         database = dict_obj["database"]
         table = dict_obj["silver_dataflowspec_table"]
+        table_name = _quoted_table_name(database, table)
 
         if dict_obj["overwrite"] == "True":
             if self.uc_enabled:
@@ -934,7 +989,7 @@ class OnboardDataflowspec:
                     silver_dataflow_spec_df.write.format("delta")
                     .mode("overwrite")
                     .option("mergeSchema", "true")
-                    .saveAsTable(f"{database}.{table}")
+                    .saveAsTable(table_name)
                 )
             else:
                 silver_dataflow_spec_df.write.mode("overwrite").format("delta").option(
@@ -943,7 +998,7 @@ class OnboardDataflowspec:
         else:
             if self.uc_enabled:
                 original_dataflow_df = self.spark.read.format("delta").table(
-                    f"{database}.{table}"
+                    table_name
                 )
             else:
                 self.deltaPipelinesMetaStoreOps.register_table_in_metastore(
@@ -955,7 +1010,7 @@ class OnboardDataflowspec:
             logger.info("In Merge block for Silver")
             self.deltaPipelinesInternalTableOps.merge(
                 silver_dataflow_spec_df,
-                f"{database}.{table}",
+                table_name,
                 ["dataFlowId"],
                 original_dataflow_df.columns,
             )
@@ -1028,13 +1083,14 @@ class OnboardDataflowspec:
         bronze_dataflow_spec_df = bronze_dataflow_spec_df.select(bronze_fields)
         database = dict_obj["database"]
         table = dict_obj["bronze_dataflowspec_table"]
+        table_name = _quoted_table_name(database, table)
         if dict_obj["overwrite"] == "True":
             if self.uc_enabled:
                 (
                     bronze_dataflow_spec_df.write.format("delta")
                     .mode("overwrite")
                     .option("mergeSchema", "true")
-                    .saveAsTable(f"{database}.{table}")
+                    .saveAsTable(table_name)
                 )
             else:
                 (
@@ -1046,7 +1102,7 @@ class OnboardDataflowspec:
         else:
             if self.uc_enabled:
                 original_dataflow_df = self.spark.read.format("delta").table(
-                    f"{database}.{table}"
+                    table_name
                 )
             else:
                 self.deltaPipelinesMetaStoreOps.register_table_in_metastore(
@@ -1059,7 +1115,7 @@ class OnboardDataflowspec:
             logger.info("In Merge block for Bronze")
             self.deltaPipelinesInternalTableOps.merge(
                 bronze_dataflow_spec_df,
-                f"{database}.{table}",
+                table_name,
                 ["dataFlowId"],
                 original_dataflow_df.columns,
             )
@@ -1398,6 +1454,7 @@ class OnboardDataflowspec:
             # "bronze_reader_options",
         ]  # , f"bronze_table_path_{env}"
         for onboarding_row in onboarding_rows:
+            onboarding_row = self.__normalize_legacy_uc_names(onboarding_row, env)
             # Multi-source AUTO CDC (issue #294): an onboarding file may
             # contain a mix of bronze rows AND a separate silver-only
             # row (no bronze fields) that merges them via
@@ -2395,6 +2452,7 @@ class OnboardDataflowspec:
         ]  # f"silver_table_path_{env}",
 
         for onboarding_row in onboarding_rows:
+            onboarding_row = self.__normalize_legacy_uc_names(onboarding_row, env)
             # Multi-source AUTO CDC (issue #294): an onboarding file may
             # contain a mix of bronze-only rows (each defining its own
             # bronze CDC table) and a separate silver row that merges

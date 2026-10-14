@@ -148,17 +148,14 @@ pypi_version = dbutils.widgets.get("pypi_version").strip()
 validate_counts = dbutils.widgets.get("validate_counts").lower() == "true"
 cleanup = dbutils.widgets.get("cleanup").lower() == "true"
 
-# Reject illegal UC identifiers up-front. The demo notebook splices these
-# names directly into SQL throughout the rest of the cells, so any value
-# that isn't a regular SQL identifier would only blow up much later with
-# a confusing Spark error (issue #261).
+# Reject illegal UC identifiers up-front. The demo SQL boundary converts
+# valid raw UC names to SQL-delimited identifiers before submitting them.
 #
 # IMPORTANT: this cell runs *before* the %pip install of sdp-meta below,
 # so we cannot import ``databricks.labs.sdp_meta.identifiers`` here -- it
-# isn't on PYTHONPATH yet. We inline the same regular-SQL-identifier rule
-# that ``validate_uc_identifier`` enforces (``[A-Za-z_][A-Za-z0-9_]*``,
-# max 255 chars). The canonical, import-based check still happens after
-# the Python restart in cell 1.1.
+# isn't on PYTHONPATH yet. We inline its raw UC-name constraints. The
+# canonical, import-based check still happens after the Python restart in
+# cell 1.1.
 #
 # KEEP IN SYNC WITH src/databricks/labs/sdp_meta/identifiers.py
 # (``_REGULAR_IDENT_RE`` and ``_MAX_IDENT_LEN``). If the canonical regex
@@ -167,7 +164,7 @@ cleanup = dbutils.widgets.get("cleanup").lower() == "true"
 # the demo will reject names the rest of the codebase accepts (or vice
 # versa).
 import re as _re_preinstall
-_REGULAR_IDENT_RE_PREINSTALL = _re_preinstall.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_CONTROL_CHAR_RE_PREINSTALL = _re_preinstall.compile(r"[\x00-\x1f\x7f]")
 
 def _validate_uc_identifier_preinstall(name, *, kind):
     if not isinstance(name, str) or not name:
@@ -178,13 +175,17 @@ def _validate_uc_identifier_preinstall(name, *, kind):
         raise ValueError(
             f"{kind} {name!r} is {len(name)} characters; maximum allowed is 255"
         )
-    if not _REGULAR_IDENT_RE_PREINSTALL.match(name):
+    if (
+        "." in name
+        or " " in name
+        or "/" in name
+        or "`" in name
+        or _CONTROL_CHAR_RE_PREINSTALL.search(name)
+    ):
         raise ValueError(
-            f"{kind} {name!r} is not a valid Databricks SQL regular identifier. "
-            f"Names must match {_REGULAR_IDENT_RE_PREINSTALL.pattern} (letters, "
-            f"digits and underscores only; must start with a letter or "
-            f"underscore). Hyphens, periods, spaces and leading digits are not "
-            f"supported."
+            f"{kind} {name!r} is not a valid raw Unity Catalog identifier. "
+            "Use an unquoted single name; spaces, '/', dots, backticks, and "
+            "control characters are not allowed."
         )
 
 _validate_uc_identifier_preinstall(uc_catalog_name, kind="uc_catalog_name widget")
@@ -500,6 +501,26 @@ def _read_onboarding(path):
 conf_ext = "yml" if onboarding_format in ("yml", "yaml") else "json"
 
 
+def _sql_identifier(*parts):
+    return ".".join(f"`{part}`" for part in parts)
+
+
+def _run_sql(statement, *args, **kwargs):
+    """Run demo SQL after converting its known UC schema paths to SQL names."""
+    name_mappings = (
+        (f"{uc_catalog_name}.{uc_schema_name}", _sql_identifier(uc_catalog_name, uc_schema_name)),
+        (f"{uc_catalog_name}.{bronze_schema}", _sql_identifier(uc_catalog_name, bronze_schema)),
+        (f"{uc_catalog_name}.{silver_schema}", _sql_identifier(uc_catalog_name, silver_schema)),
+        (
+            f"{uc_catalog_name}.{pipeline_target_schema}",
+            _sql_identifier(uc_catalog_name, pipeline_target_schema),
+        ),
+    )
+    for raw_name, sql_name in sorted(name_mappings, key=lambda mapping: len(mapping[0]), reverse=True):
+        statement = statement.replace(raw_name, sql_name)
+    return spark.sql(statement, *args, **kwargs)
+
+
 def _write_conf(data, path):
     """Serialize a config dict/list as YAML or JSON based on the path suffix."""
     with open(path, "w") as fh:
@@ -522,13 +543,13 @@ silver_schema = f"{uc_schema_name}_silver"
 # via DataflowSpec so nothing is ever written here.
 pipeline_target_schema = f"{uc_schema_name}_pipeline_default"
 
-spark.sql(f"USE CATALOG {uc_catalog_name}")
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS {uc_schema_name}")
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS {bronze_schema}")
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS {silver_schema}")
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS {pipeline_target_schema}")
-spark.sql(f"USE SCHEMA {uc_schema_name}")
-spark.sql("CREATE VOLUME IF NOT EXISTS config")
+_run_sql(f"USE CATALOG {_sql_identifier(uc_catalog_name)}")
+_run_sql(f"CREATE SCHEMA IF NOT EXISTS {_sql_identifier(uc_schema_name)}")
+_run_sql(f"CREATE SCHEMA IF NOT EXISTS {_sql_identifier(bronze_schema)}")
+_run_sql(f"CREATE SCHEMA IF NOT EXISTS {_sql_identifier(silver_schema)}")
+_run_sql(f"CREATE SCHEMA IF NOT EXISTS {_sql_identifier(pipeline_target_schema)}")
+_run_sql(f"USE SCHEMA {_sql_identifier(uc_schema_name)}")
+_run_sql("CREATE VOLUME IF NOT EXISTS config")
 
 # Row-filter UDF (UC Row-Level Security). `bronze_row_filter` /
 # `silver_row_filter` in the onboarding spec is a *reference* to this
@@ -539,9 +560,9 @@ spark.sql("CREATE VOLUME IF NOT EXISTS config")
 # <= 100. With NUM_CUSTOMERS=200 in this demo, that's half the rows
 # for a non-admin reader -- a deterministic, visible signal that the
 # filter is in effect (Stage 12 verifies it).
-spark.sql(f"""
+_run_sql(f"""
     CREATE OR REPLACE FUNCTION
-        {uc_catalog_name}.{uc_schema_name}.customer_id_filter(cid INT)
+        {_sql_identifier(uc_catalog_name, uc_schema_name, 'customer_id_filter')}(cid INT)
     RETURNS BOOLEAN
     RETURN
         is_account_group_member('admins')
@@ -1633,7 +1654,7 @@ print("\nOnboarding complete!")
 
 # DBTITLE 1,Bronze DataflowSpec
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{uc_schema_name}"
         ".bronze_dataflowspec"
     )
@@ -1643,7 +1664,7 @@ display(
 
 # DBTITLE 1,Silver DataflowSpec
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{uc_schema_name}"
         ".silver_dataflowspec"
     )
@@ -1662,7 +1683,7 @@ display(
 # COMMAND ----------
 
 display(
-    spark.sql(
+    _run_sql(
         f"""
         SELECT
           dataFlowId,
@@ -1703,7 +1724,7 @@ import base64
 notebook_name = "sdp_meta_pipeline_runner"
 notebook_dir = (
     f"/Workspace/Users/"
-    f"{spark.sql('SELECT current_user()').first()[0]}"
+    f"{_run_sql('SELECT current_user()').first()[0]}"
     f"/sdp_meta_demo"
 )
 
@@ -1866,16 +1887,16 @@ for table in ["customers", "transactions"]:
         f"{uc_catalog_name}.{silver_schema}.{table}"
     )
 
-    bronze_count = spark.sql(
+    bronze_count = _run_sql(
         f"SELECT count(*) FROM {bronze_fqn}"
     ).first()[0]
     try:
-        quarantine_count = spark.sql(
+        quarantine_count = _run_sql(
             f"SELECT count(*) FROM {quarantine_fqn}"
         ).first()[0]
     except Exception:
         quarantine_count = 0
-    silver_count = spark.sql(
+    silver_count = _run_sql(
         f"SELECT count(*) FROM {silver_fqn}"
     ).first()[0]
 
@@ -1898,7 +1919,7 @@ display(spark.createDataFrame(summary_rows))
 
 # DBTITLE 1,Bronze Customers
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".customers LIMIT 10"
     )
@@ -1908,7 +1929,7 @@ display(
 
 # DBTITLE 1,Bronze Transactions
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".transactions LIMIT 10"
     )
@@ -1927,7 +1948,7 @@ display(
 
 # DBTITLE 1,Customers Quarantine
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".customers_quarantine LIMIT 20"
     )
@@ -1937,7 +1958,7 @@ display(
 
 # DBTITLE 1,Transactions Quarantine
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".transactions_quarantine LIMIT 20"
     )
@@ -1955,7 +1976,7 @@ display(
 
 # DBTITLE 1,Silver Customers (SCD Type 2)
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{silver_schema}"
         ".customers LIMIT 10"
     )
@@ -1965,7 +1986,7 @@ display(
 
 # DBTITLE 1,Silver Transactions (SCD Type 2)
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{silver_schema}"
         ".transactions LIMIT 10"
     )
@@ -2129,7 +2150,7 @@ print("Onboarding updated with products and stores!")
 
 # DBTITLE 1,Bronze DataflowSpec (4 feeds)
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT dataFlowId, sourceFormat, "
         f"targetDetails['table'] as target_table "
         f"FROM {uc_catalog_name}.{uc_schema_name}"
@@ -2141,7 +2162,7 @@ display(
 
 # DBTITLE 1,Silver DataflowSpec (4 feeds)
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT dataFlowId, "
         f"targetDetails['table'] as target_table "
         f"FROM {uc_catalog_name}.{uc_schema_name}"
@@ -2194,16 +2215,16 @@ for table in all_tables:
         f"{uc_catalog_name}.{silver_schema}.{table}"
     )
 
-    bronze_count = spark.sql(
+    bronze_count = _run_sql(
         f"SELECT count(*) FROM {bronze_fqn}"
     ).first()[0]
     try:
-        quarantine_count = spark.sql(
+        quarantine_count = _run_sql(
             f"SELECT count(*) FROM {quarantine_fqn}"
         ).first()[0]
     except Exception:
         quarantine_count = 0
-    silver_count = spark.sql(
+    silver_count = _run_sql(
         f"SELECT count(*) FROM {silver_fqn}"
     ).first()[0]
 
@@ -2221,7 +2242,7 @@ display(spark.createDataFrame(summary_rows))
 
 # DBTITLE 1,Bronze Products — Sample Data
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".products LIMIT 10"
     )
@@ -2231,7 +2252,7 @@ display(
 
 # DBTITLE 1,Bronze Stores — Sample Data
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".stores LIMIT 10"
     )
@@ -2241,7 +2262,7 @@ display(
 
 # DBTITLE 1,Products Quarantine
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".products_quarantine LIMIT 20"
     )
@@ -2251,7 +2272,7 @@ display(
 
 # DBTITLE 1,Stores Quarantine
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".stores_quarantine LIMIT 20"
     )
@@ -2261,7 +2282,7 @@ display(
 
 # DBTITLE 1,Silver Products
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{silver_schema}"
         ".products LIMIT 10"
     )
@@ -2271,7 +2292,7 @@ display(
 
 # DBTITLE 1,Silver Stores
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{silver_schema}"
         ".stores LIMIT 10"
     )
@@ -2394,16 +2415,16 @@ for table in all_tables:
         f"{uc_catalog_name}.{silver_schema}.{table}"
     )
 
-    bronze_count = spark.sql(
+    bronze_count = _run_sql(
         f"SELECT count(*) FROM {bronze_fqn}"
     ).first()[0]
     try:
-        quarantine_count = spark.sql(
+        quarantine_count = _run_sql(
             f"SELECT count(*) FROM {quarantine_fqn}"
         ).first()[0]
     except Exception:
         quarantine_count = 0
-    silver_count = spark.sql(
+    silver_count = _run_sql(
         f"SELECT count(*) FROM {silver_fqn}"
     ).first()[0]
 
@@ -2430,7 +2451,7 @@ display(spark.createDataFrame(summary_rows))
 # COMMAND ----------
 
 # DBTITLE 1,Silver Customers — SCD Type 2 History
-display(spark.sql(f"""
+display(_run_sql(f"""
   SELECT customer_id, full_name, email, address,
          __START_AT, __END_AT
   FROM {uc_catalog_name}.{silver_schema}.customers
@@ -2441,7 +2462,7 @@ display(spark.sql(f"""
 # COMMAND ----------
 
 # DBTITLE 1,Silver Transactions — SCD Type 2 History
-display(spark.sql(f"""
+display(_run_sql(f"""
   SELECT transaction_id, customer_id, product_id,
          store_id, __START_AT, __END_AT
   FROM {uc_catalog_name}.{silver_schema}.transactions
@@ -2452,7 +2473,7 @@ display(spark.sql(f"""
 # COMMAND ----------
 
 # DBTITLE 1,Silver Products — SCD Type 2 History
-display(spark.sql(f"""
+display(_run_sql(f"""
   SELECT product_id, name, price,
          __START_AT, __END_AT
   FROM {uc_catalog_name}.{silver_schema}.products
@@ -2463,7 +2484,7 @@ display(spark.sql(f"""
 # COMMAND ----------
 
 # DBTITLE 1,Silver Stores — SCD Type 2 History
-display(spark.sql(f"""
+display(_run_sql(f"""
   SELECT store_id, address, __START_AT, __END_AT
   FROM {uc_catalog_name}.{silver_schema}.stores
   ORDER BY store_id, __START_AT
@@ -2633,7 +2654,7 @@ run_pipeline_and_wait(w, pipeline_id, label="append flow orders")
 
 # DBTITLE 1,Bronze Orders (from both sources via append_flow)
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".orders LIMIT 20"
     )
@@ -2643,7 +2664,7 @@ display(
 
 # DBTITLE 1,Bronze Orders — Row Count
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT count(*) as total_rows "
         f"FROM {uc_catalog_name}.{bronze_schema}.orders"
     )
@@ -2653,7 +2674,7 @@ display(
 
 # DBTITLE 1,Silver Orders
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{silver_schema}"
         ".orders LIMIT 20"
     )
@@ -2705,13 +2726,13 @@ df = spark.read.format("csv").option("header", "true").load(
     f"{snapshot_data_path}/products/LOAD_1.csv"
 )
 df.write.format("delta").mode("overwrite").saveAsTable(
-    f"{snap_products_source_db}.{snap_products_source_table}"
+    _sql_identifier(uc_catalog_name, uc_schema_name, snap_products_source_table)
 )
 print(
     f"Source delta table created: "
     f"{snap_products_source_db}.{snap_products_source_table}"
 )
-display(spark.sql(
+display(_run_sql(
     f"SELECT * FROM {snap_products_source_db}"
     f".{snap_products_source_table}"
 ))
@@ -2988,7 +3009,7 @@ run_pipeline_and_wait(
 
 # DBTITLE 1,Bronze snap_products (Snapshot SCD Type 2)
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".snap_products LIMIT 20"
     )
@@ -2998,7 +3019,7 @@ display(
 
 # DBTITLE 1,Bronze snap_stores (Snapshot SCD Type 1)
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".snap_stores LIMIT 20"
     )
@@ -3008,7 +3029,7 @@ display(
 
 # DBTITLE 1,Silver snap_products
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{silver_schema}"
         ".snap_products LIMIT 20"
     )
@@ -3018,7 +3039,7 @@ display(
 
 # DBTITLE 1,Silver snap_stores
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{silver_schema}"
         ".snap_stores LIMIT 20"
     )
@@ -3050,7 +3071,7 @@ df2 = spark.read.format("csv").option(
     "products/LOAD_2.csv"
 )
 df2.write.format("delta").mode("overwrite").saveAsTable(
-    f"{snap_products_source_db}.{snap_products_source_table}"
+    _sql_identifier(uc_catalog_name, uc_schema_name, snap_products_source_table)
 )
 print("Updated source_products_delta with LOAD_2 data")
 
@@ -3075,7 +3096,7 @@ run_pipeline_and_wait(
 # COMMAND ----------
 
 # DBTITLE 1,Bronze snap_products — SCD Type 2 History
-display(spark.sql(f"""
+display(_run_sql(f"""
   SELECT product_id, name, price,
          __START_AT, __END_AT
   FROM {uc_catalog_name}.{bronze_schema}.snap_products
@@ -3086,7 +3107,7 @@ display(spark.sql(f"""
 # COMMAND ----------
 
 # DBTITLE 1,Bronze snap_stores — SCD Type 1 (latest only)
-display(spark.sql(f"""
+display(_run_sql(f"""
   SELECT *
   FROM {uc_catalog_name}.{bronze_schema}.snap_stores
   LIMIT 20
@@ -3095,7 +3116,7 @@ display(spark.sql(f"""
 # COMMAND ----------
 
 # DBTITLE 1,Silver snap_products (current rows only via where_clause)
-display(spark.sql(f"""
+display(_run_sql(f"""
   SELECT *
   FROM {uc_catalog_name}.{silver_schema}.snap_products
   LIMIT 20
@@ -3104,7 +3125,7 @@ display(spark.sql(f"""
 # COMMAND ----------
 
 # DBTITLE 1,Silver snap_stores
-display(spark.sql(f"""
+display(_run_sql(f"""
   SELECT *
   FROM {uc_catalog_name}.{silver_schema}.snap_stores
   LIMIT 20
@@ -3297,7 +3318,7 @@ run_pipeline_and_wait(
 
 # DBTITLE 1,Bronze IoT Events
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".iot_events LIMIT 20"
     )
@@ -3816,7 +3837,7 @@ run_pipeline_and_wait(
 
 # DBTITLE 1,Bronze — customers_us_cdc (US raw shape)
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".customers_us_cdc"
     )
@@ -3826,7 +3847,7 @@ display(
 
 # DBTITLE 1,Bronze — customers_eu_cdc (EU raw shape, different column names)
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".customers_eu_cdc"
     )
@@ -3836,7 +3857,7 @@ display(
 
 # DBTITLE 1,Bronze — customers_apac_cdc (APAC raw shape, op codes I/U/D)
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT * FROM {uc_catalog_name}.{bronze_schema}"
         ".customers_apac_cdc"
     )
@@ -3846,7 +3867,7 @@ display(
 
 # DBTITLE 1,Silver — customers_regional (unified, post-CDC, normalized)
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT customer_id, firstname, lastname, email, "
         f"address, region "
         f"FROM {uc_catalog_name}.{silver_schema}.customers_regional "
@@ -3858,7 +3879,7 @@ display(
 
 # DBTITLE 1,Per-Region Live Counts (proves per-flow select_exp ran)
 display(
-    spark.sql(
+    _run_sql(
         f"SELECT region, count(*) AS live_rows "
         f"FROM {uc_catalog_name}.{silver_schema}.customers_regional "
         f"GROUP BY region "
@@ -3875,7 +3896,7 @@ display(
 # MAGIC `bronze_row_filter` and `silver_row_filter` set to:
 # MAGIC
 # MAGIC ```
-# MAGIC ROW FILTER ${uc_catalog_name}.${uc_schema_name}.customer_id_filter ON (customer_id)
+# MAGIC ROW FILTER `${uc_catalog_name}`.`${uc_schema_name}`.`customer_id_filter` ON (customer_id)
 # MAGIC ```
 # MAGIC
 # MAGIC The UDF — created in **Stage 1.2** before the pipeline ran — is:
@@ -3895,13 +3916,13 @@ display(
 
 # DBTITLE 1,Verify the row filter is enforced
 print("Row filter UDF:")
-display(spark.sql(f"""
+display(_run_sql(f"""
     DESCRIBE FUNCTION EXTENDED
     {uc_catalog_name}.{uc_schema_name}.customer_id_filter
 """))
 
 print("\nFiltered customers — bronze (rows visible to current user):")
-bronze_filtered = spark.sql(f"""
+bronze_filtered = _run_sql(f"""
     SELECT
         SUM(CASE WHEN customer_id <= 100 THEN 1 ELSE 0 END) AS within_filter,
         SUM(CASE WHEN customer_id  > 100 THEN 1 ELSE 0 END) AS outside_filter,
@@ -3915,7 +3936,7 @@ print(
 )
 
 print("\nFiltered customers — silver (rows visible to current user):")
-silver_filtered = spark.sql(f"""
+silver_filtered = _run_sql(f"""
     SELECT
         SUM(CASE WHEN customer_id <= 100 THEN 1 ELSE 0 END) AS within_filter,
         SUM(CASE WHEN customer_id  > 100 THEN 1 ELSE 0 END) AS outside_filter,
@@ -3930,7 +3951,7 @@ print(
 
 # Sanity check (only meaningful for non-admins; admins legitimately see
 # the unfiltered set, so we don't fail the demo for them).
-running_as_admin = spark.sql(
+running_as_admin = _run_sql(
     "SELECT is_account_group_member('admins') AS is_admin"
 ).first().is_admin
 if not running_as_admin:
@@ -4074,7 +4095,7 @@ OnboardDataflowspec(
     spark=spark, dict_obj=onboarding_params, uc_enabled=True
 ).onboard_bronze_dataflow_spec()
 
-inferred_spec = spark.sql(f"""
+inferred_spec = _run_sql(f"""
     SELECT `schema`, sourceDetails, readerConfigOptions
     FROM {uc_catalog_name}.{uc_schema_name}.bronze_dataflowspec
     WHERE dataFlowId = 'schema-evolution-events'
@@ -4175,7 +4196,10 @@ run_pipeline_and_wait(
 inferred_table_fqn = (
     f"{uc_catalog_name}.{bronze_schema}.events_inferred"
 )
-inferred_schema = spark.table(inferred_table_fqn).schema
+inferred_table_sql_name = _sql_identifier(
+    uc_catalog_name, bronze_schema, "events_inferred"
+)
+inferred_schema = spark.table(inferred_table_sql_name).schema
 inferred_physical_types = {
     field.name: field.dataType.simpleString()
     for field in inferred_schema.fields
@@ -4195,14 +4219,14 @@ for column_name, expected_type in expected_hinted_types.items():
         f"got {actual_type}"
     )
 
-phase_1_count = spark.sql(
+phase_1_count = _run_sql(
     f"SELECT count(*) AS c FROM {inferred_table_fqn}"
 ).first().c
 assert phase_1_count == 3, (
     f"Phase 1 expected 3 rows, got {phase_1_count}"
 )
 print(f"Validated hinted physical types: {expected_hinted_types}")
-display(spark.table(inferred_table_fqn).orderBy("event_id"))
+display(spark.table(inferred_table_sql_name).orderBy("event_id"))
 
 # COMMAND ----------
 
@@ -4289,7 +4313,7 @@ for attempt in range(1, 3):
 
 # COMMAND ----------
 
-evolved_schema = spark.table(inferred_table_fqn).schema
+evolved_schema = spark.table(inferred_table_sql_name).schema
 evolved_types = {
     field.name: field.dataType.simpleString()
     for field in evolved_schema.fields
@@ -4298,7 +4322,7 @@ assert evolved_types.get("device_type") == "string", (
     "Auto Loader did not add device_type as a STRING column"
 )
 
-evolution_result = spark.sql(f"""
+evolution_result = _run_sql(f"""
     SELECT
         count(*) AS total_rows,
         count_if(device_type IS NOT NULL) AS evolved_column_rows,
@@ -4316,7 +4340,7 @@ assert evolution_result.rescued_rows == 1, (
     "Expected exactly one non-null _rescued_data value, got "
     f"{evolution_result.rescued_rows}"
 )
-rescued_payload = spark.sql(f"""
+rescued_payload = _run_sql(f"""
     SELECT _rescued_data
     FROM {inferred_table_fqn}
     WHERE _rescued_data IS NOT NULL
@@ -4331,7 +4355,7 @@ print(
     f"rescued_rows={evolution_result.rescued_rows}"
 )
 display(
-    spark.sql(f"""
+    _run_sql(f"""
         SELECT event_id, event_ts, amount, region, device_type,
                _rescued_data
         FROM {inferred_table_fqn}
@@ -4389,7 +4413,7 @@ for table, feature, b_schema, s_schema in all_tables_final:
             f"{uc_catalog_name}.{b_schema}.{table}"
         )
         try:
-            bronze_count = spark.sql(
+            bronze_count = _run_sql(
                 f"SELECT count(*) FROM {bronze_fqn}"
             ).first()[0]
         except Exception:
@@ -4402,7 +4426,7 @@ for table, feature, b_schema, s_schema in all_tables_final:
             f".{table}_quarantine"
         )
         try:
-            quarantine_count = spark.sql(
+            quarantine_count = _run_sql(
                 f"SELECT count(*) FROM {quarantine_fqn}"
             ).first()[0]
         except Exception:
@@ -4414,7 +4438,7 @@ for table, feature, b_schema, s_schema in all_tables_final:
             f"{uc_catalog_name}.{s_schema}.{table}"
         )
         try:
-            silver_count = spark.sql(
+            silver_count = _run_sql(
                 f"SELECT count(*) FROM {silver_fqn}"
             ).first()[0]
         except Exception:
@@ -4514,7 +4538,7 @@ else:
         in pipeline wiring or in data routing.
         """
         try:
-            return spark.sql(
+            return _run_sql(
                 f"SELECT count(*) AS c FROM {fqn}"
             ).first().c
         except Exception:
@@ -4603,7 +4627,7 @@ else:
     try:
         optional_rows = {
             row.dataFlowId: row
-            for row in spark.sql(
+            for row in _run_sql(
                 f"""
                 SELECT dataFlowId, dataQualityExpectations,
                        quarantineTargetDetails
@@ -4691,7 +4715,7 @@ else:
     )
     _expect_exact(inferred_smoke_fqn, 5)
     try:
-        inferred_smoke = spark.sql(f"""
+        inferred_smoke = _run_sql(f"""
             SELECT
                 count_if(device_type IS NOT NULL)
                     AS evolved_column_rows,
@@ -4712,7 +4736,7 @@ else:
                 f"{inferred_smoke.rescued_rows}"
             )
         else:
-            rescued_smoke_payload = spark.sql(f"""
+            rescued_smoke_payload = _run_sql(f"""
                 SELECT _rescued_data
                 FROM {inferred_smoke_fqn}
                 WHERE _rescued_data IS NOT NULL
@@ -4838,7 +4862,7 @@ def _cleanup_demo_resources():
     ]:
         fqn = f"{uc_catalog_name}.{schema}"
         try:
-            spark.sql(f"DROP SCHEMA IF EXISTS {fqn} CASCADE")
+            _run_sql(f"DROP SCHEMA IF EXISTS {fqn} CASCADE")
             print(f"  Dropped schema: {fqn}")
         except Exception as exc:
             print(f"  Could not drop schema {fqn}: {exc}")

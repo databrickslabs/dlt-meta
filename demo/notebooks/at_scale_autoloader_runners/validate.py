@@ -1,6 +1,10 @@
 # Databricks notebook source
 from pyspark.sql import functions as F
 
+
+def _sql_name(*parts):
+    return ".".join(f"`{part}`" for part in parts)
+
 dbutils.widgets.text("uc_catalog_name", "")
 dbutils.widgets.text("sdp_meta_schema", "")
 dbutils.widgets.text("bronze_schema", "")
@@ -40,7 +44,7 @@ expected_tables = {table_identity(index) for index in range(1, table_count + 1)}
 def schema_table_names(schema):
     return {
         row["tableName"]
-        for row in spark.sql(f"SHOW TABLES IN {catalog}.{schema}").collect()
+        for row in spark.sql(f"SHOW TABLES IN {_sql_name(catalog, schema)}").collect()
     }
 
 
@@ -56,10 +60,10 @@ if missing_silver:
 # COMMAND ----------
 
 bronze_specs = spark.table(
-    f"{catalog}.{meta_schema}.bronze_dataflowspec_cdc"
+    _sql_name(catalog, meta_schema, "bronze_dataflowspec_cdc")
 ).where(F.col("dataFlowGroup") == "AT_SCALE_AUTOLOADER")
 silver_specs = spark.table(
-    f"{catalog}.{meta_schema}.silver_dataflowspec_cdc"
+    _sql_name(catalog, meta_schema, "silver_dataflowspec_cdc")
 ).where(F.col("dataFlowGroup") == "AT_SCALE_AUTOLOADER")
 
 if bronze_specs.count() != table_count:
@@ -89,7 +93,7 @@ if schema_counts.get(False, 0) != table_count - explicit_count:
 
 # COMMAND ----------
 
-hinted = spark.table(f"{catalog}.{bronze_schema}.{hinted_table}")
+hinted = spark.table(_sql_name(catalog, bronze_schema, hinted_table))
 hinted_types = {
     field.name: field.dataType.simpleString()
     for field in hinted.schema.fields
@@ -106,7 +110,7 @@ for column, expected_type in {
             f"got {hinted_types.get(column)}"
         )
 
-explicit = spark.table(f"{catalog}.{bronze_schema}.{explicit_table}")
+explicit = spark.table(_sql_name(catalog, bronze_schema, explicit_table))
 explicit_types = {
     field.name: field.dataType.simpleString()
     for field in explicit.schema.fields
@@ -127,7 +131,7 @@ if phase == "1" and "device_type" in hinted_types:
 
 # COMMAND ----------
 
-quarantine_fqn = f"{catalog}.{bronze_schema}.orders_quarantine"
+quarantine_fqn = _sql_name(catalog, bronze_schema, "orders_quarantine")
 quarantine = spark.table(quarantine_fqn)
 if quarantine.count() != 1:
     raise AssertionError(
@@ -136,7 +140,7 @@ if quarantine.count() != 1:
 if quarantine.where(F.col("event_id").isNotNull()).count() != 0:
     raise AssertionError("The quarantine row should have a null event_id")
 
-silver_orders = spark.table(f"{catalog}.{silver_schema}.orders")
+silver_orders = spark.table(_sql_name(catalog, silver_schema, "orders"))
 required_custom_columns = {"customer_name", "customer_tier", "loaded_at"}
 missing_custom_columns = required_custom_columns - set(silver_orders.columns)
 if missing_custom_columns:
@@ -157,7 +161,7 @@ if tiers != {1: "gold", 2: "platinum", 3: "bronze"}:
 # COMMAND ----------
 
 if phase == "2":
-    evolved = spark.table(f"{catalog}.{bronze_schema}.{hinted_table}")
+    evolved = spark.table(_sql_name(catalog, bronze_schema, hinted_table))
     evolved_types = {
         field.name: field.dataType.simpleString()
         for field in evolved.schema.fields
@@ -179,7 +183,7 @@ if phase == "2":
         )
 
     gold = spark.table(
-        f"{catalog}.{gold_schema}.orders_by_tier_region"
+        _sql_name(catalog, gold_schema, "orders_by_tier_region")
     )
     gold_order_count = gold.agg(F.sum("order_count")).first()[0]
     if gold_order_count != 4:

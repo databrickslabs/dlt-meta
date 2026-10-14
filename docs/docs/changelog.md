@@ -8,6 +8,18 @@ sidebar_position: 99
 
 ---
 
+## Unreleased
+
+### New Features
+
+- **Unity Catalog special-character names** — catalog, schema, table, view,
+  and volume identifiers may use UC-valid characters such as hyphens and
+  leading digits. SDP-META accepts raw names, generates SQL-delimited names
+  at Spark/Lakeflow boundaries, and normalizes legacy backtick-delimited
+  configuration during upgrades.
+
+---
+
 ## v0.1.1
 
 ### New Features

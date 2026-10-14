@@ -10,8 +10,18 @@ from pyspark.sql.functions import col, lit, row_number
 from pyspark.sql.session import SparkSession
 from pyspark.sql.window import Window
 
+from databricks.labs.sdp_meta.identifiers import (
+    normalize_legacy_delimited_full_name,
+    to_sql_full_name,
+)
+
 logger = logging.getLogger("sdp-meta")
 logger.setLevel(logging.INFO)
+
+
+def _normalize_legacy_delimited_full_name(name: str) -> str:
+    """Normalize historic raw, fully quoted, or mixed SQL table names."""
+    return normalize_legacy_delimited_full_name(name, kind="dataflowspec table")
 
 
 def _coerce_scd_type_to_str(payload: dict) -> dict:
@@ -378,7 +388,13 @@ class DataflowSpecUtils:
 
         if not dataflow_spec_df:
             dataflow_spec_table = spark.conf.get(f"{layer}.dataflowspecTable")
-            dataflow_spec_df = spark.read.table(dataflow_spec_table)
+            dataflow_spec_df = spark.read.table(
+                to_sql_full_name(
+                    _normalize_legacy_delimited_full_name(dataflow_spec_table),
+                    kind="dataflowspec table",
+                    max_parts=3,
+                )
+            )
 
         if group:
             dataflow_spec_df = dataflow_spec_df.where(col("dataFlowGroup") == lit(group))

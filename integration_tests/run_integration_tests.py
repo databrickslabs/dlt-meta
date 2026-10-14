@@ -302,9 +302,12 @@ class SDPMETARunner:
             run_id=run_id,
             username=self.wsi._my_username,
             uc_catalog_name=self.args["uc_catalog_name"],
-            sdp_meta_schema=f"sdp_meta_dataflowspecs_it_{run_id}",
-            bronze_schema=f"dlt_meta_bronze_it_{run_id}",
-            silver_schema=f"sdp_meta_silver_it_{run_id}",
+            # Intentionally use UC-valid hyphens. This keeps the live
+            # integration suite exercising SQL-delimited catalog/schema
+            # handling rather than only regular identifiers.
+            sdp_meta_schema=f"sdp-meta-dataflowspecs-it-{run_id}",
+            bronze_schema=f"dlt-meta-bronze-it-{run_id}",
+            silver_schema=f"sdp-meta-silver-it-{run_id}",
             runners_nb_path=f"/Users/{self.wsi._my_username}/dlt_meta_int_tests/{run_id}",
             source=self.args["source"] if "source" in self.args else None,
             onboarding_file_format=(
@@ -413,6 +416,14 @@ class SDPMETARunner:
         ------
         Exception -  If the pipeline creation fails.
         """
+        if layer == "bronze_silver" and self.args.get("legacy_publishing_mode"):
+            raise ValueError(
+                "multi_source_cdc cannot run with --legacy_publishing_mode: "
+                "legacy publishing has one target schema per pipeline, but "
+                "this combined pipeline publishes bronze and silver tables "
+                "to separate schemas. Use DPM or a source with separate "
+                "bronze and silver pipelines."
+            )
         configuration = {
             "layer": layer,
             "sdp_meta_whl": runner_conf.remote_whl_path,
@@ -439,6 +450,11 @@ class SDPMETARunner:
                 f"{runner_conf.uc_catalog_name}.{runner_conf.sdp_meta_schema}.{layer}_dataflowspec_cdc"
             )
 
+        publishing_target = (
+            {"target": target_schema}
+            if self.args.get("legacy_publishing_mode")
+            else {"schema": target_schema}
+        )
         created = create_pipeline(
             self.ws,
             catalog=runner_conf.uc_catalog_name,
@@ -452,7 +468,7 @@ class SDPMETARunner:
                     )
                 )
             ],
-            schema=target_schema,
+            **publishing_target,
         )
 
         if created is None:
@@ -1426,13 +1442,23 @@ def process_arguments() -> dict[str:str]:
             parser.add_argument(
                 f"--{arg[0]}", help=arg[1], type=arg[2], required=arg[3]
             )
+    parser.add_argument(
+        "--legacy_publishing_mode",
+        action="store_true",
+        help="Create test pipelines with legacy target= publishing rather than DPM schema=.",
+    )
     args = vars(parser.parse_args())
 
-    # Validate UC identifiers up-front so the run fails fast with a clear
-    # error message instead of crashing later inside CREATE SCHEMA / CREATE
-    # VOLUME / spark.read.table when a hyphenated catalog or other illegal
-    # name was passed (issue #261). Strictly regular SQL identifiers only.
+    # Validate the raw UC identifier up-front. SQL/Spark boundaries in the
+    # framework delimiter-quote valid names that require it.
     validate_uc_identifier(args["uc_catalog_name"], kind="--uc_catalog_name")
+
+    if args["legacy_publishing_mode"] and args["source"] == "multi_source_cdc":
+        raise ValueError(
+            "multi_source_cdc cannot run with --legacy_publishing_mode: "
+            "its combined bronze/silver pipeline requires DPM to publish "
+            "to separate schemas."
+        )
 
     def check_cond_mandatory_arg(args, mandatory_args):
         """Post argument parsing check for conditionally required arguments"""

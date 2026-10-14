@@ -1,6 +1,8 @@
 """DataflowPipeline provide generic code using dataflowspec."""
 import json
 import logging
+import hashlib
+import re
 from functools import wraps
 from typing import Callable, Optional
 import ast
@@ -9,6 +11,11 @@ from pyspark.sql import DataFrame
 from pyspark.sql.functions import expr, struct
 from pyspark.sql.types import StructType, StructField
 from databricks.labs.sdp_meta.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec, DataflowSpecUtils
+from databricks.labs.sdp_meta.identifiers import (
+    normalize_legacy_delimited_full_name,
+    to_sql_full_name,
+    to_sql_identifier,
+)
 from databricks.labs.sdp_meta.pipeline_writers import AppendFlowWriter, DLTSinkWriter
 from databricks.labs.sdp_meta.__about__ import __version__
 from databricks.labs.sdp_meta.pipeline_readers import PipelineReaders
@@ -509,14 +516,14 @@ class DataflowPipeline:
         """Get Silver table Schema."""
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
         source_details = self._get_source_details()
-        source_cl = source_details.get('catalog', None)
-        source_cl_name = f"{source_cl}." if source_cl is not None else ''
-        source_database = source_details["database"]
-        source_table = source_details["table"]
         select_exp = silver_dataflow_spec.selectExp
         where_clause = silver_dataflow_spec.whereClause
         raw_delta_table_stream = self.spark.readStream.table(
-            f"{source_cl_name}{source_database}.{source_table}"
+            self._build_fully_qualified_table_name(
+                source_details.get("catalog"),
+                source_details["database"],
+                source_details["table"],
+            )
         ).selectExpr(*select_exp) if self.uc_enabled else self.spark.readStream.load(
             path=source_details.get("path"),
             format="delta"
@@ -546,16 +553,17 @@ class DataflowPipeline:
         silver_dataflow_spec: SilverDataflowSpec = self.dataflowSpec
         source_details = self._get_source_details()
         reader_config_opts = self._get_reader_config_options()
-        source_cl = source_details.get('catalog', None)
-        source_cl_name = f"{source_cl}." if source_cl is not None else ''
-        source_database = source_details["database"]
-        source_table = source_details["table"]
+        source_table_name = self._build_fully_qualified_table_name(
+            source_details.get("catalog"),
+            source_details["database"],
+            source_details["table"],
+        )
         select_exp = silver_dataflow_spec.selectExp
         where_clause = silver_dataflow_spec.whereClause
         if reader_config_opts:
             if silver_dataflow_spec.sourceFormat == "snapshot":
                 bronze_df = self.spark.read.options(**reader_config_opts).table(
-                    f"{source_cl_name}{source_database}.{source_table}"
+                    source_table_name
                 ) if self.uc_enabled else self.spark.read.options(
                     **reader_config_opts
                 ).load(
@@ -564,7 +572,7 @@ class DataflowPipeline:
                 )
             else:
                 bronze_df = self.spark.readStream.options(**reader_config_opts).table(
-                    f"{source_cl_name}{source_database}.{source_table}"
+                    source_table_name
                 ) if self.uc_enabled else self.spark.readStream.options(
                     **reader_config_opts
                 ).load(
@@ -574,14 +582,14 @@ class DataflowPipeline:
         else:
             if silver_dataflow_spec.sourceFormat == "snapshot":
                 bronze_df = self.spark.read.table(
-                    f"{source_cl_name}{source_database}.{source_table}"
+                    source_table_name
                 ) if self.uc_enabled else self.spark.read.load(
                     path=source_details.get("path"),
                     format="delta"
                 )
             else:
                 bronze_df = self.spark.readStream.table(
-                    f"{source_cl_name}{source_database}.{source_table}"
+                    source_table_name
                 ) if self.uc_enabled else self.spark.readStream.load(
                     path=source_details.get("path"),
                     format="delta"
@@ -787,11 +795,10 @@ class DataflowPipeline:
                     if isinstance(self.dataflowSpec, BronzeDataflowSpec)
                     else self.silver_schema
                 )
-            target_details = self._get_target_details()
 
             append_flow_writer = AppendFlowWriter(
                 self.spark, append_flow,
-                target_details['table'],
+                self._get_target_table_name(),
                 struct_schema,
                 self.dataflowSpec.tableProperties,
                 self.dataflowSpec.partitionColumns,
@@ -1093,32 +1100,33 @@ class DataflowPipeline:
                     and dataflowSpec.quarantineTargetDetails != {}:
 
                 qrt_cl = dataflowSpec.quarantineTargetDetails.get('catalog', None)
-                qrt_db = dataflowSpec.quarantineTargetDetails['database'].replace('.', '_')
+                qrt_db = dataflowSpec.quarantineTargetDetails['database']
                 qrt_table = dataflowSpec.quarantineTargetDetails['table']
                 if not DataflowPipeline._is_dpm_enabled(spark):
-                    quarantine_input_view_name = f"{qrt_table}_{layer}_quarantine_inputview"
-                else:
-                    qrt_cl_str = f"{qrt_cl}_" if qrt_cl is not None else ''
-                    quarantine_input_view_name = (
-                        f"{qrt_cl_str}{qrt_db}_{qrt_table}"
-                        f"_{layer}_quarantine_inputview"
+                    quarantine_input_view_name = DataflowPipeline._internal_view_name(
+                        qrt_table, layer, "quarantine_inputview"
                     )
-                    quarantine_input_view_name = quarantine_input_view_name.replace(".", "").lower()
+                else:
+                    quarantine_input_view_name = DataflowPipeline._internal_view_name(
+                        qrt_cl, qrt_db, qrt_table, layer, "quarantine_inputview"
+                    )
             else:
                 logger.info("quarantine_input_view_name set to None")
             target_cl = dataflowSpec.targetDetails.get('catalog', None)
-            target_db = dataflowSpec.targetDetails['database'].replace('.', '_')
+            target_db = dataflowSpec.targetDetails['database']
             target_table = dataflowSpec.targetDetails['table']
             # In legacy publishing mode all tables live in the LIVE virtual schema,
             # so view names must NOT include the catalog/database prefix — they must
             # match exactly what dp.temporary_view registered. In DPM, keep the full
             # prefix so names stay unique across catalogs/schemas.
             if not DataflowPipeline._is_dpm_enabled(spark):
-                target_view_name = f"{target_table}_{layer}_inputview"
+                target_view_name = DataflowPipeline._internal_view_name(
+                    target_table, layer, "inputview"
+                )
             else:
-                target_cl_str = f"{target_cl}_" if target_cl is not None else ''
-                target_view_name = f"{target_cl_str}{target_db}_{target_table}_{layer}_inputview"
-                target_view_name = target_view_name.replace(".", "").lower()
+                target_view_name = DataflowPipeline._internal_view_name(
+                    target_cl, target_db, target_table, layer, "inputview"
+                )
             dlt_data_flow = DataflowPipeline(
                 spark,
                 dataflowSpec,
@@ -1136,14 +1144,38 @@ class DataflowPipeline:
         return bool(spark.conf.get("pipelines.schema", "").strip())
 
     @staticmethod
+    def _internal_view_name(*parts):
+        """Create a regular, collision-resistant name for an internal DLT view."""
+        raw_name = "_".join(str(part) for part in parts if part is not None).lower()
+        safe_name = re.sub(r"[^a-z0-9_]", "_", raw_name)
+        if not safe_name or safe_name[0].isdigit():
+            safe_name = f"_{safe_name}"
+        if safe_name != raw_name:
+            suffix = hashlib.sha1(raw_name.encode("utf-8")).hexdigest()[:8]
+            safe_name = f"{safe_name}_{suffix}"
+        return safe_name
+
+    @staticmethod
     def _build_fully_qualified_table_name(catalog, database, table):
         """Build catalog.schema.table (or schema.table without catalog).
 
         Source table reads are not Lakeflow dataset declarations, so they must
         stay qualified even when output datasets run in legacy publishing mode.
         """
-        catalog_prefix = f"{catalog}." if catalog else ''
-        return f"{catalog_prefix}{database}.{table}"
+        database_name = to_sql_full_name(
+            normalize_legacy_delimited_full_name(database, kind="source database"),
+            kind="source database",
+            max_parts=2,
+        )
+        table_name = to_sql_identifier(
+            normalize_legacy_delimited_full_name(table, kind="source table"),
+            kind="source table",
+        )
+        catalog_prefix = (
+            f"{to_sql_identifier(normalize_legacy_delimited_full_name(catalog, kind='source catalog'), kind='source catalog')}."
+            if catalog else ""
+        )
+        return f"{catalog_prefix}{database_name}.{table_name}"
 
     def _build_table_name(self, catalog, database, table):
         """Build a table name appropriate for the pipeline's publishing mode.
@@ -1155,9 +1187,24 @@ class DataflowPipeline:
         Default publishing mode (DPM): returns fully-qualified catalog.schema.table.
         """
         if self.is_legacy_publishing_mode:
-            return table
-        catalog_prefix = f"{catalog}." if catalog else ''
-        return f"{catalog_prefix}{database}.{table}"
+            return to_sql_identifier(
+                normalize_legacy_delimited_full_name(table, kind="target table"),
+                kind="target table",
+            )
+        database_name = to_sql_full_name(
+            normalize_legacy_delimited_full_name(database, kind="target database"),
+            kind="target database",
+            max_parts=2,
+        )
+        table_name = to_sql_identifier(
+            normalize_legacy_delimited_full_name(table, kind="target table"),
+            kind="target table",
+        )
+        catalog_prefix = (
+            f"{to_sql_identifier(normalize_legacy_delimited_full_name(catalog, kind='target catalog'), kind='target catalog')}."
+            if catalog else ""
+        )
+        return f"{catalog_prefix}{database_name}.{table_name}"
 
     def _get_source_table_info(self):
         """Extract source table information."""

@@ -157,11 +157,8 @@ class DeployServerSideValidationTests(unittest.TestCase):
         body = resp.get_json()
         self.assertIn("pipeline_name", body["error"])
 
-    def test_malformed_uc_identifiers_rejected(self):
-        """Every UC identifier the form supplies is validated, not just the
-        catalog: a hyphen (legal in UC, illegal for unquoted SQL splicing)
-        in the spec schema, target schema, or a dataflowspec table name must
-        return 400 (issue #261)."""
+    def test_hyphenated_uc_identifiers_are_accepted(self):
+        """Raw UC names requiring SQL delimiter quoting are accepted."""
         for field, bad_value in (
             ("uc_catalog_name", "my-catalog"),
             ("spc_schema_name", "bad-schema"),
@@ -174,9 +171,9 @@ class DeployServerSideValidationTests(unittest.TestCase):
                 data[field] = bad_value
                 resp = self.client.post("/deploy", data=data)
                 self.assertEqual(
-                    resp.status_code, 400, resp.get_data(as_text=True)
+                    resp.status_code, 200, resp.get_data(as_text=True)
                 )
-                self.assertIn("identifier", resp.get_json()["error"])
+                self.assertIn("token", resp.get_json())
 
 
 class DeployPayloadKeyMappingTests(unittest.TestCase):

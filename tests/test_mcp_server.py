@@ -334,20 +334,18 @@ class BundleInitToolTests(unittest.TestCase):
         self.assertEqual(kwargs.get("overrides"), {"uc_catalog_name": "acme_prod"})
 
     @patch("databricks.labs.sdp_meta.bundle.bundle_init")
-    def test_quickstart_invalid_override_is_rejected(self, mock_bundle_init):
-        # A hyphenated catalog must fail before bundle_init runs. Here we do
-        # NOT mock write_quickstart_config_file, so its real validation fires.
+    def test_quickstart_hyphenated_catalog_override_is_accepted(self, mock_bundle_init):
         out_dir = self.root / "qs2"
-        with self.assertRaisesRegex(ValueError, "uc_catalog_name"):
-            mcp_server.call_tool(
-                "sdp_meta_bundle_init",
-                {
-                    "output_dir": str(out_dir),
-                    "quickstart": True,
-                    "overrides": {"uc_catalog_name": "bad-catalog"},
-                },
-            )
-        mock_bundle_init.assert_not_called()
+        mock_bundle_init.return_value = 0
+        mcp_server.call_tool(
+            "sdp_meta_bundle_init",
+            {
+                "output_dir": str(out_dir),
+                "quickstart": True,
+                "overrides": {"uc_catalog_name": "bad-catalog"},
+            },
+        )
+        mock_bundle_init.assert_called_once()
 
     @patch("databricks.labs.sdp_meta.bundle.bundle_init")
     def test_non_quickstart_requires_config_file(self, mock_bundle_init):

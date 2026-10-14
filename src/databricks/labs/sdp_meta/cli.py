@@ -417,10 +417,8 @@ class DeployCommand:
             raise ValueError("pipeline_name is required")
         if not self.dlt_target_schema:
             raise ValueError("dlt_target_schema is required")
-        # Issue #261: catalog / schema / table names are spliced into SQL
-        # identifiers downstream (e.g. `spark.read.table(<dataflowspecTable>)`),
-        # so reject anything that can't be safely emitted before the pipeline
-        # is even created.
+        # Keep raw UC names in CLI configuration; SQL/Spark boundaries apply
+        # delimiter quoting to every validated segment.
         validate_uc_identifier(self.dlt_target_schema, kind="dlt_target_schema")
         if self.uc_enabled:
             validate_uc_identifier(self.uc_catalog_name, kind="uc_catalog_name")

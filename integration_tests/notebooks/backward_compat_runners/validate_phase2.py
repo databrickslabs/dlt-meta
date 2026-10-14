@@ -42,6 +42,10 @@ from importlib.metadata import PackageNotFoundError, version
 
 import pandas as pd
 
+
+def to_sql_full_name(name, kind="identifier"):
+    return ".".join(f"`{part}`" for part in name.split("."))
+
 run_id = dbutils.widgets.get("run_id")
 uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
 bronze_schema = dbutils.widgets.get("bronze_schema")
@@ -120,7 +124,9 @@ budgets = {
     f"{uc_catalog_name}.{bronze_schema}.transactions": phase2_transaction_delta,
 }
 for table, expected_delta in budgets.items():
-    actual = spark.sql(f"SELECT count(*) AS cnt FROM {table}").collect()[0].cnt
+    actual = spark.sql(
+        f"SELECT count(*) AS cnt FROM {to_sql_full_name(table, kind='validation table')}"
+    ).collect()[0].cnt
     prior = phase1_counts.get(table, 0)
     growth = int(actual) - int(prior)
     if growth >= expected_delta:
@@ -143,7 +149,11 @@ silver_tables = [
     f"{uc_catalog_name}.{silver_schema}.transactions",
 ]
 for table in silver_tables:
-    actual = int(spark.sql(f"SELECT count(*) AS cnt FROM {table}").collect()[0].cnt)
+    actual = int(
+        spark.sql(
+            f"SELECT count(*) AS cnt FROM {to_sql_full_name(table, kind='validation table')}"
+        ).collect()[0].cnt
+    )
     prior = int(phase1_counts.get(table, 0))
     # Silver `customers` is an append flow target -> count must grow.
     # Silver `transactions` is CDC SCD-1 -> count may stay flat (dedup
@@ -167,8 +177,12 @@ log_list.append(
     f"by {target_ref}..."
 )
 
-bronze_table = f"{uc_catalog_name}.{sdp_meta_schema}.bronze_dataflowspec"
-silver_table = f"{uc_catalog_name}.{sdp_meta_schema}.silver_dataflowspec"
+bronze_table = to_sql_full_name(
+    f"{uc_catalog_name}.{sdp_meta_schema}.bronze_dataflowspec"
+)
+silver_table = to_sql_full_name(
+    f"{uc_catalog_name}.{sdp_meta_schema}.silver_dataflowspec"
+)
 
 if phase2_append_onboarding:
     expected_new_fields = {

@@ -15,3 +15,4 @@ Complete technical reference documentation for SDP-META.
 | [Data Quality Rules Schema](./dq-rules) | Schema reference for the DQE rules files — `expect`, `expect_or_drop`, and `expect_or_fail` constraint types |
 | [CLI Commands](./cli-commands) | Full reference for all `databricks labs sdp-meta` commands, flags, and usage examples |
 | [DAB Bundle Parameters](./dab-parameters) | Reference for DAB bundle scaffold prompts and `resources/variables.yml` keys |
+| [Unity Catalog Naming](./uc-naming) | Supported UC object names, raw configuration syntax, and SQL identifier mapping |

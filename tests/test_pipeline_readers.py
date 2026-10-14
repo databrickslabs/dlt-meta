@@ -320,6 +320,25 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         customer_df = pipeline_readers.read_dlt_delta()
         self.assertIsNotNone(customer_df)
 
+    def test_read_delta_normalizes_legacy_delimited_source_names(self):
+        mock_spark = MagicMock()
+        reader = PipelineReaders(
+            mock_spark,
+            "delta",
+            {
+                "source_catalog": "`my-catalog`",
+                "source_database": "`landing-zone`",
+                "source_table": "`customer-orders`",
+            },
+            {},
+        )
+
+        reader.read_dlt_delta()
+
+        mock_spark.readStream.table.assert_called_once_with(
+            "`my-catalog`.`landing-zone`.`customer-orders`"
+        )
+
     def test_read_delta_with_read_config_positive(self):
         """Test read_cloud_files positive."""
         bronze_map = PipelineReadersTests.bronze_dataflow_spec_map

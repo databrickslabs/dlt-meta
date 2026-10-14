@@ -106,6 +106,7 @@ See the **[DLT-META → SDP-META migration guide](https://databrickslabs.github.
 - [Documentation](https://databrickslabs.github.io/sdp-meta/)
 - [Video: SDP-Meta Deep-Dive](https://youtu.be/Z0CYboIzp9M)
 - [FAQ](https://databrickslabs.github.io/sdp-meta/docs/faq)
+- [Unity Catalog Naming](https://databrickslabs.github.io/sdp-meta/docs/reference/uc-naming)
 - [Migration Guide](https://databrickslabs.github.io/sdp-meta/docs/operations/migration)
 - [Release Notes](CHANGELOG.md)
 - [GitHub Issues](https://github.com/databrickslabs/sdp-meta/issues)

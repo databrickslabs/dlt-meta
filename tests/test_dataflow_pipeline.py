@@ -10,6 +10,7 @@ from pyspark.sql.functions import lit, expr
 import pyspark.sql.types as T
 from pyspark.sql import DataFrame
 from tests.utils import SDPFrameworkTestCase
+from unittest import TestCase
 from unittest.mock import MagicMock, patch
 from databricks.labs.sdp_meta.dataflow_spec import BronzeDataflowSpec, SilverDataflowSpec
 
@@ -32,6 +33,34 @@ dp.append_flow = MagicMock(return_value=lambda func: func)
 dp.expect_all = MagicMock(return_value=lambda func: func)
 dp.temporary_view = MagicMock(return_value=lambda func: func)
 raw_delta_table_stream = MagicMock()
+
+
+class IdentifierQuotingTests(TestCase):
+    def test_source_table_name_quotes_each_uc_segment(self):
+        self.assertEqual(
+            DataflowPipeline._build_fully_qualified_table_name(
+                "cdlp-gsc-glb-manufacturing-dev",
+                "raw-zone",
+                "customer-orders",
+            ),
+            "`cdlp-gsc-glb-manufacturing-dev`.`raw-zone`.`customer-orders`",
+        )
+
+    def test_source_table_name_normalizes_legacy_delimited_segments(self):
+        self.assertEqual(
+            DataflowPipeline._build_fully_qualified_table_name(
+                "`cdlp-gsc-glb-manufacturing-dev`",
+                "`raw-zone`",
+                "`customer-orders`",
+            ),
+            "`cdlp-gsc-glb-manufacturing-dev`.`raw-zone`.`customer-orders`",
+        )
+
+    def test_internal_view_name_sanitizes_special_characters(self):
+        name = DataflowPipeline._internal_view_name(
+            "cdlp-gsc", "raw-zone", "customer-orders", "bronze", "inputview"
+        )
+        self.assertRegex(name, r"^[a-z_][a-z0-9_]*$")
 
 
 class DataflowPipelineTests(SDPFrameworkTestCase):
@@ -845,11 +874,11 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         if expect_or_quarantine_dict:
             _, quarantine_kwargs = mock_dlt_table.call_args_list[-1]
             quarantine_target_details = pipeline._get_quarantine_target_details()
-            q_cl = quarantine_target_details.get('catalog', None)
-            q_cl_name = f"{q_cl}." if q_cl is not None else ''
-            q_db = quarantine_target_details.get('database', '')
-            q_table_name = quarantine_target_details.get('table', '')
-            expected_quarantine_table = f"{q_cl_name}{q_db}.{q_table_name}"
+            expected_quarantine_table = pipeline._build_table_name(
+                quarantine_target_details.get("catalog"),
+                quarantine_target_details.get("database", ""),
+                quarantine_target_details.get("table", ""),
+            )
             self.assertEqual(quarantine_kwargs["name"], expected_quarantine_table)
 
     @patch.object(DataflowPipeline, 'get_silver_schema', new_callable=MagicMock)
@@ -908,9 +937,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         mock_create_streaming_table.assert_called_once_with(None, target_path)
         mock_create_auto_cdc_flow.assert_called_once()
         _, kwargs = mock_create_auto_cdc_flow.call_args
-        target_database = silver_dataflow_spec.targetDetails['database']
-        target_table_name = silver_dataflow_spec.targetDetails['table']
-        expected_target = f"{target_database}.{target_table_name}"
+        expected_target = pipeline._get_target_table_name()
         self.assertEqual(kwargs["target"], expected_target)
         self.assertEqual(kwargs["source"], view_name)
         self.assertEqual(kwargs["keys"], cdc_apply_changes.keys)
@@ -978,9 +1005,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         self.assertEqual(args[1], bronze_dataflow_spec.targetDetails["path"])
         mock_create_auto_cdc_flow.assert_called_once()
         _, kwargs = mock_create_auto_cdc_flow.call_args
-        target_database = bronze_dataflow_spec.targetDetails['database']
-        target_table_name = bronze_dataflow_spec.targetDetails['table']
-        expected_target = f"{target_database}.{target_table_name}"
+        expected_target = pipeline._get_target_table_name()
         self.assertEqual(kwargs["target"], expected_target)
         self.assertEqual(kwargs["source"], view_name)
         self.assertEqual(kwargs["keys"], cdc_apply_changes.keys)
@@ -1035,9 +1060,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         self.assertEqual(args[1], bronze_dataflow_spec.targetDetails["path"])
         mock_create_auto_cdc_flow.assert_called_once()
         _, kwargs = mock_create_auto_cdc_flow.call_args
-        target_database = bronze_dataflow_spec.targetDetails['database']
-        target_table_name = bronze_dataflow_spec.targetDetails['table']
-        expected_target = f"{target_database}.{target_table_name}"
+        expected_target = pipeline._get_target_table_name()
         self.assertEqual(kwargs["target"], expected_target)
         self.assertEqual(kwargs["source"], view_name)
         self.assertEqual(kwargs["keys"], cdc_apply_changes.keys)
@@ -1100,7 +1123,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         struct_schema = json.loads(bronze_dataflow_spec.schema)
         append_flows = DataflowSpecUtils.get_append_flows(bronze_dataflow_spec.appendFlows)
         pipeline.write_bronze()
-        target_table = bronze_dataflow_spec.targetDetails["table"]
+        target_table = pipeline._get_target_table_name()
         flows_with_streaming = [flow for flow in append_flows if flow.create_streaming_table]
         self.assertEqual(mock_dlt_create_streaming_table.call_count, len(flows_with_streaming))
         for call, append_flow in zip(mock_dlt_create_streaming_table.call_args_list, flows_with_streaming):
@@ -1930,7 +1953,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
 
         result = pipeline._build_table_name("my_catalog", "my_database", "my_table")
-        self.assertEqual(result, "my_catalog.my_database.my_table")
+        self.assertEqual(result, "`my_catalog`.`my_database`.`my_table`")
 
     def test_build_table_name_without_catalog(self):
         """Test _build_table_name without catalog."""
@@ -1940,10 +1963,10 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         pipeline = DataflowPipeline(self.spark, bronze_dataflow_spec, "test_view")
 
         result = pipeline._build_table_name(None, "my_database", "my_table")
-        self.assertEqual(result, "my_database.my_table")
+        self.assertEqual(result, "`my_database`.`my_table`")
 
         result = pipeline._build_table_name("", "my_database", "my_table")
-        self.assertEqual(result, "my_database.my_table")
+        self.assertEqual(result, "`my_database`.`my_table`")
 
     @patch('pyspark.sql.SparkSession.readStream', new_callable=MagicMock)
     def test_create_dataframe_reader_streaming(self, mock_read_stream_property):
@@ -2245,7 +2268,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
 
         # Test _get_source_table_info
         source_table_name, source_details = pipeline._get_source_table_info()
-        self.assertEqual(source_table_name, "test_catalog.test_db.test_table")
+        self.assertEqual(source_table_name, "`test_catalog`.`test_db`.`test_table`")
         self.assertIn("catalog", source_details)
 
         # Test _get_target_table_name
@@ -2731,9 +2754,11 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         pipeline.write_layer_with_dqe()
 
         # Quarantine table name comes from spec.quarantineTargetDetails (no catalog -> "<db>.<table>").
-        q_db = spec.quarantineTargetDetails["database"]
-        q_table = spec.quarantineTargetDetails["table"]
-        expected_quarantine_table = f"{q_db}.{q_table}"
+        expected_quarantine_table = pipeline._build_table_name(
+            spec.quarantineTargetDetails.get("catalog"),
+            spec.quarantineTargetDetails["database"],
+            spec.quarantineTargetDetails["table"],
+        )
 
         quarantine_calls = [
             call for call in mock_dlt.table.call_args_list
@@ -2771,9 +2796,11 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         pipeline = DataflowPipeline(self.spark, spec, view_name, None)
         pipeline.write_layer_with_dqe()
 
-        q_db = spec.quarantineTargetDetails["database"]
-        q_table = spec.quarantineTargetDetails["table"]
-        expected_quarantine_table = f"{q_db}.{q_table}"
+        expected_quarantine_table = pipeline._build_table_name(
+            spec.quarantineTargetDetails.get("catalog"),
+            spec.quarantineTargetDetails["database"],
+            spec.quarantineTargetDetails["table"],
+        )
         quarantine_calls = [
             call for call in mock_dlt.table.call_args_list
             if call.kwargs.get("name") == expected_quarantine_table
@@ -2806,16 +2833,8 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
         pipeline = DataflowPipeline(self.spark, spec, view_name, None)
         return pipeline, spec
 
-    def _expected_target_table_name(self, spec):
-        """Produce the fully-qualified target table name in the same shape
-        that `_get_target_table_info` uses (catalog optional)."""
-        td = spec.targetDetails
-        if td.get("catalog"):
-            return f"{td['catalog']}.{td['database']}.{td['table']}"
-        return f"{td['database']}.{td['table']}"
-
-    def _assert_main_table_row_filter(self, mock_dlt, spec, expected_filter):
-        target_table = self._expected_target_table_name(spec)
+    def _assert_main_table_row_filter(self, mock_dlt, pipeline, expected_filter):
+        target_table = pipeline._get_target_table_name()
         main_calls = [
             call for call in mock_dlt.table.call_args_list
             if call.kwargs.get("name") == target_table
@@ -2839,7 +2858,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
             {"expect_all": {"valid_id": "id IS NOT NULL"}}
         )
         pipeline.write_layer_with_dqe()
-        self._assert_main_table_row_filter(mock_dlt, spec, self.ROW_FILTER_REGION)
+        self._assert_main_table_row_filter(mock_dlt, pipeline, self.ROW_FILTER_REGION)
 
     @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     def test_write_layer_with_dqe_expect_all_or_fail_passes_row_filter(self, mock_dlt):
@@ -2854,7 +2873,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
             {"expect_all_or_fail": {"valid_id": "id IS NOT NULL"}}
         )
         pipeline.write_layer_with_dqe()
-        self._assert_main_table_row_filter(mock_dlt, spec, self.ROW_FILTER_REGION)
+        self._assert_main_table_row_filter(mock_dlt, pipeline, self.ROW_FILTER_REGION)
 
     @patch('databricks.labs.sdp_meta.dataflow_pipeline.dp')
     def test_write_layer_with_dqe_expect_all_or_drop_passes_row_filter(self, mock_dlt):
@@ -2869,7 +2888,7 @@ class DataflowPipelineTests(SDPFrameworkTestCase):
             {"expect_all_or_drop": {"valid_id": "id IS NOT NULL"}}
         )
         pipeline.write_layer_with_dqe()
-        self._assert_main_table_row_filter(mock_dlt, spec, self.ROW_FILTER_REGION)
+        self._assert_main_table_row_filter(mock_dlt, pipeline, self.ROW_FILTER_REGION)
 
     # ------------------------------------------------------------------
     # Multi-source AUTO CDC runtime tests (issue #294)
@@ -3333,23 +3352,35 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
 
     # ── _build_table_name ────────────────────────────────────────────────────
 
-    def test_build_table_name_legacy_returns_bare_name(self):
+    def test_build_table_name_legacy_returns_delimited_bare_name(self):
         """In legacy mode, _build_table_name returns only the table name."""
         pipeline = self._make_pipeline(pipeline_schema="")
         result = pipeline._build_table_name("dev_bronze", "gracis", "actionplans")
-        self.assertEqual(result, "actionplans")
+        self.assertEqual(result, "`actionplans`")
+
+    def test_build_table_name_legacy_normalizes_legacy_delimited_name(self):
+        pipeline = self._make_pipeline(pipeline_schema="")
+        result = pipeline._build_table_name("`dev_bronze`", "`gracis`", "`actionplans`")
+        self.assertEqual(result, "`actionplans`")
 
     def test_build_table_name_dpm_returns_qualified_name(self):
         """In DPM mode, _build_table_name returns catalog.schema.table."""
         pipeline = self._make_pipeline(pipeline_schema="target_schema")
         result = pipeline._build_table_name("dev_bronze", "gracis", "actionplans")
-        self.assertEqual(result, "dev_bronze.gracis.actionplans")
+        self.assertEqual(result, "`dev_bronze`.`gracis`.`actionplans`")
+
+    def test_build_table_name_dpm_normalizes_legacy_delimited_name(self):
+        pipeline = self._make_pipeline(pipeline_schema="target_schema")
+        result = pipeline._build_table_name(
+            "`dev-bronze`", "`target-schema`", "`customer-orders`"
+        )
+        self.assertEqual(result, "`dev-bronze`.`target-schema`.`customer-orders`")
 
     def test_build_table_name_dpm_no_catalog_returns_schema_table(self):
         """In DPM mode with no catalog, _build_table_name returns schema.table."""
         pipeline = self._make_pipeline(pipeline_schema="target_schema")
         result = pipeline._build_table_name(None, "gracis", "actionplans")
-        self.assertEqual(result, "gracis.actionplans")
+        self.assertEqual(result, "`gracis`.`actionplans`")
 
     def test_source_table_info_legacy_keeps_qualified_source_name(self):
         """Legacy output mode must not strip qualifiers from source table reads."""
@@ -3365,19 +3396,19 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
             },
         )
         source_table, _ = pipeline._get_source_table_info()
-        self.assertEqual(source_table, "source_catalog.source_schema.source_table")
+        self.assertEqual(source_table, "`source_catalog`.`source_schema`.`source_table`")
 
     # ── dp.create_streaming_table name argument ───────────────────────────────
 
     @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
-    def test_create_streaming_table_legacy_uses_bare_name(self, mock_dp):
+    def test_create_streaming_table_legacy_uses_delimited_bare_name(self, mock_dp):
         """create_streaming_table passes bare table name in legacy publishing mode."""
         mock_dp.create_streaming_table = MagicMock()
         pipeline = self._make_pipeline(pipeline_schema="")
         pipeline.create_streaming_table(None, target_path=None)
         mock_dp.create_streaming_table.assert_called_once()
         _, kwargs = mock_dp.create_streaming_table.call_args
-        self.assertEqual(kwargs["name"], "actionplans")
+        self.assertEqual(kwargs["name"], "`actionplans`")
 
     @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
     def test_create_streaming_table_dpm_uses_qualified_name(self, mock_dp):
@@ -3387,19 +3418,19 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         pipeline.create_streaming_table(None, target_path=None)
         mock_dp.create_streaming_table.assert_called_once()
         _, kwargs = mock_dp.create_streaming_table.call_args
-        self.assertEqual(kwargs["name"], "dev_bronze.gracis.actionplans")
+        self.assertEqual(kwargs["name"], "`dev_bronze`.`gracis`.`actionplans`")
 
     # ── dp.table name argument (standard bronze/silver write) ────────────────
 
     @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
-    def test_write_standard_table_legacy_uses_bare_name(self, mock_dp):
+    def test_write_standard_table_legacy_uses_delimited_bare_name(self, mock_dp):
         """dp.table receives bare table name in legacy publishing mode."""
         mock_dp.table = MagicMock(return_value=lambda fn: fn)
         pipeline = self._make_pipeline(pipeline_schema="")
         pipeline._write_standard_table(is_bronze=True)
         mock_dp.table.assert_called_once()
         _, kwargs = mock_dp.table.call_args
-        self.assertEqual(kwargs["name"], "actionplans")
+        self.assertEqual(kwargs["name"], "`actionplans`")
 
     @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
     def test_write_standard_table_dpm_uses_qualified_name(self, mock_dp):
@@ -3409,13 +3440,13 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         pipeline._write_standard_table(is_bronze=True)
         mock_dp.table.assert_called_once()
         _, kwargs = mock_dp.table.call_args
-        self.assertEqual(kwargs["name"], "dev_bronze.gracis.actionplans")
+        self.assertEqual(kwargs["name"], "`dev_bronze`.`gracis`.`actionplans`")
 
     # ── Quarantine table name ─────────────────────────────────────────────────
 
     @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
-    def test_quarantine_table_legacy_uses_bare_name(self, mock_dp):
-        """Quarantine dp.table call uses bare table name in legacy mode."""
+    def test_quarantine_table_legacy_uses_delimited_bare_name(self, mock_dp):
+        """Quarantine dp.table call uses a delimited bare name in legacy mode."""
         mock_dp.table = MagicMock(return_value=lambda fn: fn)
         mock_dp.expect_all_or_drop = MagicMock(return_value=lambda fn: fn)
         dqe = json.dumps({"expect_or_quarantine": {"valid_id": "id IS NOT NULL"}})
@@ -3427,12 +3458,11 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         quarantine_calls = [
             kwargs["name"]
             for _, kwargs in mock_dp.table.call_args_list
-            if kwargs.get("name", "").endswith("quarantine")
-            or kwargs.get("name", "") == "actionplans_quarantine"
+            if "quarantine" in kwargs.get("name", "")
         ]
         self.assertTrue(
-            any(n == "actionplans_quarantine" for n in quarantine_calls),
-            f"Expected bare quarantine name, got calls: {mock_dp.table.call_args_list}",
+            any(n == "`actionplans_quarantine`" for n in quarantine_calls),
+            f"Expected delimited quarantine name, got calls: {mock_dp.table.call_args_list}",
         )
 
     @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
@@ -3452,14 +3482,14 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
             if "quarantine" in kwargs.get("name", "")
         ]
         self.assertTrue(
-            any(n == "dev_bronze.gracis.actionplans_quarantine" for n in quarantine_calls),
+            any(n == "`dev_bronze`.`gracis`.`actionplans_quarantine`" for n in quarantine_calls),
             f"Expected qualified quarantine name, got: {quarantine_calls}",
         )
 
     # ── cdc_apply_changes target name ─────────────────────────────────────────
 
     @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
-    def test_cdc_apply_changes_legacy_uses_bare_name(self, mock_dp):
+    def test_cdc_apply_changes_legacy_uses_delimited_bare_name(self, mock_dp):
         """dp.create_auto_cdc_flow target= is bare table name in legacy mode."""
         mock_dp.create_streaming_table = MagicMock()
         mock_dp.create_auto_cdc_flow = MagicMock()
@@ -3474,7 +3504,7 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         )
         pipeline.cdc_apply_changes()
         _, kwargs = mock_dp.create_auto_cdc_flow.call_args
-        self.assertEqual(kwargs["target"], "actionplans")
+        self.assertEqual(kwargs["target"], "`actionplans`")
 
     @patch("databricks.labs.sdp_meta.dataflow_pipeline.dp")
     def test_cdc_apply_changes_dpm_uses_qualified_name(self, mock_dp):
@@ -3492,7 +3522,7 @@ class LegacyPublishingModeTests(SDPFrameworkTestCase):
         )
         pipeline.cdc_apply_changes()
         _, kwargs = mock_dp.create_auto_cdc_flow.call_args
-        self.assertEqual(kwargs["target"], "dev_bronze.gracis.actionplans")
+        self.assertEqual(kwargs["target"], "`dev_bronze`.`gracis`.`actionplans`")
 
     # ── View name construction in _launch_dlt_flow ────────────────────────────
     # These tests patch _launch_dlt_flow internals by calling invoke_dlt_pipeline

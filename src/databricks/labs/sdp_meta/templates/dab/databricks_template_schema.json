@@ -13,33 +13,33 @@
       "order": 2,
       "type": "string",
       "default": "main",
-      "description": "Unity Catalog catalog name where the sdp-meta metadata schema and target bronze/silver schemas live.",
-      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
-      "pattern_match_failure_message": "uc_catalog_name must be a regular SQL identifier (letters, digits, underscores; must start with a letter or underscore). Hyphens and other special characters are not supported by sdp-meta — see https://docs.databricks.com/aws/en/sql/language-manual/sql-ref-identifiers"
+      "description": "Raw Unity Catalog catalog name where the sdp-meta metadata schema and target bronze/silver schemas live. Do not include SQL backticks; SDP-META applies delimiter quoting where required.",
+      "pattern": "^[^.`/ \\x00-\\x1f\\x7f]+$",
+      "pattern_match_failure_message": "uc_catalog_name cannot contain periods, spaces, '/', backticks, or control characters."
     },
     "sdp_meta_schema": {
       "order": 3,
       "type": "string",
       "default": "sdp_meta_dataflowspecs",
-      "description": "Schema (inside `uc_catalog_name`) where the sdp-meta bronze_dataflowspec / silver_dataflowspec tables are written.",
-      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
-      "pattern_match_failure_message": "sdp_meta_schema must be a regular SQL identifier (letters, digits, underscores; must start with a letter or underscore)."
+      "description": "Raw schema name (inside `uc_catalog_name`) where the sdp-meta bronze_dataflowspec / silver_dataflowspec tables are written. Do not include SQL backticks.",
+      "pattern": "^[^.`/ \\x00-\\x1f\\x7f]+$",
+      "pattern_match_failure_message": "sdp_meta_schema cannot contain periods, spaces, '/', backticks, or control characters."
     },
     "bronze_target_schema": {
       "order": 4,
       "type": "string",
       "default": "sdp_meta_bronze",
-      "description": "Schema where the bronze SDP-META pipeline writes its tables.",
-      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
-      "pattern_match_failure_message": "bronze_target_schema must be a regular SQL identifier (letters, digits, underscores; must start with a letter or underscore)."
+      "description": "Raw schema name where the bronze SDP-META pipeline writes its tables. Do not include SQL backticks.",
+      "pattern": "^[^.`/ \\x00-\\x1f\\x7f]+$",
+      "pattern_match_failure_message": "bronze_target_schema cannot contain periods, spaces, '/', backticks, or control characters."
     },
     "silver_target_schema": {
       "order": 5,
       "type": "string",
       "default": "sdp_meta_silver",
-      "description": "Schema where the silver SDP-META pipeline writes its tables.",
-      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
-      "pattern_match_failure_message": "silver_target_schema must be a regular SQL identifier (letters, digits, underscores; must start with a letter or underscore)."
+      "description": "Raw schema name where the silver SDP-META pipeline writes its tables. Do not include SQL backticks.",
+      "pattern": "^[^.`/ \\x00-\\x1f\\x7f]+$",
+      "pattern_match_failure_message": "silver_target_schema cannot contain periods, spaces, '/', backticks, or control characters."
     },
     "layer": {
       "order": 6,

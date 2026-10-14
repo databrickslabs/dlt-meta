@@ -112,8 +112,8 @@ The notebook is fully driven by widgets at the top — same ones the headless la
 | Widget | Choices / default | Purpose |
 |---|---|---|
 | `git_branch` | text, default `main` | Branch to install SDP-META from when `install_source=git_branch`. Also used as the GitHub branch for the conf-file fallback if the notebook is imported standalone. |
-| `uc_catalog_name` | text, default `sdp_meta_demo` | UC catalog the demo writes into. Must be a Databricks SQL **regular identifier** (`[A-Za-z_][A-Za-z0-9_]*`, max 255 chars). Hyphens / dots are rejected up-front (issue #261). |
-| `uc_schema_name` | text, default `retail_data` | Schema within the catalog. Same identifier rules as above. The demo creates `<schema>_bronze`, `<schema>_silver`, `<schema>_pipeline_default` underneath. |
+| `uc_catalog_name` | text, default `sdp_meta_demo` | UC catalog the demo writes into. Raw UC names may include hyphens or start with digits; dots, spaces, slashes, backticks, and control characters are rejected. See [Unity Catalog Naming](../docs/docs/reference/uc-naming.md). |
+| `uc_schema_name` | text, default `retail_data` | Schema within the catalog. Follows the same [UC naming rules](../docs/docs/reference/uc-naming.md). The demo creates `<schema>_bronze`, `<schema>_silver`, `<schema>_pipeline_default` underneath. |
 | `data_source` | dropdown `dbdatagen` (default) / `github` | `dbdatagen` generates synthetic retail data with `dbldatagen` (no internet needed); `github` downloads fixed CSVs from the sdp-meta repo (requires outbound internet from the workspace). |
 | `onboarding_format` | dropdown `json` (default) / `yml` | Whether the rendered onboarding spec + silver-transformations files are written as JSON or YAML. The demo reads back the matching `demo/conf/<format>/sample_onboarding.<ext>` template. |
 | `install_source` | dropdown `git_branch` (default) / `whl_file` | Where to install SDP-META from. `git_branch` runs `pip install git+https://github.com/databrickslabs/sdp-meta.git@<git_branch>`; `whl_file` runs `pip install <whl_file_path>` against a Volume / Workspace path. Use `whl_file` when validating local changes that aren't pushed yet. |

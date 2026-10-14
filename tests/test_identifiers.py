@@ -1,11 +1,8 @@
 """Tests for `databricks.labs.sdp_meta.identifiers`.
 
-The helper rejects anything that isn't a regular SQL identifier so the
-rest of the codebase can splice these names into SQL strings without
-having to think about quoting (issue #261). The tests pin both the
-acceptance set (regular identifiers) and the rejection set (hyphens,
-periods, spaces, leading digits, backticks, control chars, empty,
-oversized, non-string).
+UC object names are raw configuration values. They may require SQL
+delimiter quoting at execution boundaries; columns and SQL-expression
+identifiers remain regular identifiers.
 """
 from __future__ import annotations
 
@@ -15,6 +12,8 @@ from databricks.labs.sdp_meta.identifiers import (
     SUPPORTED_SCD_TYPES,
     SUPPORTED_SOURCE_FORMATS,
     is_regular_identifier,
+    to_sql_full_name,
+    to_sql_identifier,
     validate_scd_type,
     validate_sequence_by,
     validate_source_format,
@@ -57,34 +56,32 @@ class ValidateUcIdentifierAcceptsTests(unittest.TestCase):
         self.assertEqual(validate_uc_identifier("_x"), "_x")
         self.assertEqual(validate_uc_identifier("Schema123"), "Schema123")
         self.assertEqual(validate_uc_identifier("a_b_c"), "a_b_c")
+        self.assertEqual(validate_uc_identifier("my-catalog"), "my-catalog")
+        self.assertEqual(validate_uc_identifier("9lives"), "9lives")
 
     def test_max_length_accepted(self):
         validate_uc_identifier("a" * 255, kind="catalog")
 
 
 class ValidateUcIdentifierRejectsTests(unittest.TestCase):
-    def test_hyphen_rejected(self):
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
-            validate_uc_identifier("my-catalog", kind="uc_catalog_name")
-
     def test_period_rejected(self):
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+        with self.assertRaisesRegex(ValueError, r"unquoted single name"):
             validate_uc_identifier("bad.name", kind="uc_catalog_name")
 
     def test_space_rejected(self):
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+        with self.assertRaisesRegex(ValueError, r"spaces"):
             validate_uc_identifier("data lake", kind="uc_catalog_name")
 
-    def test_leading_digit_rejected(self):
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
-            validate_uc_identifier("9lives", kind="uc_catalog_name")
+    def test_forward_slash_rejected(self):
+        with self.assertRaisesRegex(ValueError, r"spaces, '/'"):
+            validate_uc_identifier("catalog/schema", kind="uc_catalog_name")
 
     def test_backtick_rejected(self):
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+        with self.assertRaisesRegex(ValueError, r"unquoted single name"):
             validate_uc_identifier("bad`name", kind="uc_catalog_name")
 
     def test_control_char_rejected(self):
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+        with self.assertRaisesRegex(ValueError, r"unquoted single name"):
             validate_uc_identifier("bad\x00name", kind="uc_catalog_name")
 
     def test_too_long_rejected(self):
@@ -111,8 +108,19 @@ class ValidateUcIdentifierRejectsTests(unittest.TestCase):
         # Make the error message actionable by pointing to the upstream
         # SQL identifier rules so the user knows the *why*.
         with self.assertRaises(ValueError) as ctx:
-            validate_uc_identifier("my-cat", kind="uc_catalog_name")
+            validate_uc_identifier("my.cat", kind="uc_catalog_name")
         self.assertIn("sql-ref-identifiers", str(ctx.exception))
+
+
+class QuoteUcIdentifierTests(unittest.TestCase):
+    def test_quotes_raw_name(self):
+        self.assertEqual(to_sql_identifier("my-catalog"), "`my-catalog`")
+
+    def test_quotes_each_part_of_full_name(self):
+        self.assertEqual(
+            to_sql_full_name("my-catalog.my-schema.orders"),
+            "`my-catalog`.`my-schema`.`orders`",
+        )
 
 
 class ValidateUcColumnListTests(unittest.TestCase):
@@ -159,19 +167,19 @@ class ValidateUcColumnListTests(unittest.TestCase):
         )
 
     def test_hyphen_in_comma_string_rejected(self):
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+        with self.assertRaisesRegex(ValueError, r"regular SQL identifier"):
             validate_uc_column_list(
                 "col1,bad-col", kind="bronze_partition_columns"
             )
 
     def test_hyphen_in_list_rejected(self):
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+        with self.assertRaisesRegex(ValueError, r"regular SQL identifier"):
             validate_uc_column_list(
                 ["col1", "bad-col"], kind="bronze_cluster_by"
             )
 
     def test_leading_digit_in_stringified_list_rejected(self):
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+        with self.assertRaisesRegex(ValueError, r"regular SQL identifier"):
             validate_uc_column_list(
                 "['1col', 'col2']", kind="bronze_cluster_by"
             )
@@ -373,7 +381,7 @@ class ValidateSequenceByTests(unittest.TestCase):
         self.assertEqual(validate_sequence_by(value), value)
 
     def test_hyphenated_column_rejected(self):
-        with self.assertRaisesRegex(ValueError, r"not a valid"):
+        with self.assertRaisesRegex(ValueError, r"regular SQL identifier"):
             validate_sequence_by("bad-col")
 
     def test_trailing_comma_rejected(self):
@@ -449,6 +457,13 @@ class ValidateSqlWhereClauseTests(unittest.TestCase):
     def test_backtick_rejected(self):
         with self.assertRaisesRegex(ValueError, r"'`'"):
             validate_sql_where_clause("1=1 AND `evil`.col=1")
+
+    def test_backtick_allowed_for_delimited_row_filter_identifier(self):
+        value = "ROW FILTER `my-catalog`.`my-schema`.`region_filter` ON (region)"
+        self.assertEqual(
+            validate_sql_where_clause(value, allow_identifier_delimiters=True),
+            value,
+        )
 
     def test_union_rejected(self):
         with self.assertRaisesRegex(ValueError, r"'UNION'"):

@@ -175,9 +175,9 @@ class AtScaleWorkflowTests(TestCase):
         self.assertEqual(args["onboarding_file_format"], "json")
         self.assertTrue(args["keep_resources"])
 
-    def test_cli_rejects_catalog_name_that_is_not_safe_for_sql(self):
-        with self.assertRaises(SystemExit):
-            parse_arguments(["--uc_catalog_name", "bad-catalog"])
+    def test_cli_accepts_hyphenated_catalog_name(self):
+        args = parse_arguments(["--uc_catalog_name", "bad-catalog"])
+        self.assertEqual(args["uc_catalog_name"], "bad-catalog")
 
     def test_cleanup_cancels_active_run_before_deleting_resources(self):
         demo = SDPMetaAtScaleAutoLoaderDemo.__new__(

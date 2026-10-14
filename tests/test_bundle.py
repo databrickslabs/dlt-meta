@@ -1686,12 +1686,12 @@ class QuickstartConfigFileTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unknown quickstart override"):
                 write_quickstart_config_file(tmp, overrides={"uc_catalog": "x"})
 
-    def test_overrides_reject_hyphenated_catalog(self):
+    def test_overrides_accept_hyphenated_catalog(self):
         with _tempdir() as tmp:
-            with self.assertRaisesRegex(ValueError, "uc_catalog_name"):
-                write_quickstart_config_file(
-                    tmp, overrides={"uc_catalog_name": "bad-catalog"}
-                )
+            path = write_quickstart_config_file(
+                tmp, overrides={"uc_catalog_name": "bad-catalog"}
+            )
+            self.assertEqual(json.loads(path.read_text())["uc_catalog_name"], "bad-catalog")
 
     def test_overrides_reject_invalid_enum(self):
         with _tempdir() as tmp:
@@ -1991,34 +1991,33 @@ class BundlePrepareWheelUnitTests(unittest.TestCase):
 
 
 class BundleIdentifierValidationTests(unittest.TestCase):
-    """Strict UC-identifier validation at every bundle input boundary.
+    """Raw UC-identifier validation at every bundle input boundary.
 
     The bundle module accepts UC names from three places: the
     ``BundlePrepareWheelCommand`` constructor, the bundle's own
     ``variables.yml`` (read by ``_flow_to_dict``), and the per-flow
-    ``FlowSpec`` (bronze/silver table). We must reject anything that
-    isn't a regular SQL identifier at every one of them so a hyphenated
-    catalog or other illegal name can't sneak through to the deployed
-    pipeline (issue #261).
+    ``FlowSpec`` (bronze/silver table). Names requiring delimiter
+    quoting are accepted; malformed multi-part or pre-quoted values
+    remain rejected (issue #493).
     """
 
-    def test_prepare_wheel_rejects_hyphenated_catalog(self):
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
-            BundlePrepareWheelCommand(
-                uc_catalog="my-cat", uc_schema="schema", uc_volume="vol",
-            )
+    def test_prepare_wheel_accepts_hyphenated_catalog(self):
+        cmd = BundlePrepareWheelCommand(
+            uc_catalog="my-cat", uc_schema="schema", uc_volume="vol",
+        )
+        self.assertEqual(cmd.uc_catalog, "my-cat")
 
     def test_prepare_wheel_rejects_dotted_schema(self):
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
+        with self.assertRaisesRegex(ValueError, r"unquoted single name"):
             BundlePrepareWheelCommand(
                 uc_catalog="cat", uc_schema="bad.name", uc_volume="vol",
             )
 
-    def test_prepare_wheel_rejects_leading_digit_volume(self):
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
-            BundlePrepareWheelCommand(
-                uc_catalog="cat", uc_schema="schema", uc_volume="9vol",
-            )
+    def test_prepare_wheel_accepts_leading_digit_volume(self):
+        cmd = BundlePrepareWheelCommand(
+            uc_catalog="cat", uc_schema="schema", uc_volume="9vol",
+        )
+        self.assertEqual(cmd.uc_volume, "9vol")
 
     def test_prepare_wheel_accepts_regular_identifiers(self):
         # Sanity: the validation is strict but not over-eager. Plain
@@ -2028,9 +2027,7 @@ class BundleIdentifierValidationTests(unittest.TestCase):
         )
         self.assertEqual(cmd.uc_catalog, "my_cat")
 
-    def test_flow_to_dict_rejects_hyphenated_variables(self):
-        # Hand-edited variables.yml could carry a hyphenated catalog from
-        # an older sdp-meta version; we must reject when reading too.
+    def test_flow_to_dict_accepts_hyphenated_variables(self):
         from databricks.labs.sdp_meta.bundle import _flow_to_dict
         variables = {
             "uc_catalog_name": {"default": "my-cat"},
@@ -2039,14 +2036,14 @@ class BundleIdentifierValidationTests(unittest.TestCase):
             "layer": {"default": "bronze"},
             "onboarding_file_format": {"default": "yaml"},
         }
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
-            _flow_to_dict(
-                FlowSpec(source_format="cloudFiles", bronze_table="t"),
-                variables,
-                assigned_id="100",
-            )
+        rendered = _flow_to_dict(
+            FlowSpec(source_format="cloudFiles", bronze_table="t"),
+            variables,
+            assigned_id="100",
+        )
+        self.assertEqual(rendered["bronze_database_dev"], "my-cat.bronze")
 
-    def test_flow_to_dict_rejects_hyphenated_bronze_table(self):
+    def test_flow_to_dict_accepts_hyphenated_bronze_table(self):
         from databricks.labs.sdp_meta.bundle import _flow_to_dict
         variables = {
             "uc_catalog_name": {"default": "main"},
@@ -2055,12 +2052,12 @@ class BundleIdentifierValidationTests(unittest.TestCase):
             "layer": {"default": "bronze"},
             "onboarding_file_format": {"default": "yaml"},
         }
-        with self.assertRaisesRegex(ValueError, r"regular identifier"):
-            _flow_to_dict(
-                FlowSpec(source_format="cloudFiles", bronze_table="bad-name"),
-                variables,
-                assigned_id="100",
-            )
+        rendered = _flow_to_dict(
+            FlowSpec(source_format="cloudFiles", bronze_table="bad-name"),
+            variables,
+            assigned_id="100",
+        )
+        self.assertEqual(rendered["bronze_table"], "bad-name")
 
     def test_flow_to_dict_rejects_unknown_source_format(self):
         # The five-format set is pinned in identifiers.SUPPORTED_SOURCE_FORMATS;

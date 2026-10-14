@@ -36,10 +36,11 @@ if not uc_catalog_name or not bronze_schema:
 # Schemas are pre-created by initialize_uc_resources(); the catalog is supplied
 # by the caller and must already exist (see README). We only need to publish
 # the UDF here.
+udf_name = ".".join(f"`{part}`" for part in (uc_catalog_name, bronze_schema, "customer_op_filter"))
 spark.sql(
     f"""
     CREATE OR REPLACE FUNCTION
-        {uc_catalog_name}.{bronze_schema}.customer_op_filter(op STRING)
+        {udf_name}(op STRING)
     RETURNS BOOLEAN
     RETURN
         is_account_group_member('admins')

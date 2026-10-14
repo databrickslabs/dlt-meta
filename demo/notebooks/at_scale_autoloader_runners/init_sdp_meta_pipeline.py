@@ -13,6 +13,10 @@ layer = spark.conf.get("layer")
 dimension_table = spark.conf.get("at_scale.dimensionTable")
 
 
+def _sql_name(*parts):
+    return ".".join(f"`{part}`" for part in parts)
+
+
 def transform_silver(df, spec):
     """Apply custom logic only to the representative orders flow."""
     table = spec.targetDetails["table"]
@@ -20,7 +24,7 @@ def transform_silver(df, spec):
         return df
 
     latest_customer = (
-        spark.read.table(dimension_table)
+        spark.read.table(_sql_name(*dimension_table.split(".")))
         .withColumn(
             "_rank",
             F.row_number().over(

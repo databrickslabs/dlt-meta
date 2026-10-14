@@ -31,6 +31,9 @@ if not uc_catalog_name or not bronze_schema:
         "Both `uc_catalog_name` and `bronze_schema` widgets must be supplied."
     )
 
+def _sql_name(*parts):
+    return ".".join(f"`{part}`" for part in parts)
+
 # COMMAND ----------
 
 # Schemas are pre-created by initialize_uc_resources(); the catalog is supplied
@@ -39,7 +42,7 @@ if not uc_catalog_name or not bronze_schema:
 spark.sql(
     f"""
     CREATE OR REPLACE FUNCTION
-        {uc_catalog_name}.{bronze_schema}.customer_op_filter(op STRING)
+        {_sql_name(uc_catalog_name, bronze_schema, 'customer_op_filter')}(op STRING)
     RETURNS BOOLEAN
     RETURN
         is_account_group_member('admins')

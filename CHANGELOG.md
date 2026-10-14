@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- **Unity Catalog special-character names**: catalog, schema, table, view,
+  and volume identifiers may use UC-valid characters such as hyphens and
+  leading digits. SDP-META accepts raw names, generates SQL-delimited names
+  at Spark/Lakeflow boundaries, and continues to normalize legacy
+  backtick-delimited configuration during upgrades.
+
 ## [v0.1.1]
 ### Added
 - **Multiple pipeline topologies per DAB bundle**: `bundle-add-pipeline` adds independently configured bronze, silver, split, or combined pipelines with their own data-flow groups and target schemas. `bundle-validate` validates each pipeline and its job wiring independently. [Issue #446](https://github.com/databrickslabs/sdp-meta/issues/446)

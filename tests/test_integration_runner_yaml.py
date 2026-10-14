@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import MagicMock
 
 import yaml
 
@@ -46,6 +47,19 @@ class IntegrationRunnerYamlTests(unittest.TestCase):
     def test_invalid_format_raises(self):
         with self.assertRaises(ValueError):
             SDPMetaRunnerConf(run_id="abc", onboarding_file_format="toml")
+
+    def test_legacy_mode_rejects_combined_multi_source_cdc_pipeline(self):
+        runner = SDPMETARunner(
+            {"legacy_publishing_mode": True}, MagicMock(), _PROJECT_ROOT
+        )
+        with self.assertRaisesRegex(ValueError, "separate schemas"):
+            runner.create_sdp_meta_pipeline(
+                "test",
+                "bronze_silver",
+                "A1",
+                "bronze",
+                SDPMetaRunnerConf(run_id="abc"),
+            )
 
     def test_to_yaml_variant_swaps_bucket_and_extension(self):
         result = SDPMetaRunnerConf._to_yaml_variant(

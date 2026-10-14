@@ -14,6 +14,9 @@ volume = dbutils.widgets.get("uc_volume_path").rstrip("/")
 table_count = int(dbutils.widgets.get("table_count"))
 phase = dbutils.widgets.get("phase")
 
+def _sql_name(*parts):
+    return ".".join(f"`{part}`" for part in parts)
+
 if table_count < 3:
     raise ValueError("table_count must be at least 3")
 
@@ -122,7 +125,7 @@ if phase == "1":
         "customer_id BIGINT, customer_name STRING, customer_tier STRING, "
         "effective_ts TIMESTAMP",
     ).write.mode("overwrite").saveAsTable(
-        f"{catalog}.{meta_schema}.customer_dimension"
+        _sql_name(catalog, meta_schema, "customer_dimension")
     )
     print(
         f"Generated phase 1 for {table_count} tables: "

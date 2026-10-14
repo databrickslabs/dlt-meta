@@ -18,13 +18,13 @@
       "header": "true"
     },
     "bronze_cluster_by_auto": true,
-    "bronze_row_filter": "ROW FILTER {uc_catalog_name}.{bronze_schema}.region_filter ON (region)",
+        "bronze_row_filter": "ROW FILTER `{uc_catalog_name}`.`{bronze_schema}`.`region_filter` ON (region)",
     "silver_catalog_demo": "{uc_catalog_name}",
     "silver_database_demo": "{silver_schema}",
     "silver_table": "customers",
     "silver_table_comment": "customers silver table (UC row-filter demo)",
     "silver_cluster_by_auto": true,
     "silver_transformation_json_demo": "{uc_volume_path}/demo/conf/json/row_filter_silver_transformations.json",
-    "silver_row_filter": "ROW FILTER {uc_catalog_name}.{bronze_schema}.region_filter ON (region)"
+        "silver_row_filter": "ROW FILTER `{uc_catalog_name}`.`{bronze_schema}`.`region_filter` ON (region)"
   }
 ]

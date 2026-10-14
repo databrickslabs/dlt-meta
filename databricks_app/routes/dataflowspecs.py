@@ -15,10 +15,16 @@ from flask import Blueprint, jsonify, request
 from _config import _get_warehouse_id
 
 try:
-    from databricks.labs.sdp_meta.identifiers import validate_uc_identifier
+    from databricks.labs.sdp_meta.identifiers import (
+        to_sql_full_name,
+        validate_uc_identifier,
+    )
 except ImportError:  # pragma: no cover
     def validate_uc_identifier(name, *, kind: str = "identifier") -> str:
         return name
+
+    def to_sql_full_name(name: str, *, kind: str = "identifier", max_parts: int = 3) -> str:
+        return ".".join(f"`{part}`" for part in name.split("."))
 
 
 logger = logging.getLogger(__name__)
@@ -70,10 +76,12 @@ def get_dataflowspecs():
 
         Returns ``{columns, rows, groups, error}``.
         """
-        sql = (
-            f"SELECT * FROM `{catalog}`.`{schema}`.`{table_name}` "
-            f"ORDER BY dataFlowGroup, dataFlowId"
+        qualified_table = to_sql_full_name(
+            f"{catalog}.{schema}.{table_name}",
+            kind="dataflowspec table",
+            max_parts=3,
         )
+        sql = f"SELECT * FROM {qualified_table} ORDER BY dataFlowGroup, dataFlowId"
         try:
             from databricks.sdk import WorkspaceClient
             ws = WorkspaceClient()

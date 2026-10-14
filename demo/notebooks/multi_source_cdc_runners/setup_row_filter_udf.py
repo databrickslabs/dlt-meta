@@ -34,11 +34,15 @@ print(f"silver_schema   : {silver_schema}")
 
 # COMMAND ----------
 
-spark.sql(f"CREATE SCHEMA IF NOT EXISTS {uc_catalog_name}.{silver_schema}")
+def _sql_name(*parts):
+    return ".".join(f"`{part}`" for part in parts)
+
+
+spark.sql(f"CREATE SCHEMA IF NOT EXISTS {_sql_name(uc_catalog_name, silver_schema)}")
 
 spark.sql(f"""
     CREATE OR REPLACE FUNCTION
-        {uc_catalog_name}.{silver_schema}.region_filter(region STRING)
+        {_sql_name(uc_catalog_name, silver_schema, 'region_filter')}(region STRING)
     RETURNS BOOLEAN
     RETURN
         is_account_group_member('admins')

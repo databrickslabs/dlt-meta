@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -35,6 +36,38 @@ def _render_template(path):
 
 
 class AutoLoaderSchemaDemoConfigTests(TestCase):
+
+    def test_interactive_demo_sql_uses_the_uc_identifier_boundary(self):
+        source = INTERACTIVE_DEMO.read_text(encoding="utf-8")
+
+        # The wrapper is the only allowed direct Spark SQL boundary. Any
+        # future cell must call _run_sql so catalog/schema identifiers are
+        # converted before SQL reaches Spark.
+        self.assertEqual(source.count("spark.sql("), 1)
+
+        wrapper_start = source.index("def _run_sql(")
+        wrapper_end = source.index("\ndef _write_conf", wrapper_start)
+        wrapper = source[wrapper_start:wrapper_end]
+
+        # Every schema variable that creates a UC schema is explicitly
+        # covered by the wrapper's name map. Adding another schema without
+        # extending the map fails this test before the notebook can regress.
+        created_schema_variables = set(
+            re.findall(r"^([A-Za-z_]+_schema)\s*=\s*f[\"']", source, re.MULTILINE)
+        )
+        created_schema_variables.add("uc_schema_name")
+        for schema_variable in created_schema_variables:
+            self.assertIn(
+                f"f\"{{uc_catalog_name}}.{{{schema_variable}}}\"",
+                wrapper,
+                msg=f"{schema_variable} is not mapped by _run_sql",
+            )
+
+    def test_interactive_demo_preinstall_validation_matches_raw_uc_names(self):
+        source = INTERACTIVE_DEMO.read_text(encoding="utf-8")
+        self.assertIn("_CONTROL_CHAR_RE_PREINSTALL", source)
+        self.assertNotIn("_REGULAR_IDENT_RE_PREINSTALL", source)
+        self.assertIn('or "`" in name', source)
 
     def test_json_and_yaml_templates_are_equivalent_and_have_no_ddl(self):
         json_payload = _render_template(JSON_TEMPLATE)
@@ -100,15 +133,15 @@ class AutoLoaderSchemaDemoConfigTests(TestCase):
         )
         self.assertTrue(conf.onboarding_file_path.endswith(".yml"))
 
-    def test_runner_configuration_rejects_unsafe_catalog_name(self):
+    def test_runner_configuration_accepts_hyphenated_catalog_name(self):
         demo = SDPMetaAutoLoaderSchemaDemo.__new__(
             SDPMetaAutoLoaderSchemaDemo
         )
         demo.args = {"uc_catalog_name": "bad-catalog"}
         demo.wsi = SimpleNamespace(_my_username="demo@example.com")
 
-        with self.assertRaises(ValueError):
-            demo.init_runner_conf()
+        conf = demo.init_runner_conf()
+        self.assertEqual(conf.uc_catalog_name, "bad-catalog")
 
     def test_interactive_demo_covers_evolution_validation_and_cleanup(self):
         notebook = INTERACTIVE_DEMO.read_text(encoding="utf-8")

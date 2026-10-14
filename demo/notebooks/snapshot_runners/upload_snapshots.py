@@ -1,4 +1,8 @@
 # Databricks notebook source
+def _sql_name(*parts):
+  return ".".join(f"`{part}`" for part in parts)
+
+
 dbutils.widgets.text("base_path", "", "base_path")
 dbutils.widgets.text("version", "", "version")
 dbutils.widgets.text("source_catalog", "", "source_catalog")
@@ -20,4 +24,6 @@ if version in ["2","3"]:
 # COMMAND ----------
 
 df = spark.read.format("csv").option("header","true").load(f"{base_path}/products/LOAD_{version}.csv")
-df.write.format("delta").mode("overwrite").saveAsTable(f"{source_catalog}.{source_database}.{source_table}")
+df.write.format("delta").mode("overwrite").saveAsTable(
+  _sql_name(source_catalog, source_database, source_table)
+)

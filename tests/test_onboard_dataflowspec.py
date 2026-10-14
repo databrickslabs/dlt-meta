@@ -967,7 +967,7 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
     def test_onboardDataFlowSpecs_pre_validates_uc_names_and_aggregates_errors(self):
         """Pre-flight UC validation must surface every bad row at once.
 
-        Issue #261: a hyphenated catalog or schema in the onboarding file
+        Issue #261: an invalid catalog or schema in the onboarding file
         only blew up mid-onboarding with a confusing Spark error, leaving
         the bronze dataflowspec table half-written. The pre-flight
         validator added to ``onboard_dataflow_specs`` walks the file
@@ -994,7 +994,7 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
                 "data_flow_group": "A1",
                 "source_format": "cloudFiles",
                 "source_details": {"source_path_dev": "/tmp/x"},
-                "bronze_database_dev": "bad-db",
+                "bronze_database_dev": "bad/db",
                 "bronze_table": "ok_table",
                 "bronze_reader_options": {},
                 "bronze_table_path_dev": "/tmp/bronze/x",
@@ -1006,7 +1006,7 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
                 "source_format": "cloudFiles",
                 "source_details": {"source_path_dev": "/tmp/y"},
                 "bronze_database_dev": "ok_db",
-                "bronze_table": "1bad_table",
+                "bronze_table": "bad/table",
                 "bronze_reader_options": {},
                 "bronze_table_path_dev": "/tmp/bronze/y",
                 "silver_database_dev": "ok_db",
@@ -1026,8 +1026,8 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
                 "bronze_table": "ok_table",
                 "bronze_reader_options": {},
                 "bronze_table_path_dev": "/tmp/bronze/z",
-                "bronze_database_quarantine_dev": "bad-q-db",
-                "bronze_quarantine_table": "1bad_q_table",
+                "bronze_database_quarantine_dev": "bad/db",
+                "bronze_quarantine_table": "bad.table",
                 "bronze_partition_columns": "ok_col,bad-col",
             },
             {
@@ -1315,8 +1315,8 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
         that intentionally violates one rule from each validation
         category we've added (Phases 1-3):
 
-          - UC catalog/schema/table identifier (with hyphen)
-          - Quarantine UC name (with leading digit)
+          - UC catalog/schema/table identifier (with a forbidden slash)
+          - Quarantine UC name (with a period)
           - Partition-column list (with hyphen)
           - Cluster-by list (with period)
           - Top-level ``source_format`` enum (typo)
@@ -1335,14 +1335,14 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
             # Top-level source_format typo.
             "source_format": "cloudFile",
             "source_details": {"source_path_dev": "/tmp/p"},
-            # Bronze: bad catalog (hyphen) + bad table (period).
-            "bronze_catalog_dev": "bad-catalog",
+            # Bronze: bad catalog (slash) + bad table (period).
+            "bronze_catalog_dev": "bad/catalog",
             "bronze_database_dev": "ok_db",
             "bronze_table": "ok.table",
             "bronze_reader_options": {},
             "bronze_table_path_dev": "/tmp/bronze/p",
-            # Quarantine name with leading digit.
-            "bronze_quarantine_table": "1bad_quarantine",
+            # Quarantine name with a period.
+            "bronze_quarantine_table": "bad.quarantine",
             # Partition columns + clusterBy with bad entries.
             "bronze_partition_columns": "ok_col,bad-col",
             "bronze_cluster_by": ["ok_col", "bad.col"],
@@ -1823,7 +1823,7 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
                 "data_flow_group": "G",
                 "source_format": "cloudFiles",
                 "source_details": {"source_path_dev": "/tmp/g100"},
-                "bronze_database_dev": "bad-db",  # hyphen \u2014 identifier error
+                "bronze_database_dev": "bad/db",  # slash \u2014 identifier error
                 "bronze_table": "ok_t",
                 "bronze_reader_options": {},
                 "bronze_table_path_dev": "/tmp/bronze/g100",
@@ -1834,7 +1834,7 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
                 "source_format": "cloudFiles",
                 "source_details": {"source_path_dev": "/tmp/g200"},
                 "bronze_database_dev": "ok_db",
-                "bronze_table": "1bad_t",  # leading digit
+                "bronze_table": "bad.table",
                 "bronze_reader_options": {},
                 "bronze_table_path_dev": "/tmp/bronze/g200",
                 "bronze_partition_columns": "bad-col",  # hyphen
@@ -1899,7 +1899,7 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
                 "source_format": "cloudFiles",
                 "source_details": {"source_path_dev": "/tmp/i1"},
                 "bronze_database_dev": "ok_db",
-                "bronze_table": "1bad_bronze_table",  # bad
+                "bronze_table": "bad.bronze_table",  # bad
                 "bronze_reader_options": {},
                 "bronze_table_path_dev": "/tmp/bronze/i1",
                 "silver_database_dev": "ok_db",
@@ -1968,7 +1968,7 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
             },
         ]
         bad_rows = copy.deepcopy(good_rows)
-        bad_rows[0]["bronze_table"] = "1bad_bronze_table"
+        bad_rows[0]["bronze_table"] = "bad.bronze_table"
 
         tmp_dir = tempfile.mkdtemp(prefix="sdp_meta_i343_rerun_")
         try:
@@ -2207,7 +2207,7 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
         mock_write.format.return_value.mode.assert_called_once_with("overwrite")
         mock_write.format.return_value.mode.return_value.option.assert_called_once_with("mergeSchema", "true")
         mock_write.format.return_value.mode.return_value.option.return_value.saveAsTable.assert_called_once_with(
-            f"{database}.{table}")
+            f"`{database}`.`{table}`")
 
     @patch.object(DataFrame, "write", new_callable=MagicMock)
     def test_bronze_dataflow_spec_dataframe_withuc(self, mock_write):
@@ -2228,7 +2228,7 @@ class OnboardDataflowspecTests(SDPFrameworkTestCase):
         mock_write.format.return_value.mode.assert_called_once_with("overwrite")
         mock_write.format.return_value.mode.return_value.option.assert_called_once_with("mergeSchema", "true")
         mock_write.format.return_value.mode.return_value.option.return_value.saveAsTable.assert_called_once_with(
-            f"{database}.{table}")
+            f"`{database}`.`{table}`")
 
     def test_bronze_dataflow_spec_append_flow(self):
         """Test for onboardDataflowspec with appendflow scenario."""

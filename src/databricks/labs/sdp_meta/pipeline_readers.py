@@ -5,6 +5,12 @@ from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
 from pyspark.sql.functions import from_json, col
 
+from databricks.labs.sdp_meta.identifiers import (
+    normalize_legacy_delimited_full_name,
+    to_sql_full_name,
+    to_sql_identifier,
+)
+
 logger = logging.getLogger('databricks.labs.sdp_meta')
 logger.setLevel(logging.INFO)
 
@@ -87,8 +93,30 @@ class PipelineReaders:
         logger.info("In read_dlt_cloud_files func")
 
         source_cl = self.source_details.get('source_catalog', None)
-        source_cl_name = f"{source_cl}." if source_cl is not None else ''
-        table_path = f"{source_cl_name}{self.source_details['source_database']}.{self.source_details['source_table']}"
+        database_name = to_sql_full_name(
+            normalize_legacy_delimited_full_name(
+                self.source_details["source_database"], kind="source database"
+            ),
+            kind="source database",
+            max_parts=2,
+        )
+        table_name = to_sql_identifier(
+            normalize_legacy_delimited_full_name(
+                self.source_details["source_table"], kind="source table"
+            ),
+            kind="source table",
+        )
+        source_catalog = (
+            normalize_legacy_delimited_full_name(source_cl, kind="source catalog")
+            if source_cl is not None
+            else None
+        )
+        catalog_prefix = (
+            f"{to_sql_identifier(source_catalog, kind='source catalog')}."
+            if source_catalog is not None
+            else ""
+        )
+        table_path = f"{catalog_prefix}{database_name}.{table_name}"
 
         if self.source_format == "snapshot":
             reader = self.spark.read

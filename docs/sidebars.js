@@ -37,6 +37,7 @@ const sidebars = {
         'reference/dq-rules',
         'reference/cli-commands',
         'reference/dab-parameters',
+        'reference/uc-naming',
       ],
     },
     {

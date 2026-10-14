@@ -1,6 +1,10 @@
 # Databricks notebook source
 import pandas as pd
 
+
+def to_sql_full_name(name, kind="identifier"):
+    return ".".join(f"`{part}`" for part in name.split("."))
+
 run_id = dbutils.widgets.get("run_id")
 uc_enabled = dbutils.widgets.get("uc_enabled").strip().lower() == "true"
 uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
@@ -24,7 +28,9 @@ NON_UC_TABLES = {
 log_list.append("Validating  Lakeflow Spark Declarative Pipeline for Eventhub Bronze Table Counts...")
 tables = UC_TABLES if uc_enabled else NON_UC_TABLES
 for table, counts in tables.items():
-    query = spark.sql(f"SELECT count(*) as cnt FROM {table}")
+    query = spark.sql(
+        f"SELECT count(*) as cnt FROM {to_sql_full_name(table, kind='validation table')}"
+    )
     cnt = query.collect()[0].cnt
 
     log_list.append(f"Validating Counts for Table {table}.")

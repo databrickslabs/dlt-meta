@@ -178,10 +178,9 @@ class OnboardingPreviewRouteTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Onboarding File Path", resp.get_json()["error"])
 
-    def test_malformed_schema_identifiers_rejected(self):
-        """Schema identifiers are validated too, not just the catalog: a
-        hyphen in sdp_meta_schema / bronze_schema / silver_schema (all
-        spliced into the volume path + substitutions) must return 400."""
+    def test_hyphenated_schema_identifiers_accepted(self):
+        """Raw UC identifiers may require delimiter quoting in SQL, but
+        remain valid in App substitutions and UC volume paths."""
         path = self._write("onboarding.yml", "- data_flow_id: '100'\n")
         for field in ("unity_catalog_name", "sdp_meta_schema",
                       "bronze_schema", "silver_schema"):
@@ -189,9 +188,8 @@ class OnboardingPreviewRouteTests(unittest.TestCase):
                 data = self._form(path, **{field: "bad-name"})
                 resp = self.client.post("/onboarding/preview", data=data)
                 self.assertEqual(
-                    resp.status_code, 400, resp.get_data(as_text=True)
+                    resp.status_code, 200, resp.get_data(as_text=True)
                 )
-                self.assertIn("identifier", resp.get_json()["error"])
 
     def test_file_not_found_returns_400(self):
         resp = self.client.post(
@@ -374,10 +372,9 @@ class OnboardingPreflightParseTests(unittest.TestCase):
         self.assertNotIn("token", body)
         self.assertIn("empty", body["error"].lower())
 
-    def test_onboarding_rejects_malformed_schema_identifiers(self):
-        """The /onboarding endpoint validates schema + table identifiers,
-        not just the catalog: a hyphen in any of them must 400 before a
-        background job is started (issue #261)."""
+    def test_onboarding_accepts_hyphenated_identifiers(self):
+        """The /onboarding endpoint accepts raw UC names requiring SQL
+        delimiter quoting (issue #493)."""
         path = self._write("ok.yml", "- data_flow_id: '100'\n")
         for field in ("unity_catalog_name", "sdp_meta_schema",
                       "bronze_schema", "silver_schema",
@@ -388,11 +385,10 @@ class OnboardingPreflightParseTests(unittest.TestCase):
                     **{field: "bad-name"},
                 ))
                 self.assertEqual(
-                    resp.status_code, 400, resp.get_data(as_text=True)
+                    resp.status_code, 200, resp.get_data(as_text=True)
                 )
                 body = resp.get_json()
-                self.assertNotIn("token", body)
-                self.assertIn("identifier", body["error"])
+                self.assertIn("token", body)
 
 
 class DetectEnvSuffixesTests(unittest.TestCase):

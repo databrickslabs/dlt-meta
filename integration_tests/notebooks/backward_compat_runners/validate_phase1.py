@@ -12,6 +12,10 @@ import json
 
 import pandas as pd
 
+
+def to_sql_full_name(name, kind="identifier"):
+    return ".".join(f"`{part}`" for part in name.split("."))
+
 run_id = dbutils.widgets.get("run_id")
 uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
 bronze_schema = dbutils.widgets.get("bronze_schema")
@@ -39,7 +43,9 @@ EXPECTED_COUNTS = {
 
 phase1_counts = {}
 for table, expected in EXPECTED_COUNTS.items():
-    actual = spark.sql(f"SELECT count(*) AS cnt FROM {table}").collect()[0].cnt
+    actual = spark.sql(
+        f"SELECT count(*) AS cnt FROM {to_sql_full_name(table, kind='validation table')}"
+    ).collect()[0].cnt
     phase1_counts[table] = int(actual)
     # Validation contract: run_backward_compat_tests.py scans persisted report
     # cells for the exact "Failed!" marker. Keep this status wording unchanged.
@@ -63,7 +69,7 @@ for layer in ("bronze", "silver"):
         f"{uc_catalog_name}.{sdp_meta_schema}.{layer}_dataflowspec"
     )
     row = (
-        spark.read.table(table)
+        spark.read.table(to_sql_full_name(table, kind="dataflowspec table"))
         .where("dataFlowId = '100'")
         .select("createDate", "createdBy")
         .first()

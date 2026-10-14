@@ -2,6 +2,10 @@
 import pandas as pd
 import json
 
+
+def to_sql_full_name(name, kind="identifier"):
+    return ".".join(f"`{part}`" for part in name.split("."))
+
 run_id = dbutils.widgets.get("run_id")
 uc_enabled = dbutils.widgets.get("uc_enabled").strip().lower() == "true"
 uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
@@ -36,7 +40,9 @@ NON_UC_TABLES = {
 log_list.append("Validating Lakeflow Spark Declarative Pipeline Bronze and Silver Table Counts...")
 tables = UC_TABLES if uc_enabled else NON_UC_TABLES
 for table, counts in tables.items():
-    query = spark.sql(f"SELECT count(*) as cnt FROM {table}")
+    query = spark.sql(
+        f"SELECT count(*) as cnt FROM {to_sql_full_name(table, kind='validation table')}"
+    )
     cnt = query.collect()[0].cnt
 
     log_list.append(f"Validating Counts for Table {table}.")
@@ -61,7 +67,7 @@ for layer in ("bronze", "silver"):
     rows = spark.sql(
         f"""
         SELECT dataQualityExpectations, quarantineTargetDetails
-        FROM {spec_table}
+        FROM {to_sql_full_name(spec_table, kind='dataflowspec table')}
         WHERE dataFlowId = '190'
           AND dataFlowGroup = 'QUARANTINE_COMPAT'
         """
@@ -95,7 +101,7 @@ for layer in ("bronze", "silver"):
     rows = spark.sql(
         f"""
         SELECT dataQualityExpectations, quarantineTargetDetails
-        FROM {spec_table}
+        FROM {to_sql_full_name(spec_table, kind='dataflowspec table')}
         WHERE dataFlowId = '191'
           AND dataFlowGroup = 'DQE_NO_QUARANTINE'
         """
@@ -126,6 +132,7 @@ transactions_table = (
     if uc_enabled
     else f"{bronze_schema}.transactions"
 )
+transactions_table = to_sql_full_name(transactions_table, kind="validation table")
 metadata_stats = spark.sql(
     f"""
     SELECT
@@ -207,7 +214,7 @@ if uc_enabled:
         rf_df = spark.sql(
             f"""
             SELECT filter_name, target_columns
-            FROM {uc_catalog_name}.information_schema.row_filters
+            FROM {to_sql_full_name(f'{uc_catalog_name}.information_schema.row_filters', kind='row filters table')}
             WHERE table_catalog = '{uc_catalog_name}'
               AND table_schema  = '{schema_name}'
               AND table_name    = '{table_name}'

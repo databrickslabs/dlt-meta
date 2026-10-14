@@ -26,6 +26,10 @@ silver_schema = dbutils.widgets.get("silver_schema")
 
 # COMMAND ----------
 
+def _sql_name(*parts):
+    return ".".join(f"`{part}`" for part in parts)
+
+
 is_admin = spark.sql(
     "SELECT is_account_group_member('admins') AS is_admin"
 ).first().is_admin
@@ -62,8 +66,8 @@ def _assert_filtered(layer, fqn):
         )
 
 
-_assert_filtered("bronze", f"{uc_catalog_name}.{bronze_schema}.customers")
-_assert_filtered("silver", f"{uc_catalog_name}.{silver_schema}.customers")
+_assert_filtered("bronze", _sql_name(uc_catalog_name, bronze_schema, "customers"))
+_assert_filtered("silver", _sql_name(uc_catalog_name, silver_schema, "customers"))
 
 # COMMAND ----------
 

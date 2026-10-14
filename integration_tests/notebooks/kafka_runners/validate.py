@@ -1,6 +1,10 @@
 # Databricks notebook source
 import pandas as pd
 
+
+def to_sql_full_name(name, kind="identifier"):
+    return ".".join(f"`{part}`" for part in name.split("."))
+
 run_id = dbutils.widgets.get("run_id")
 uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
 output_file_path = dbutils.widgets.get("output_file_path")
@@ -17,7 +21,9 @@ TABLES = {
 
 log_list.append("Validating Lakeflow Spark Declarative Pipeline for Eventhub Bronze Table Counts...")
 for table, counts in TABLES.items():
-    query = spark.sql(f"SELECT count(*) as cnt FROM {table}")
+    query = spark.sql(
+        f"SELECT count(*) as cnt FROM {to_sql_full_name(table, kind='validation table')}"
+    )
     cnt = query.collect()[0].cnt
 
     log_list.append(f"Validating Counts for Table {table}.")

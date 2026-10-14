@@ -37,6 +37,7 @@ import yaml
 from databricks.labs.sdp_meta.identifiers import (
     SUPPORTED_SOURCE_FORMATS,
     prompt_uc_identifier,
+    to_sql_full_name,
     validate_source_format,
     validate_uc_identifier,
 )
@@ -268,10 +269,8 @@ class BundlePrepareWheelCommand:
     create_if_missing: bool = True
 
     def __post_init__(self) -> None:
-        # Reject illegal UC names up-front so we never try to splice a
-        # hyphenated catalog into a CREATE SCHEMA / CREATE VOLUME later
-        # (issue #261). Must mirror the strict regular-identifier rule used
-        # by the rest of the input boundaries (CLI, DAB template).
+        # Keep names raw for SDK and /Volumes calls; SQL messages quote them
+        # at their presentation boundary.
         validate_uc_identifier(self.uc_catalog, kind="uc_catalog")
         validate_uc_identifier(self.uc_schema, kind="uc_schema")
         validate_uc_identifier(self.uc_volume, kind="uc_volume")
@@ -365,7 +364,8 @@ def bundle_prepare_wheel(cmd: BundlePrepareWheelCommand) -> str:
         if not cmd.create_if_missing:
             raise RuntimeError(
                 f"Schema {schema_full} not found and create_if_missing=False: {exc}. "
-                f"Either create it manually (CREATE SCHEMA {schema_full}) or re-run "
+                f"Either create it manually (CREATE SCHEMA "
+                f"{to_sql_full_name(schema_full, kind='schema', max_parts=2)}) or re-run "
                 f"with create_if_missing=True (the CLI default)."
             ) from exc
         logger.info("Schema %s does not exist; creating it (create_if_missing=True)",
@@ -2269,9 +2269,8 @@ def _flow_to_dict(spec: FlowSpec, variables: Dict[str, Any], assigned_id: str) -
                 "silver_table is required when layer is `silver` (no bronze fallback)."
             )
 
-    # Bronze/silver table names eventually get spliced unquoted into SQL
-    # (`spark.read.table(...)`), so reject anything that isn't a regular
-    # SQL identifier here at the input boundary (issue #261).
+    # Keep raw single-segment names in generated onboarding files. Runtime
+    # table references delimiter-quote each UC segment as required.
     if bronze_table:
         validate_uc_identifier(bronze_table, kind="bronze_table")
     if silver_table:

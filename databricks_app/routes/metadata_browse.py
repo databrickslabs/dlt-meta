@@ -16,6 +16,7 @@ from _config import _get_warehouse_id
 
 try:
     from databricks.labs.sdp_meta.identifiers import (
+        to_sql_full_name,
         validate_sql_where_clause,
         validate_uc_identifier,
     )
@@ -33,6 +34,9 @@ except ImportError:  # pragma: no cover
                 "preview the table."
             )
         return ""
+
+    def to_sql_full_name(name: str, *, kind: str = "identifier", max_parts: int = 3) -> str:
+        return ".".join(f"`{part}`" for part in name.split("."))
 
 
 logger = logging.getLogger(__name__)
@@ -160,7 +164,10 @@ def table_data():
 
     # Build a safe SELECT \u2014 table identifier components are validated
     # above and the WHERE clause (if any) is denylist-checked.
-    sql = f"SELECT * FROM `{catalog}`.`{schema}`.`{table}`"
+    table_name = to_sql_full_name(
+        f"{catalog}.{schema}.{table}", kind="table", max_parts=3
+    )
+    sql = f"SELECT * FROM {table_name}"
     if where_clause:
         sql += f" WHERE {where_clause}"
     sql += f" LIMIT {limit}"

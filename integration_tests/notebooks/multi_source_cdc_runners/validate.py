@@ -24,6 +24,10 @@ Assertions:
 
 import pandas as pd
 
+
+def to_sql_full_name(name, kind="identifier"):
+    return ".".join(f"`{part}`" for part in name.split("."))
+
 run_id = dbutils.widgets.get("run_id")
 uc_enabled = dbutils.widgets.get("uc_enabled").strip().lower() == "true"
 uc_catalog_name = dbutils.widgets.get("uc_catalog_name")
@@ -39,11 +43,12 @@ log_list.append(
 
 
 def _qualify(schema, table):
-    return (
+    raw_name = (
         f"{uc_catalog_name}.{schema}.{table}"
         if uc_enabled
         else f"{schema}.{table}"
     )
+    return to_sql_full_name(raw_name, kind="validation table")
 
 
 BRONZE_TABLES = {

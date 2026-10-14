@@ -34,13 +34,16 @@ log_list = []
 log_list.append("Completed Bronze DLT Pipeline.")
 log_list.append("Completed Silver DLT Pipeline (multi-source AUTO CDC).")
 
+def _sql_name(*parts):
+    return ".".join(f"`{part}`" for part in parts)
+
 # Bronze: raw CDC events landed per region. The counts here are the
 # total event count (including UPDATE/DELETE rows), not distinct
 # customer count.
 BRONZE_TABLES = {
-    f"{uc_catalog_name}.{bronze_schema}.customers_us_cdc": 5,
-    f"{uc_catalog_name}.{bronze_schema}.customers_eu_cdc": 5,
-    f"{uc_catalog_name}.{bronze_schema}.customers_apac_cdc": 5,
+    _sql_name(uc_catalog_name, bronze_schema, "customers_us_cdc"): 5,
+    _sql_name(uc_catalog_name, bronze_schema, "customers_eu_cdc"): 5,
+    _sql_name(uc_catalog_name, bronze_schema, "customers_apac_cdc"): 5,
 }
 
 log_list.append("Validating bronze regional CDC table counts...")
@@ -54,7 +57,7 @@ for table, expected in BRONZE_TABLES.items():
         log_list.append(f"Expected: {expected} Actual: {actual}. Failed!")
 
 # Silver: post-CDC unified customers table. SCD-1 + apply-as-deletes.
-silver_customers = f"{uc_catalog_name}.{silver_schema}.customers"
+silver_customers = _sql_name(uc_catalog_name, silver_schema, "customers")
 log_list.append(f"Validating unified silver customers table {silver_customers}.")
 
 total = spark.sql(f"SELECT count(*) AS cnt FROM {silver_customers}").collect()[0].cnt
@@ -129,7 +132,7 @@ expected_filter = f"{uc_catalog_name}.{silver_schema}.region_filter"
 expected_target_columns = ["region"]
 filters_df = spark.sql(f"""
     SELECT filter_name, target_columns
-    FROM {uc_catalog_name}.information_schema.row_filters
+    FROM {_sql_name(uc_catalog_name, 'information_schema', 'row_filters')}
     WHERE table_catalog = '{uc_catalog_name}'
       AND table_schema  = '{silver_schema}'
       AND table_name    = 'customers'

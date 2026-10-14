@@ -2,6 +2,8 @@
 from delta.tables import DeltaTable
 from pyspark.sql.functions import expr
 
+from databricks.labs.sdp_meta.identifiers import to_sql_full_name, to_sql_identifier
+
 
 class DeltaPipelinesMetaStoreOps:
     """This class handles all metastore operations for onboarding tables."""
@@ -12,7 +14,8 @@ class DeltaPipelinesMetaStoreOps:
 
     def create_database(self, database, comments):
         """Create Database."""
-        self.try_run_sql(f"CREATE DATABASE IF NOT EXISTS {database} COMMENT '{comments}'")
+        database_name = to_sql_full_name(database, kind="database", max_parts=2)
+        self.try_run_sql(f"CREATE DATABASE IF NOT EXISTS {database_name} COMMENT '{comments}'")
 
     def try_run_sql(self, sql):
         """Try running SQL."""
@@ -20,7 +23,8 @@ class DeltaPipelinesMetaStoreOps:
 
     def drop_database(self, database):
         """Drop database."""
-        self.try_run_sql(f"DROP DATABASE IF EXISTS {database} CASCADE")
+        database_name = to_sql_full_name(database, kind="database", max_parts=2)
+        self.try_run_sql(f"DROP DATABASE IF EXISTS {database_name} CASCADE")
 
     def reset_table_in_metastore(self, database, table, path):
         """Reset table metadata."""
@@ -29,16 +33,27 @@ class DeltaPipelinesMetaStoreOps:
 
     def register_table_in_metastore(self, database, table, path):
         """Register table in metastore."""
-        final_table_name = f"{database}.{table}"
+        final_table_name = (
+            f"{to_sql_full_name(database, kind='database', max_parts=2)}."
+            f"{to_sql_identifier(table, kind='table')}"
+        )
         self.spark.sql("CREATE TABLE if not exists " + final_table_name + " USING DELTA LOCATION '" + path + "'")
 
     def deregister_table_from_metastore(self, database, table):
         """Deregister table."""
-        self.try_run_sql(f"DROP TABLE IF EXISTS {database}.{table}")
+        final_table_name = (
+            f"{to_sql_full_name(database, kind='database', max_parts=2)}."
+            f"{to_sql_identifier(table, kind='table')}"
+        )
+        self.try_run_sql(f"DROP TABLE IF EXISTS {final_table_name}")
 
     def get_table_location(self, database, table):
         """Get table location on blobstorage."""
-        return self.spark.sql(f"describe extended {database}.{table}").where("col_name='Location'").collect()[0][1]
+        final_table_name = (
+            f"{to_sql_full_name(database, kind='database', max_parts=2)}."
+            f"{to_sql_identifier(table, kind='table')}"
+        )
+        return self.spark.sql(f"describe extended {final_table_name}").where("col_name='Location'").collect()[0][1]
 
 
 class DeltaPipelinesInternalTableOps:

@@ -32,6 +32,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
+try:
+    from databricks.labs.sdp_meta.identifiers import to_sql_identifier
+except ImportError:  # pragma: no cover
+    def to_sql_identifier(name: str, *, kind: str = "identifier") -> str:
+        if not isinstance(name, str) or not name or "." in name or "`" in name:
+            raise ValueError(f"{kind} must be an unquoted single name")
+        return f"`{name}`"
+
 # Privileges every demo launcher transitively needs on the user-supplied
 # UC catalog:
 #
@@ -103,8 +111,8 @@ def _build_grant_sql(uc_name: str, sp_principal: str) -> str:
     """
     return (
         f"-- Run as the catalog owner, not as the App SP, in a SQL editor:\n"
-        f"GRANT USE CATALOG  ON CATALOG `{uc_name}` TO `{sp_principal}`;\n"
-        f"GRANT CREATE SCHEMA ON CATALOG `{uc_name}` TO `{sp_principal}`;"
+        f"GRANT USE CATALOG  ON CATALOG {to_sql_identifier(uc_name, kind='catalog')} TO `{sp_principal}`;\n"
+        f"GRANT CREATE SCHEMA ON CATALOG {to_sql_identifier(uc_name, kind='catalog')} TO `{sp_principal}`;"
     )
 
 

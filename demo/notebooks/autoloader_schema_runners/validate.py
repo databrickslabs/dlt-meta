@@ -11,8 +11,11 @@ sdp_meta_schema = dbutils.widgets.get("sdp_meta_schema")
 bronze_schema = dbutils.widgets.get("bronze_schema")
 phase = dbutils.widgets.get("phase")
 
-table_fqn = f"{catalog}.{bronze_schema}.events_inferred"
-spec_fqn = f"{catalog}.{sdp_meta_schema}.bronze_dataflowspec_cdc"
+def _sql_name(*parts):
+    return ".".join(f"`{part}`" for part in parts)
+
+table_fqn = _sql_name(catalog, bronze_schema, "events_inferred")
+spec_fqn = _sql_name(catalog, sdp_meta_schema, "bronze_dataflowspec_cdc")
 
 # COMMAND ----------
 

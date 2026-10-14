@@ -1,20 +1,11 @@
 """Unity Catalog / SQL identifier and onboarding-enum validation.
 
-`sdp-meta` accepts UC catalog / schema / table / volume names from many
-input boundaries (CLI prompts, ``OnboardCommand`` / ``DeployCommand``
-constructors, the DAB template, demo scripts, integration test runners).
-All of those names eventually get spliced into SQL identifiers downstream
-without backtick-quoting, so we reject anything that isn't a *regular*
-SQL identifier as defined in
-https://docs.databricks.com/aws/en/sql/language-manual/sql-ref-identifiers --
-i.e. ``[A-Za-z_][A-Za-z0-9_]*``.
-
-This is the entire contract: strict validation at every input boundary,
-and the rest of the codebase (``DataflowPipeline``, the rendered DAB
-pipeline, the onboarding job) can splice these names into SQL strings
-without further escaping (issue #261). Hyphenated catalog names that UC
-itself permits are rejected here with a clear, actionable error message
-instead of failing later as a cryptic Spark name-resolution error.
+UC catalog, schema, table, and volume names arrive as *raw* names from
+CLI prompts, onboarding files, and DAB variables. They must never carry
+SQL delimiter syntax: callers validate raw segments here, then use
+``to_sql_identifier`` or ``to_sql_full_name`` at a SQL/Spark
+identifier boundary. This permits UC names such as ``my-catalog`` while
+preventing an input value from escaping its identifier position.
 
 This module also pins the bounded enums onboarding accepts —
 :data:`SUPPORTED_SOURCE_FORMATS` and :data:`SUPPORTED_SCD_TYPES` — so
@@ -30,6 +21,7 @@ import sys
 from typing import Optional
 
 _REGULAR_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f]")
 
 _MAX_IDENT_LEN = 255
 
@@ -56,21 +48,24 @@ def is_regular_identifier(name) -> bool:
     return isinstance(name, str) and bool(_REGULAR_IDENT_RE.match(name))
 
 
+def _validate_regular_identifier(name, *, kind: str) -> str:
+    """Validate an identifier used in an unquoted SQL-expression position."""
+    if not is_regular_identifier(name):
+        raise ValueError(
+            f"{kind} {name!r} must be a regular SQL identifier matching "
+            f"{_REGULAR_IDENT_RE.pattern}"
+        )
+    return name
+
+
 def validate_uc_identifier(name, *, kind: str = "identifier") -> str:
-    """Validate ``name`` as a UC identifier; return it unchanged on success.
+    """Validate a raw, single-segment UC identifier.
 
-    Raises ``ValueError`` with an actionable message when ``name`` cannot be
-    safely used as a UC identifier inside the sdp-meta toolchain. The rule
-    is strict: regular SQL identifiers only (letters, digits, underscores;
-    must start with a letter or underscore; max 255 chars).
-
-    Hyphens, periods, spaces, leading digits and backticks are all
-    rejected. UC itself permits hyphens in catalog / schema names, but the
-    sdp-meta deployed pipeline reads ``bronze.dataflowspecTable`` /
-    ``silver.dataflowspecTable`` directly via ``spark.read.table(...)``
-    without backtick-quoting, so we reject hyphens at the input boundary
-    rather than letting users hit a confusing Spark error at runtime
-    (issue #261).
+    The value stays unquoted. Dots delimit a multipart name, backticks are
+    SQL syntax rather than a raw name, and control characters are invalid.
+Hyphens and other UC-supported special characters are safe because SQL
+boundaries delimiter-quote the validated value. UC itself prohibits
+spaces and forward slashes in object-name segments.
     """
     if not isinstance(name, str):
         raise ValueError(
@@ -84,26 +79,94 @@ def validate_uc_identifier(name, *, kind: str = "identifier") -> str:
             f"{kind} {name!r} is {len(name)} characters; maximum allowed is "
             f"{_MAX_IDENT_LEN}"
         )
-    if not _REGULAR_IDENT_RE.match(name):
+    if (
+        "." in name
+        or " " in name
+        or "/" in name
+        or "`" in name
+        or _CONTROL_CHAR_RE.search(name)
+    ):
         raise ValueError(
-            f"{kind} {name!r} is not a valid Databricks SQL regular identifier. "
-            f"Names must match {_REGULAR_IDENT_RE.pattern} (letters, digits "
-            f"and underscores only; must start with a letter or underscore). "
-            f"Hyphens, periods, spaces and leading digits are not supported. "
-            f"See "
+            f"{kind} {name!r} is not a valid raw Unity Catalog identifier. "
+            "Use an unquoted single name; spaces, '/', and dots are not "
+            "allowed in UC object-name segments, and backticks are added by "
+            "sdp-meta when generating SQL. See "
             f"https://docs.databricks.com/aws/en/sql/language-manual/sql-ref-identifiers"
         )
     return name
 
 
+def to_sql_identifier(name, *, kind: str = "identifier") -> str:
+    """Convert one raw UC name segment into a safe SQL identifier."""
+    return f"`{validate_uc_identifier(name, kind=kind)}`"
+
+
+def to_sql_full_name(name, *, kind: str = "identifier", max_parts: int = 3) -> str:
+    """Convert a raw multipart UC name into a safe SQL identifier."""
+    validate_uc_full_name(name, kind=kind, max_parts=max_parts)
+    return ".".join(
+        to_sql_identifier(part, kind=f"segment {i + 1} of {kind}")
+        for i, part in enumerate(name.split("."))
+    )
+
+
+def normalize_legacy_delimited_full_name(name: str, *, kind: str = "identifier") -> str:
+    """Return a raw multipart name from raw or historic SQL-delimited input.
+
+    Configuration should use raw UC segments, but older configurations can
+    contain SQL delimiters such as ``main.`my-schema`.table``. Normalize this
+    compatibility form before applying normal raw-name validation at a SQL
+    boundary.
+    """
+    if not isinstance(name, str):
+        raise ValueError(f"{kind} must be a string, got {type(name).__name__}: {name!r}")
+    if "`" not in name:
+        return name
+
+    parts = []
+    index = 0
+    while index < len(name):
+        if name[index] == "`":
+            index += 1
+            part = []
+            while index < len(name):
+                if name[index] != "`":
+                    part.append(name[index])
+                    index += 1
+                    continue
+                if index + 1 < len(name) and name[index + 1] == "`":
+                    part.append("`")
+                    index += 2
+                    continue
+                index += 1
+                break
+            else:
+                raise ValueError(f"{kind} contains an unclosed backtick.")
+            parts.append("".join(part))
+        else:
+            end = name.find(".", index)
+            end = len(name) if end == -1 else end
+            parts.append(name[index:end])
+            index = end
+        if index == len(name):
+            break
+        if name[index] != ".":
+            raise ValueError(f"{kind} has invalid legacy SQL delimiter syntax.")
+        index += 1
+        if index == len(name):
+            raise ValueError(f"{kind} cannot end with a dot.")
+
+    if any(not part for part in parts):
+        raise ValueError(f"{kind} has an empty identifier segment.")
+    return ".".join(parts)
+
+
 def validate_uc_full_name(name, *, kind: str = "identifier", max_parts: int = 3) -> str:
     """Validate a dotted multi-part UC name, e.g. ``catalog.schema.table``.
 
-    Each segment must independently pass :func:`validate_uc_identifier`,
-    so the full name is safe to splice into SQL unquoted. Accepts 1, 2, or
-    3 parts (``table`` / ``schema.table`` / ``catalog.schema.table``);
-    callers can override ``max_parts`` if they want to be strict about a
-    specific arity.
+    Accepts raw, dot-separated segments (``table`` / ``schema.table`` /
+    ``catalog.schema.table``). Callers can override ``max_parts`` when a
+    specific arity is required.
 
     Returns ``name`` unchanged on success. Raises ``ValueError`` with an
     actionable message on failure.
@@ -206,7 +269,7 @@ def validate_uc_column_list(
             raise ValueError(
                 f"{kind} entry {i} is not a non-empty string: {col!r}"
             )
-        validate_uc_identifier(col, kind=f"{kind} entry {i}")
+        _validate_regular_identifier(col, kind=f"{kind} entry {i}")
         out.append(col)
     return out
 
@@ -313,7 +376,7 @@ def validate_sequence_by(value, *, kind: str = "sequence_by") -> str:
             )
         # No max_parts cap: nested struct fields can be arbitrarily deep.
         for i, part in enumerate(entry.split(".")):
-            validate_uc_identifier(
+            _validate_regular_identifier(
                 part, kind=f"segment {i + 1} of {kind} column {entry!r}"
             )
     return value
@@ -369,7 +432,9 @@ _DANGEROUS_KEYWORD_RE = re.compile(
 _MAX_WHERE_CLAUSE_LEN = 2000
 
 
-def validate_sql_where_clause(value, *, kind: str = "where_clause") -> str:
+def validate_sql_where_clause(
+    value, *, kind: str = "where_clause", allow_identifier_delimiters: bool = False
+) -> str:
     """Reject SQL fragments that contain statement-separation,
     comment, or DDL/DML escape tokens.
 
@@ -394,12 +459,15 @@ def validate_sql_where_clause(value, *, kind: str = "where_clause") -> str:
             f"{kind} is {len(value)} characters; maximum allowed is "
             f"{_MAX_WHERE_CLAUSE_LEN}"
         )
-    for token in _DANGEROUS_SQL_TOKENS:
+    tokens = _DANGEROUS_SQL_TOKENS
+    if allow_identifier_delimiters:
+        tokens = tuple(token for token in tokens if token != "`")
+    for token in tokens:
         if token in value:
             raise ValueError(
                 f"{kind} contains disallowed token {token!r}. Statement "
-                f"separators, comments, and identifier delimiters are not "
-                f"permitted in user-supplied WHERE clauses."
+                "separators and comments are not permitted in "
+                "user-supplied SQL fragments."
             )
     match = _DANGEROUS_KEYWORD_RE.search(value)
     if match:
