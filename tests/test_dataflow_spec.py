@@ -1106,6 +1106,94 @@ class DataFlowSpecTests(SDPFrameworkTestCase):
         # Should use accessKeyName as secret name when accessKeySecretName is null/empty
         mock_dbutils.secrets.get.assert_called_with("eventhub-scope", "RootManageSharedAccessKey")
 
+    @patch('databricks.labs.sdp_meta.dataflow_spec.DataflowSpecUtils.get_db_utils')
+    def test_get_sinks_eventhub_sas_uses_eventhub_connection_details(self, mock_get_db_utils):
+        """Preserve the existing sink precedence for SAS Event Hubs configuration."""
+        mock_dbutils = MagicMock()
+        mock_dbutils.secrets.get.return_value = "shared_access_key_value"
+        mock_get_db_utils.return_value = mock_dbutils
+
+        eventhub_options = ('{\\"eventhub.namespace\\": \\"test-namespace\\", '
+                            '\\"eventhub.port\\": \\"9093\\", '
+                            '\\"eventhub.name\\": \\"test-hub\\", '
+                            '\\"eventhub.accessKeyName\\": \\"policy\\", '
+                            '\\"eventhub.secretsScopeName\\": \\"eventhub-scope\\", '
+                            '\\"kafka.bootstrap.servers\\": \\"stale-host:9093\\", '
+                            '\\"topic\\": \\"stale-topic\\", '
+                            '\\"KAFKA.BOOTSTRAP.SERVERS\\": \\"another-stale-host:9093\\", '
+                            '\\"Topic\\": \\"another-stale-topic\\", '
+                            '\\"kafka.security.protocol\\": \\"PLAINTEXT\\"}')
+        sink_spec = f"""[{{
+            "name": "eventhub_sink",
+            "format": "eventhub",
+            "options": "{eventhub_options}",
+            "select_exp": ["col1"],
+            "where_clause": "col1 > 0"
+        }}]"""
+
+        result = DataflowSpecUtils.get_sinks(sink_spec, self.spark)
+
+        self.assertEqual(
+            result[0].options["kafka.bootstrap.servers"],
+            "test-namespace.servicebus.windows.net:9093",
+        )
+        self.assertEqual(result[0].options["topic"], "test-hub")
+        self.assertEqual(result[0].options["kafka.security.protocol"], "SASL_SSL")
+        self.assertNotIn("KAFKA.BOOTSTRAP.SERVERS", result[0].options)
+        self.assertNotIn("Topic", result[0].options)
+
+    def test_get_sinks_eventhub_sas_rejects_source_subscription_options(self):
+        """Explain subscription conflicts in terms of the sink's generated topic."""
+        eventhub_options = ('{\\"eventhub.namespace\\": \\"test-namespace\\", '
+                            '\\"eventhub.port\\": \\"9093\\", '
+                            '\\"eventhub.name\\": \\"test-hub\\", '
+                            '\\"eventhub.accessKeyName\\": \\"policy\\", '
+                            '\\"eventhub.secretsScopeName\\": \\"eventhub-scope\\", '
+                            '\\"SubscribePattern\\": \\"stale-topic-.*\\"}')
+        sink_spec = f"""[{{
+            "name": "eventhub_sink",
+            "format": "eventhub",
+            "options": "{eventhub_options}",
+            "select_exp": ["col1"],
+            "where_clause": "col1 > 0"
+        }}]"""
+
+        with self.assertRaisesRegex(ValueError, "combine topic with SubscribePattern"):
+            DataflowSpecUtils.get_sinks(sink_spec, self.spark)
+
+    @patch('databricks.labs.sdp_meta.dataflow_spec.DataflowSpecUtils.get_db_utils')
+    def test_get_sinks_eventhub_service_credential(self, mock_get_db_utils):
+        """Configure an Event Hubs sink without SAS secrets when using a service credential."""
+        eventhub_options = ('{\\"eventhub.namespace\\": \\"test-namespace\\", '
+                            '\\"eventhub.port\\": \\"9093\\", '
+                            '\\"eventhub.name\\": \\"test-hub\\", '
+                            '\\"databricks.serviceCredential\\": \\"eventhubs-managed-identity\\", '
+                            '\\"startingOffsets\\": \\"earliest\\"}')
+        sink_spec = f"""[{{
+            "name": "eventhub_sink",
+            "format": "eventhub",
+            "options": "{eventhub_options}",
+            "select_exp": ["col1"],
+            "where_clause": "col1 > 0"
+        }}]"""
+
+        result = DataflowSpecUtils.get_sinks(sink_spec, self.spark)
+
+        self.assertEqual(result[0].format, "kafka")
+        self.assertEqual(
+            result[0].options["kafka.bootstrap.servers"],
+            "test-namespace.servicebus.windows.net:9093",
+        )
+        self.assertEqual(result[0].options["topic"], "test-hub")
+        self.assertEqual(
+            result[0].options["databricks.serviceCredential"],
+            "eventhubs-managed-identity",
+        )
+        self.assertNotIn("kafka.sasl.mechanism", result[0].options)
+        self.assertNotIn("kafka.sasl.jaas.config", result[0].options)
+        self.assertNotIn("kafka.security.protocol", result[0].options)
+        mock_get_db_utils.assert_not_called()
+
     def test_get_sinks_with_select_exp_and_where_clause(self):
         """Test get_sinks with select_exp and where_clause to cover lines 550-553."""
         sink_spec = """[{

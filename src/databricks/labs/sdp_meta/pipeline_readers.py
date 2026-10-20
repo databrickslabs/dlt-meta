@@ -5,6 +5,8 @@ from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
 from pyspark.sql.functions import from_json, col
 
+from databricks.labs.sdp_meta.eventhub import build_eventhub_kafka_options
+
 logger = logging.getLogger('databricks.labs.sdp_meta')
 logger.setLevel(logging.INFO)
 
@@ -145,31 +147,15 @@ class PipelineReaders:
 
     def get_eventhub_kafka_options(self):
         """Get eventhub options from dataflowspec."""
-        dbutils = self.get_db_utils()
-        eh_namespace = self.source_details.get("eventhub.namespace")
-        eh_port = self.source_details.get("eventhub.port")
-        eh_name = self.source_details.get("eventhub.name")
-        eh_shared_key_name = self.source_details.get("eventhub.accessKeyName")
-        secret_name = self.source_details.get("eventhub.accessKeySecretName")
-        if not secret_name:
-            # set default value if "eventhub.accessKeySecretName" is not specified
-            secret_name = eh_shared_key_name
-        secret_scope = self.source_details.get("eventhub.secretsScopeName")
-        eh_shared_key_value = dbutils.secrets.get(secret_scope, secret_name)
-        eh_shared_key_value = f"SharedAccessKeyName={eh_shared_key_name};SharedAccessKey={eh_shared_key_value}"
-        eh_conn_str = f"Endpoint=sb://{eh_namespace}.servicebus.windows.net/;{eh_shared_key_value}"
-        eh_kafka_str = "kafkashaded.org.apache.kafka.common.security.plain.PlainLoginModule"
-        sasl_config = f"{eh_kafka_str} required username=\"$ConnectionString\" password=\"{eh_conn_str}\";"
+        def get_secret(scope, key):
+            return self.get_db_utils().secrets.get(scope, key)
 
-        eh_conn_options = {
-            "kafka.bootstrap.servers": f"{eh_namespace}.servicebus.windows.net:{eh_port}",
-            "subscribe": eh_name,
-            "kafka.sasl.mechanism": "PLAIN",
-            "kafka.security.protocol": "SASL_SSL",
-            "kafka.sasl.jaas.config": sasl_config
-        }
-        kafka_options = {**eh_conn_options, **self.reader_config_options}
-        return kafka_options
+        return build_eventhub_kafka_options(
+            self.source_details,
+            self.reader_config_options,
+            topic_option="subscribe",
+            get_secret=get_secret,
+        )
 
     def get_kafka_options(self):
         """Get kafka options from dataflowspec."""

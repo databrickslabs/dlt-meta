@@ -10,6 +10,11 @@ from pyspark.sql.functions import col, lit, row_number
 from pyspark.sql.session import SparkSession
 from pyspark.sql.window import Window
 
+from databricks.labs.sdp_meta.eventhub import (
+    EVENTHUB_CONFIGURATION_FIELDS,
+    build_eventhub_kafka_options,
+)
+
 logger = logging.getLogger("sdp-meta")
 logger.setLevel(logging.INFO)
 
@@ -840,41 +845,28 @@ class DataflowSpecUtils:
                                 f"Kafka ssl required params are: {params}! provided options are :{kafka_options_json}"
                             )
             if format == "eventhub" and 'options' in json_sink.keys():
-                dbutils = DataflowSpecUtils.get_db_utils(spark)
                 kafka_options_json = json_sink['options']
-                eh_namespace = kafka_options_json["eventhub.namespace"]
-                eh_port = kafka_options_json["eventhub.port"]
-                eh_name = kafka_options_json["eventhub.name"]
-                eh_shared_key_name = kafka_options_json["eventhub.accessKeyName"]
-                secret_name = kafka_options_json["eventhub.accessKeySecretName"]
-                if not secret_name:
-                    # set default value if "eventhub.accessKeySecretName" is not specified
-                    secret_name = eh_shared_key_name
-                secret_scope = kafka_options_json.get("eventhub.secretsScopeName")
-                eh_shared_key_value = dbutils.secrets.get(secret_scope, secret_name)
-                eh_shared_key_value = f"SharedAccessKeyName={eh_shared_key_name};SharedAccessKey={eh_shared_key_value}"
-                eh_conn_str = f"Endpoint=sb://{eh_namespace}.servicebus.windows.net/;{eh_shared_key_value}"
-                eh_kafka_str = "kafkashaded.org.apache.kafka.common.security.plain.PlainLoginModule"
-                sasl_config = f"{eh_kafka_str} required username=\"$ConnectionString\" password=\"{eh_conn_str}\";"
-
-                eh_conn_options = {
-                    "kafka.bootstrap.servers": f"{eh_namespace}.servicebus.windows.net:{eh_port}",
-                    "topic": eh_name,
-                    "kafka.sasl.mechanism": "PLAIN",
-                    "kafka.security.protocol": "SASL_SSL",
-                    "kafka.sasl.jaas.config": sasl_config
+                eventhub_details = {
+                    key: value
+                    for key, value in kafka_options_json.items()
+                    if key in EVENTHUB_CONFIGURATION_FIELDS
                 }
-                json_sink['options']['kafka.bootstrap.servers'] = eh_conn_options['kafka.bootstrap.servers']
-                json_sink['options']['kafka.sasl.mechanism'] = eh_conn_options['kafka.sasl.mechanism']
-                json_sink['options']['kafka.security.protocol'] = eh_conn_options['kafka.security.protocol']
-                json_sink['options']['kafka.sasl.jaas.config'] = eh_conn_options['kafka.sasl.jaas.config']
-                json_sink['options']['topic'] = eh_conn_options['topic']
-                del json_sink['options']['eventhub.namespace']
-                del json_sink['options']['eventhub.port']
-                del json_sink['options']['eventhub.name']
-                del json_sink['options']['eventhub.accessKeyName']
-                del json_sink['options']['eventhub.accessKeySecretName']
-                del json_sink['options']['eventhub.secretsScopeName']
+                runtime_options = {
+                    key: value
+                    for key, value in kafka_options_json.items()
+                    if key not in EVENTHUB_CONFIGURATION_FIELDS
+                }
+
+                def get_secret(scope, key):
+                    return DataflowSpecUtils.get_db_utils(spark).secrets.get(scope, key)
+
+                json_sink['options'] = build_eventhub_kafka_options(
+                    eventhub_details,
+                    runtime_options,
+                    topic_option="topic",
+                    get_secret=get_secret,
+                    allow_sas_connection_option_overrides=False,
+                )
                 # DLT interacts with EventHub API as Kafka, change format before invoking sink.
                 json_sink['format'] = 'kafka'
             if 'select_exp' in json_sink.keys():

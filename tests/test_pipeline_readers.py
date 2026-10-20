@@ -375,6 +375,273 @@ class PipelineReadersTests(SDPFrameworkTestCase):
         kafka_options = pipeline_readers.get_eventhub_kafka_options()
         self.assertIsNotNone(kafka_options)
 
+    @patch.object(PipelineReaders, "get_db_utils")
+    def test_eventhub_service_credential_avoids_sas_options(self, get_db_utils):
+        reader = PipelineReaders(
+            self.spark,
+            "eventhub",
+            {
+                "eventhub.namespace": "standard",
+                "eventhub.name": "iot",
+                "eventhub.port": "9093",
+            },
+            {
+                "databricks.serviceCredential": "eventhubs-managed-identity",
+                "startingOffsets": "earliest",
+            },
+        )
+
+        kafka_options = reader.get_eventhub_kafka_options()
+
+        self.assertEqual(
+            kafka_options,
+            {
+                "kafka.bootstrap.servers": "standard.servicebus.windows.net:9093",
+                "subscribe": "iot",
+                "databricks.serviceCredential": "eventhubs-managed-identity",
+                "startingOffsets": "earliest",
+            },
+        )
+        get_db_utils.assert_not_called()
+
+    def test_eventhub_service_credential_rejects_sasl_options(self):
+        reader = PipelineReaders(
+            self.spark,
+            "eventhub",
+            {
+                "eventhub.namespace": "standard",
+                "eventhub.name": "iot",
+                "eventhub.port": "9093",
+            },
+            {
+                "databricks.serviceCredential": "eventhubs-managed-identity",
+                "kafka.sasl.mechanism": "PLAIN",
+            },
+        )
+
+        with self.assertRaisesRegex(ValueError, "cannot be combined"):
+            reader.get_eventhub_kafka_options()
+
+    def test_eventhub_service_credential_rejects_case_insensitive_sasl_options(self):
+        reader = PipelineReaders(
+            self.spark,
+            "eventhub",
+            {
+                "eventhub.namespace": "standard",
+                "eventhub.name": "iot",
+                "eventhub.port": "9093",
+            },
+            {
+                "Databricks.ServiceCredential": "eventhubs-managed-identity",
+                "Kafka.Sasl.Login.Callback.Handler.Class": "example.Handler",
+            },
+        )
+
+        with self.assertRaisesRegex(ValueError, "Kafka.Sasl.Login.Callback.Handler.Class"):
+            reader.get_eventhub_kafka_options()
+
+    def test_eventhub_service_credential_rejects_sas_source_details(self):
+        reader = PipelineReaders(
+            self.spark,
+            "eventhub",
+            {
+                "eventhub.namespace": "standard",
+                "eventhub.name": "iot",
+                "eventhub.port": "9093",
+                "eventhub.accessKeyName": "legacy-policy",
+            },
+            {"databricks.serviceCredential": "eventhubs-managed-identity"},
+        )
+
+        with self.assertRaisesRegex(ValueError, "SAS Event Hubs source details"):
+            reader.get_eventhub_kafka_options()
+
+    def test_eventhub_rejects_endpoint_or_topic_reader_option_overrides(self):
+        reader = PipelineReaders(
+            self.spark,
+            "eventhub",
+            {
+                "eventhub.namespace": "standard",
+                "eventhub.name": "iot",
+                "eventhub.port": "9093",
+            },
+            {
+                "databricks.serviceCredential": "eventhubs-managed-identity",
+                "kafka.bootstrap.servers": "other.servicebus.windows.net:9093",
+                "subscribe": "other-topic",
+            },
+        )
+
+        with self.assertRaisesRegex(ValueError, "Kafka connection or SAS options"):
+            reader.get_eventhub_kafka_options()
+
+    def test_eventhub_service_credential_rejects_all_subscription_options(self):
+        source_details = {
+            "eventhub.namespace": "standard",
+            "eventhub.name": "iot",
+            "eventhub.port": "9093",
+        }
+        for option in ("subscribe", "subscribePattern", "assign"):
+            with self.subTest(option=option):
+                reader = PipelineReaders(
+                    self.spark,
+                    "eventhub",
+                    source_details,
+                    {
+                        "databricks.serviceCredential": "eventhubs-managed-identity",
+                        option: "another-topic",
+                    },
+                )
+                with self.assertRaisesRegex(ValueError, option):
+                    reader.get_eventhub_kafka_options()
+
+    def test_eventhub_service_credential_validates_credential_value(self):
+        source_details = {
+            "eventhub.namespace": "standard",
+            "eventhub.name": "iot",
+            "eventhub.port": "9093",
+        }
+        for credential in ("   ", 1):
+            with self.subTest(credential=credential):
+                reader = PipelineReaders(
+                    self.spark,
+                    "eventhub",
+                    source_details,
+                    {"databricks.serviceCredential": credential},
+                )
+                with self.assertRaisesRegex(ValueError, "non-empty service credential"):
+                    reader.get_eventhub_kafka_options()
+
+        reader = PipelineReaders(
+            self.spark,
+            "eventhub",
+            source_details,
+            {"databricks.serviceCredential": " eventhubs-managed-identity "},
+        )
+        self.assertEqual(
+            reader.get_eventhub_kafka_options()["databricks.serviceCredential"],
+            "eventhubs-managed-identity",
+        )
+
+    @patch.object(PipelineReaders, "get_db_utils")
+    def test_eventhub_service_credential_key_is_case_insensitive(self, get_db_utils):
+        reader = PipelineReaders(
+            self.spark,
+            "eventhub",
+            {
+                "eventhub.namespace": "standard",
+                "eventhub.name": "iot",
+                "eventhub.port": "9093",
+            },
+            {"databricks.servicecredential": "eventhubs-managed-identity"},
+        )
+
+        options = reader.get_eventhub_kafka_options()
+
+        self.assertEqual(
+            options["databricks.serviceCredential"],
+            "eventhubs-managed-identity",
+        )
+        self.assertNotIn("databricks.servicecredential", options)
+        get_db_utils.assert_not_called()
+
+    def test_eventhub_rejects_duplicate_case_insensitive_service_credential_keys(self):
+        reader = PipelineReaders(
+            self.spark,
+            "eventhub",
+            {
+                "eventhub.namespace": "standard",
+                "eventhub.name": "iot",
+                "eventhub.port": "9093",
+            },
+            {
+                "databricks.serviceCredential": "first-credential",
+                "Databricks.ServiceCredential": "second-credential",
+            },
+        )
+
+        with self.assertRaisesRegex(ValueError, "cannot be configured more than once"):
+            reader.get_eventhub_kafka_options()
+
+    def test_eventhub_service_credential_requires_endpoint_details(self):
+        details = {
+            "eventhub.namespace": "standard",
+            "eventhub.name": "iot",
+            "eventhub.port": "9093",
+        }
+        for field in details:
+            with self.subTest(field=field):
+                source_details = details.copy()
+                del source_details[field]
+                reader = PipelineReaders(
+                    self.spark,
+                    "eventhub",
+                    source_details,
+                    {"databricks.serviceCredential": "eventhubs-managed-identity"},
+                )
+                with self.assertRaisesRegex(ValueError, field):
+                    reader.get_eventhub_kafka_options()
+
+    @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
+    @patch.object(dbutils, "secrets.get", return_value="shared_access_key")
+    def test_eventhub_sas_allows_reader_option_overrides(self, get_db_utils, dbutils):
+        reader = PipelineReaders(
+            self.spark,
+            "eventhub",
+            {
+                "eventhub.namespace": "standard",
+                "eventhub.name": "iot",
+                "eventhub.port": "9093",
+                "eventhub.accessKeyName": "policy",
+                "eventhub.secretsScopeName": "scope",
+            },
+            {
+                "kafka.bootstrap.servers": "private.servicebus.windows.net:9093",
+                "subscribe": "private-topic",
+            },
+        )
+
+        options = reader.get_eventhub_kafka_options()
+
+        self.assertEqual(
+            options["kafka.bootstrap.servers"],
+            "private.servicebus.windows.net:9093",
+        )
+        self.assertEqual(options["subscribe"], "private-topic")
+        self.assertNotIn("databricks.serviceCredential", options)
+
+    @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
+    @patch.object(dbutils, "secrets.get", return_value="shared_access_key")
+    def test_eventhub_sas_drops_null_service_credential_and_rejects_subscription_conflicts(
+        self, get_db_utils, dbutils
+    ):
+        source_details = {
+            "eventhub.namespace": "standard",
+            "eventhub.name": "iot",
+            "eventhub.port": "9093",
+            "eventhub.accessKeyName": "policy",
+            "eventhub.secretsScopeName": "scope",
+        }
+        reader = PipelineReaders(
+            self.spark,
+            "eventhub",
+            source_details,
+            {"Databricks.ServiceCredential": None},
+        )
+        options = reader.get_eventhub_kafka_options()
+        self.assertNotIn("Databricks.ServiceCredential", options)
+
+        for option in ("SubscribePattern", "ASSIGN"):
+            with self.subTest(option=option):
+                reader = PipelineReaders(
+                    self.spark,
+                    "eventhub",
+                    source_details,
+                    {option: "another-topic"},
+                )
+                with self.assertRaisesRegex(ValueError, option):
+                    reader.get_eventhub_kafka_options()
+
     @patch.object(PipelineReaders, "get_db_utils", return_value=dbutils)
     @patch.object(dbutils, "secrets.get", return_value={"called"})
     def test_get_kafka_options_ssl_exception(self, get_db_utils, dbutils):

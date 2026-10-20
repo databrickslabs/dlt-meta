@@ -118,7 +118,7 @@ Example:
 | `bronze_database_{env}` | string | Schema (database) name for the bronze table |
 | `bronze_table` | string | Bronze table name |
 | `bronze_table_comment` | string | Comment applied to the bronze table |
-| `bronze_reader_options` | object | Options passed to the Spark reader (e.g. `{"multiline": "true", "header": "true"}`) |
+| `bronze_reader_options` | object | Options passed to the Spark reader (e.g. `{"multiline": "true", "header": "true"}`). For Event Hubs, set `databricks.serviceCredential` to use a Databricks service credential instead of SAS authentication; do not combine it with `kafka.sasl.*` or `kafka.security.protocol`. |
 | `bronze_partition_columns` | array | List of column names to use as partition columns |
 | `bronze_cluster_by` | array | List of column names for liquid clustering |
 | `bronze_cluster_by_auto` | boolean | Enable automatic liquid clustering. Can be combined with `bronze_cluster_by`. See [Automatic liquid clustering](https://docs.databricks.com/aws/en/delta/clustering#auto-liquid) |

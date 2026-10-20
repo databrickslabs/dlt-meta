@@ -61,7 +61,8 @@ python integration_tests/run_integration_tests.py \
 
 ## Azure Event Hubs
 
-Azure Event Hubs exposes a Kafka-compatible endpoint. SDP-META uses Databricks Secrets to store the connection key.
+Azure Event Hubs exposes a Kafka-compatible endpoint. SDP-META supports SAS
+policies stored in Databricks Secrets and Databricks service credentials.
 
 ### Prerequisites
 
@@ -103,14 +104,45 @@ databricks secrets put-secret eventhubs_creds producer --string-value "<your-sas
 | Field | Description |
 |---|---|
 | `source_schema_path` | Path to the Spark DDL schema file |
-| `eventhub.accessKeyName` | Name of the SAS policy |
-| `eventhub.accessKeySecretName` | Databricks Secrets key name containing the SAS key value |
+| `eventhub.accessKeyName` | SAS policy name; required for SAS-policy authentication only |
+| `eventhub.accessKeySecretName` | Databricks Secrets key containing the SAS key; SAS-policy authentication only (defaults to `eventhub.accessKeyName`) |
 | `eventhub.name` | Event Hub topic name |
-| `eventhub.secretsScopeName` | Databricks Secrets scope |
-| `kafka.sasl.mechanism` | Always `PLAIN` for Event Hubs |
-| `kafka.security.protocol` | Always `SASL_SSL` for Event Hubs |
+| `eventhub.secretsScopeName` | Databricks Secrets scope; required for SAS-policy authentication only |
+| `kafka.sasl.mechanism` | Set automatically to `PLAIN` for SAS-policy authentication; omit for service credentials |
+| `kafka.security.protocol` | Set automatically to `SASL_SSL` for SAS-policy authentication; omit for service credentials |
 | `eventhub.namespace` | Namespace (without `.servicebus.windows.net`) |
 | `eventhub.port` | Always `9093` for Event Hubs |
+
+### Service credential authentication
+
+To use an Azure managed identity through a Databricks service credential, set
+`databricks.serviceCredential` in `bronze_reader_options` for a source or in
+an Event Hubs sink's `options`. Do not configure SAS policy fields (`eventhub.accessKeyName`,
+`eventhub.accessKeySecretName`, `eventhub.secretsScopeName`) or
+`kafka.sasl.*` / `kafka.security.protocol` options for this mode. SDP-META
+rejects mixed authentication configuration. It also requires the Event Hubs
+endpoint and topic to be supplied through the Event Hubs fields; do not set
+`kafka.bootstrap.servers`, `subscribe`, `subscribePattern`, `assign`, `topic`,
+or SASL Kafka connection options alongside a service credential. These
+restrictions apply only to service-credential authentication. SAS-policy
+sources continue to allow existing reader-option overrides, while SAS-policy
+sinks retain the established behavior of deriving their endpoint and topic
+from the Event Hubs fields.
+
+```yaml
+source_format: eventhub
+source_details:
+  eventhub.namespace: my-eventhubs-namespace
+  eventhub.name: iot-events
+  eventhub.port: 9093
+bronze_reader_options:
+  databricks.serviceCredential: eventhubs-managed-identity
+  startingOffsets: earliest
+  failOnDataLoss: false
+```
+
+When no service credential is configured, SDP-META retains the existing SAS
+policy and Databricks Secrets authentication behavior.
 
 ### Event Hubs demo output
 
