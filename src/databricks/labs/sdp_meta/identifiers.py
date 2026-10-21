@@ -29,7 +29,7 @@ import re
 import sys
 from typing import Optional
 
-_REGULAR_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_REGULAR_IDENT_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_]*$")
 
 _MAX_IDENT_LEN = 255
 
