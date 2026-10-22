@@ -23,11 +23,11 @@
 #   demo/               — launch_*_demo.py + conf templates + sample data
 #   integration_tests/  — imported by every demo launcher
 #   databricks_app/     — the Flask app itself
-#   setup.py + MANIFEST.in + examples/
+#   setup.py + MANIFEST.in + examples/ + compat/
 #                       — wheel build inputs referenced by setup.py
 #                       — needed by `python setup.py bdist_wheel` at boot
 #
-# Everything else at the repo root (docs/, tests/, compat/,
+# Everything else at the repo root (docs/, tests/,
 # lakehouse_app/, scripts/, coverage_html_report/, demo_runs/, …) is NOT
 # read at runtime and is deliberately excluded — was 350+ MB of dead weight
 # in the App container before this allow-list change.
@@ -141,6 +141,7 @@ trap 'rm -rf "$STAGING"' EXIT
 APP_RUNTIME_DIRS=(
     src                 # wheel build source (python setup.py bdist_wheel)
     examples            # packaged MCP JSON/YAML examples required by setup.py
+    compat              # dlt_meta + src compat packages (setup.py package_dir)
     demo                # launch_*_demo.py + conf templates + sample data
     integration_tests   # imported by every demo launcher
     databricks_app      # the Flask app itself
