@@ -186,12 +186,14 @@ New-Item -ItemType Directory -Path $Staging -Force | Out-Null
 
 try {
     # See deploy_app.sh:130-145 for the rationale behind the allow-list.
-    # Same four dirs, same intent: keep the upload to the runtime subset.
+    # Same dirs, same intent: keep the upload to the runtime subset.
     $RuntimeDirs = @(
         'src',                # wheel build source (python setup.py bdist_wheel)
         'demo',               # launch_*_demo.py + conf templates + sample data
         'integration_tests',  # imported by every demo launcher
-        'databricks_app'      # the Flask app itself
+        'databricks_app',     # the Flask app itself
+        'examples',           # setup.py packages examples/json + examples/yml (MCP templates)
+        'compat'              # setup.py packages the dlt_meta + src compat shims
     )
 
     # Same optional-file list as the bash script (deploy_app.sh:147-159).

@@ -23,10 +23,13 @@
 #   demo/               — launch_*_demo.py + conf templates + sample data
 #   integration_tests/  — imported by every demo launcher
 #   databricks_app/     — the Flask app itself
+#   examples/           — examples/json + examples/yml, packaged by setup.py
+#                         (MCP templates); the wheel build fails without them
+#   compat/             — dlt_meta + src compat shims, packaged by setup.py
 #   setup.py + MANIFEST.in (and the files MANIFEST.in references)
 #                       — needed by `python setup.py bdist_wheel` at boot
 #
-# Everything else at the repo root (docs/, tests/, examples/, compat/,
+# Everything else at the repo root (docs/, tests/,
 # lakehouse_app/, scripts/, coverage_html_report/, demo_runs/, …) is NOT
 # read at runtime and is deliberately excluded — was 350+ MB of dead weight
 # in the App container before this allow-list change.
@@ -130,11 +133,11 @@ trap 'rm -rf "$STAGING"' EXIT
 # Allow-list, NOT exclude-list. Previous versions of this script rsynced the
 # whole working tree minus a handful of excludes, which dragged 350+ MB of
 # unrelated content (docs/ at 336 MB, tests/ at 29 MB, plus coverage_html_report/,
-# examples/, lakehouse_app/, demo_runs/, spark-warehouse/, …) into the App
+# lakehouse_app/, demo_runs/, spark-warehouse/, …) into the App
 # source-code-path on every deploy. None of that is read at runtime: start.sh
 # only requires demo/, src/, integration_tests/ and the databricks_app/ Flask
-# app, plus the setup.py + MANIFEST.in pair (and the files MANIFEST.in
-# references) to build the sdp-meta wheel. Staging is now exactly that subset,
+# app, plus the setup.py + MANIFEST.in pair and the dirs setup.py packages
+# (examples/, compat/) to build the sdp-meta wheel. Staging is now exactly that subset,
 # which both shrinks the upload and makes the App container's filesystem match
 # what start.sh actually verifies on boot.
 APP_RUNTIME_DIRS=(
@@ -142,6 +145,8 @@ APP_RUNTIME_DIRS=(
     demo                # launch_*_demo.py + conf templates + sample data
     integration_tests   # imported by every demo launcher
     databricks_app      # the Flask app itself
+    examples            # setup.py packages examples/json + examples/yml (MCP templates)
+    compat              # setup.py packages the dlt_meta + src compat shims
 )
 
 # Wheel-build needs setup.py + the files MANIFEST.in pulls in.
